@@ -1,0 +1,6 @@
+## $stat  : DDLTruncateTableStatement
+## $skin : SQLSkin
+##
+##-- Template: default SQL ANSI
+##-- truncatting table ${stat.Table}
+TRUNCATE TABLE $skin.fullyQualified(${stat.Table})

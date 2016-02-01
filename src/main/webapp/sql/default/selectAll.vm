@@ -1,0 +1,13 @@
+## $table: com.squid.core.model.database.DBTable
+## $skin : com.squid.jdbc.sql.DefaultSkin
+##
+##-- Template: default SQL ANSI
+##-- Skin: $skin.comment($skin.Product)
+##-- selecting all from table ${table.Name}
+SELECT
+#foreach ($column in $table.Columns.Children) 
+	#if ($velocityCount>1),
+	#end
+	$skin.quote($column)
+#end
+FROM ${skin.fullyQualified($table)}

@@ -1,0 +1,34 @@
+## $stat  : DDLCreateTableStatement
+## $skin : SQLSkin
+## $writer: 
+##
+##-- Template: default SQL ANSI
+##-- Skin: $skin.comment($skin.Product)
+#if ($stat.isDropTableFirst())
+##-- dropping table $skin.fullyQualified($stat.Table) first
+DROP TABLE $skin.fullyQualified($table)
+#end
+##-- creating table $skin.fullyQualified($stat.Table)
+#if ($stat.Table.isGlobalTemporary())
+CREATE GLOBAL TEMPORARY TABLE ${skin.fullyQualified($stat.Table)} (
+#else
+CREATE TABLE ${skin.fullyQualified($stat.Table)} (
+#end
+#foreach ($column in $stat.Table.Columns) 
+	#if ($velocityCount>1),
+	#end
+	$skin.quoteColumnIdentifier($column) $skin.getTypeDefinition($column) #if ($column.NotNullFlag) NOT NULL #end
+#end
+#if (!$stat.Table.PrimaryKey.isEmpty() && $stat.isCreatePK()),
+    PRIMARY KEY (#foreach ($column in $stat.Table.PrimaryKey.Columns)#if ($velocityCount>1),#end $skin.quoteColumnIdentifier($column) #end)
+#end
+#foreach ($fk in $stat.Table.ExportedKeys.Children)
+	CONSTRAINT FOREIGN KEY $fk.Name
+	(#foreach ($column in $fk.ForeignKey.Columns) #if ($velocityCount>1),#end $skin.quoteColumnIdentifier($column) #end)
+	REFERENCES $fk.PrimaryTable.Name
+	(#foreach ($column in $fk.PrimaryKey.Columns) #if ($velocityCount>1),#end $skin.quoteColumnIdentifier($column) #end)
+#end
+)
+#if ($stat.Table.isGlobalTemporary())
+ON COMMIT PRESERVE ROWS
+#end

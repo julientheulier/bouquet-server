@@ -1,0 +1,23 @@
+## $stat  : com.squid.core.sql2.statement.UpdateStatement
+## $skin : com.squid.core.sql2.render.SQLSkin
+##
+##-- Template: default SQL ANSI, V2.0
+
+UPDATE $stat.TableToUpdate.render($skin)
+SET 
+#foreach ($expr in $stat.Setters) 
+	#if ($velocityCount>1),
+	#end
+	${expr.render($skin)}
+#end
+##
+## WHERE clause
+##
+#if ($stat.hasWherePieces())
+WHERE
+#foreach ($expr in $stat.WherePieces)
+	#if ($velocityCount>1)AND
+	#end
+	(${expr.render($skin)})
+#end
+#end

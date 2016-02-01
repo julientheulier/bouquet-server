@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<web-app version="2.5" xmlns="http://java.sun.com/xml/ns/javaee"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd">
+	<listener>
+	  	<listener-class>
+	  		com.squid.kraken.v4.runtime.ServletContextListenerImpl
+	  	</listener-class>
+  	</listener>
+	<servlet>
+		<servlet-name>CXFServlet</servlet-name>
+		<servlet-class>
+			com.squid.kraken.v4.runtime.CXFServletService
+ 		</servlet-class>
+
+		<init-param>
+				<param-name>jaxrs.providers</param-name>
+				<!-- classes must be separated by a space -->
+				<param-value>
+				com.squid.kraken.v4.api.core.ExceptionsMapper,
+				org.apache.cxf.rs.security.cors.CrossOriginResourceSharingFilter,
+				com.squid.kraken.v4.runtime.CustomJacksonJsonProvider
+				</param-value>
+		</init-param>
+		<!-- registers CXF in interceptors -->
+		<init-param>
+		  <param-name>jaxrs.inInterceptors</param-name>
+		  <param-value>
+		    com.squid.kraken.v4.osgi.JsonDeepReadInInterceptor,
+		    org.apache.cxf.transport.common.gzip.GZIPInInterceptor
+		  </param-value>
+		 </init-param> 
+		 <!-- registers CXF out interceptors -->
+		 <init-param>
+		  <param-name>jaxrs.outInterceptors</param-name>
+		  <param-value>
+		    com.squid.kraken.v4.osgi.JsonDeepReadPreStreamInterceptor,
+		    com.squid.kraken.v4.runtime.CustomGZIPOutInterceptor
+		  </param-value>
+		</init-param>
+		<load-on-startup>1</load-on-startup>
+	</servlet>
+
+	<servlet-mapping>
+		<servlet-name>CXFServlet</servlet-name>
+		<url-pattern>/*</url-pattern>
+	</servlet-mapping>
+
+</web-app>

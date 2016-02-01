@@ -1,0 +1,82 @@
+## $stat  : com.squid.core.sql2.statement.SelectStatement
+## $skin : com.squid.core.sql2.render.SQLSkin
+##
+##-- Template: postgres specific
+
+SELECT
+#if ($stat.isStyleDistinct())
+	DISTINCT
+#end
+#if ($stat.isStyleAsterisk())
+	*
+#end
+#foreach ($expr in $stat.SelectPieces) 
+	#if ($velocityCount>1),
+	#end
+	$expr.render($skin)
+#end
+##
+## INTO
+##
+#if ($stat.hasIntoTemporaryTable())
+INTO TEMPORARY $skin.quoteTableIdentifier($stat.IntoTemporaryTableName)
+#end
+##
+## FROM
+##
+#if ($stat.FromPieces.isEmpty())
+  ${skin.renderEmptyFromClause()}
+#else
+FROM 
+#foreach ($expr in $stat.FromPieces) 
+	#if ($velocityCount>1),
+	#end
+	${expr.render($skin)}
+#end
+#end
+##
+## WHERE clause
+##
+#if ($stat.hasWherePieces())
+WHERE
+#foreach ($expr in $stat.WherePieces)
+	#if ($velocityCount>1)AND
+	#end
+	(${expr.render($skin)})
+#end
+#end
+##
+## GROUP BY clause
+##
+${stat.getGroupByPiece().render($skin)}
+##
+## HAVING clause
+##
+#if ($stat.hasHavingPieces())
+HAVING
+#foreach ($expr in $stat.HavingPieces)
+	#if ($velocityCount>1)AND
+	#end
+	(${expr.render($skin)})
+#end
+#end
+##
+## ORDER BY clause
+##
+#if ($stat.hasOrderByPieces())
+ORDER BY
+#foreach ($expr in $stat.OrderByPieces)
+	#if ($velocityCount>1),
+	#end
+	${expr.render($skin)}
+#end
+#end
+##-- LIMIT part
+#if ($stat.hasLimitValue())
+LIMIT $stat.getLimitValue()
+#end
+##-- OFFSET part
+#if ($stat.hasOffsetValue())
+OFFSET $stat.getOffsetValue()
+#end
+ 

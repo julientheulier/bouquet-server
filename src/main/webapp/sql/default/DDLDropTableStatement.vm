@@ -1,0 +1,6 @@
+## $stat  : DDLDropTableStatement
+## $skin : SQLSkin
+##
+##-- Template: default SQL ANSI
+##-- droping table ${stat.Table}
+DROP TABLE $skin.fullyQualified(${stat.Table})

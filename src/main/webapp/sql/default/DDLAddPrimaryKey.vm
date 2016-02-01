@@ -1,0 +1,9 @@
+## $stat  : DDLAddPrimaryKey
+## $skin : SQLSkin
+## $writer: 
+##
+##-- Template: default SQL ANSI
+##-- Skin: $skin.comment($skin.Product)
+#if (!$stat.Table.PrimaryKey.isEmpty())
+ALTER TABLE ${skin.fullyQualified($stat.Table)} ADD PRIMARY KEY (#foreach ($column in $stat.Table.PrimaryKey.Columns)#if ($velocityCount>1),#end $skin.quoteColumnIdentifier($column) #end)
+#end

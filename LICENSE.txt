@@ -1,0 +1,65 @@
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+Open Bouquet’S LICENCE
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+URI: http://openbouquet.io
+
+Squid is free software, licensed under the terms of the GNU Affero General Public License as published by the Free 
+Software Foundation, version 3 of the License.  
+
+You can redistribute it and/or modify since you respect the terms of this License.
+
+There is a special FOSS exception to the terms and conditions of the licenses as they are applied to this program. 
+This FOSS exception allows developers of FOSS applications to include "this program" (also referred to as
+« Open Bouquet ») with their FOSS applications. See FOSS_LICENSE_EXCEPTION.txt in the
+directory of this program distribution. Squid Solutions software is typically licensed pursuant to version 3 of the 
+General Affero Public License version 3 ("AGPL"), but this exception permits distribution of the program with a 
+developer’s FOSS applications licensed under the terms of another FOSS license listed below, even though such other
+FOSS license may be incompatible with the AGPL.
+
+You should have received a copy of the GNU Affero General Public License along with Squid. If not,
+see : <http://www.gnu.org/licenses/>.
+
+Finally, Squid is made using those external components and libraries. They are listed at the end of this file.
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+External components, libraries and icons:
+
+Logback Modul Module (EPL-1.0 & LGPL-2.1)
+Amazon Web Service (Apache-2.0)
+Esoteric Software (BSD 3-Clause)
+Jackson (Apache-2.0)
+Findbugs (LGPL-2.1)
+Guava (Apache-2.0)
+BoneCP (Apache-2.0)
+Spatial4J (Apache-2.0)
+Commons (Apache-2.0)
+JavaBeans Activation Framework (JAF) (CDDL-1.0)
+Javax.annotation API (CDDL-1.0 & GPL-2.0-with-classpath-exception)
+JavaMail API (compat) (CDDL-1.0 & GPL-2.0-with-classpath-exception)
+Servlet-api (CDDL-1.0 & GPL-2.0-with-classpath-exception)
+Javax.ws.rs-api (CDDL-1.0 & GPL-2.0-with-classpath-exception)
+Jsr311-api (CDDL -1.0 & GPL-2.0-with-classpath-exception)
+Joda-time (Apache-2.0)
+JUnit (EPL-1.0)
+Logstash (Apache-2.0)
+Ehcache Core (Apache-2.0)
+Apache Commons (Apache-2.0)
+CXF (Apache-2.0)
+HTTP (Apache-2.0)
+Lucene (Apache-2.0)
+Velocity (Apache-2.0)
+Xmlschema (Apache-2.0)
+Groovy (Apache-2.0)
+Stax2 API (BSD 2-Clause)
+Woodstox (Apache-2.0)
+Elasticsearch (Apache2.0)
+Harmcrest core (BSD 2-Clause)
+MongoDB Java Driver (Apache 2.0)
+Morphia (Apache-2.0)
+Objenesis (Apache 2.0)
+ASM Core (BSD 3-Clause)
+SLF4J (MIT)
+Postgresql (BSD 3-Clause)
+Jedis(MIT)
+

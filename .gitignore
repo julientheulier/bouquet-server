@@ -1,0 +1,16 @@
+/bin
+/OSGi dist V4 (thai).launch
+/kraken.V4.minimal.product.launch
+/kraken.V4.product (old).launch
+/kraken.V4.product (cxf).launch
+/caches
+/.settings/*
+/dist
+/build.num
+/.classpath
+/.project
+/target
+/.settings/
+/.gitignore~
+/catalina.base_IS_UNDEFINED/
+/data/
