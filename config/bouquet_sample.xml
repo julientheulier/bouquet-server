@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">
+<properties>
+
+        <entry key="kraken.ws.host">127.0.0.1:9000</entry>
+
+        <!-- enable 'dev' mode for server
+                 This allows any application from any website to use the Bouquet server
+                 Don't use it in a production environment ! 
+        <entry key="kraken.server.mode">dev</entry>
+        -->
+        <!--
+                *** mongodb properties ***
+                for replicat-sets definition, hosts and ports should be separated by a comma (,)
+        -->
+        <entry key="kraken.mongodb.host">127.0.0.1</entry>
+        <entry key="kraken.mongodb.port">27017</entry>
+        <entry key="kraken.mongodb.dbname">bouquet</entry>
+        <entry key="kraken.mongodb.user">user</entry>
+        <entry key="kraken.mongodb.password">password</entry>
+
+        <!--
+                The default url added to client.urls when creating a new Customer.
+                This should be your API public domain.
+                Useless if kraken.server.mode is "dev"
+        -->
+        <entry key="default.client.url">localhost</entry>
+
+        <!--  *** mail properties *** -->
+
+        <entry key="mail.hostName">127.0.0.1</entry>
+        <entry key="mail.sslPort">25</entry>
+        <entry key="mail.senderPassword">XXXX</entry>
+        <entry key="mail.hostName">smtp.gmail.com</entry>
+        <entry key="mail.sslPort">465</entry>
+        <entry key="mail.senderName">YYYY</entry>
+       	<entry key="mail.senderEmail">noreply@yourdomain.com</entry>
+        <entry key="signup.email.bcc">api-support@yourdomain.com</entry>
+
+        <!-- 
+		Bouquet Auth endpoint (used by swagger.json)
+		-->
+		<entry key="kraken.oauth.endpoint">http://localhost:8080/admin/auth/oauth</entry>
+        
+
+</properties>

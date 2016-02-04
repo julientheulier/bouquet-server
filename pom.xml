@@ -38,18 +38,14 @@
 			<artifactId>mail</artifactId>
 		</dependency>
 		<dependency>
-			<groupId>javax.ws.rs</groupId>
-			<artifactId>jsr311-api</artifactId>
-		</dependency>
-		<dependency>
 			<groupId>org.mongodb.morphia</groupId>
 			<artifactId>morphia</artifactId>
 		</dependency>
 		<dependency>
-			<groupId>javax.servlet</groupId>
-			<artifactId>servlet-api</artifactId>
-			<scope>provided</scope>
-		</dependency>
+				<groupId>javax.servlet</groupId>
+				<artifactId>javax.servlet-api</artifactId>
+				<scope>provided</scope>
+			</dependency>
 		<dependency>
 			<groupId>com.fasterxml.jackson.jaxrs</groupId>
 			<artifactId>jackson-jaxrs-json-provider</artifactId>
@@ -186,7 +182,7 @@
 			<version>3.6</version>
 		</dependency>
 
-
+		
 	</dependencies>
 	<build>
 		<finalName>bouquet-server</finalName>
@@ -298,38 +294,47 @@
 				</executions>
 			</plugin>
 			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-install-plugin</artifactId>
+			<groupId>org.apache.maven.plugins</groupId>
+			<artifactId>maven-install-plugin</artifactId>
 				<version>2.5.2</version>
-				<executions>
-					<execution>
-						<phase>install</phase>
-						<goals>
-							<goal>install-file</goal>
-						</goals>
-						<configuration>
-							<packaging>jar</packaging>
-							<artifactId>${project.artifactId}</artifactId>
-							<groupId>${project.groupId}</groupId>
-							<version>${project.version}</version>
-							<file>
-								${project.build.directory}/${project.artifactId}-${project.version}.jar
-							</file>
-						</configuration>
-					</execution>
-				</executions>
-			</plugin>
+			<executions>
+				<execution>
+					<phase>install</phase>
+					<goals>
+						<goal>install-file</goal>
+					</goals>
+					<configuration>
+						<packaging>jar</packaging>
+						<artifactId>${project.artifactId}</artifactId>
+						<groupId>${project.groupId}</groupId>
+						<version>${project.version}</version>
+						<file>
+							${project.build.directory}/${project.artifactId}-${project.version}.jar
+						</file>
+					</configuration>
+				</execution>
+			</executions>
+		</plugin>
 
 			<plugin>
 				<groupId>org.apache.tomcat.maven</groupId>
 				<artifactId>tomcat7-maven-plugin</artifactId>
-				<version>2.2</version>
 				<configuration>
 					<!-- http port -->
 					<port>9000</port>
 					<!-- application path always starts with / -->
-					<path>/</path>
-					
+					<path>/dev/v4.2</path>
+					<systemProperties>
+						<kraken.config.file>${project.basedir}/config/bouquet.xml</kraken.config.file>
+						<kraken.cache.config.json>${project.basedir}/config/redis.json</kraken.cache.config.json>
+						<kraken.plugin.dir>${project.basedir}/../drivers</kraken.plugin.dir>
+						<kraken.facet>front,keyserver,queries,queryworker</kraken.facet>
+						<es.network.bind_host>127.0.0.1</es.network.bind_host>
+						<DEBUG.MONGO>true</DEBUG.MONGO>
+						<DB.TRACE>true</DB.TRACE>
+						<logback.configurationFile>logback.xml</logback.configurationFile>
+						<user.timezone>UTC</user.timezone>
+					</systemProperties>
 				</configuration>
 			</plugin>
 		</plugins>
@@ -431,11 +436,6 @@
 				<version>1.4.7</version>
 			</dependency>
 			<dependency>
-				<groupId>javax.ws.rs</groupId>
-				<artifactId>jsr311-api</artifactId>
-				<version>1.1.1</version>
-			</dependency>
-			<dependency>
 				<groupId>org.mongodb.morphia</groupId>
 				<artifactId>morphia</artifactId>
 				<version>1.0.1</version>
@@ -444,6 +444,12 @@
 				<groupId>javax.servlet</groupId>
 				<artifactId>servlet-api</artifactId>
 				<version>2.5</version>
+				<scope>provided</scope>
+			</dependency>
+			<dependency>
+				<groupId>javax.servlet</groupId>
+				<artifactId>javax.servlet-api</artifactId>
+				<version>3.1.0</version>
 				<scope>provided</scope>
 			</dependency>
 			<dependency>
@@ -573,7 +579,7 @@
 				</pluginRepository>
 			</pluginRepositories>
 		</profile>
-
+		
 		<profile>
 			<id>local</id>
 			<activation>

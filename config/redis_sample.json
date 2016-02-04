@@ -1,0 +1,22 @@
+{
+  "redisID" : {
+    "host" : "localhost",
+    "port" : 6379
+  },
+  "generationalKeysServerID" : {
+    "host" : "localhost",
+    "port" : -1
+  },
+  "queriesServerID" : {
+    "host" : "localhost",
+    "port" : -1
+  },
+  "querieServerThreadPoolSize": 5,
+  "workers" : [ {
+    "host" : "localhost",
+    "port" : -1
+  } ],
+  "debug": 0,
+  "appName":"v4.2",
+  "maxRecord":-1
+}
