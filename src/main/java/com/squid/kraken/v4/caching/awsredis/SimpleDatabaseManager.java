@@ -81,8 +81,8 @@ public class SimpleDatabaseManager extends DatabaseManager {
 		ds.setPassword(config.getPassword());
 		//
 		ds.setValidationTimeout(1001);
-		ds.setIdleTimeout(10000); // in ms
-		ds.setMaxLifetime(30000);
+		ds.setIdleTimeout(100000); // in ms
+		ds.setMaxLifetime(300000);
 		//
 		// connection timeout is actually a limit on getting a connection from the pool
 		// ... but since now we are only trying to acquire a connection when we already know one is available,

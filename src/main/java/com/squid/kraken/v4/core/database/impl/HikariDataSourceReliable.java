@@ -50,6 +50,7 @@ public class HikariDataSourceReliable extends HikariDataSource implements DataSo
         super();
         this.semaphore = Striped.semaphore(1, maxPoolSize); //same than the number of connection in the pool
         super.setMaximumPoolSize(maxPoolSize);
+        super.setMinimumIdle(1);// limit the number of idle connection to the minimum, this is not a bottleneck for Bouquet use-case
     }
 
     public HikariDataSourceReliable(String driversPath) {
@@ -120,21 +121,7 @@ public class HikariDataSourceReliable extends HikariDataSource implements DataSo
 						}
 					}
 					if (cause!=null && cause instanceof SQLTransientException) {
-						//logger.warn("Unable to get connection; Retrying...");
-						//if (attempts<=2) {
-						if (false) {
-							try {
-								Thread.sleep((attempts+1)*4000);
-							} catch (InterruptedException ee) {
-								if(conn!=null){
-									conn.close();
-									releaseSemaphore(); 
-								};
-								throw new DatabaseServiceException("unable to connect to " + super.getJdbcUrl() + "\n" + cause.getMessage(), cause);
-							}
-						} else {
-							throw new DatabaseServiceException("unable to connect to " + super.getJdbcUrl() + "\n" + cause.getMessage(), cause);
-						}
+						throw new DatabaseServiceException("unable to connect to " + super.getJdbcUrl() + "\n" + cause.getMessage(), cause);
 					} else {
 						throw new DatabaseServiceException("unable to connect to " + super.getJdbcUrl() + "\n" + cause.getMessage(), cause);
 					}
