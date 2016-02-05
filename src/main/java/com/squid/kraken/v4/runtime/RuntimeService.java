@@ -33,9 +33,9 @@ import org.slf4j.LoggerFactory;
 import com.squid.kraken.v4.KrakenConfig;
 import com.squid.kraken.v4.ESIndexFacade.ESIndexFacadeConfiguration;
 import com.squid.kraken.v4.api.core.ServiceUtils;
-import com.squid.kraken.v4.caching.awsredis.AWSRedisCacheConfig;
-import com.squid.kraken.v4.caching.awsredis.CacheInitPoint;
-import com.squid.kraken.v4.caching.awsredis.RedisCacheManager;
+import com.squid.kraken.v4.caching.redis.AWSRedisCacheConfig;
+import com.squid.kraken.v4.caching.redis.CacheInitPoint;
+import com.squid.kraken.v4.caching.redis.RedisCacheManager;
 import com.squid.kraken.v4.core.analysis.engine.index.DimensionStoreManagerFactory;
 
 /**

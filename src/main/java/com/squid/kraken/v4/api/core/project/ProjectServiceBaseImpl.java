@@ -47,7 +47,7 @@ import com.squid.kraken.v4.api.core.ObjectNotFoundAPIException;
 import com.squid.kraken.v4.api.core.ServiceUtils;
 import com.squid.kraken.v4.api.core.annotation.AnnotationServiceBaseImpl;
 import com.squid.kraken.v4.api.core.projectuser.ProjectUserServiceBaseImpl;
-import com.squid.kraken.v4.caching.awsredis.SimpleDatabaseManager;
+import com.squid.kraken.v4.caching.redis.SimpleDatabaseManager;
 import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.kraken.v4.core.database.impl.DatabaseServiceImpl;
