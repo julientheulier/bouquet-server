@@ -26,7 +26,7 @@ package com.squid.kraken.v4.export;
 import java.io.OutputStream;
 
 import com.squid.core.jdbc.engine.IExecutionItem;
-import com.squid.kraken.v4.caching.awsredis.datastruct.RawMatrix;
+import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
 import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
 import com.squid.kraken.v4.model.DataTable;
 

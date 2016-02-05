@@ -39,7 +39,7 @@ import com.squid.core.domain.IDomain;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.api.core.AccessRightsUtils;
 import com.squid.kraken.v4.api.core.ObjectNotFoundAPIException;
-import com.squid.kraken.v4.caching.awsredis.RedisCacheManager;
+import com.squid.kraken.v4.caching.redis.RedisCacheManager;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
 import com.squid.kraken.v4.core.analysis.scope.AnalysisScope;
