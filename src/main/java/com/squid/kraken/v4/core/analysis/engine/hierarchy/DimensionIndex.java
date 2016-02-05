@@ -38,7 +38,7 @@ import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.ESIndexFacade.ESIndexFacadeException;
 import com.squid.kraken.v4.api.core.ServiceUtils;
 import com.squid.kraken.v4.api.core.attribute.AttributeServiceBaseImpl;
-import com.squid.kraken.v4.caching.awsredis.RedisCacheProxy;
+import com.squid.kraken.v4.caching.redis.RedisCacheProxy;
 import com.squid.kraken.v4.core.analysis.engine.index.DimensionStore;
 import com.squid.kraken.v4.core.analysis.engine.index.DimensionStoreException;
 import com.squid.kraken.v4.core.analysis.engine.index.IDimensionStore;

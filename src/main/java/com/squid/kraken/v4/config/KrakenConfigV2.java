@@ -32,7 +32,7 @@ import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.squid.kraken.v4.caching.awsredis.AWSRedisCacheConfig;
+import com.squid.kraken.v4.caching.redis.AWSRedisCacheConfig;
 
 public class KrakenConfigV2 {
 

@@ -33,8 +33,8 @@ import org.slf4j.LoggerFactory;
 import com.squid.kraken.v4.ESIndexFacade.ESIndexFacadeConfiguration;
 import com.squid.kraken.v4.ESIndexFacade.ESIndexFacadeException;
 import com.squid.kraken.v4.ESIndexFacade.ESIndexFactory;
-import com.squid.kraken.v4.caching.awsredis.RedisCacheManager;
-import com.squid.kraken.v4.caching.awsredis.generationalkeysserver.RedisKey;
+import com.squid.kraken.v4.caching.redis.RedisCacheManager;
+import com.squid.kraken.v4.caching.redis.generationalkeysserver.RedisKey;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex;
 import com.squid.kraken.v4.model.DomainPK;
 
