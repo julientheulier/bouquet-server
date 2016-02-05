@@ -9,7 +9,50 @@
 	</parent>
 
 	<artifactId>bouquet-server</artifactId>
+
+	<name>Open Bouquet Server</name>
+	<description>The open source analytics toolbox</description>
+	<url>https://github.com/openbouquet/bouquet-server</url>
+
+	<scm>
+		<connection>scm:git:git@github.com:openbouquet/bouquet-server.git</connection>
+		<developerConnection>scm:git:git@github.com:openbouquet/bouquet-server.git</developerConnection>
+		<url>https://github.com/openbouquet/bouquet-server</url>
+		<tag>HEAD</tag>
+	</scm>
+
+	<licenses>
+		<license>
+			<name>General Affero Public License version 3</name>
+			<url>http://openbouquet.io</url>
+			<distribution>repo</distribution>
+			<comments>read LICENSE.txt</comments>
+		</license>
+	</licenses>
+
+	<developers>
+		<developer>
+			<name>The Open Bouquet Team</name>
+			<email>dev@openbouquet.io</email>
+			<url>http://openbouquet.io</url>
+			<organization>Squid Solutions</organization>
+			<organizationUrl>http://squidsolutions.com</organizationUrl>
+		</developer>
+	</developers>
+	
+	<distributionManagement>
+		<snapshotRepository>
+			<id>ossrh</id>
+			<url>https://oss.sonatype.org/content/repositories/snapshots</url>
+		</snapshotRepository>
+		<repository>
+			<id>ossrh</id>
+			<url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+		</repository>
+	</distributionManagement>
+
 	<packaging>war</packaging>
+	
 	<dependencies>
 		<dependency>
 			<groupId>com.google.guava</groupId>
@@ -42,10 +85,10 @@
 			<artifactId>morphia</artifactId>
 		</dependency>
 		<dependency>
-				<groupId>javax.servlet</groupId>
-				<artifactId>javax.servlet-api</artifactId>
-				<scope>provided</scope>
-			</dependency>
+			<groupId>javax.servlet</groupId>
+			<artifactId>javax.servlet-api</artifactId>
+			<scope>provided</scope>
+		</dependency>
 		<dependency>
 			<groupId>com.fasterxml.jackson.jaxrs</groupId>
 			<artifactId>jackson-jaxrs-json-provider</artifactId>
@@ -182,12 +225,24 @@
 			<version>3.6</version>
 		</dependency>
 
-		
+
 	</dependencies>
 	<build>
 		<finalName>bouquet-server</finalName>
 		<plugins>
 
+			<plugin>
+				<groupId>org.sonatype.plugins</groupId>
+				<artifactId>nexus-staging-maven-plugin</artifactId>
+				<version>1.6.3</version>
+				<extensions>true</extensions>
+				<configuration>
+					<serverId>ossrh</serverId>
+					<nexusUrl>https://oss.sonatype.org/</nexusUrl>
+					<autoReleaseAfterClose>true</autoReleaseAfterClose>
+				</configuration>
+			</plugin>
+			
 			<plugin>
 				<artifactId>maven-assembly-plugin</artifactId>
 				<configuration>
@@ -205,7 +260,7 @@
 			<plugin>
 				<groupId>external.atlassian.jgitflow</groupId>
 				<artifactId>jgitflow-maven-plugin</artifactId>
-				</plugin>
+			</plugin>
 
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
@@ -294,27 +349,27 @@
 				</executions>
 			</plugin>
 			<plugin>
-			<groupId>org.apache.maven.plugins</groupId>
-			<artifactId>maven-install-plugin</artifactId>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-install-plugin</artifactId>
 				<version>2.5.2</version>
-			<executions>
-				<execution>
-					<phase>install</phase>
-					<goals>
-						<goal>install-file</goal>
-					</goals>
-					<configuration>
-						<packaging>jar</packaging>
-						<artifactId>${project.artifactId}</artifactId>
-						<groupId>${project.groupId}</groupId>
-						<version>${project.version}</version>
-						<file>
-							${project.build.directory}/${project.artifactId}-${project.version}.jar
-						</file>
-					</configuration>
-				</execution>
-			</executions>
-		</plugin>
+				<executions>
+					<execution>
+						<phase>install</phase>
+						<goals>
+							<goal>install-file</goal>
+						</goals>
+						<configuration>
+							<packaging>jar</packaging>
+							<artifactId>${project.artifactId}</artifactId>
+							<groupId>${project.groupId}</groupId>
+							<version>${project.version}</version>
+							<file>
+								${project.build.directory}/${project.artifactId}-${project.version}.jar
+							</file>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
 
 			<plugin>
 				<groupId>org.apache.tomcat.maven</groupId>
@@ -336,6 +391,48 @@
 						<user.timezone>UTC</user.timezone>
 					</systemProperties>
 				</configuration>
+			</plugin>
+
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-source-plugin</artifactId>
+				<version>2.2.1</version>
+				<executions>
+					<execution>
+						<id>attach-sources</id>
+						<goals>
+							<goal>jar-no-fork</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-javadoc-plugin</artifactId>
+				<version>2.9.1</version>
+				<executions>
+					<execution>
+						<id>attach-javadocs</id>
+						<goals>
+							<goal>jar</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-gpg-plugin</artifactId>
+				<version>1.6</version>
+				<executions>
+					<execution>
+						<id>sign-artifacts</id>
+						<phase>verify</phase>
+						<goals>
+							<goal>sign</goal>
+						</goals>
+					</execution>
+				</executions>
 			</plugin>
 		</plugins>
 	</build>
@@ -579,7 +676,7 @@
 				</pluginRepository>
 			</pluginRepositories>
 		</profile>
-		
+
 		<profile>
 			<id>local</id>
 			<activation>
