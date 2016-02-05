@@ -60,9 +60,7 @@ import com.squid.core.sql.render.ISkinFeatureSupport;
 import com.squid.core.sql.render.IWherePiece;
 import com.squid.core.sql.render.RenderingException;
 import com.squid.kraken.v4.caching.redis.RedisCacheManager;
-import com.squid.kraken.v4.caching.redis.datastruct.KeysTree;
 import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
-import com.squid.kraken.v4.caching.redis.datastruct.TripletMapping;
 import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionMember;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
@@ -234,104 +232,7 @@ public class BaseQuery implements IQuery {
 		}
 	}
 	
-	/*
-	protected KeysTree extractDependencies() throws ScopeException, DatabaseServiceException{
-		KeysTree keys = KeysTree.getRootTree();
 
-		for(AxisMapping axm : mapper.getAxisMapping()){
-			ArrayList<String> path = new ArrayList<String>();
-			path.add(axm.getAxis().getParent().getUniverse().getProject().getCustomerId());
-			path.add(axm.getAxis().getParent().getUniverse().getProject().getId().getProjectId());
-			path.add(axm.getAxis().getParent().getID());
-			path.add(axm.getAxis().getId());
-			keys.addNode(path);
-		}
-
-		for(MeasureMapping msm : mapper.getMeasureMapping()){
-			ArrayList<String> path = new ArrayList<String>();
-			path.add(msm.getMapping().getParent().getUniverse().getProject().getCustomerId() );
-			path.add(msm.getMapping().getParent().getUniverse().getProject().getId().getProjectId());
-			path.add(msm.getMapping().getParent().getID());
-			path.add(msm.getMapping().getId());
-			keys.addNode(path);
-		}
-		System.out.println(keys.prettyPrint(""));
-		return keys;
-	}
-	
-	// Map relations Query/Model/concrete tables 
-	protected HashSet<TripletMapping> buildMapping() throws ScopeException{
-
-		HashSet<TripletMapping> triple = new HashSet<TripletMapping>();
-
-		for(AxisMapping axm : mapper.getAxisMapping()){
-
-			// lookup info 
-						
-			Space s = axm.getAxis().getParent();
-			while (s!= null  ){
-				TripletMapping tuple = new TripletMapping(universe.getTable(s.getDomain()).getName(), 
-															s.getDomain().getId().toString(), s.getID());
-
-				if (RedisCacheManager.getInstance().addTripletMapping(tuple))
-					triple.add(tuple);
-				Relation r = s.getRelation() ;
-				if ( r != null)
-				{ 
-					Domain left =  universe.getDomain(r.getLeftId());
-					Table t = universe.getTable(left);
-					
-					System.out.println(t.getSchema().getDatabase().getName());
-					if  (t!=null){
-						tuple = new TripletMapping(t.getName(), left.getId().toString(), s.getID());
-						if (RedisCacheManager.getInstance().addTripletMapping(tuple))
-							triple.add(tuple);
-					}
-					Domain right =  universe.getDomain(r.getRightId());
-					t = universe.getTable(right);
-					if  (t!=null){
-						tuple = new TripletMapping(t.getName(), right.getId().toString(), s.getID());
-						if (RedisCacheManager.getInstance().addTripletMapping(tuple))
-							triple.add(tuple);
-					}
-				}	
-				s = s.getParent();
-			}
-		}
-
-		for(MeasureMapping msm : mapper.getMeasureMapping()) {
-
-			Space s = msm.getMapping().getParent();
-			while (s!= null  ){
-				TripletMapping tuple = new TripletMapping(universe.getTable(s.getDomain()).getName(), 
-						s.getDomain().getId().toString(), s.getID());
-				if (RedisCacheManager.getInstance().addTripletMapping(tuple))
-					triple.add(tuple);
-				Relation r = s.getRelation() ;
-				 if ( r != null)
-				 { 
-					Domain left =  universe.getDomain(r.getLeftId());
-					Table t = universe.getTable(left);
-					if  (t!=null){
-						tuple = new TripletMapping(t.getName(), left.getId().toString(), s.getID());
-						if (RedisCacheManager.getInstance().addTripletMapping(tuple))
-							triple.add(tuple);
-					}
-					Domain right =  universe.getDomain(r.getRightId());
-					t = universe.getTable(right);
-					if  (t!=null){
-						tuple = new TripletMapping(t.getName(), right.getId().toString(), s.getID());
-						if (RedisCacheManager.getInstance().addTripletMapping(tuple))
-							triple.add(tuple);
-					}
-				 }
-				 s = s.getParent();
-			}
-		}
-
-		return triple;
-	}*/
-	
 	@Override
 	public SQLScript generateScript() throws SQLScopeException {
 		if (isQualifyRequired() && select.getSkin().getFeatureSupport(QualifySupport.ID)==ISkinFeatureSupport.IS_NOT_SUPPORTED) {

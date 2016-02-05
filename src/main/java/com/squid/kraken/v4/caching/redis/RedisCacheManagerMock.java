@@ -34,7 +34,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
-import com.squid.kraken.v4.caching.redis.datastruct.TripletMapping;
 import com.squid.kraken.v4.caching.redis.generationalkeysserver.GenerationalKeysServerMock;
 import com.squid.kraken.v4.caching.redis.generationalkeysserver.IGenerationalKeysServer;
 import com.squid.kraken.v4.caching.redis.generationalkeysserver.RedisKey;
@@ -50,10 +49,7 @@ public class RedisCacheManagerMock implements IRedisCacheManager  {
 	private AWSRedisCacheConfig conf;
 	private IQueriesServer queriesServ;
 	private IGenerationalKeysServer genkeysServ ;
-	//private ArrayList<ServerID> queriesWorkers;
-	
-	private HashSet<TripletMapping> mappings ;
-	
+		
 	//constructors
 	
 	public RedisCacheManagerMock(){	
@@ -75,11 +71,7 @@ public class RedisCacheManagerMock implements IRedisCacheManager  {
 			logger.info("starting cache manager");
 	
 			this.genkeysServ= new GenerationalKeysServerMock();
-			//this.queriesServ = QueriesServerFactory.INSTANCE.getNewQueriesServer(conf,false);
-			this.mappings = new HashSet<TripletMapping>();
-			
 			this.genkeysServ.start();
-			//this.queriesServ.start();
 			this.redis =  RedisCacheProxyMock.getInstance();
 		}
 	}
@@ -168,15 +160,6 @@ public class RedisCacheManagerMock implements IRedisCacheManager  {
 		return r;
 	}
 	
-	
-	public boolean addTripletMapping(TripletMapping t){
-		return this.mappings.add(t);
-	}
-	
-	public HashSet<TripletMapping> getMappings(){
-		return this.mappings;
-	}
-
 	@Override
 	public RawMatrix getDataLazy(String SQLQuery, List<String> dependencies,
 			String RSjdbcURL, String username, String pwd, int TTLinSec)
