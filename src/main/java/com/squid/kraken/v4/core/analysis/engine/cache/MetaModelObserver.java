@@ -31,8 +31,8 @@ import org.slf4j.LoggerFactory;
 
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.api.core.ServiceUtils;
+import com.squid.kraken.v4.caching.redis.RedisCacheManager;
 import com.squid.kraken.v4.core.database.impl.DatabaseServiceImpl;
-import com.squid.kraken.v4.caching.awsredis.RedisCacheManager;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainHierarchy;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainHierarchyManager;
