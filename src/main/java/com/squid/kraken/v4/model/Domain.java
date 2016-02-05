@@ -100,7 +100,7 @@ public class Domain extends DynamicObject<DomainPK> implements Cloneable {
 	}
 
     /**
-     * An V3 string expression relative to the ProjectEntity's Sandbox, used to define the Subject.
+     * An Expression relative to the parent Project, and used to define the Domain mapping.
      */
     @ApiModelProperty(position = 1)
     public Expression getSubject() {
