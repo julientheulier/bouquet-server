@@ -24,8 +24,9 @@
 package com.squid.kraken.v4.api.core.domain;
 
 import java.util.ArrayList;
-import java.util.List; 
+import java.util.List;
 
+import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.api.core.APIException;
 import com.squid.kraken.v4.api.core.AccessRightsUtils;
@@ -146,10 +147,12 @@ public class DomainServiceBaseImpl extends GenericServiceImpl<Domain, DomainPK> 
         	}
         	Universe universe = new Universe(ctx, project);
         	try {
-        		universe.getParser().parse(domain);
+    	        ExpressionAST expr = universe.getParser().parse(domain);
+    	        universe.getParser().analyzeExpression(domain.getId(), domain.getSubject(), expr);
         	} catch (ScopeException e) {
         		throw new APIException("Domain subject is invalid:\n"+e.getLocalizedMessage(), ctx.isNoError());
         	}
+        	//
         }
 		return super.store(ctx, domain);
 	}
