@@ -155,12 +155,14 @@ public class ProjectManager {
 		//
 		Universe universe = new Universe(ctx, project);
 		Space space = universe.S(domain);
-		Table table = space.getTable();
-		String uuid = universe.getTableUUID(table);
-		if (uuid != null) {
-			RedisCacheManager.getInstance().refresh(uuid);
-			// and refresh the table?
-			table.refresh();
+		Table table = space.getTableSafe();
+		if (table!=null) {
+			String uuid = universe.getTableUUID(table);
+			if (uuid != null) {
+				RedisCacheManager.getInstance().refresh(uuid);
+				// and refresh the table?
+				table.refresh();
+			}
 		}
 		RedisCacheManager.getInstance().refresh(domainPk.toUUID());
 		RedisKey key = RedisCacheManager.getInstance().getKey(domainPk.toUUID());
