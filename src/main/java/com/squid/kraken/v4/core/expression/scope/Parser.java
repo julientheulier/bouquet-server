@@ -174,7 +174,19 @@ public class Parser {
 	
 	public ExpressionAST parse(Domain domain) throws ScopeException {
 		try {
-			return parse(domain.getId(), new ProjectExpressionScope(universe), domain.getSubject().getValue());
+			return parse(domain.getId(), new ProjectExpressionScope(universe, domain), domain.getSubject().getValue());
+		} catch (ScopeException e) {
+			throw new ScopeException("error while parsing Domain '"+domain.getName()+"'\n caused by: "+e.getLocalizedMessage());
+		}
+	}
+	
+	public ExpressionAST parse(Domain domain, List<Domain> scope) throws ScopeException {
+		return parse(domain, domain.getSubject().getValue(), scope);
+	}
+	
+	public ExpressionAST parse(Domain domain, String value, List<Domain> scope) throws ScopeException {
+		try {
+			return parse(domain.getId(), new ProjectExpressionScope(universe, domain, scope), value);
 		} catch (ScopeException e) {
 			throw new ScopeException("error while parsing Domain '"+domain.getName()+"'\n caused by: "+e.getLocalizedMessage());
 		}
