@@ -24,6 +24,7 @@
 package com.squid.kraken.v4.core.sql;
 
 import java.util.HashMap;
+import java.util.Map.Entry;
 
 import com.squid.core.database.impl.DatabaseServiceException;
 import com.squid.core.database.model.Table;
@@ -65,6 +66,7 @@ import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.kraken.v4.core.database.impl.DatabaseServiceImpl;
 import com.squid.kraken.v4.core.database.impl.DatasourceDefinition;
 import com.squid.kraken.v4.core.expression.reference.DomainReference;
+import com.squid.kraken.v4.core.expression.reference.QueryExpression;
 import com.squid.kraken.v4.core.expression.reference.RelationReference;
 import com.squid.kraken.v4.core.model.domain.DomainDomainImp;
 import com.squid.kraken.v4.model.Domain;
@@ -361,15 +363,43 @@ public class SelectUniversal extends PieceCreator {
 	private IFromPiece from(Scope parent, Domain domain) throws SQLScopeException, ScopeException {
 		Object binding = parent.get(domain);
 		if (binding==null) {
-			Table table = getTable(domain);
-			IFromPiece from = from(parent,domain,table);
-			parent.put(domain, from);
-			return from;
+			Table table = getUniverse().getTableSafe(domain);
+			if (table!=null) {
+				IFromPiece from = from(parent,domain,table);
+				parent.put(domain, from);
+				return from;
+			} else {
+				ExpressionAST subject = getUniverse().getParser().parse(domain);
+				if (subject instanceof QueryExpression) {
+					QueryExpression query = (QueryExpression)subject;
+					// let's have fun
+					SelectUniversal subselect = new SelectUniversal(this, getScope());
+					subselect.from(subselect.getScope(), query.getSubject().getDomain());
+					for (ExpressionAST filter : query.getFilters()) {
+						subselect.where(filter);
+					}
+					HashMap<ExpressionAST, ISelectPiece> mapping = new HashMap<>();
+					for (ExpressionAST facet : query.getFacets()) {
+						ISelectPiece piece = subselect.select(facet);
+					}
+					for (ExpressionAST metric : query.getMetrics()) {
+						ISelectPiece piece = subselect.select(metric);
+					}
+					FromSelectUniversal from = from(subselect);
+					// mapp in the main scope
+					for (Entry<ExpressionAST, ISelectPiece> entry : mapping.entrySet()) {
+						
+					}
+					return from;
+				} else {
+					throw new SQLScopeException("unsupported subject for domain '"+domain.getName()+"': "+domain.getSubject().getValue());
+				}
+			}
 		} else {
 			if (binding instanceof IFromPiece) {
 				return (IFromPiece)binding;
 			} else {
-				throw new SQLScopeException("ivalid binding for domain '"+domain.getName()+"'");
+				throw new SQLScopeException("invalid binding for domain '"+domain.getName()+"'");
 			}
 		}
 	}
