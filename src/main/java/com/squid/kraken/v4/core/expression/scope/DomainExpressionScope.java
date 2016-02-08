@@ -147,6 +147,10 @@ public class DomainExpressionScope extends DefaultScope {
 			return opDef;
 		}
 	}
+	
+	protected Universe getUniverse() {
+		return universe;
+	}
 
 	protected Space getSpace() {
 		return space;
@@ -161,7 +165,7 @@ public class DomainExpressionScope extends DefaultScope {
 		if (domain.getSubject()==null || domain.getSubject().getValue()==null) {
 			return null;
 		}
-		return universe.getTable(domain);
+		return universe.getTableSafe(domain);
 	}
 
 	@Override
