@@ -38,6 +38,7 @@ import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.ExpressionRef;
 import com.squid.core.expression.UndefinedExpression;
 import com.squid.core.expression.parser.ParseException;
+import com.squid.core.expression.parser.Token;
 import com.squid.core.expression.parser.TokenMgrError;
 import com.squid.core.expression.reference.ColumnReference;
 import com.squid.core.expression.reference.TableReference;
@@ -118,11 +119,11 @@ public class ExpressionSuggestionHandler {
 		    switch (checkIdentifier(parseError.expectedTokenSequences, parseError.tokenImage)) {
 		    case IDENTIFIER:
 		    case FUNCTION:// don't know how to handle that
-                updateProposal(result, expressionToParse);
+                updateProposal(result, expressionToParse, parseError.currentToken);
             default:
 		    }
 		} else if (error!=null && (error.getCause() instanceof TokenMgrError)) {
-            updateProposal(result, expressionToParse);
+            updateProposal(result, expressionToParse, null);
 		}
 		if (isParseSubExpression) {
 			// parse the full expression to get the correct parsing error
@@ -148,8 +149,24 @@ public class ExpressionSuggestionHandler {
 		// else
 		return null;
 	}
+	
+	private boolean isComposableToken(Token token) {
+		if (token==null || token.kind==0) return false;
+		return true;
+		/*
+		switch (token.kind) {
+		case ExpressionParserImp.DOT:
+		case ExpressionParserImp.FILTER:
+		case ExpressionParserImp.FACET:
+		case ExpressionParserImp.METRIC:
+			return true;
+		default:
+			return false;
+		}
+		*/
+	}
 
-    private void updateProposal(ExpressionSuggestion exSuggestion, String text) {
+    private void updateProposal(ExpressionSuggestion exSuggestion, String text, Token currentToken) {
     	//
     	ExpressionScope actualScope = this.scope;
     	String filter = "";
@@ -179,23 +196,26 @@ public class ExpressionSuggestionHandler {
     		x--;
     	}
     	// look for the context ?
-		int dot = prefix.lastIndexOf(".");
-		if (dot>=0) {
-			prefix = prefix.substring(0, dot);
-			prefix = getPrefix(prefix, offset);
-			prefix = prefix.trim();
-			// parse the first part of the prefix
-			String eval = prefix;//prefix.substring(0, dot);
-	        //ExpressionParser parser = ExpressionParser.createParser(eval);
-	        try {
-	            ExpressionAST expression = scope.parseExpression(eval);//parser.parseExpression(this.context.getScope());
-	            if (expression.getImageDomain()!=IDomain.UNKNOWN) {
-	            	actualScope = scope.applyExpression(expression);
-	            }
-	        } catch (ScopeException e) {
-	            //ignore
-	        }
-		}
+    	if (isComposableToken(currentToken)) {
+    		String operator = currentToken.image;
+			int dot = prefix.lastIndexOf(operator);
+			if (dot>=0) {
+				prefix = prefix.substring(0, dot).trim();
+				prefix = getPrefix(prefix, offset);
+				prefix = prefix.trim();
+				// parse the first part of the prefix
+				String eval = prefix;//prefix.substring(0, dot);
+		        //ExpressionParser parser = ExpressionParser.createParser(eval);
+		        try {
+		            ExpressionAST expression = scope.parseExpression(eval);//parser.parseExpression(this.context.getScope());
+		            if (expression.getImageDomain()!=IDomain.UNKNOWN) {
+		            	actualScope = scope.applyExpression(expression);
+		            }
+		        } catch (ScopeException e) {
+		            //ignore
+		        }
+			}
+    	}
     	//
         ArrayList<ExpressionSuggestionItem> proposals = new ArrayList<ExpressionSuggestionItem>();
         //
