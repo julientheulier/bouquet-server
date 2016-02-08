@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import com.squid.core.database.domain.TableDomain;
 import com.squid.core.database.model.Table;
 import com.squid.core.domain.IDomain;
 import com.squid.core.expression.Compose;
@@ -85,6 +86,14 @@ public class Universe extends Physics {
 	public Parser getParser() {
 		return parser;
 	}
+	
+	public Table getTableSafe(Domain domain) {
+		try {
+			return getTable(domain);
+		} catch (ScopeException e) {
+			return null;
+		}
+	}
 
 	/**
 	 * return the underlying table by parsing the Domain definition
@@ -110,12 +119,23 @@ public class Universe extends Physics {
 					throw new ScopeException("Cannot lookup table definition for domain '" + domain.getName() + "'");
 				}
 				ExpressionAST subject = getParser().parse(domain);
-				IDomain image = subject.getImageDomain();// it should return a TableProxy
-				Object adapt = image.getAdapter(Table.class);
-				if (adapt != null && adapt instanceof Table) {
-					return (Table) adapt;
+				IDomain image = subject.getImageDomain();
+				if (image.isInstanceOf(TableDomain.DOMAIN)) {
+					Object adapt = image.getAdapter(Table.class);
+					if (adapt != null && adapt instanceof Table) {
+						return (Table) adapt;
+					} else {
+						throw new ScopeException("Cannot interpret subject definition '"+domain.getSubject()+"' for domain '" + domain.getName() + "'");
+					}
+				} else if (image.isInstanceOf(DomainDomain.DOMAIN)) {
+					Object adapt = image.getAdapter(Domain.class);
+					if (adapt != null && adapt instanceof Domain) {
+						return getTable((Domain)adapt);
+					} else {
+						throw new ScopeException("Cannot interpret subject definition '"+domain.getSubject()+"' for domain '" + domain.getName() + "'");
+					}
 				} else {
-					throw new ScopeException("Cannot lookup table definition for domain '" + domain.getName() + "'");
+					throw new ScopeException("Cannot interpret subject definition '"+domain.getSubject()+"' for domain '" + domain.getName() + "'");
 				}
 			}
 		} catch (ParseException e) {

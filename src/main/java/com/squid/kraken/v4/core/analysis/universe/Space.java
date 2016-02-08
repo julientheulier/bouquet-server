@@ -175,6 +175,14 @@ public class Space {
 	public Table getTable() throws ScopeException {
 		return universe.getTable(getDomain());
 	}
+
+	public Table getTableSafe() {
+		try {
+			return universe.getTable(getDomain());
+		} catch (ScopeException e) {
+			return null;
+		}
+	}
 	
 	/**
 	 * return an UUID for the associated table
