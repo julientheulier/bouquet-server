@@ -36,7 +36,6 @@ import java.util.HashMap;
 
 import com.squid.kraken.v4.api.core.PerfDB;
 import com.squid.kraken.v4.api.core.SQLStats;
-import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValue.RedisCacheType;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,6 +46,7 @@ import com.squid.core.jdbc.engine.IExecutionItem;
 import com.squid.core.jdbc.formatter.IJDBCDataFormatter;
 import com.squid.core.jdbc.vendor.IVendorSupport;
 import com.squid.core.jdbc.vendor.VendorSupportRegistry;
+import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValue.RedisCacheType;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionValuesDictionary;
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.io.Output;
@@ -323,8 +323,9 @@ public class RawMatrix extends RedisCacheValue {
 
 
 
-    public static byte[] streamExecutionItemToByteArray(IExecutionItem item, long maxRecords, long limit) throws IOException, SQLException{
+    public static RawMatrixStreamExecRes streamExecutionItemToByteArray(IExecutionItem item, long maxRecords, long limit) throws IOException, SQLException{
 
+    	RawMatrixStreamExecRes res = new RawMatrixStreamExecRes();
         long metter_start = System.currentTimeMillis();	
         try{
             ByteArrayOutputStream baout =  new ByteArrayOutputStream();
@@ -492,7 +493,13 @@ public class RawMatrix extends RedisCacheValue {
             PerfDB.INSTANCE.save(queryLog);
 
             kout.close();
-            return  baout.toByteArray() ;
+
+            res.setDone(!moreData);
+            res.setExecutionTime(metter_finish-metter_start);
+            res.setNbLines(count);
+            res.setStreamedMatrix( baout.toByteArray());
+            
+            return res  ;
         } finally {
             item.close();
         } 
