@@ -267,18 +267,35 @@ public class ProjectManager {
 			return null;
 		} else {
 			for (Relation rel : rels) {
-				RelationDirection direction = rel.getDirection(domainPK);
-				if (direction==RelationDirection.LEFT_TO_RIGHT && rel.getRightName().compareTo(name)==0) {
-					// LEFT TO RIGHT
-					checkRole(ctx, rel);
-					return cloneWithRole(ctx, rel);
-				} else if (direction==RelationDirection.RIGHT_TO_LEFT && rel.getLeftName().compareTo(name)==0) {
-					checkRole(ctx, rel);
-					return cloneWithRole(ctx, rel);
-				} else {
-					// ignore
+				Relation check = checkRelationByNameSource(ctx, name, rel, domainPK);
+				if (check!=null) {
+					return check;
 				}
 			}
+			// let's check if the relation is defined locally only
+			DomainContent content = domains.getDomainContent(domainPK);
+			if (content!=null) {
+				for (Relation rel : content.getRelations()) {
+					Relation check = checkRelationByNameSource(ctx, name, rel, domainPK);
+					if (check!=null) {
+						return check;
+					}
+				}
+			}
+			return null;
+		}
+	}
+	
+	private Relation checkRelationByNameSource(AppContext ctx, String name, Relation rel, DomainPK sourceId) {
+		RelationDirection direction = rel.getDirection(sourceId);
+		if (direction==RelationDirection.LEFT_TO_RIGHT && rel.getRightName().compareTo(name)==0) {
+			// LEFT TO RIGHT
+			checkRole(ctx, rel);
+			return cloneWithRole(ctx, rel);
+		} else if (direction==RelationDirection.RIGHT_TO_LEFT && rel.getLeftName().compareTo(name)==0) {
+			checkRole(ctx, rel);
+			return cloneWithRole(ctx, rel);
+		} else {
 			return null;
 		}
 	}
