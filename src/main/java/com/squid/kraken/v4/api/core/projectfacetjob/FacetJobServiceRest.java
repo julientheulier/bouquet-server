@@ -102,10 +102,9 @@ public class FacetJobServiceRest extends BaseServiceRest {
 	 * @param facetId
 	 * @param filter
 	 *            a search query to filter out results
-	 * @param timeoutMs
+	 * @param timeoutMs, if null : no timeout
 	 * @param maxResults
 	 * @param startIndex
-	 * @param waitComplete if true the call will wait for the facet to be complete (isDone=true). False by default.
 	 * @return
 	 */
 	@GET
@@ -117,11 +116,10 @@ public class FacetJobServiceRest extends BaseServiceRest {
 			@QueryParam("filter") String filter,
 			@QueryParam("timeout") Integer timeoutMs,
 			@QueryParam("maxResults") Integer maxResults,
-			@QueryParam("startIndex") Integer startIndex,
-			@QueryParam("waitComplete") Boolean waitComplete
+			@QueryParam("startIndex") Integer startIndex
 		) {
 		return delegate.readFacet(userContext, projectId, jobId, facetId,
-				filter, timeoutMs, maxResults, startIndex, waitComplete==null?false:waitComplete);
+				filter, timeoutMs, maxResults, startIndex);
 	}
 
 	/**
