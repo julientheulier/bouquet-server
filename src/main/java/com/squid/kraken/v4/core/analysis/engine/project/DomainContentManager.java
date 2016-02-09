@@ -44,6 +44,25 @@ public class DomainContentManager {
 	public DomainContentManager() {
 	}
 	
+	/**
+	 * return the DomainCOntent for that ID - only if already available
+	 * @param id
+	 * @return the DomainContent or null if not yet computed
+	 */
+	protected DomainContent getDomainContent(DomainPK id) {
+		DomainContent content = contents.get(id);
+		if (content!=null && content.isValid()) {
+			return content;
+		}
+		// else
+		return null;
+	}
+	
+	/**
+	 * get the DomainContent identified by the Space, or compute it if not yet available
+	 * @param space
+	 * @return
+	 */
 	public DomainContent getDomainContent(Space space) {
 		// check if already available
 		Domain domain = space.getDomain();
