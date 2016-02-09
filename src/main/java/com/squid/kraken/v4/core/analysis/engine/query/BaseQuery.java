@@ -27,7 +27,6 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -41,7 +40,6 @@ import com.squid.core.concurrent.ExecutionManager;
 import com.squid.core.database.impl.DatabaseServiceException;
 import com.squid.core.database.model.Column;
 import com.squid.core.database.model.Database;
-import com.squid.core.database.model.Table;
 import com.squid.core.domain.IDomain;
 import com.squid.core.domain.analytics.AnalyticDomain;
 import com.squid.core.expression.ConstantValue;
@@ -52,17 +50,15 @@ import com.squid.core.jdbc.engine.IExecutionItem;
 import com.squid.core.sql.Context;
 import com.squid.core.sql.db.features.QualifySupport;
 import com.squid.core.sql.model.SQLScopeException;
-import com.squid.core.sql.render.IOrderByPiece.ORDERING;
 import com.squid.core.sql.render.IOrderByPiece;
+import com.squid.core.sql.render.IOrderByPiece.ORDERING;
 import com.squid.core.sql.render.IPiece;
 import com.squid.core.sql.render.ISelectPiece;
 import com.squid.core.sql.render.ISkinFeatureSupport;
 import com.squid.core.sql.render.IWherePiece;
 import com.squid.core.sql.render.RenderingException;
 import com.squid.kraken.v4.caching.redis.RedisCacheManager;
-import com.squid.kraken.v4.caching.redis.datastruct.KeysTree;
 import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
-import com.squid.kraken.v4.caching.redis.datastruct.TripletMapping;
 import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionMember;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
@@ -73,7 +69,6 @@ import com.squid.kraken.v4.core.analysis.engine.query.mapping.SimpleMapping;
 import com.squid.kraken.v4.core.analysis.model.Intervalle;
 import com.squid.kraken.v4.core.analysis.model.OrderBy;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
-import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.kraken.v4.core.database.impl.DatabaseServiceImpl;
 import com.squid.kraken.v4.core.database.impl.DatasourceDefinition;
@@ -81,7 +76,6 @@ import com.squid.kraken.v4.core.sql.SelectUniversal;
 import com.squid.kraken.v4.core.sql.script.SQLScript;
 import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.Project;
-import com.squid.kraken.v4.model.Relation;
 
 /**
  * Implements the IQuery interface on top of the SelctMapping
@@ -170,7 +164,7 @@ public class BaseQuery implements IQuery {
             		IPiece piece = select.createPiece(Context.ORDERBY, order.getExpression());
             		select.orderBy(piece).setOrdering(order.getOrdering());
             	} else {
-            		throw new ScopeException("invalid orderBy expression "+order.getExpression().prettyPrint() + ": you must also select it or a child dimension");
+            		throw new ScopeException("invalid orderBy expression "+order.getExpression().prettyPrint() + ": you must select it (or a child dimension) as a facet");
             	}
             }
         }
