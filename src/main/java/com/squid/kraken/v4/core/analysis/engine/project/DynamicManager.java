@@ -54,13 +54,17 @@ import com.squid.core.database.statistics.PartitionInfo;
 import com.squid.core.domain.IDomain;
 import com.squid.core.domain.IDomainMetaDomain;
 import com.squid.core.domain.operators.ExtendedType;
+import com.squid.core.expression.Compose;
 import com.squid.core.expression.ExpressionAST;
+import com.squid.core.expression.ExpressionRef;
 import com.squid.core.expression.reference.Cardinality;
 import com.squid.core.expression.reference.ColumnReference;
+import com.squid.core.expression.reference.ForeignKeyReference;
 import com.squid.core.expression.reference.RelationDirection;
 import com.squid.core.expression.scope.ExpressionMaker;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.core.sql.db.features.IMetadataForeignKeySupport;
+import com.squid.core.sql.model.SQLScopeException;
 import com.squid.core.sql.render.ISkinFeatureSupport;
 import com.squid.core.sql.render.SQLSkin;
 import com.squid.kraken.v4.KrakenConfig;
@@ -73,6 +77,7 @@ import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.kraken.v4.core.database.impl.DatabaseServiceImpl;
 import com.squid.kraken.v4.core.database.impl.DatasourceDefinition;
 import com.squid.kraken.v4.core.expression.reference.ColumnDomainReference;
+import com.squid.kraken.v4.core.expression.reference.ParameterReference;
 import com.squid.kraken.v4.core.expression.reference.QueryExpression;
 import com.squid.kraken.v4.core.expression.reference.RelationReference;
 import com.squid.kraken.v4.core.expression.visitor.ExtractColumns;
@@ -465,71 +470,6 @@ public class DynamicManager {
 		} else 
 			return Optional.absent();
 	}
-	
-
-	/**
-	 * generate the Table mapping for that query => imagine that the query is materialized...
-	 * @return
-	 */
-	public Table genQueryTableMapping(Universe universe, QueryExpression query) {
-		Table materialized = new TableImpl();
-		//
-		// find a cool table name
-		{
-			String name = DynamicManager.INSTANCE.digest(query.prettyPrint());
-			materialized.setName(name);
-		}
-		//
-		// ok, let's start with the facets
-		SQLSkin skin = universe.getDatabase().getSkin();// need that to compute extendedTypes
-		Index primaryKey = new Index("PK");
-		int pos = 0;
-		for (ExpressionAST facet : query.getFacets()) {
-			String internal = normalizeObjectName(facet.prettyPrint());
-			internal = internal.replaceAll("'", "");
-			internal = internal.replaceAll("\\(", "_");
-			internal = internal.replaceAll("\\)", "");
-			//
-			IDomain domain = facet.getImageDomain();
-			if (domain.isInstanceOf(IDomain.OBJECT)) {
-				// need to find the key
-			} else {
-				Column col = new Column();
-				col.setName(internal);
-				col.setDescription(facet.prettyPrint());
-				col.setType(facet.computeType(skin));
-				col.setTable(materialized);
-				materialized.addColumn(col);
-				primaryKey.addColumn(col, pos++);
-			}
-		}
-		//
-		if (!primaryKey.getColumns().isEmpty()) {
-			materialized.setPrimaryKey(primaryKey);
-		}
-		//
-		for (ExpressionAST metric : query.getMetrics()) {
-			String internal = normalizeObjectName(metric.prettyPrint());
-			internal = internal.replaceAll("'", "");
-			internal = internal.replaceAll("\\(", "_");
-			internal = internal.replaceAll("\\)", "");
-			//
-			Column col = new Column();
-			col.setName(internal);
-			col.setDescription(metric.prettyPrint());
-			ExtendedType ext = metric.computeType(skin);
-			// handle the imageDomain to avoid metaInformation
-			IDomain image = metric.getImageDomain();
-			if (image.isInstanceOf(IDomain.META)) {
-				image = ((IDomainMetaDomain)image).getSubdomain();
-			}
-			col.setType(new ExtendedType(image, ext));
-			col.setTable(materialized);
-			materialized.addColumn(col);
-		}
-		//
-		return materialized;
-	}
 
 	/**
 	 * Populate this Domain content, for both dimensions and metrics. 
@@ -768,51 +708,141 @@ public class DynamicManager {
         				// not that fun, just copy the source domain dimension
         				// TODO
         			} else {
-            			// ok, let's start with the facets
+        				// let's create a table
+        				Table materialized = new TableImpl();
+        				//
+        				// find a cool table name
+        				{
+        					String name = DynamicManager.INSTANCE.digest(query.prettyPrint());
+        					materialized.setName(name);
+        				}
+        				//
+        				// ok, let's start with the facets
+        				SQLSkin skin = univ.getDatabase().getSkin();// need that to compute extendedTypes
+        				Index primaryKey = new Index("PK");
+        				int pos = 0;
+        				List<RawDImension> periodCandidates = new ArrayList<RawDImension>();
         				for (ExpressionAST facet : query.getFacets()) {
-        					String internal = normalizeObjectName(facet.prettyPrint());
-        					internal = internal.replaceAll("'", "");
-        					// how to define a reference to a sub-expression ???
-        					// 1/ let's use @ like for referencing columns => it's intrinsic object defined by the Domain
-        					// 2/ use the same name for the internal/external reference (and allow using alias)
-							String expr = "@'"+internal+"'";
-			    			DimensionPK id = new DimensionPK(domain.getId(), digest(prefix+expr));
-			    			if (facet.getImageDomain().isInstanceOf(IDomain.OBJECT)) {
-			    				internal = ">"+internal;
-			    			}
-			    			String name = checkName(internal,checkName);
-			    			Dimension dim = new Dimension(id, name, Type.INDEX, new Expression(expr), false);
-							dim.setValueType(computeValueType(facet.getImageDomain()));
-							dim.setImageDomain(facet.getImageDomain());
-							AccessRightsUtils.getInstance().setAccessRights(univ.getContext(), dim, domain);
-							content.add(dim);
-							checkName.add(name);
+        					//
+        					IDomain image = facet.getImageDomain();
+        					if (image.isInstanceOf(IDomain.OBJECT)) {
+        						Domain target = (Domain)(image.getAdapter(Domain.class));
+        						ExpressionAST leftDomain = new ParameterReference("LEFT", space.getImageDomain());
+        						ExpressionAST rightDomain = new ParameterReference("RIGHT", image);
+        						// need to find the key
+        						List<ExpressionPair> pairs = extractRelationSafe(univ, facet);
+        						List<ExpressionAST> joins = new ArrayList<>();
+        						for (ExpressionPair pair : pairs) {
+        							ExpressionAST left = pair.left;
+            						DynamicColumn col = createDynamicColumn(left, skin);
+            						col.setTable(materialized);
+            						materialized.addColumn(col);
+            						primaryKey.addColumn(col, pos++);
+            						//
+            						ExpressionAST join = ExpressionMaker.EQUAL(
+            								ExpressionMaker.COMPOSE(leftDomain,new ColumnDomainReference(space, col)), 
+            								ExpressionMaker.COMPOSE(rightDomain,pair.right));
+            						joins.add(join);
+        						}
+        						// create the relation to target
+        						ExpressionAST join = joins.size()>1?ExpressionMaker.AND(joins):joins.get(0);
+								String idrel = "rel/" + domain.getId().toUUID() + "-" + target.getId().toUUID() + ":" + facet.prettyPrint();
+								String digest = digest(idrel);
+								RelationPK relationPk = new RelationPK(univ.getProject().getId(), digest);
+								Relation relation =
+										new Relation(relationPk,
+												domain.getId(),
+												Cardinality.MANY,
+												target.getId(),
+												Cardinality.ZERO_OR_ONE,
+												domain.getName(),
+												target.getName(),
+												new Expression(join.prettyPrint()), true);
+								AccessRightsUtils.getInstance().setAccessRights(univ.getContext(), relation, univ.getProject());
+								// add the relation locally
+								content.add(relation);
+								//
+								try {
+									RelationReference ref = new RelationReference(univ, relation, domain, target);
+									if (true) {//(useRelation(relation, ref)) {
+										checkName.add(ref.getReferenceName());
+										String expr = ref.prettyPrint()+".$'SELF'";// add the SELF parameter
+						    			DimensionPK id = new DimensionPK(domain.getId(), digest(prefix+expr));
+						    			if (!ids.contains(id.getDimensionId())) {
+							    			String name = ref.getReferenceName();
+							    			name = checkName(">"+name,checkName);
+							    			Dimension dim = new Dimension(id, name, Type.INDEX, new Expression(expr), true);
+											dim.setValueType(ValueType.OBJECT);
+											dim.setImageDomain(ref.getImageDomain());
+											AccessRightsUtils.getInstance().setAccessRights(univ.getContext(), dim, domain);
+											content.add(dim);
+											checkName.add(name);
+						    			}
+									}
+								} catch (ScopeException e) {
+									// ignore
+								}
+        					} else {
+        						DynamicColumn col = createDynamicColumn(facet, skin);
+        						col.setTable(materialized);
+        						materialized.addColumn(col);
+        						primaryKey.addColumn(col, pos++);
+        						//
+        						ColumnReference ref = new ColumnReference(col);
+        						String expr = ref.prettyPrint();
+        						DimensionPK id = new DimensionPK(domain.getId(), digest(prefix+expr));
+        						if (!ids.contains(id.getDimensionId())) {
+        							Type type = Type.INDEX;
+        							String name = checkName(normalizeObjectName(col.getName()),checkName);
+        							Dimension dim = new Dimension(id, name, type, new Expression(expr),true);
+        							dim.setImageDomain(col.getTypeDomain());
+        							dim.setValueType(computeValueType(col.getTypeDomain()));
+        							AccessRightsUtils.getInstance().setAccessRights(univ.getContext(), dim, domain);
+        							content.add(dim);
+        							checkName.add(name);
+        							if (col.getTypeDomain().isInstanceOf(IDomain.TEMPORAL)&&!isPeriodDefined) {
+        								periodCandidates.add(new RawDImension(col, dim));
+        							}
+        						}
+        					}
+        				}
+        				//
+        				if (!primaryKey.getColumns().isEmpty()) {
+        					materialized.setPrimaryKey(primaryKey);
         				}
         				//
         				for (ExpressionAST metric : query.getMetrics()) {
-        					String internal = normalizeObjectName(metric.prettyPrint());
-        					internal = internal.replaceAll("'", "");
-        					internal = internal.replaceAll("\\(", "_");
-        					internal = internal.replaceAll("\\)", "");
-        					// how to define a reference to a sub-expression ???
-        					// 1/ let's use @ like for referencing columns => it's intrinsic object defined by the Domain
-        					// 2/ use the same name for the internal/external reference (and allow using alias)
-							String expr = "@'"+internal+"'";
-			    			DimensionPK id = new DimensionPK(domain.getId(), digest(prefix+expr));
-			    			String name = checkName(internal,checkName);
-			    			Dimension dim = new Dimension(id, name, Type.INDEX, new Expression(expr), false);
-			    			//
-			    			// handle the imageDomain
-			    			IDomain image = metric.getImageDomain();
-			    			if (image.isInstanceOf(IDomain.META)) {
-			    				image = ((IDomainMetaDomain)image).getSubdomain();
-			    			}
-							dim.setValueType(computeValueType(image));
-							dim.setImageDomain(image);
-							AccessRightsUtils.getInstance().setAccessRights(univ.getContext(), dim, domain);
-							content.add(dim);
-							checkName.add(name);
+        					DynamicColumn col = createDynamicColumn(metric, skin);
+        					col.setTable(materialized);
+        					materialized.addColumn(col);
+    						//
+    						ColumnReference ref = new ColumnReference(col);
+    						String expr = ref.prettyPrint();
+    						DimensionPK id = new DimensionPK(domain.getId(), digest(prefix+expr));
+    						if (!ids.contains(id.getDimensionId())) {
+    							Type type = Type.INDEX;
+    							String name = checkName(normalizeObjectName(col.getName()),checkName);
+    							Dimension dim = new Dimension(id, name, type, new Expression(expr),true);
+    							dim.setImageDomain(col.getTypeDomain());
+    							dim.setValueType(computeValueType(col.getTypeDomain()));
+    							AccessRightsUtils.getInstance().setAccessRights(univ.getContext(), dim, domain);
+    							content.add(dim);
+    							checkName.add(name);
+    							if (col.getTypeDomain().isInstanceOf(IDomain.TEMPORAL)&&!isPeriodDefined) {
+    								periodCandidates.add(new RawDImension(col, dim));
+    							}
+    						}
         				}
+        				// select the period
+        				if (!periodCandidates.isEmpty()) {
+        					DimensionPeriodSelector selector = new DimensionPeriodSelector(space.getUniverse());
+        					RawDImension candidate = selector.selectPeriod(periodCandidates);
+        					if (candidate!=null) {
+        						candidate.dim.setType(Type.CONTINUOUS);
+        					}
+        				}
+        				// cache the table
+        				content.setTable(materialized);
         			}
         		}
         	}
@@ -820,6 +850,176 @@ public class DynamicManager {
         } catch (ScopeException | ComputingException | ExecutionException e) {
         	logger.error("failed to initialize dynamic content for Domain '"+domain.getName()+"' due to: "+e.getLocalizedMessage(),e);
         }
+	}
+	
+	private DynamicColumn createDynamicColumn(ExpressionAST definition, SQLSkin skin) {
+		String internal = normalizeExpressionName(definition);
+		DynamicColumn col = new DynamicColumn();
+		col.setName(internal);
+		col.setDescription(definition.prettyPrint());
+		col.setLineage(definition);// will be use to compute the column value
+		// set Type - make sure we skip the aggregate part
+		ExtendedType ext = definition.computeType(skin);
+		// handle the imageDomain to avoid metaInformation
+		IDomain image = definition.getImageDomain();
+		if (image.isInstanceOf(IDomain.META)) {
+			image = ((IDomainMetaDomain)image).getSubdomain();
+			col.setType(new ExtendedType(image, ext));
+		} else {
+			col.setType(ext);
+		}
+		return col;
+	}
+	
+	private String normalizeExpressionName(ExpressionAST expr) {
+		if (expr instanceof ExpressionRef) {
+			ExpressionRef ref = (ExpressionRef)expr;
+			return ref.getReferenceName();
+		} else {
+			// assume it is a formula
+			String internal = normalizeObjectName(expr.prettyPrint());
+			internal = internal.replaceAll("'", "");
+			internal = internal.replaceAll("\\(", "_");
+			internal = internal.replaceAll("\\)", "");
+			internal = internal.replaceAll("\\#", "");
+			internal = internal.trim();
+			return internal;
+		}
+	}
+	
+	private List<ExpressionPair> extractRelationSafe(Universe univ, ExpressionAST expr) {
+		try {
+			return extractRelation(univ, expr);
+		} catch (ScopeException | SQLScopeException e) {
+			return Collections.emptyList();
+		}
+	}
+	
+	private List<ExpressionPair> extractRelation(Universe univ, ExpressionAST expr) throws ScopeException, SQLScopeException {
+		if (expr instanceof RelationReference) {
+			RelationReference ref = (RelationReference)expr;
+			return getExportedKey(univ, ref.getRelation(), ref.getDirection());
+		} if (expr instanceof Compose) {
+			Compose compose = (Compose)expr;
+			List<ExpressionPair> result = extractRelation(univ, compose.getHead());
+			for (ExpressionPair pair : result) {
+				pair.left = new Compose(compose.getTail(),pair.left);
+			}
+			return result;// relink exported key
+		} else {
+			return Collections.emptyList();
+		}
+	}
+	
+	private List<ExpressionPair> getExportedKey(Universe univ, Relation rel, RelationDirection direction) throws ScopeException, SQLScopeException {
+		ExpressionAST join = univ.getParser().parse(rel);
+		if (join instanceof ForeignKeyReference) {
+			ForeignKey fk = ((ForeignKeyReference)join).getForeignKey();
+			ArrayList<ExpressionPair> exported = new ArrayList<>();
+			for (KeyPair key : fk.getKeys()) {
+				exported.add(new ExpressionPair(
+						new ColumnReference(key.getExported()),
+						new ColumnReference(key.getPrimary()),
+						direction));
+			}
+			return exported;
+		} else {
+			// need to try harder...
+			return Collections.emptyList();
+		}
+	}
+	
+	class ExpressionPair {
+		
+		public ExpressionAST left;
+		public ExpressionAST right;
+		
+		/**
+		 * reorder the keys given the direction
+		 * @param exported
+		 * @param primary
+		 * @param direction
+		 * @throws ScopeException
+		 */
+		public ExpressionPair(ExpressionAST exported, ExpressionAST primary, RelationDirection direction) throws ScopeException {
+			switch (direction) {
+			case LEFT_TO_RIGHT:
+				left = exported;
+				right = primary;
+				break;
+			case RIGHT_TO_LEFT:
+				left = primary;
+				right = exported;
+				break;
+			default:
+				throw new ScopeException("invalid relation");
+			}
+		}
+	}
+	
+
+	/**
+	 * generate the Table mapping for that query => imagine that the query is materialized...
+	 * @return
+	 */
+	public Table genQueryTableMapping(Universe universe, QueryExpression query) {
+		Table materialized = new TableImpl();
+		//
+		// find a cool table name
+		{
+			String name = DynamicManager.INSTANCE.digest(query.prettyPrint());
+			materialized.setName(name);
+		}
+		//
+		// ok, let's start with the facets
+		SQLSkin skin = universe.getDatabase().getSkin();// need that to compute extendedTypes
+		Index primaryKey = new Index("PK");
+		int pos = 0;
+		for (ExpressionAST facet : query.getFacets()) {
+			String internal = normalizeObjectName(facet.prettyPrint());
+			internal = internal.replaceAll("'", "");
+			internal = internal.replaceAll("\\(", "_");
+			internal = internal.replaceAll("\\)", "");
+			//
+			IDomain domain = facet.getImageDomain();
+			if (domain.isInstanceOf(IDomain.OBJECT)) {
+				// need to find the key
+			} else {
+				Column col = new Column();
+				col.setName(internal);
+				col.setDescription(facet.prettyPrint());
+				col.setType(facet.computeType(skin));
+				col.setTable(materialized);
+				materialized.addColumn(col);
+				primaryKey.addColumn(col, pos++);
+			}
+		}
+		//
+		if (!primaryKey.getColumns().isEmpty()) {
+			materialized.setPrimaryKey(primaryKey);
+		}
+		//
+		for (ExpressionAST metric : query.getMetrics()) {
+			String internal = normalizeObjectName(metric.prettyPrint());
+			internal = internal.replaceAll("'", "");
+			internal = internal.replaceAll("\\(", "_");
+			internal = internal.replaceAll("\\)", "");
+			//
+			Column col = new Column();
+			col.setName(internal);
+			col.setDescription(metric.prettyPrint());
+			ExtendedType ext = metric.computeType(skin);
+			// handle the imageDomain to avoid metaInformation
+			IDomain image = metric.getImageDomain();
+			if (image.isInstanceOf(IDomain.META)) {
+				image = ((IDomainMetaDomain)image).getSubdomain();
+			}
+			col.setType(new ExtendedType(image, ext));
+			col.setTable(materialized);
+			materialized.addColumn(col);
+		}
+		//
+		return materialized;
 	}
 	
 	private boolean includeColumnAsDimension(Column col) {
@@ -1055,7 +1255,7 @@ public class DynamicManager {
     }
 
 	private String normalizeObjectName(String name) {
-		return WordUtils.capitalizeFully(name,' ','-','_').replace('-',' ').replace('_', ' ');
+		return WordUtils.capitalizeFully(name,' ','-','_').replace('-',' ').replace('_', ' ').trim();
 	}
     
     public String digest(String data) {
