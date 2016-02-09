@@ -122,6 +122,7 @@ public class QueryWorkerServer implements IQueryWorkerServer {
 
 			RawMatrixStreamExecRes serializedRes = RawMatrix.streamExecutionItemToByteArray(res, maxRecords, limit);
 			if (serializedRes.isDone()){
+				logger.info("The whole result set fits in one Redis chunk") ;
 				ok = redis.put(k, serializedRes.getStreamedMatrix()) ;
 				if (!ok) {
 					throw new RedisCacheException("We did not manage to store the result for query " + SQLQuery + "in redis");
@@ -129,7 +130,8 @@ public class QueryWorkerServer implements IQueryWorkerServer {
 			}else{
 
 				RedisCacheValuesList valuesList  = new RedisCacheValuesList() ;
-				// store first batch		
+				// store first batch	
+				int nbBatches = 1;
 
 				do{
 					int batchLowerBound = 0 ;
@@ -137,11 +139,19 @@ public class QueryWorkerServer implements IQueryWorkerServer {
 					String batchKey = k+"_"+batchLowerBound + "-" + batchUpperBound;
 
 					ok  = redis.put(batchKey, serializedRes.getStreamedMatrix());
+					if (!ok) {
+						throw new RedisCacheException("We did not manage to store the result for query " + SQLQuery + "in redis");
+					}
 					valuesList.addReferenceKey(batchKey);
-					return this.redis.put(k, valuesList.serialize());
-					
+					this.redis.put(k, valuesList.serialize());
 				}
 				while( !serializedRes.isDone());
+
+				valuesList.setDone(true);
+				this.redis.put(k, valuesList.serialize());
+
+				logger.info("The  result set was split into " + nbBatches + " Redis chunks") ;
+
 			}
 			
 		} catch (ExecutionException e){
