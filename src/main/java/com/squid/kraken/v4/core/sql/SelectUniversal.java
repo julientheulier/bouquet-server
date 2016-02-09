@@ -24,9 +24,10 @@
 package com.squid.kraken.v4.core.sql;
 
 import java.util.HashMap;
-import java.util.Map.Entry;
+import java.util.concurrent.ExecutionException;
 
 import com.squid.core.database.impl.DatabaseServiceException;
+import com.squid.core.database.model.Column;
 import com.squid.core.database.model.Table;
 import com.squid.core.domain.IDomain;
 import com.squid.core.domain.aggregate.AggregateDomain;
@@ -36,6 +37,7 @@ import com.squid.core.expression.Compose;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.ExpressionRef;
 import com.squid.core.expression.reference.Cardinality;
+import com.squid.core.expression.reference.ColumnReference;
 import com.squid.core.expression.reference.RelationDirection;
 import com.squid.core.expression.scope.ExpressionMaker;
 import com.squid.core.expression.scope.ScopeException;
@@ -57,9 +59,12 @@ import com.squid.core.sql.render.OrderByPiece;
 import com.squid.core.sql.render.RenderingException;
 import com.squid.core.sql.render.SQLSkin;
 import com.squid.core.sql.render.SelectPiece;
+import com.squid.core.sql.render.SubSelectReferencePiece;
 import com.squid.core.sql.render.WherePiece;
 import com.squid.core.sql.render.groupby.IGroupByPiece;
 import com.squid.core.sql.statements.SelectStatement;
+import com.squid.kraken.v4.core.analysis.engine.project.DynamicColumn;
+import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
 import com.squid.kraken.v4.core.analysis.scope.SpaceExpression;
 import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
@@ -372,24 +377,39 @@ public class SelectUniversal extends PieceCreator {
 				ExpressionAST subject = getUniverse().getParser().parse(domain);
 				if (subject instanceof QueryExpression) {
 					QueryExpression query = (QueryExpression)subject;
-					// let's have fun
-					SelectUniversal subselect = new SelectUniversal(this, getScope());
+					// let's have fun...
+					// look for the table
+					Space space = getUniverse().S(domain);
+					table = ProjectManager.INSTANCE.getDomainContent(space).getTable();
+					// for now we will assume the table is always virtual
+					// first create the subselect
+					SelectUniversal subselect = new SelectUniversal(this);
 					subselect.from(subselect.getScope(), query.getSubject().getDomain());
+					FromSelectUniversal from = from(subselect);
+					// add filters if any (this is not encoded in the Table)
 					for (ExpressionAST filter : query.getFilters()) {
 						subselect.where(filter);
 					}
-					HashMap<ExpressionAST, ISelectPiece> mapping = new HashMap<>();
-					for (ExpressionAST facet : query.getFacets()) {
-						ISelectPiece piece = subselect.select(facet);
+					// now compute the virtual table by using the dynamicColumn's lineage
+					try {
+						for (Column col : table.getColumns()) {
+							// the column should be a DynamicColumn
+							if (col instanceof DynamicColumn) {
+								DynamicColumn dyn = (DynamicColumn)col;
+								ISelectPiece piece = subselect.select(dyn.getLineage(), dyn.getName());
+								// map the definition in the outer scope
+								SubSelectReferencePiece ref = new SubSelectReferencePiece(from, piece);
+								ColumnReference colref = new ColumnReference(col);
+								getScope().put(colref, ref);// not the right handler, should be the table's column
+							} else {
+								// error...
+							}
+						}
+					} catch (ExecutionException e) {
+						// won't happen
 					}
-					for (ExpressionAST metric : query.getMetrics()) {
-						ISelectPiece piece = subselect.select(metric);
-					}
-					FromSelectUniversal from = from(subselect);
-					// mapp in the main scope
-					for (Entry<ExpressionAST, ISelectPiece> entry : mapping.entrySet()) {
-						
-					}
+					parent.put(domain, from);
+					parent.put(table, from);
 					return from;
 				} else {
 					throw new SQLScopeException("unsupported subject for domain '"+domain.getName()+"': "+domain.getSubject().getValue());
