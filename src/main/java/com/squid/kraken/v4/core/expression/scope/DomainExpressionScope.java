@@ -44,6 +44,7 @@ import com.squid.kraken.v4.core.expression.scope.DomainExpressionScope;
 import com.squid.core.expression.scope.ExpressionScope;
 import com.squid.core.expression.scope.IdentifierType;
 import com.squid.core.expression.scope.ScopeException;
+import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainContent;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.core.analysis.engine.project.DynamicManager;
 import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
@@ -78,7 +79,8 @@ public class DomainExpressionScope extends DefaultScope {
 	private Space space = null;
 
 	private Domain domain = null;
-	private Table table = null;
+	private Table tablex = null;
+	private boolean tableError = false;
 	
 	private Universe universe;
 	
@@ -114,8 +116,8 @@ public class DomainExpressionScope extends DefaultScope {
 		} else {
 			this.space = universe.S(domain);
 		}
-		// get the mapping
-		this.table  = lookupTable(domain);
+		// get the mapping... latter
+		this.tablex = null;
 	}
 
 	public DomainExpressionScope(Universe universe, Domain domain, Space space, boolean restrictedScope) throws ScopeException {
@@ -159,13 +161,38 @@ public class DomainExpressionScope extends DefaultScope {
 	protected Domain getDomain() {
 		return domain;
 	}
+	
+	protected Table getTable() {
+		if (this.tablex==null && !this.tableError) {
+			try {
+				this.tablex = lookupTable(this.space);
+			} catch (ScopeException e) {
+				this.tableError = true;
+			}
+		}
+		// else
+		return this.tablex;
+	}
 
-	private Table lookupTable(Domain domain) throws ScopeException {
+	private Table lookupTable(Space space) throws ScopeException {
+		Domain domain = space.getDomain();
 		// if the domain subject() is not defined, set the table to null - this is needed for testing
 		if (domain.getSubject()==null || domain.getSubject().getValue()==null) {
 			return null;
 		}
-		return universe.getTableSafe(domain);
+		try {
+			return universe.getTable(domain);
+		} catch (ScopeException e) {
+			if (this.scope==null) {
+				// only do that if not building the content...
+				DomainContent content = ProjectManager.INSTANCE.getDomainContent(space);
+				if (content.getTable()!=null) {
+					return content.getTable();
+				}
+			}
+			// else
+			throw e;
+		}
 	}
 
 	@Override
@@ -206,15 +233,15 @@ public class DomainExpressionScope extends DefaultScope {
 	public Object lookupObject(IdentifierType identifierType, String identifier) throws ScopeException {
 		//
 		// lookup a column if it is prefixed with #
-		if (identifierType==IdentifierType.COLUMN && table!=null) {
+		if (identifierType==IdentifierType.COLUMN && getTable()!=null) {
 			//
 			try {
-				for (Column c : this.table.getColumns()) {
+				for (Column c : this.getTable().getColumns()) {
 					if (identifier.equals(c.getName())) {
 						return c;
 					}
 				}
-				throw new ScopeException("cannot lookup column '"+identifier+"' in table "+table.toString());
+				throw new ScopeException("cannot lookup column '"+identifier+"' in table "+getTable().toString());
 			} catch (ExecutionException e) {
 				throw new ScopeException("failed to lookup column '"+identifier+"'", e);
 			}
@@ -289,9 +316,9 @@ public class DomainExpressionScope extends DefaultScope {
 		}
 		//
 		// legacy: still lookup column
-		if (table!=null && identifierType==IdentifierType.DEFAULT) {
+		if (getTable()!=null && identifierType==IdentifierType.DEFAULT) {
 			try {
-				for (Column c : this.table.getColumns()) {
+				for (Column c : this.getTable().getColumns()) {
 					if (identifier.equals(c.getName())) {
 						return c;
 					}
@@ -441,10 +468,10 @@ public class DomainExpressionScope extends DefaultScope {
 			content.addAll(getMetrics(true));
 			//
 			// add columns
-			if (table!=null && space.getParent()==null) {// list columns only for the home domain
+			if (getTable()!=null && space.getParent()==null) {// list columns only for the home domain
 				try {
 					String prefix = "dyn_"+getSpace().getDomain().getId().toUUID()+"_dimension:";
-					for (Column col : table.getColumns()) {
+					for (Column col : getTable().getColumns()) {
 						ColumnReference ref = new ColumnReference(col);
 						String id = DynamicManager.INSTANCE.digest(prefix+ref.prettyPrint());
 						if (!digest.contains(id)) {
@@ -466,9 +493,9 @@ public class DomainExpressionScope extends DefaultScope {
 			}
 		} else {
 			// list the columns if : editing this domain directly, or the domain is dynamic
-			if (table!=null && (space.getParent()==null || space.getDomain().isDynamic())) {// list columns only for the home domain
+			if (getTable()!=null && (space.getParent()==null || space.getDomain().isDynamic())) {// list columns only for the home domain
 				try {
-					content.addAll(table.getColumns());
+					content.addAll(getTable().getColumns());
 				} catch (ExecutionException e) {
 					//ignore
 				}
