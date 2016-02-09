@@ -139,6 +139,10 @@ public class ProjectDynamicContent {
 		if (old==null) sync.countDown();
 	}
 	
+	protected DomainContent getDomainContent(DomainPK id) {
+		return this.domainContentManager.getDomainContent(id);
+	}
+	
 	public DomainContent getDomainContent(Space space) {
 		return this.domainContentManager.getDomainContent(space);
 	}
