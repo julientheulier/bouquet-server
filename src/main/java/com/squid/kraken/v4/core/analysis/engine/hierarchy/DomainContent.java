@@ -23,13 +23,17 @@
  *******************************************************************************/
 package com.squid.kraken.v4.core.analysis.engine.hierarchy;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
+import com.squid.core.database.model.Table;
 import com.squid.kraken.v4.caching.awsredis.RedisCacheManager;
 import com.squid.kraken.v4.caching.awsredis.generationalkeysserver.RedisKey;
 import com.squid.kraken.v4.model.Dimension;
 import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.Metric;
+import com.squid.kraken.v4.model.Relation;
 
 /**
  * The DomainContent class handles the list of DImensions & Metrics for the Domain
@@ -39,9 +43,13 @@ import com.squid.kraken.v4.model.Metric;
 public class DomainContent {
 	
     private RedisKey genKey;
+    
+    private Table table = null;// for now the Table is used when the domain is defined by a QueryExpression
 	
 	private List<Dimension> dimensions = null;
 	private List<Metric> metrics = null;
+	
+	private List<Relation> relations = null;// allow to define relations locally
 
 	public DomainContent(Domain domain, List<Dimension> dimensions, List<Metric> metrics) {
 		super();
@@ -64,6 +72,25 @@ public class DomainContent {
 	
 	public boolean add(Metric metric) {
 		return metrics.add(metric);
+	}
+	
+	public void setTable(Table table) {
+		this.table = table;
+	}
+	
+	public Table getTable() {
+		return table;
+	}
+	
+	public List<Relation> getRelations() {
+		return relations==null?Collections.<Relation>emptyList():relations;
+	}
+	
+	public void add(Relation relation) {
+		if (relations==null) {
+			relations = new ArrayList<>();
+		}
+		relations.add(relation);
 	}
 	
 	public boolean isValid() {
