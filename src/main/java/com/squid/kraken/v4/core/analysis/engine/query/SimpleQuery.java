@@ -44,6 +44,7 @@ import com.squid.core.expression.ExpressionRef;
 import com.squid.core.expression.Operator;
 import com.squid.core.expression.reference.ColumnReference;
 import com.squid.core.expression.reference.ForeignKeyReference;
+import com.squid.core.expression.reference.RelationDirection;
 import com.squid.core.expression.scope.ExpressionMaker;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.core.sql.model.SQLScopeException;
@@ -53,7 +54,6 @@ import com.squid.core.sql.render.IPiece;
 import com.squid.core.sql.render.ISelectPiece;
 import com.squid.core.sql.render.IWherePiece;
 import com.squid.core.sql.render.OperatorPiece;
-import com.squid.core.sql.render.RenderingException;
 import com.squid.core.sql.render.SubSelectReferencePiece;
 import com.squid.core.sql.render.WherePiece;
 import com.squid.core.sql.statements.FromSelectStatementPiece;
@@ -171,9 +171,8 @@ public class SimpleQuery extends BaseQuery {
 	
 	private ExpressionAST extractRelation(Axis axis, ExpressionAST expr) throws ScopeException, SQLScopeException {
 		if (expr instanceof RelationReference) {
-			Relation rel = ((RelationReference)expr).getRelation();
-			Column exported = getExportedKey(axis, rel);
-			return new ColumnReference(exported);
+			RelationReference ref = (RelationReference)expr;
+			return getExportedKey(axis, ref);
 		} if (expr instanceof Compose) {
 			Compose compose = (Compose)expr;
 			ExpressionAST exported = extractRelation(axis, compose.getHead());
@@ -183,19 +182,38 @@ public class SimpleQuery extends BaseQuery {
 		}
 	}
 	
-	private Column getExportedKey(Axis axis, Relation rel) throws ScopeException, SQLScopeException {
+	private ExpressionAST getExportedKey(Axis axis, RelationReference ref) throws ScopeException, SQLScopeException {
+		Relation rel = ref.getRelation();
 		ExpressionAST join = axis.getParent().getUniverse().getParser().parse(rel);
 		if (join instanceof ForeignKeyReference) {
 			ForeignKey fk = ((ForeignKeyReference)join).getForeignKey();
-			if (fk.getKeys().size()!=1) {
-				throw new SQLScopeException("Domain dimension not supported: "+axis.getName());
+			if (fk.getKeys().isEmpty()) {
+				throw new SQLScopeException("Domain dimension not supported (no key): "+axis.getName());
+			} else if (fk.getKeys().size()!=1) {
+				throw new SQLScopeException("Domain dimension not supported (composite-key): "+axis.getName());
 			}
 			KeyPair first = fk.getKeys().get(0);
-			Column exported = first.getExported();
-			return exported;
+			if (ref.getDirection()==RelationDirection.LEFT_TO_RIGHT) {
+				return new ColumnReference(first.getExported());
+			} else {
+				return new ColumnReference(first.getPrimary());
+			}
 		} else {
-			// need to try harder...
-			throw new SQLScopeException("Domain dimension not supported: "+axis.getName());
+			ExtractVariables visitor = new ExtractVariables();
+			List<ExpressionAST> variables = visitor.apply(join);
+			List<ExpressionAST> filterBySourceDomain = new ArrayList<>();
+			for (ExpressionAST variable : variables) {
+				if (variable.getSourceDomain().equals(ref.getSourceDomain())) {
+					filterBySourceDomain.add(variable);
+				}
+			}
+			if (filterBySourceDomain.isEmpty()) {
+				throw new SQLScopeException("Domain dimension not supported (cannot figure out the exported key): "+axis.getName());
+			} else if (filterBySourceDomain.size()>1) {
+				throw new SQLScopeException("Domain dimension not supported (composite-key): "+axis.getName());
+			} else {
+				return filterBySourceDomain.get(0);
+			}
 		}
 	}
 	
