@@ -38,7 +38,7 @@
         <entry key="signup.email.bcc">api-support@yourdomain.com</entry>
 
         <!-- 
-		Bouquet Auth endpoint (used by swagger.json)
+		Bouquet Auth endpoint
 		-->
 		<entry key="kraken.oauth.endpoint">http://localhost:8080/admin/auth/oauth</entry>
         
