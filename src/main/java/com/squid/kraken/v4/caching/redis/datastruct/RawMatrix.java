@@ -494,7 +494,7 @@ public class RawMatrix extends RedisCacheValue {
 
             kout.close();
 
-            res.setDone(!moreData);
+         
             res.setExecutionTime(metter_finish-metter_start);
             res.setNbLines(count);
             res.setStreamedMatrix( baout.toByteArray());

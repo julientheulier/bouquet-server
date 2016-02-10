@@ -121,13 +121,30 @@ public class QueryWorkerServer implements IQueryWorkerServer {
 			res = db.executeQuery(SQLQuery);
 
 			RawMatrixStreamExecRes serializedRes = RawMatrix.streamExecutionItemToByteArray(res, maxRecords, limit);
-			if (serializedRes.isDone()){
+			boolean isDone ;
+			if ( (limit>-1) ){
+				// preview
+				if  (serializedRes.getNbLines() <= limit){
+					isDone = true;
+				}
+				else{
+					isDone = false;
+				}					
+			}else{
+				//export
+				
+				
+				isDone= false;
+			}
+			
+//			if (serializedRes.isDone()){
 				logger.info("The whole result set fits in one Redis chunk") ;
 				ok = redis.put(k, serializedRes.getStreamedMatrix()) ;
 				if (!ok) {
 					throw new RedisCacheException("We did not manage to store the result for query " + SQLQuery + "in redis");
 				}
-			}else{
+/*			}else{
+				logger.info("not done");
 
 				RedisCacheValuesList valuesList  = new RedisCacheValuesList() ;
 				// store first batch	
@@ -153,7 +170,7 @@ public class QueryWorkerServer implements IQueryWorkerServer {
 				logger.info("The  result set was split into " + nbBatches + " Redis chunks") ;
 
 			}
-			
+*/			
 		} catch (ExecutionException e){
 			throw new RedisCacheException("Database Service exception for " + RSjdbcURL + " while executing the Query: "+e.getLocalizedMessage(), e) ;
 		} catch( SQLException | IOException e) {
