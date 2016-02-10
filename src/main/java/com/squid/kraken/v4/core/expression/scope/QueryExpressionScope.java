@@ -63,7 +63,7 @@ public class QueryExpressionScope extends DomainExpressionScope {
 	private QueryExpression createAnalysisExpression(ExpressionAST first, Token operator) throws ScopeException {
 		if (first instanceof DomainReference) {
 			DomainReference ref = (DomainReference)first;
-			return new QueryExpression(getUniverse(), ref.getDomain());
+			return new QueryExpression(ref);
 		} else if (first instanceof QueryExpression) {
 			return (QueryExpression)first;
 		} else {
