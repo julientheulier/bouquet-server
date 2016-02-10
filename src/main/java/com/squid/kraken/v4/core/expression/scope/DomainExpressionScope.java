@@ -258,7 +258,9 @@ public class DomainExpressionScope extends DefaultScope {
 				}
 			} else {
 				RelationPK relPk = new RelationPK(universe.getProject().getId(), identifier);
-				Relation rel = ProjectManager.INSTANCE.findRelation(universe.getContext(), relPk);
+				Relation rel = 
+						ProjectManager.INSTANCE.findRelation(
+								universe.getContext(), domain.getId(), relPk);
 				if (rel!=null) {
 					return rel;
 				}
