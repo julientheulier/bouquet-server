@@ -176,7 +176,8 @@ public class DomainFacetCompute extends FacetBuilder {
             String filter, int offset, int size) {
         //
     	try {
-	        List<DimensionMember> values = populateDimensionFacets(index, sel, filter, offset, size+1);
+    		Status status = index.getStatus();// copy the status now to avoid race-conditions?
+    		List<DimensionMember> values = populateDimensionFacets(index, sel, filter, offset, size+1);
 	        boolean hasMore = values.size()>size;
 	        if (hasMore) {
 	            values = values.subList(0, size);
@@ -185,10 +186,10 @@ public class DomainFacetCompute extends FacetBuilder {
 	        if (hasMore) {
 	            facet.setHasMore(true);
 	        }
-	        if (index.getStatus()==Status.STALE) {
+	        if (status==Status.STALE) {
 	            facet.setDone(false);
 	        }
-	        if (index.getStatus()==Status.ERROR) {
+	        if (status==Status.ERROR) {
 	            facet.setError(true);
 	            facet.setErrorMessage(index.getErrorMessage());
 	        }
