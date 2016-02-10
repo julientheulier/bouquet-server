@@ -237,18 +237,24 @@ public class ProjectManager {
 	public List<Relation> getRelation(AppContext ctx, DomainPK domainPK) throws ScopeException {
 		ProjectDynamicContent domains = getProjectContent(ctx, domainPK.getParent());
 		List<Relation> rels = domains.getRelations();
-		if (rels==null) {
-			// handle the race-condition
-			return Collections.emptyList();
-		} else {
-			List<Relation> filter = new ArrayList<Relation>();
+		List<Relation> filter = new ArrayList<Relation>();
+		if (rels!=null) {
 			for (Relation rel : rels) {
 				if (rel.getDirection(domainPK)!=RelationDirection.NO_WAY && hasRole(ctx, rel)) {
 					filter.add(cloneWithRole(ctx, rel));
 				}
 			}
-			return filter;
 		}
+		// let's check if the relation is defined locally only
+		DomainContent content = domains.getDomainContent(domainPK);
+		if (content!=null) {
+			for (Relation rel : content.getRelations()) {
+				if (rel.getDirection(domainPK)!=RelationDirection.NO_WAY && hasRole(ctx, rel)) {
+					filter.add(cloneWithRole(ctx, rel));
+				}
+			}
+		}
+		return filter;
 	}
 
 	/**
@@ -262,28 +268,25 @@ public class ProjectManager {
 	public Relation getRelation(AppContext ctx, DomainPK domainPK, String name) throws ScopeException {
 		ProjectDynamicContent domains = getProjectContent(ctx, domainPK.getParent());
 		List<Relation> rels = domains.getRelations();
-		if (rels==null) {
-			// handle the race-condition
-			return null;
-		} else {
+		if (rels!=null) {
 			for (Relation rel : rels) {
 				Relation check = checkRelationByNameSource(ctx, name, rel, domainPK);
 				if (check!=null) {
 					return check;
 				}
 			}
-			// let's check if the relation is defined locally only
-			DomainContent content = domains.getDomainContent(domainPK);
-			if (content!=null) {
-				for (Relation rel : content.getRelations()) {
-					Relation check = checkRelationByNameSource(ctx, name, rel, domainPK);
-					if (check!=null) {
-						return check;
-					}
+		}
+		// let's check if the relation is defined locally only
+		DomainContent content = domains.getDomainContent(domainPK);
+		if (content!=null) {
+			for (Relation rel : content.getRelations()) {
+				Relation check = checkRelationByNameSource(ctx, name, rel, domainPK);
+				if (check!=null) {
+					return check;
 				}
 			}
-			return null;
 		}
+		return null;
 	}
 	
 	private Relation checkRelationByNameSource(AppContext ctx, String name, Relation rel, DomainPK sourceId) {
@@ -342,6 +345,32 @@ public class ProjectManager {
 		return null;
 	}
 	
+	public Relation findRelation(AppContext ctx, DomainPK domainPk, RelationPK relationPk) throws ScopeException {
+		if (relationPk.getCustomerId()==null) {
+			relationPk.setCustomerId(ctx.getCustomerId());// why ???
+		}
+		ProjectDynamicContent domains = getProjectContent(ctx, relationPk.getParent());
+		{
+			Relation rel = domains.get(relationPk);
+			if (rel!=null) {
+				checkRole(ctx, rel);
+				return cloneWithRole(ctx, rel);
+			}
+		}
+		// else try the DomainContent
+		DomainContent content = domains.getDomainContent(domainPk);
+		if (content!=null) {
+			for (Relation rel : content.getRelations()) {
+				if (rel.getId().equals(relationPk)) {
+					checkRole(ctx, rel);
+					return cloneWithRole(ctx, rel);
+				}
+			}
+		}
+		// else
+		return null;
+	}
+	
 	/**
 	 * get the cartography for the given project
 	 * @param ctx
@@ -360,6 +389,11 @@ public class ProjectManager {
 	public DomainContent getDomainContent(Space space) throws ScopeException {
 		ProjectDynamicContent content = getProjectContent(space.getUniverse());
 		return content.getDomainContent(space);
+	}
+	
+	public Table getTable(Space space) throws ScopeException {
+		DomainContent content = getDomainContent(space);
+		return content.getTable();
 	}
 
 	/**
@@ -409,14 +443,14 @@ public class ProjectManager {
 	 * refresh a domain (and the project domain list)
 	 * @param domainId
 	 */
-	public void refreshDomain(DomainPK domainPk){
+	public void refreshDomain(DomainPK domainPk) {
 		ProjectPK projectPk = new ProjectPK(domainPk.getCustomerId(),
 				domainPk.getProjectId());
 
 		RedisCacheManager.getInstance().refresh(domainPk.toUUID(), projectPk.toUUID()+"/domains");
 	}
 
-	public void refreshDomain(DomainPK domainPk, ArrayList<DomainPK> domains){
+	public void refreshDomain(DomainPK domainPk, ArrayList<DomainPK> domains) {
 		ProjectPK projectPk = new ProjectPK(domainPk.getCustomerId(),
 				domainPk.getProjectId());
 
