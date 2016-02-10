@@ -399,7 +399,7 @@ public class Space {
 	}
 	
 	protected Space relink(Space space) throws ScopeException {
-		if (space.getDomain().equals(getDomain())) {
+		if (space.getParent()==null && space.getDomain().equals(getDomain())) {//T830:beware the self join
 			return this;
 		} else if (space.getParent()==null) {
 			throw new ScopeException("cannot relink that space");
