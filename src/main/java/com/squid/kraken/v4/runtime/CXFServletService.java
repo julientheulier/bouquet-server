@@ -105,10 +105,11 @@ public class CXFServletService extends CXFNonSpringJaxrsServlet {
 
 		long ts_end = System.currentTimeMillis();
 		
-		logger.info("  _                 _                         ");
-		logger.info(" / \\ ._   _  ._    |_)  _       _.      _ _|_ ");
-		logger.info(" \\_/ |_) (/_ | |   |_) (_) |_| (_| |_| (/_ |_ ");
-		logger.info("     |                           |            ");     
+		logger.info("\n"+
+		"  _                 _                         \n"
+		+" / \\ ._   _  ._    |_)  _       _.      _ _|_ \n"
+		+" \\_/ |_) (/_ | |   |_) (_) |_| (_| |_| (/_ |_ \n"
+		+"     |                           |            ");  
 
 		logger.info("Initialization complete in " + (ts_end - ts_start) + "ms");
 	}
