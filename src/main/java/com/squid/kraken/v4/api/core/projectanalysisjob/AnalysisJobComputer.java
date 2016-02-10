@@ -116,7 +116,7 @@ public class AnalysisJobComputer implements
 		// run the analysis
 		DataMatrix datamatrix = ComputingService.INSTANCE.glitterAnalysis(
 				analysis, null);
-		if (lazy || (datamatrix ==null)){
+		if (lazy && (datamatrix ==null)){
 			logger.info("Lazy Analysis, data not in cache");
 			return new DataTable();
 		}else{
