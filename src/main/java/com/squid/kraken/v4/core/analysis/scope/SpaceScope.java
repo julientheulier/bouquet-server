@@ -118,7 +118,11 @@ public class SpaceScope extends AnalysisScope {
             // relations
         	{
 	        	RelationPK relationPk = new RelationPK(this.space.getUniverse().getProject().getId(), name);
-	        	Relation relation = ProjectManager.INSTANCE.findRelation(space.getUniverse().getContext(), relationPk);
+	        	Relation relation = 
+	        			ProjectManager.INSTANCE.findRelation(
+	        					space.getUniverse().getContext(), 
+	        					space.getDomain().getId(),
+	        					relationPk);
 	        	if (relation!=null) {
 	        		if (!space.isComposable(relation)) {
 	        			throw new ScopeException("cannot compose relation @'"+relation.getOid()+"' ("+relation.getLeftName()+"/"+relation.getRightName()+") with "+space.toString());
