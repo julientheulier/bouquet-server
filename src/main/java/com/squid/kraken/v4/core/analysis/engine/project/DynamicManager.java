@@ -57,6 +57,7 @@ import com.squid.core.domain.operators.ExtendedType;
 import com.squid.core.expression.Compose;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.ExpressionRef;
+import com.squid.core.expression.parser.ParseException;
 import com.squid.core.expression.reference.Cardinality;
 import com.squid.core.expression.reference.ColumnReference;
 import com.squid.core.expression.reference.ForeignKeyReference;
@@ -81,6 +82,7 @@ import com.squid.kraken.v4.core.expression.reference.ParameterReference;
 import com.squid.kraken.v4.core.expression.reference.QueryExpression;
 import com.squid.kraken.v4.core.expression.reference.RelationReference;
 import com.squid.kraken.v4.core.expression.visitor.ExtractColumns;
+import com.squid.kraken.v4.core.model.domain.DomainDomain;
 import com.squid.kraken.v4.model.AccessRight;
 import com.squid.kraken.v4.model.Dimension;
 import com.squid.kraken.v4.model.DimensionPK;
@@ -227,6 +229,65 @@ public class DynamicManager {
 			return Integer.compare(o1.getSubject().getLevel(), o2.getSubject().getLevel());
 		}
 		
+	}
+	
+	private Table getTable(Space space) throws ScopeException {
+		return getTable(space.getUniverse(), space.getDomain());
+	}
+
+	/**
+	 * return the underlying table by parsing the Domain definition.
+	 * This method supports parsing the QueryExpression, and in that case will return a DynamicTable; note however that the DynamicTable is not fully initialized.
+	 * 
+	 * 
+	 * note that this code was originally available from the universe. Now on the Universe will rely on the DomainContent information to retrieve the subject Table.
+	 * @return the Table or an exception if not well defined
+	 */
+	private Table getTable(Universe root, Domain domain) throws ScopeException {
+		try {
+			if(domain.getOptions() != null && domain.getOptions().getAlink()){
+				Domain toUseDomain = ProjectManager.INSTANCE.getDomain(root.getContext(), new DomainPK(root.getContext().getCustomerId(), domain.getOptions().getLinkSource()));
+				if (toUseDomain.getSubject() == null) {
+					throw new ScopeException("Cannot lookup table definition for domain '" + toUseDomain.getName() + "'");
+				}
+				ExpressionAST subject = root.getParser().parse(toUseDomain);
+				IDomain image = subject.getImageDomain();// it should return a TableProxy
+				Object adapt = image.getAdapter(Table.class);
+				if (adapt != null && adapt instanceof Table) {
+					return (Table) adapt;
+				} else {
+					throw new ScopeException("Cannot lookup table definition for domain '" + toUseDomain.getName() + "'");
+				}
+			}else {
+				if (domain.getSubject() == null) {
+					throw new ScopeException("Cannot lookup table definition for domain '" + domain.getName() + "'");
+				}
+				ExpressionAST subject = root.getParser().parse(domain);
+				IDomain image = subject.getImageDomain();
+				if (image.isInstanceOf(TableDomain.DOMAIN)) {
+					Object adapt = image.getAdapter(Table.class);
+					if (adapt != null && adapt instanceof Table) {
+						return (Table) adapt;
+					} else {
+						throw new ScopeException("Cannot interpret subject definition '"+domain.getSubject()+"' for domain '" + domain.getName() + "'");
+					}
+				} else if (image.isInstanceOf(DomainDomain.DOMAIN)) {
+					Object adapt = image.getAdapter(Domain.class);
+					if (adapt != null && adapt instanceof Domain) {
+						return getTable(root, (Domain)adapt);
+					} else {
+						throw new ScopeException("Cannot interpret subject definition '"+domain.getSubject()+"' for domain '" + domain.getName() + "'");
+					}
+				} else if (subject instanceof QueryExpression) {
+					// note that the DynamicTable is not yet initialized
+					return new DynamicTable((QueryExpression) subject);
+ 				} else {
+					throw new ScopeException("Cannot interpret subject definition '"+domain.getSubject()+"' for domain '" + domain.getName() + "'");
+				}
+			}
+		} catch (ParseException e) {
+			throw new ScopeException("Parsing error in table definition for domain '"+domain.getName()+"': "+e.getMessage());
+		}
 	}
 	
 	/**
@@ -571,11 +632,16 @@ public class DynamicManager {
         }
         //
         try {
-            // exclude keys
-        	HashSet<Column> keys = new HashSet<Column>();
-            // filter out the primary-key
-        	Table table = space.getTableSafe();
-        	if (table!=null) {
+        	// now it is time to use the underlying Table to populate the Domain
+        	Table table = getTable(space);
+        	if (!(table instanceof DynamicTable)) {
+        		// this is a regular Table
+        		//
+        		content.setTable(table);// register once
+        		//
+                // exclude keys
+            	HashSet<Column> keys = new HashSet<Column>();
+                // filter out the primary-key
 	            Index pk = table.getPrimaryKey();
 	            if (pk!=null) {
 	            	for (Column col : pk.getColumns()) {
@@ -700,16 +766,16 @@ public class DynamicManager {
 					}
 				}
         	} else {
-        		// no table mapping, maybe it is a QueryExpression
+        		// it is a DynamicTable
+        		DynamicTable materialized = (DynamicTable) table;
         		ExpressionAST subject = univ.getParser().parse(space.getDomain());
         		if (subject instanceof QueryExpression) {
         			QueryExpression query = (QueryExpression)subject;
         			if (query.getFacets().isEmpty() && query.getMetrics().isEmpty()) {
         				// not that fun, just copy the source domain dimension
-        				// TODO
+        				throw new ScopeException("Domain inheritence not yet supported");
         			} else {
-        				// let's create a table
-        				Table materialized = new TableImpl();
+        				// let's populate the table
         				//
         				// find a cool table name
         				{
@@ -771,7 +837,7 @@ public class DynamicManager {
 						    			if (!ids.contains(id.getDimensionId())) {
 							    			String name = ref.getReferenceName();
 							    			name = checkName(">"+name,checkName);
-							    			Dimension dim = new Dimension(id, name, Type.INDEX, new Expression(expr), true);
+							    			Dimension dim = new Dimension(id, name, Type.INDEX, new Expression(expr), false);
 											dim.setValueType(ValueType.OBJECT);
 											dim.setImageDomain(ref.getImageDomain());
 											AccessRightsUtils.getInstance().setAccessRights(univ.getContext(), dim, domain);
