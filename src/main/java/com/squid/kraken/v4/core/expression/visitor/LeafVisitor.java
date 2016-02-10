@@ -30,8 +30,10 @@ import com.squid.core.expression.Compose;
 import com.squid.core.expression.ConstantValue;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.ExpressionLeaf;
+import com.squid.core.expression.NullExpression;
 import com.squid.core.expression.Operator;
 import com.squid.core.expression.scope.ScopeException;
+import com.squid.kraken.v4.core.expression.reference.QueryExpression;
 
 /**
  * visit the leaves of an expression - that is it will ignore the compose path and only visit the head
@@ -47,15 +49,24 @@ public abstract class LeafVisitor<T> {
 		} else 
 		if (expression instanceof Compose) {
 			return visit((Compose)expression, value);
+		} else 
+		if (expression instanceof QueryExpression) {
+			return visit((QueryExpression)expression, value);
 		} else {
 			if (expression instanceof ConstantValue) {
 				return visit((ConstantValue)expression, value);
+			} else if (expression instanceof NullExpression) {
+				return visit((NullExpression)expression, value);
 			} else if (expression instanceof ExpressionLeaf) {
 				return visit((ExpressionLeaf)expression, value);
 			} else {
 				return value;
 			}
 		}
+	}
+	
+	protected T visit(NullExpression expr, T value) {
+		return value;
 	}
 	
 	protected T visit(ConstantValue constant, T value) {
@@ -68,6 +79,23 @@ public abstract class LeafVisitor<T> {
 	
 	protected T visit(Compose compose, T value) throws ScopeException {
 		return visit(compose.getHead(), value);
+	}
+	
+	protected T visit(QueryExpression query, T value) throws ScopeException {
+		ArrayList<T> map = new ArrayList<T>();
+		for (ExpressionAST argument : flatten(query)) {
+			map.add(visit(argument, value));
+		}
+		return reduce(map);
+	}
+
+	protected List<ExpressionAST> flatten(QueryExpression query) {
+		List<ExpressionAST> flatten = new ArrayList<>();
+		flatten.add(query.getSubject());
+		flatten.addAll(query.getFacets());
+		flatten.addAll(query.getMetrics());
+		flatten.addAll(query.getFilters());
+		return flatten;
 	}
 
 	protected T visit(Operator operator, T value) throws ScopeException {

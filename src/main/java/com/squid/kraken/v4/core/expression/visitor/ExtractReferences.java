@@ -31,21 +31,17 @@ import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.ExpressionLeaf;
 import com.squid.core.expression.ExpressionRef;
 import com.squid.core.expression.scope.ScopeException;
-import com.squid.kraken.v4.core.expression.reference.QueryExpression;
 
+/**
+ * extract every references from the expression
+ * @author sergefantino
+ *
+ */
 public class ExtractReferences extends LeafVisitor<List<ExpressionRef>> {
 
 	public List<ExpressionRef> apply(ExpressionAST expression) throws ScopeException {
 		ArrayList<ExpressionRef> result = new ArrayList<ExpressionRef>();
 		visit(expression,result);
-		return result;
-	}
-
-	public List<ExpressionRef> apply(List<ExpressionAST> expressions) throws ScopeException {
-		ArrayList<ExpressionRef> result = new ArrayList<ExpressionRef>();
-		for (ExpressionAST expression : expressions) {
-			visit(expression,result);
-		}
 		return result;
 	}
 	
@@ -54,14 +50,6 @@ public class ExtractReferences extends LeafVisitor<List<ExpressionRef>> {
 		if (leaf instanceof ExpressionRef) {
 			ExpressionRef ref = (ExpressionRef)leaf;
 			value.add(ref);
-			return value;
-		} else if (leaf instanceof QueryExpression) {
-			// for now we need a special case to handle it
-			QueryExpression exp = (QueryExpression)leaf;
-			value.add(exp.getSubject());
-			if (!exp.getFilters().isEmpty()) value.addAll(apply(exp.getFilters()));
-			if (!exp.getFacets().isEmpty()) value.addAll(apply(exp.getFacets()));
-			if (!exp.getMetrics().isEmpty()) value.addAll(apply(exp.getMetrics()));
 			return value;
 		} else {
 			return value;
