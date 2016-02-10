@@ -280,8 +280,10 @@ public class AccessRightsUtils {
 	 */
 	public void setAccessRights(AppContext ctx, Persistent<?> target,
 			Persistent<?> parent) {
+		// target object is only visible from this thread so we can safely modify its properties
 		Set<AccessRight> accessRights = target.getAccessRights();
-		Set<AccessRight> parentAccessRights = parent.getAccessRights();
+		// parent object may be shared with the Universe - do not alter, us a copy
+		Set<AccessRight> parentAccessRights = new HashSet<>(parent.getAccessRights());
 		User currentUser = ctx.getUser();
 		// add the current user as owner (if not super user)
 		if (!currentUser.isSuperUser()) {

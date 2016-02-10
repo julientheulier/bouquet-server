@@ -84,7 +84,7 @@ public class DomainHierarchyQueryGenerator {
 	 * 
 	 */
 	public List<HierarchyQuery> prepareQueries() throws ScopeException,
-			SQLScopeException, ExecutionException {
+			SQLScopeException {
 		return prepareQueries(hierarchy.getRoot(), hierarchy.getStructure());
 	}
 
@@ -102,7 +102,7 @@ public class DomainHierarchyQueryGenerator {
 	 */
 	protected List<HierarchyQuery> prepareQueries(Space space,
 			List<List<DimensionIndex>> hierarchies) throws ScopeException,
-			SQLScopeException, ExecutionException {
+			SQLScopeException {
 		ArrayList<HierarchyQuery> queries = new ArrayList<HierarchyQuery>();
 		HierarchyQuery main_query = null;
 		HierarchyQuery continuous_query = null;
@@ -263,90 +263,94 @@ public class DomainHierarchyQueryGenerator {
 	 * database statistic
 	 * 
 	 * @param root
-	 * @return
+	 * @return an IntervalObject or null if no statistics available
 	 * @throws ScopeException
 	 * @throws DatabaseServiceException
 	 */
 	protected IntervalleObject computeContinuousStatistic(DimensionIndex root)
-			throws ScopeException, ExecutionException {
-		ExpressionAST def = root.getAxis().getDefinition();
-		if (def instanceof ColumnReference) {
-			Column column = ((ColumnReference) def).getColumn();
-			Universe universe = root.getAxis().getParent().getUniverse();
-			DatasourceDefinition ds = DatabaseServiceImpl.INSTANCE
-					.getDatasourceDefinition(universe.getProject());
-			IDatabaseStatistics stats = ds.getStatistics();
-			if (stats != null) {
-				if (stats.isPartitionTable(column.getTable())) {
-					// if the table is partitioned, apply to each partition
-					PartitionInfo partition = stats.getPartitionInfo(column
-							.getTable());
-					if (partition.isPartitionKey(column)) {
-						List<PartitionTable> partitions = partition
-								.getPartitionTables();
-						Comparable<?> lower = null;
-						Comparable<?> upper = null;
-						for (PartitionTable partitionTable : partitions) {
-							// using stats not working on GP for now
-							/*
-							 * Column partitionCol =
-							 * partitionTable.getTable().findColumnByName
-							 * (column.getName()); if (partitionCol!=null) {
-							 * ColumnStatistics colstats =
-							 * stats.getStatistics(partitionCol); if
-							 * (colstats!=null) { Object min =
-							 * colstats.getMin(); Object max =
-							 * colstats.getMax(); if (range==null) { range =
-							 * IntervalleObject.createInterval(min, max); } else
-							 * { range = IntervalleObject.merge(range,
-							 * IntervalleObject.createInterval(min, max)); } } }
-							 */
-							// check if the partition is empty
-							try {
-								ObjectStatistics tableStats = stats
-										.getStatistics(partitionTable
-												.getTable());
-								if (tableStats.getSize() > 0) {
-									Object min = partitionTable.getRangeStart();
-									Object max = partitionTable.getRangeEnd();
-									IntervalleObject range = IntervalleObject
-											.createInterval(min, max);
-									if (range != null) {
-										// compute the inner range of the
-										// partition
-										if (lower == null) {
-											lower = range.getUpperBound();
-										} else {
-											if (range.getUpperBound()
-													.compareTo(lower) < 0) {
+			throws ScopeException {
+		try {
+			ExpressionAST def = root.getAxis().getDefinition();
+			if (def instanceof ColumnReference) {
+				Column column = ((ColumnReference) def).getColumn();
+				Universe universe = root.getAxis().getParent().getUniverse();
+				DatasourceDefinition ds = DatabaseServiceImpl.INSTANCE
+						.getDatasourceDefinition(universe.getProject());
+				IDatabaseStatistics stats = ds.getStatistics();
+				if (stats != null) {
+					if (stats.isPartitionTable(column.getTable())) {
+						// if the table is partitioned, apply to each partition
+						PartitionInfo partition = stats.getPartitionInfo(column
+								.getTable());
+						if (partition.isPartitionKey(column)) {
+							List<PartitionTable> partitions = partition
+									.getPartitionTables();
+							Comparable<?> lower = null;
+							Comparable<?> upper = null;
+							for (PartitionTable partitionTable : partitions) {
+								// using stats not working on GP for now
+								/*
+								 * Column partitionCol =
+								 * partitionTable.getTable().findColumnByName
+								 * (column.getName()); if (partitionCol!=null) {
+								 * ColumnStatistics colstats =
+								 * stats.getStatistics(partitionCol); if
+								 * (colstats!=null) { Object min =
+								 * colstats.getMin(); Object max =
+								 * colstats.getMax(); if (range==null) { range =
+								 * IntervalleObject.createInterval(min, max); } else
+								 * { range = IntervalleObject.merge(range,
+								 * IntervalleObject.createInterval(min, max)); } } }
+								 */
+								// check if the partition is empty
+								try {
+									ObjectStatistics tableStats = stats
+											.getStatistics(partitionTable
+													.getTable());
+									if (tableStats.getSize() > 0) {
+										Object min = partitionTable.getRangeStart();
+										Object max = partitionTable.getRangeEnd();
+										IntervalleObject range = IntervalleObject
+												.createInterval(min, max);
+										if (range != null) {
+											// compute the inner range of the
+											// partition
+											if (lower == null) {
 												lower = range.getUpperBound();
+											} else {
+												if (range.getUpperBound()
+														.compareTo(lower) < 0) {
+													lower = range.getUpperBound();
+												}
 											}
-										}
-										if (upper == null) {
-											upper = range.getLowerBound();
-										} else {
-											if (range.getLowerBound()
-													.compareTo(upper) > 0) {
+											if (upper == null) {
 												upper = range.getLowerBound();
+											} else {
+												if (range.getLowerBound()
+														.compareTo(upper) > 0) {
+													upper = range.getLowerBound();
+												}
 											}
 										}
 									}
+								} catch (SQLException e) {
+									logger.warn(e.getMessage());
 								}
-							} catch (SQLException e) {
-								logger.warn(e.getMessage());
 							}
+							return IntervalleObject.createInterval(lower, upper);
 						}
-						return IntervalleObject.createInterval(lower, upper);
-					}
-				} else {
-					ColumnStatistics colstats = stats.getStatistics(column);
-					if (colstats != null) {
-						Object min = colstats.getMin();
-						Object max = colstats.getMax();
-						return IntervalleObject.createInterval(min, max);
+					} else {
+						ColumnStatistics colstats = stats.getStatistics(column);
+						if (colstats != null) {
+							Object min = colstats.getMin();
+							Object max = colstats.getMax();
+							return IntervalleObject.createInterval(min, max);
+						}
 					}
 				}
 			}
+		} catch (ExecutionException e) {
+			logger.error(e.getMessage());
 		}
 		// else
 		return null;

@@ -187,22 +187,34 @@ public class AnalysisCompute {
                 GroupByAxis groupBy2 = analysis.getGrouping().get(1);
                 Type type1 = groupBy1.getAxis().getDimensionType();
                 Type type2 = groupBy2.getAxis().getDimensionType();
-                if (type1==Type.CONTINUOUS && type2!=Type.CONTINUOUS) {// works for CAT & INDEX
+                if (type1==Type.CONTINUOUS 
+                		&& groupBy1.getAxis().getDefinition().getImageDomain().isInstanceOf(IDomain.TEMPORAL)
+                		&& type2!=Type.CONTINUOUS) {// works for CAT & INDEX
                     DashboardAnalysis copy = new DashboardAnalysis(analysis.getUniverse());
                     copy.add(group.getKPIs());
                     copy.add(groupBy2.getAxis(),groupBy2.isRollup());
                     copy.setSelection(analysis.getSelection());
                     for (OrderBy orderBy : analysis.getOrders()) {
+                    	if (orderBy.getExpression().equals(groupBy1.getAxis().getReference())) {
+                    		// do not use
+                    		return null;
+                    	}
                         copy.orderBy(orderBy);
                     }
                     copy.limit(analysis.getLimit());
                     return copy;
-                } else if (type2==Type.CONTINUOUS && type1!=Type.CONTINUOUS) {
+                } else if (type2==Type.CONTINUOUS 
+                		&& groupBy2.getAxis().getDefinition().getImageDomain().isInstanceOf(IDomain.TEMPORAL)
+                		&& type1!=Type.CONTINUOUS) {
                     DashboardAnalysis copy = new DashboardAnalysis(analysis.getUniverse());
                     copy.add(group.getKPIs());
                     copy.add(groupBy1.getAxis(),groupBy1.isRollup());
                     copy.setSelection(analysis.getSelection());
                     for (OrderBy orderBy : analysis.getOrders()) {
+                    	if (orderBy.getExpression().equals(groupBy2.getAxis().getReference())) {
+                    		// do not use
+                    		return null;
+                    	}
                         copy.orderBy(orderBy);
                     }
                     copy.limit(analysis.getLimit());
@@ -489,6 +501,33 @@ public class AnalysisCompute {
 	}
 
 	protected SimpleQuery createOperatorKPIPopulateFilters(
+			DashboardAnalysis analysis, MeasureGroup group, boolean optimize,
+			DashboardSelection soft_filters, List<Axis> hidden_slice)
+			throws ScopeException, SQLScopeException, ComputingException,
+			InterruptedException {
+		Collection<Domain> domains = analysis.getAllDomains();
+		SimpleQuery query = genAnalysisQuery(analysis, domains, group, true,
+				optimize, soft_filters, hidden_slice);
+		return query;
+	}
+
+	/**
+	 * this is the magic version that tries to not apply the limit for n-variate time-series.
+	 * But the way it works is too magical (i.e. you can't predict the output) so it is disable for now.
+	 * We will look for a explicit way to achieve that magic, for instance by providing a way to define the LIMIT scope.
+	 * 
+	 * @param analysis
+	 * @param group
+	 * @param optimize
+	 * @param soft_filters
+	 * @param hidden_slice
+	 * @return
+	 * @throws ScopeException
+	 * @throws SQLScopeException
+	 * @throws ComputingException
+	 * @throws InterruptedException
+	 */
+	protected SimpleQuery createOperatorKPIPopulateFiltersWithMagic(
 			DashboardAnalysis analysis, MeasureGroup group, boolean optimize,
 			DashboardSelection soft_filters, List<Axis> hidden_slice)
 			throws ScopeException, SQLScopeException, ComputingException,
