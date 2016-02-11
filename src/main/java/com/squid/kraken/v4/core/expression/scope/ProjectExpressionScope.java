@@ -42,12 +42,21 @@ import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.api.core.AccessRightsUtils;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.kraken.v4.core.expression.reference.QueryExpression;
+import com.squid.kraken.v4.core.expression.reference.TableDomainReference;
 import com.squid.kraken.v4.core.expression.reference.DomainReference;
 import com.squid.kraken.v4.core.model.domain.DomainDomain;
 import com.squid.kraken.v4.model.AccessRight.Role;
 import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.ExpressionObject;
 
+/**
+ * The ProjectExpressionScope is used to parse the Domain's Subject.
+ * 
+ * The Domain subject can be a table reference, a domain reference, or a query expression (T821).
+ * 
+ * @author sergefantino
+ *
+ */
 public class ProjectExpressionScope extends DefaultScope {
 	
 	private Universe universe;
@@ -85,6 +94,14 @@ public class ProjectExpressionScope extends DefaultScope {
 			} else {
 				return new QueryExpressionScope(universe, ((DomainReference)expression).getDomain(), Collections.<ExpressionObject<?>>emptyList());
 			}
+		} else if (expression instanceof TableDomainReference) {
+			// if the reference is valid as both a Table or a Domain, decide now to cast it as a Domain because the parser is asking for a composable
+			Domain domain = ((TableDomainReference)expression).getDomain();
+			if (scope==null) {
+				return new QueryExpressionScope(universe, domain);
+			} else {
+				return new QueryExpressionScope(universe, domain, Collections.<ExpressionObject<?>>emptyList());
+			}
 		} else {
 			throw new ScopeException("cannot compose");
 		}
@@ -94,28 +111,42 @@ public class ProjectExpressionScope extends DefaultScope {
 	public Object lookupObject(IdentifierType identifierType, String identifier)
 			throws ScopeException {
 		//
-		// lookup for Domain
-		if (identifierType==null || identifierType==IdentifierType.DEFAULT) {
+		//lookup for table
+		Table table = null;
+		if (identifierType==IdentifierType.DEFAULT || identifierType==IdentifierType.TABLE) {
+			try {
+				table = universe.getTable(identifier);
+				if (table==null) {
+					throw new ScopeException("cannot lookup the table '"+identifier+"'");
+				}
+				if (identifierType==IdentifierType.TABLE) {
+					return table;
+				} else {
+					// maybe it can be also resolved as a domain
+				}
+			} catch (ExecutionException e) {
+				throw new ScopeException("cannot lookup the table '"+identifier+"'");
+			}
+		}
+		//
+		// lookup for Domain - mainly for supporting the T821
+		if (identifierType==IdentifierType.DEFAULT) {
 			for (Domain domain : getDomains()) {
 				if (domain.getName().equals(identifier)) {
-					if (self==null || self!=domain) {
-						return domain;
+					if (self==null || !self.equals(domain)) {
+						if (table!=null) {
+							// if it can be resolve as both a Table or a Domain, use a TableDomainReference and decide latter
+							return new TableDomainReference(table, domain);
+						} else {
+							return domain;
+						}
 					}
 				}
 			}
 		}
-		//
-		//lookup for table
-		if (identifierType==null || identifierType==IdentifierType.DEFAULT || identifierType==IdentifierType.TABLE) {
-			try {
-				Table table = universe.getTable(identifier);
-				if (table==null) {
-					throw new ScopeException("cannot lookup the table '"+identifier+"'");
-				}
-				return table;
-			} catch (ExecutionException e) {
-				throw new ScopeException("cannot lookup the table '"+identifier+"'");
-			}
+		// table ?
+		if (table!=null) {
+			return table;
 		}
 		//
 		// else
@@ -193,6 +224,12 @@ public class ProjectExpressionScope extends DefaultScope {
 		if (first instanceof DomainReference) {
 			DomainReference ref = (DomainReference)first;
 			return new QueryExpression(ref);
+		} else if (first instanceof TableDomainReference) {
+			TableDomainReference ref = (TableDomainReference)first;
+			// create a DomainReference
+			DomainReference domain = new DomainReference(universe, ref.getDomain());
+			domain.setTokenPosition(ref.getTokenPosition());// copy the token info
+			return new QueryExpression(domain);
 		} else if (first instanceof QueryExpression) {
 			return (QueryExpression)first;
 		} else {
