@@ -64,6 +64,7 @@ import com.squid.core.sql.render.WherePiece;
 import com.squid.core.sql.render.groupby.IGroupByPiece;
 import com.squid.core.sql.statements.SelectStatement;
 import com.squid.kraken.v4.core.analysis.engine.project.DynamicColumn;
+import com.squid.kraken.v4.core.analysis.engine.project.DynamicTable;
 import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
 import com.squid.kraken.v4.core.analysis.scope.SpaceExpression;
 import com.squid.kraken.v4.core.analysis.universe.Space;
@@ -369,7 +370,7 @@ public class SelectUniversal extends PieceCreator {
 		Object binding = parent.get(domain);
 		if (binding==null) {
 			Table table = getUniverse().getTableSafe(domain);
-			if (table!=null) {
+			if (!(table instanceof DynamicTable)) {
 				IFromPiece from = from(parent,domain,table);
 				parent.put(domain, from);
 				return from;
