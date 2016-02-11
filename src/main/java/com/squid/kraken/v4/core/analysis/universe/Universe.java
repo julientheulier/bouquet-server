@@ -27,12 +27,10 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import com.squid.core.database.domain.TableDomain;
 import com.squid.core.database.model.Table;
 import com.squid.core.domain.IDomain;
 import com.squid.core.expression.Compose;
 import com.squid.core.expression.ExpressionAST;
-import com.squid.core.expression.parser.ParseException;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.api.core.ServiceUtils;
 import com.squid.kraken.v4.core.analysis.engine.cartography.Cartography;
@@ -51,7 +49,6 @@ import com.squid.kraken.v4.core.model.domain.DomainDomain;
 import com.squid.kraken.v4.model.Dimension;
 import com.squid.kraken.v4.model.DimensionPK;
 import com.squid.kraken.v4.model.Domain;
-import com.squid.kraken.v4.model.DomainPK;
 import com.squid.kraken.v4.model.Metric;
 import com.squid.kraken.v4.model.Project;
 import com.squid.kraken.v4.persistence.AppContext;
@@ -100,47 +97,8 @@ public class Universe extends Physics {
 	 * @return the Table or an exception if not well defined
 	 */
 	public Table getTable(Domain domain) throws ScopeException {
-		try {
-			if(domain.getOptions() != null && domain.getOptions().getAlink()){
-				Domain toUseDomain = ProjectManager.INSTANCE.getDomain(getContext(), new DomainPK(getContext().getCustomerId(), domain.getOptions().getLinkSource()));
-				if (toUseDomain.getSubject() == null) {
-					throw new ScopeException("Cannot lookup table definition for domain '" + toUseDomain.getName() + "'");
-				}
-				ExpressionAST subject = getParser().parse(toUseDomain);
-				IDomain image = subject.getImageDomain();// it should return a TableProxy
-				Object adapt = image.getAdapter(Table.class);
-				if (adapt != null && adapt instanceof Table) {
-					return (Table) adapt;
-				} else {
-					throw new ScopeException("Cannot lookup table definition for domain '" + toUseDomain.getName() + "'");
-				}
-			}else {
-				if (domain.getSubject() == null) {
-					throw new ScopeException("Cannot lookup table definition for domain '" + domain.getName() + "'");
-				}
-				ExpressionAST subject = getParser().parse(domain);
-				IDomain image = subject.getImageDomain();
-				if (image.isInstanceOf(TableDomain.DOMAIN)) {
-					Object adapt = image.getAdapter(Table.class);
-					if (adapt != null && adapt instanceof Table) {
-						return (Table) adapt;
-					} else {
-						throw new ScopeException("Cannot interpret subject definition '"+domain.getSubject()+"' for domain '" + domain.getName() + "'");
-					}
-				} else if (image.isInstanceOf(DomainDomain.DOMAIN)) {
-					Object adapt = image.getAdapter(Domain.class);
-					if (adapt != null && adapt instanceof Domain) {
-						return getTable((Domain)adapt);
-					} else {
-						throw new ScopeException("Cannot interpret subject definition '"+domain.getSubject()+"' for domain '" + domain.getName() + "'");
-					}
-				} else {
-					throw new ScopeException("Cannot interpret subject definition '"+domain.getSubject()+"' for domain '" + domain.getName() + "'");
-				}
-			}
-		} catch (ParseException e) {
-			throw new ScopeException("Parsing error in table definition for domain '"+domain.getName()+"': "+e.getMessage());
-		}
+		// T821: the Table has already been resolved in DomainContent
+		return ProjectManager.INSTANCE.getTable(S(domain));
 	}
 	
 	public Cartography getCartography() throws ScopeException {

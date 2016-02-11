@@ -173,7 +173,7 @@ public class Space {
 	}
 
 	public Table getTable() throws ScopeException {
-		return universe.getTable(getDomain());
+		return ProjectManager.INSTANCE.getTable(this);
 	}
 
 	public Table getTableSafe() {
