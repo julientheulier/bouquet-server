@@ -346,16 +346,20 @@ public class DomainHierarchy {
     }
     
     private void loadHierarchies(Space root, List<List<DimensionIndex>> structure) {
+    	//
+    	// clear global object since now we may load the hierarchy several times
+        this.dependencies = new HashSet<>();
+        this.flatten = new ArrayList<>();
+        this.segments = new ArrayList<>();
+        //
         this.objectName = "H/" + root.getDomain().getId().toUUID();
         // flatten
         HashSet<DomainPK> domains = new HashSet<DomainPK>();// list the sub-domains
-        this.dependencies = new HashSet<>();
         // add the project to dependencies to support refreshDB
         dependencies.add(root.getUniverse().getProject().getId().toUUID());
         // add the main domain
         domains.add(root.getDomain().getId());
         dependencies.add(root.getDomain().getId().toUUID());
-        this.flatten = new ArrayList<>();
         // add every linked dimension
         for (List<DimensionIndex> hierarchy : structure) {
             for (DimensionIndex index : hierarchy) {
