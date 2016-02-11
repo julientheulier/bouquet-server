@@ -438,7 +438,7 @@ public class ProjectManager {
 				}
 			}else {
 				if (domain.getSubject() == null) {
-					throw new ScopeException("Cannot lookup table definition for domain '" + domain.getName() + "'");
+					throw new ScopeException("Subject is not defined");
 				}
 				ExpressionAST subject = root.getParser().parse(domain);
 				IDomain image = subject.getImageDomain();
@@ -447,20 +447,24 @@ public class ProjectManager {
 					if (adapt != null && adapt instanceof Table) {
 						return (Table) adapt;
 					} else {
-						throw new ScopeException("Cannot interpret subject definition '"+domain.getSubject()+"' for domain '" + domain.getName() + "'");
+						throw new ScopeException("Cannot interpret subject definition '"+domain.getSubject());
 					}
 				} else if (image.isInstanceOf(DomainDomain.DOMAIN)) {
 					Object adapt = image.getAdapter(Domain.class);
 					if (adapt != null && adapt instanceof Domain) {
-						return lookupTable(root, (Domain)adapt);
+						if (adapt.equals(domain)) {
+							throw new ScopeException("Cyclic subject definition '"+domain.getSubject());
+						} else {
+							return lookupTable(root, (Domain)adapt);
+						}
 					} else {
-						throw new ScopeException("Cannot interpret subject definition '"+domain.getSubject()+"' for domain '" + domain.getName() + "'");
+						throw new ScopeException("Cannot interpret subject definition '"+domain.getSubject());
 					}
 				} else if (subject instanceof QueryExpression) {
 					// note that the DynamicTable is not yet initialized
 					return new DynamicTable((QueryExpression) subject);
  				} else {
-					throw new ScopeException("Cannot interpret subject definition '"+domain.getSubject()+"' for domain '" + domain.getName() + "'");
+					throw new ScopeException("Cannot interpret subject definition '"+domain.getSubject());
 				}
 			}
 		} catch (ParseException e) {
