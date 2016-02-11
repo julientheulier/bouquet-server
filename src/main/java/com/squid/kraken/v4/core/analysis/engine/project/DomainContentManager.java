@@ -45,11 +45,11 @@ public class DomainContentManager {
 	}
 	
 	/**
-	 * return the DomainCOntent for that ID - only if already available
+	 * return the DomainContent for that ID - only if already available
 	 * @param id
 	 * @return the DomainContent or null if not yet computed
 	 */
-	protected DomainContent getDomainContent(DomainPK id) {
+	protected DomainContent peekDomainContent(DomainPK id) {
 		DomainContent content = contents.get(id);
 		if (content!=null && content.isValid()) {
 			return content;
