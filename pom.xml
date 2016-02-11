@@ -2,9 +2,9 @@
 	xsi:schemaLocation="http://maven.apache.org/POM/1.0.0 http://maven.apache.org/xsd/maven-1.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 	<parent>
-		<groupId>openbouquet</groupId>
+		<groupId>io.openbouquet</groupId>
 		<artifactId>bouquet-parent</artifactId>
-		<version>1.0.0-SNAPSHOT</version>
+		<version>1.0.0-SNAPSHOT-T821</version>
 		<relativePath>../bouquet-parent/pom.xml</relativePath>
 	</parent>
 
@@ -143,7 +143,7 @@
 			<version>2.4.2-RC2+SquidSolutions</version>
 		</dependency>
 		<dependency>
-			<groupId>openbouquet</groupId>
+			<groupId>io.openbouquet</groupId>
 			<artifactId>bouquet-core</artifactId>
 			<version>${project.version}</version>
 			<exclusions>
