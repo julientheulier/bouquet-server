@@ -44,7 +44,6 @@ import com.squid.kraken.v4.core.expression.scope.DomainExpressionScope;
 import com.squid.core.expression.scope.ExpressionScope;
 import com.squid.core.expression.scope.IdentifierType;
 import com.squid.core.expression.scope.ScopeException;
-import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainContent;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.core.analysis.engine.project.DynamicManager;
 import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
@@ -180,19 +179,7 @@ public class DomainExpressionScope extends DefaultScope {
 		if (domain.getSubject()==null || domain.getSubject().getValue()==null) {
 			return null;
 		}
-		try {
-			return universe.getTable(domain);
-		} catch (ScopeException e) {
-			if (this.scope==null) {
-				// only do that if not building the content...
-				DomainContent content = ProjectManager.INSTANCE.getDomainContent(space);
-				if (content.getTable()!=null) {
-					return content.getTable();
-				}
-			}
-			// else
-			throw e;
-		}
+		return universe.getTable(domain);
 	}
 
 	@Override
