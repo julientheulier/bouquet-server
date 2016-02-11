@@ -47,6 +47,7 @@ import com.squid.core.sql.model.SQLScopeException;
 import com.squid.core.sql.render.IOrderByPiece.ORDERING;
 import com.squid.core.sql.render.RenderingException;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex.Status;
+import com.squid.kraken.v4.core.analysis.engine.project.DynamicColumn;
 import com.squid.kraken.v4.core.analysis.engine.query.HierarchyQuery;
 import com.squid.kraken.v4.core.analysis.engine.query.mapping.AttributeMapping;
 import com.squid.kraken.v4.core.analysis.engine.query.mapping.DimensionMapping;
@@ -272,6 +273,10 @@ public class DomainHierarchyQueryGenerator {
 		ExpressionAST def = root.getAxis().getDefinition();
 		if (def instanceof ColumnReference) {
 			Column column = ((ColumnReference) def).getColumn();
+			// T821: ignore dynamic columns
+			if (column instanceof DynamicColumn) {
+				return null;
+			}
 			Universe universe = root.getAxis().getParent().getUniverse();
 			DatasourceDefinition ds = DatabaseServiceImpl.INSTANCE
 					.getDatasourceDefinition(universe.getProject());
