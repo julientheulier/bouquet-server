@@ -316,10 +316,13 @@ public class UserDAO extends AccessRightsPersistentDAO<User, UserPK> {
 		}
 
 		// check for groups membership update
-		if (!userData.getGroups().equals(existingUser.getGroups())) {
+		if ((userData.getGroups() != null) && (!userData.getGroups().equals(existingUser.getGroups()))) {
 			List<String> added = new ArrayList<String>(userData.getGroups());
 			added.removeAll(existingUser.getGroups());
 			checkUserGroupAccess(ctx, added);
+		} else {
+			// do not update groups
+			userData.setGroups(existingUser.getGroups());
 		}
 		ds.update(ctx, userData);
 	}
