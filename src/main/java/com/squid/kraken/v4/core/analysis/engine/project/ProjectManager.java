@@ -36,7 +36,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Optional;
+import com.squid.core.database.domain.TableDomain;
 import com.squid.core.database.model.Table;
+import com.squid.core.domain.IDomain;
+import com.squid.core.expression.ExpressionAST;
+import com.squid.core.expression.parser.ParseException;
 import com.squid.core.expression.reference.RelationDirection;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.api.core.AccessRightsUtils;
@@ -50,6 +54,8 @@ import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainContent;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainHierarchyManager;
 import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
+import com.squid.kraken.v4.core.expression.reference.QueryExpression;
+import com.squid.kraken.v4.core.model.domain.DomainDomain;
 import com.squid.kraken.v4.model.AccessRight.Role;
 import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.DomainPK;
@@ -246,7 +252,7 @@ public class ProjectManager {
 			}
 		}
 		// let's check if the relation is defined locally only
-		DomainContent content = domains.getDomainContent(domainPK);
+		DomainContent content = domains.peekDomainContent(domainPK);
 		if (content!=null) {
 			for (Relation rel : content.getRelations()) {
 				if (rel.getDirection(domainPK)!=RelationDirection.NO_WAY && hasRole(ctx, rel)) {
@@ -277,7 +283,7 @@ public class ProjectManager {
 			}
 		}
 		// let's check if the relation is defined locally only
-		DomainContent content = domains.getDomainContent(domainPK);
+		DomainContent content = domains.peekDomainContent(domainPK);
 		if (content!=null) {
 			for (Relation rel : content.getRelations()) {
 				Relation check = checkRelationByNameSource(ctx, name, rel, domainPK);
@@ -358,7 +364,7 @@ public class ProjectManager {
 			}
 		}
 		// else try the DomainContent
-		DomainContent content = domains.getDomainContent(domainPk);
+		DomainContent content = domains.peekDomainContent(domainPk);
 		if (content!=null) {
 			for (Relation rel : content.getRelations()) {
 				if (rel.getId().equals(relationPk)) {
@@ -392,8 +398,74 @@ public class ProjectManager {
 	}
 	
 	public Table getTable(Space space) throws ScopeException {
-		DomainContent content = getDomainContent(space);
-		return content.getTable();
+		ProjectDynamicContent domains = getProjectContent(space.getUniverse().getContext(), space.getUniverse().getProject().getId());
+		DomainContent content = domains.peekDomainContent(space.getDomain().getId());
+		if (content!=null) {
+			// already initialized
+			return content.getTable();
+		} else {
+			// not yet or being done...
+			return lookupTable(space);
+		}
+	}
+
+	protected Table lookupTable(Space space) throws ScopeException {
+		return lookupTable(space.getUniverse(), space.getDomain());
+	}
+
+	/**
+	 * return the underlying table by parsing the Domain definition.
+	 * This method supports parsing the QueryExpression, and in that case will return a DynamicTable; note however that the DynamicTable is not fully initialized.
+	 * 
+	 * 
+	 * note that this code was originally available from the universe. Now on the Universe will rely on the DomainContent information to retrieve the subject Table.
+	 * @return the Table or an exception if not well defined
+	 */
+	private Table lookupTable(Universe root, Domain domain) throws ScopeException {
+		try {
+			if(domain.getOptions() != null && domain.getOptions().getAlink()){
+				Domain toUseDomain = ProjectManager.INSTANCE.getDomain(root.getContext(), new DomainPK(root.getContext().getCustomerId(), domain.getOptions().getLinkSource()));
+				if (toUseDomain.getSubject() == null) {
+					throw new ScopeException("Cannot lookup table definition for domain '" + toUseDomain.getName() + "'");
+				}
+				ExpressionAST subject = root.getParser().parse(toUseDomain);
+				IDomain image = subject.getImageDomain();// it should return a TableProxy
+				Object adapt = image.getAdapter(Table.class);
+				if (adapt != null && adapt instanceof Table) {
+					return (Table) adapt;
+				} else {
+					throw new ScopeException("Cannot lookup table definition for domain '" + toUseDomain.getName() + "'");
+				}
+			}else {
+				if (domain.getSubject() == null) {
+					throw new ScopeException("Cannot lookup table definition for domain '" + domain.getName() + "'");
+				}
+				ExpressionAST subject = root.getParser().parse(domain);
+				IDomain image = subject.getImageDomain();
+				if (image.isInstanceOf(TableDomain.DOMAIN)) {
+					Object adapt = image.getAdapter(Table.class);
+					if (adapt != null && adapt instanceof Table) {
+						return (Table) adapt;
+					} else {
+						throw new ScopeException("Cannot interpret subject definition '"+domain.getSubject()+"' for domain '" + domain.getName() + "'");
+					}
+				} else if (image.isInstanceOf(DomainDomain.DOMAIN)) {
+					Object adapt = image.getAdapter(Domain.class);
+					if (adapt != null && adapt instanceof Domain) {
+						return lookupTable(root, (Domain)adapt);
+					} else {
+						throw new ScopeException("Cannot interpret subject definition '"+domain.getSubject()+"' for domain '" + domain.getName() + "'");
+					}
+				} else if (subject instanceof QueryExpression) {
+					// note that the DynamicTable is not yet initialized
+					return new DynamicTable((QueryExpression) subject);
+ 				} else {
+					throw new ScopeException("Cannot interpret subject definition '"+domain.getSubject()+"' for domain '" + domain.getName() + "'");
+				}
+			}
+		} catch (ParseException e) {
+			throw new ScopeException("Parsing error in table definition for domain '"+domain.getName()+"': "+e.getMessage());
+		}
 	}
 
 	/**
