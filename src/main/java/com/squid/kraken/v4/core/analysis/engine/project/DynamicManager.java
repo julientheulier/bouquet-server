@@ -231,64 +231,6 @@ public class DynamicManager {
 		
 	}
 	
-	private Table getTable(Space space) throws ScopeException {
-		return getTable(space.getUniverse(), space.getDomain());
-	}
-
-	/**
-	 * return the underlying table by parsing the Domain definition.
-	 * This method supports parsing the QueryExpression, and in that case will return a DynamicTable; note however that the DynamicTable is not fully initialized.
-	 * 
-	 * 
-	 * note that this code was originally available from the universe. Now on the Universe will rely on the DomainContent information to retrieve the subject Table.
-	 * @return the Table or an exception if not well defined
-	 */
-	private Table getTable(Universe root, Domain domain) throws ScopeException {
-		try {
-			if(domain.getOptions() != null && domain.getOptions().getAlink()){
-				Domain toUseDomain = ProjectManager.INSTANCE.getDomain(root.getContext(), new DomainPK(root.getContext().getCustomerId(), domain.getOptions().getLinkSource()));
-				if (toUseDomain.getSubject() == null) {
-					throw new ScopeException("Cannot lookup table definition for domain '" + toUseDomain.getName() + "'");
-				}
-				ExpressionAST subject = root.getParser().parse(toUseDomain);
-				IDomain image = subject.getImageDomain();// it should return a TableProxy
-				Object adapt = image.getAdapter(Table.class);
-				if (adapt != null && adapt instanceof Table) {
-					return (Table) adapt;
-				} else {
-					throw new ScopeException("Cannot lookup table definition for domain '" + toUseDomain.getName() + "'");
-				}
-			}else {
-				if (domain.getSubject() == null) {
-					throw new ScopeException("Cannot lookup table definition for domain '" + domain.getName() + "'");
-				}
-				ExpressionAST subject = root.getParser().parse(domain);
-				IDomain image = subject.getImageDomain();
-				if (image.isInstanceOf(TableDomain.DOMAIN)) {
-					Object adapt = image.getAdapter(Table.class);
-					if (adapt != null && adapt instanceof Table) {
-						return (Table) adapt;
-					} else {
-						throw new ScopeException("Cannot interpret subject definition '"+domain.getSubject()+"' for domain '" + domain.getName() + "'");
-					}
-				} else if (image.isInstanceOf(DomainDomain.DOMAIN)) {
-					Object adapt = image.getAdapter(Domain.class);
-					if (adapt != null && adapt instanceof Domain) {
-						return getTable(root, (Domain)adapt);
-					} else {
-						throw new ScopeException("Cannot interpret subject definition '"+domain.getSubject()+"' for domain '" + domain.getName() + "'");
-					}
-				} else if (subject instanceof QueryExpression) {
-					// note that the DynamicTable is not yet initialized
-					return new DynamicTable((QueryExpression) subject);
- 				} else {
-					throw new ScopeException("Cannot interpret subject definition '"+domain.getSubject()+"' for domain '" + domain.getName() + "'");
-				}
-			}
-		} catch (ParseException e) {
-			throw new ScopeException("Parsing error in table definition for domain '"+domain.getName()+"': "+e.getMessage());
-		}
-	}
 	
 	/**
 	 * parse the domain definition / fail back to the internal definition if parsing errors
@@ -633,7 +575,7 @@ public class DynamicManager {
         //
         try {
         	// now it is time to use the underlying Table to populate the Domain
-        	Table table = getTable(space);
+        	Table table = ProjectManager.INSTANCE.getTable(space);
         	if (!(table instanceof DynamicTable)) {
         		// this is a regular Table
         		//
@@ -768,7 +710,7 @@ public class DynamicManager {
         	} else {
         		// it is a DynamicTable
         		DynamicTable materialized = (DynamicTable) table;
-        		ExpressionAST subject = univ.getParser().parse(space.getDomain());
+        		ExpressionAST subject = materialized.getLineage();
         		if (subject instanceof QueryExpression) {
         			QueryExpression query = (QueryExpression)subject;
         			if (query.getFacets().isEmpty() && query.getMetrics().isEmpty()) {
