@@ -24,7 +24,7 @@
 package com.squid.kraken.v4.core.analysis.engine.hierarchy;
 
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.Collection;
 import java.util.List;
 
 import com.squid.core.database.model.Table;
@@ -32,6 +32,7 @@ import com.squid.kraken.v4.caching.awsredis.RedisCacheManager;
 import com.squid.kraken.v4.caching.awsredis.generationalkeysserver.RedisKey;
 import com.squid.kraken.v4.model.Dimension;
 import com.squid.kraken.v4.model.Domain;
+import com.squid.kraken.v4.model.ExpressionObject;
 import com.squid.kraken.v4.model.Metric;
 import com.squid.kraken.v4.model.Relation;
 
@@ -51,8 +52,21 @@ public class DomainContent {
 	
 	private List<Relation> relations = null;// allow to define relations locally
 
+	public DomainContent(Domain domain) {
+		this.genKey = RedisCacheManager.getInstance().getKey("DomainContent/"+domain.getId().toUUID(), domain.getId().toUUID());
+		this.dimensions = new ArrayList<>();
+		this.metrics = new ArrayList<>();
+	}
+	
+	public DomainContent(DomainContent copy) {
+		this.genKey = copy.genKey;
+		this.table = copy.table;
+		this.dimensions = copy.dimensions;
+		this.metrics = copy.metrics;
+		this.relations = copy.relations;
+	}
+
 	public DomainContent(Domain domain, List<Dimension> dimensions, List<Metric> metrics) {
-		super();
 		this.genKey = RedisCacheManager.getInstance().getKey("DomainContent/"+domain.getId().toUUID(), domain.getId().toUUID());
 		this.dimensions = dimensions;
 		this.metrics = metrics;
@@ -73,6 +87,17 @@ public class DomainContent {
 	public boolean add(Metric metric) {
 		return metrics.add(metric);
 	}
+
+	public void addAll(List<ExpressionObject<?>> objects) {
+		for (ExpressionObject<?> object : objects) {
+			if (object instanceof Dimension) {
+				add((Dimension)object);
+			} else if (object instanceof Metric) {
+				add((Metric)object);
+			}
+			// ignore others
+		}
+	}
 	
 	public void setTable(Table table) {
 		this.table = table;
@@ -82,8 +107,12 @@ public class DomainContent {
 		return table;
 	}
 	
+	/**
+	 * return a list of Relations or NULL if none
+	 * @return
+	 */
 	public List<Relation> getRelations() {
-		return relations==null?Collections.<Relation>emptyList():relations;
+		return relations;
 	}
 	
 	public void add(Relation relation) {
@@ -95,6 +124,13 @@ public class DomainContent {
 	
 	public boolean isValid() {
 		return RedisCacheManager.getInstance().isValid(genKey);
+	}
+
+	public Collection<ExpressionObject<?>> getExpressionObjects() {
+		List<ExpressionObject<?>> result = new ArrayList<>();
+		result.addAll(dimensions);
+		result.addAll(metrics);
+		return result;
 	}
 
 }
