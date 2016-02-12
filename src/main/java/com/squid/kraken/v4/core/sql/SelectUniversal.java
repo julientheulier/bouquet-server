@@ -24,7 +24,6 @@
 package com.squid.kraken.v4.core.sql;
 
 import java.util.HashMap;
-import java.util.concurrent.ExecutionException;
 
 import com.squid.core.database.impl.DatabaseServiceException;
 import com.squid.core.database.model.Column;
@@ -65,7 +64,6 @@ import com.squid.core.sql.render.groupby.IGroupByPiece;
 import com.squid.core.sql.statements.SelectStatement;
 import com.squid.kraken.v4.core.analysis.engine.project.DynamicColumn;
 import com.squid.kraken.v4.core.analysis.engine.project.DynamicTable;
-import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
 import com.squid.kraken.v4.core.analysis.scope.SpaceExpression;
 import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
@@ -375,46 +373,8 @@ public class SelectUniversal extends PieceCreator {
 				parent.put(domain, from);
 				return from;
 			} else {
-				ExpressionAST subject = getUniverse().getParser().parse(domain);
-				if (subject instanceof QueryExpression) {
-					QueryExpression query = (QueryExpression)subject;
-					// let's have fun...
-					// look for the table
-					Space space = getUniverse().S(domain);
-					table = ProjectManager.INSTANCE.getDomainContent(space).getTable();
-					// for now we will assume the table is always virtual
-					// first create the subselect
-					SelectUniversal subselect = new SelectUniversal(this);
-					subselect.from(subselect.getScope(), query.getSubject().getDomain());
-					FromSelectUniversal from = from(subselect);
-					// add filters if any (this is not encoded in the Table)
-					for (ExpressionAST filter : query.getFilters()) {
-						subselect.where(filter);
-					}
-					// now compute the virtual table by using the dynamicColumn's lineage
-					try {
-						for (Column col : table.getColumns()) {
-							// the column should be a DynamicColumn
-							if (col instanceof DynamicColumn) {
-								DynamicColumn dyn = (DynamicColumn)col;
-								ISelectPiece piece = subselect.select(dyn.getLineage(), dyn.getName());
-								// map the definition in the outer scope
-								SubSelectReferencePiece ref = new SubSelectReferencePiece(from, piece);
-								ColumnReference colref = new ColumnReference(col);
-								getScope().put(colref, ref);// not the right handler, should be the table's column
-							} else {
-								// error...
-							}
-						}
-					} catch (ExecutionException e) {
-						// won't happen
-					}
-					parent.put(domain, from);
-					parent.put(table, from);
-					return from;
-				} else {
-					throw new SQLScopeException("unsupported subject for domain '"+domain.getName()+"': "+domain.getSubject().getValue());
-				}
+				DynamicTable dyn = (DynamicTable)table;
+				return from(parent, domain, dyn);
 			}
 		} else {
 			if (binding instanceof IFromPiece) {
@@ -423,6 +383,48 @@ public class SelectUniversal extends PieceCreator {
 				throw new SQLScopeException("invalid binding for domain '"+domain.getName()+"'");
 			}
 		}
+	}
+
+	/**
+	 * support selecting from a DynamicTable == SubQuery
+	 * @param parent
+	 * @param domain
+	 * @param table
+	 * @return
+	 * @throws SQLScopeException
+	 * @throws ScopeException
+	 */
+	private IFromPiece from(Scope parent, Domain domain, DynamicTable table) throws SQLScopeException, ScopeException {
+		QueryExpression query = table.getLineage();
+		// let's have fun...
+		// for now we will assume the table is always virtual
+		// first create the subselect
+		SelectUniversal subselect = new SelectUniversal(this);
+		subselect.from(subselect.getScope(), query.getSubject().getDomain());
+		FromSelectUniversal from = from(subselect);
+		// add filters if any (this is not encoded in the Table)
+		for (ExpressionAST filter : query.getFilters()) {
+			subselect.where(filter);
+		}
+		// now compute the virtual table by using the dynamicColumn's lineage
+		for (Column col : table.getColumns()) {
+			// the column should be a DynamicColumn
+			if (col instanceof DynamicColumn) {
+				DynamicColumn dyn = (DynamicColumn)col;
+				ISelectPiece piece = subselect.select(dyn.getLineage(), dyn.getName());
+				// map the definition in the outer scope
+				SubSelectReferencePiece ref = new SubSelectReferencePiece(from, piece);
+				ColumnReference colref = new ColumnReference(col);
+				subselect.getScope().put(colref, ref);// this is to allow joining with subselect
+				getScope().put(colref, ref);// this is to import the selected column in outer scope
+			} else {
+				// error...
+			}
+		}
+		// register the subselect in the parent scope
+		parent.put(domain, from);
+		parent.put(table, from);
+		return from;
 	}
 
 	private IFromPiece from(Scope parent, Domain domain, Table table) throws SQLScopeException {
