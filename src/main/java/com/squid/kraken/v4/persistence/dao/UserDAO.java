@@ -195,6 +195,7 @@ public class UserDAO extends AccessRightsPersistentDAO<User, UserPK> {
 	public void update(AppContext ctx, User userData) {
 		User existingUser = DAOFactory.getDAOFactory().getDAO(User.class)
 				.readNotNull(ctx, userData.getId());
+		AccessToken token = ctx.getToken();
 		if (userData.getPassword() != null) {
 
 			AppContext rootUserContext = ServiceUtils.getInstance()
@@ -204,8 +205,8 @@ public class UserDAO extends AccessRightsPersistentDAO<User, UserPK> {
 					.readNotNull(rootUserContext, ctx.getCustomerPk());
 			boolean doUpdate = false;
 			// check for conditions to update the password
-			if ((ctx.getToken() != null)
-					&& (ctx.getToken().getType()
+			if ((token != null)
+					&& (token.getType()
 							.equals(AccessToken.Type.RESET_PWD))) {
 				// the token is a reset pwd token
 				doUpdate = true;
@@ -325,6 +326,13 @@ public class UserDAO extends AccessRightsPersistentDAO<User, UserPK> {
 			userData.setGroups(existingUser.getGroups());
 		}
 		ds.update(ctx, userData);
+		// de-activate password reset token
+		if ((token != null)
+				&& (token.getType()
+						.equals(AccessToken.Type.RESET_PWD))) {
+			DAOFactory.getDAOFactory().getDAO(AccessToken.class).delete(ctx, token.getId());
+		}
+		
 	}
 
 	private String hashPassword(AppContext ctx, String pwd) {
