@@ -25,7 +25,6 @@ package com.squid.kraken.v4.core.analysis.engine.project;
 
 import java.sql.Types;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -57,7 +56,6 @@ import com.squid.core.domain.operators.ExtendedType;
 import com.squid.core.expression.Compose;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.ExpressionRef;
-import com.squid.core.expression.parser.ParseException;
 import com.squid.core.expression.reference.Cardinality;
 import com.squid.core.expression.reference.ColumnReference;
 import com.squid.core.expression.reference.ForeignKeyReference;
@@ -569,7 +567,7 @@ public class DynamicManager {
 			return concrete;
 		}
 		
-		public void evalConcreteContent(DomainContent content, List<ExpressionObject<?>> concrete) {
+		public void evalConcreteContent(List<ExpressionObject<?>> concrete, DomainContent incrementalScope) {
 			for (ExpressionObject<?> object : concrete) {
 				if (object.getName()!=null) {
 					checkName.add(object.getName());
@@ -578,7 +576,8 @@ public class DynamicManager {
 					// handle Dimension
 					Dimension dimension = (Dimension)object;
 					try {
-						ExpressionAST expr = parseResilient(univ, domain, dimension, scope, content.getTable());
+						ExpressionAST expr = parseResilient(univ, domain, dimension, incrementalScope);
+						incrementalScope.add(dimension);
 						scope.add(object);
 						IDomain image = expr.getImageDomain();
 						dimension.setImageDomain(image);
@@ -605,7 +604,8 @@ public class DynamicManager {
 					Metric metric = (Metric)object;
 					try {
 						if (metric.getExpression() != null) {
-							ExpressionAST expr = parseResilient(univ, domain, metric, scope, content.getTable());
+							ExpressionAST expr = parseResilient(univ, domain, metric, incrementalScope);
+							incrementalScope.add(metric);
 							scope.add(object);
 							metricCoverage.add(expr);
 						}
@@ -624,7 +624,11 @@ public class DynamicManager {
 		DomainContentConcreteState state = new DomainContentConcreteState(space);
 		List<ExpressionObject<?>> concrete = state.registerConcreteContent(content);
 		content.setTable(table);// register before eval
-		state.evalConcreteContent(content, concrete);
+		{	
+			DomainContent incrementalScope = new DomainContent(domain);
+			incrementalScope.setTable(table);
+			state.evalConcreteContent(concrete, incrementalScope);
+		}
 		//
 		try {
 			//
@@ -759,7 +763,7 @@ public class DynamicManager {
 		}
 	}
 	
-	public void loadDomainDynamicContentDynamicTable(Space space, DomainContent content, DynamicTable materialized) throws ScopeException {
+	public void loadDomainDynamicContentDynamicTable(Space space, DomainContent content, DynamicTable table) throws ScopeException {
 		Universe univ = space.getUniverse();
 		Domain domain = space.getDomain();
 		//
@@ -769,8 +773,12 @@ public class DynamicManager {
 		// ... to avoid creating duplicates dimensions/metrics
 		List<ExpressionObject<?>> concrete = state.registerConcreteContent(content);
 		//
+		content.setTable(table);
+		DomainContent incrementalScope = new DomainContent(domain);
+		incrementalScope.setTable(table);
+		//
 		// evaluate the query
-		QueryExpression query = materialized.getLineage();
+		QueryExpression query = table.getLineage();
 		if (query.getFacets().isEmpty() && query.getMetrics().isEmpty()) {
 			// not that fun, just copy the source domain dimension
 			throw new ScopeException("Domain inheritence not yet supported");
@@ -780,7 +788,7 @@ public class DynamicManager {
 			// find a cool table name
 			{
 				String name = DynamicManager.INSTANCE.digest(query.prettyPrint());
-				materialized.setName(name);
+				table.setName(name);
 			}
 			//
 			// ok, let's start with the facets
@@ -801,8 +809,8 @@ public class DynamicManager {
 					for (ExpressionPair pair : pairs) {
 						ExpressionAST left = pair.left;
 						DynamicColumn col = createDynamicColumn(left, skin);
-						col.setTable(materialized);
-						materialized.addColumn(col);
+						col.setTable(table);
+						table.addColumn(col);
 						primaryKey.addColumn(col, pos++);
 						//
 						ExpressionAST join = ExpressionMaker.EQUAL(
@@ -827,6 +835,7 @@ public class DynamicManager {
 					AccessRightsUtils.getInstance().setAccessRights(univ.getContext(), relation, univ.getProject());
 					// add the relation locally
 					content.add(relation);
+					incrementalScope.add(relation);
 					//
 					try {
 						RelationReference ref = new RelationReference(univ, relation, domain, target);
@@ -842,6 +851,7 @@ public class DynamicManager {
 								dim.setImageDomain(ref.getImageDomain());
 								AccessRightsUtils.getInstance().setAccessRights(univ.getContext(), dim, domain);
 								content.add(dim);
+								incrementalScope.add(dim);
 								state.scope.add(dim);
 								state.checkName.add(name);
 							}
@@ -851,8 +861,8 @@ public class DynamicManager {
 					}
 				} else {
 					DynamicColumn col = createDynamicColumn(facet, skin);
-					col.setTable(materialized);
-					materialized.addColumn(col);
+					col.setTable(table);
+					table.addColumn(col);
 					primaryKey.addColumn(col, pos++);
 					//
 					ColumnReference ref = new ColumnReference(col);
@@ -866,6 +876,7 @@ public class DynamicManager {
 						dim.setValueType(computeValueType(col.getTypeDomain()));
 						AccessRightsUtils.getInstance().setAccessRights(univ.getContext(), dim, domain);
 						content.add(dim);
+						incrementalScope.add(dim);
 						state.scope.add(dim);
 						state.checkName.add(name);
 						if (col.getTypeDomain().isInstanceOf(IDomain.TEMPORAL)) {
@@ -876,13 +887,13 @@ public class DynamicManager {
 			}
 			//
 			if (!primaryKey.getColumns().isEmpty()) {
-				materialized.setPrimaryKey(primaryKey);
+				table.setPrimaryKey(primaryKey);
 			}
 			//
 			for (ExpressionAST metric : query.getMetrics()) {
 				DynamicColumn col = createDynamicColumn(metric, skin);
-				col.setTable(materialized);
-				materialized.addColumn(col);
+				col.setTable(table);
+				table.addColumn(col);
 				//
 				ColumnReference ref = new ColumnReference(col);
 				String expr = ref.prettyPrint();
@@ -895,6 +906,7 @@ public class DynamicManager {
 					dim.setValueType(computeValueType(col.getTypeDomain()));
 					AccessRightsUtils.getInstance().setAccessRights(univ.getContext(), dim, domain);
 					content.add(dim);
+					incrementalScope.add(dim);
 					state.scope.add(dim);
 					state.checkName.add(name);
 					if (col.getTypeDomain().isInstanceOf(IDomain.TEMPORAL)) {
@@ -902,11 +914,9 @@ public class DynamicManager {
 					}
 				}
 			}
-			// cache the table
-			content.setTable(materialized);
 			//
 			// now we can evaluate the concrete objects
-			state.evalConcreteContent(content, concrete);
+			state.evalConcreteContent(concrete, incrementalScope);
 			// select the period
 			if (!periodCandidates.isEmpty() && !state.isPeriodDefined) {
 				DimensionPeriodSelector selector = new DimensionPeriodSelector(space.getUniverse());
@@ -1114,22 +1124,28 @@ public class DynamicManager {
 		}
 	}
 
-	private ExpressionAST parseResilient(Universe root, Domain domain, Dimension dimension, Collection<ExpressionObject<?>> scope, Table table) throws ScopeException {
+	private ExpressionAST parseResilient(Universe root, Domain domain, Dimension dimension, DomainContent scope) throws ScopeException {
 		try {
 			if (dimension.getExpression().getReferences()!=null) {
-				scope = new ArrayList<>(scope);
+				ArrayList<ExpressionObject<?>> externalRefs = new ArrayList<>();
 				for (ReferencePK<? extends GenericPK> ref : dimension.getExpression().getReferences()) {
-					Optional<? extends ExpressionObject<?>> value = findReference(root, ref);
-					if (value.isPresent()) {
-						scope.add(value.get());
+					if (!ref.getReference().getParent().equals(domain.getId())) {// not for internal ref
+						Optional<? extends ExpressionObject<?>> value = findReference(root, ref);
+						if (value.isPresent()) {
+							externalRefs.add(value.get());
+						}
 					}
 				}
+				if (!externalRefs.isEmpty()) {
+					scope = new DomainContent(scope);
+					scope.addAll(externalRefs);
+				}
 			}
-			return root.getParser().parse(domain, dimension, dimension.getExpression().getValue(), scope, table);
+			return root.getParser().parse(domain, dimension, dimension.getExpression().getValue(), scope);
 		} catch (ScopeException e) {
 			if (dimension.getExpression().getInternal()!=null) {
 				try {
-					ExpressionAST intern = root.getParser().parse(domain, dimension, dimension.getExpression().getInternal(), scope, table);
+					ExpressionAST intern = root.getParser().parse(domain, dimension, dimension.getExpression().getInternal(), scope);
 					String value = root.getParser().rewriteExpressionIntern(dimension.getExpression().getInternal(), intern);
 					dimension.getExpression().setValue(value);
 					return intern;
@@ -1141,22 +1157,28 @@ public class DynamicManager {
 		}
 	}
 	
-	private ExpressionAST parseResilient(Universe root, Domain domain, Metric metric, Collection<ExpressionObject<?>> scope, Table table) throws ScopeException {
+	private ExpressionAST parseResilient(Universe root, Domain domain, Metric metric, DomainContent scope) throws ScopeException {
 		try {
 			if (metric.getExpression().getReferences()!=null) {
-				scope = new ArrayList<>(scope);
+				ArrayList<ExpressionObject<?>> externalRefs = new ArrayList<>();
 				for (ReferencePK<? extends GenericPK> ref : metric.getExpression().getReferences()) {
-					Optional<? extends ExpressionObject<?>> value = findReference(root, ref);
-					if (value.isPresent()) {
-						scope.add(value.get());
+					if (!ref.getReference().getParent().equals(domain.getId())) {// not for internal ref
+						Optional<? extends ExpressionObject<?>> value = findReference(root, ref);
+						if (value.isPresent()) {
+							externalRefs.add(value.get());
+						}
 					}
 				}
+				if (!externalRefs.isEmpty()) {
+					scope = new DomainContent(scope);
+					scope.addAll(externalRefs);
+				}
 			}
-			return root.getParser().parse(domain, metric, metric.getExpression().getValue(), scope, table);
+			return root.getParser().parse(domain, metric, metric.getExpression().getValue(), scope);
 		} catch (ScopeException e) {
 			if (metric.getExpression().getInternal()!=null) {
 				try {
-					ExpressionAST intern = root.getParser().parse(domain, metric, metric.getExpression().getInternal(), scope, table);
+					ExpressionAST intern = root.getParser().parse(domain, metric, metric.getExpression().getInternal(), scope);
 					String value = root.getParser().rewriteExpressionIntern(metric.getExpression().getInternal(), intern);
 					metric.getExpression().setValue(value);
 					return intern;
