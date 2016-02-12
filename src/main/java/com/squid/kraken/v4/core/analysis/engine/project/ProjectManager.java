@@ -253,7 +253,7 @@ public class ProjectManager {
 		}
 		// let's check if the relation is defined locally only
 		DomainContent content = domains.peekDomainContent(domainPK);
-		if (content!=null) {
+		if (content!=null && content.getRelations()!=null) {
 			for (Relation rel : content.getRelations()) {
 				if (rel.getDirection(domainPK)!=RelationDirection.NO_WAY && hasRole(ctx, rel)) {
 					filter.add(cloneWithRole(ctx, rel));
@@ -284,7 +284,7 @@ public class ProjectManager {
 		}
 		// let's check if the relation is defined locally only
 		DomainContent content = domains.peekDomainContent(domainPK);
-		if (content!=null) {
+		if (content!=null && content.getRelations()!=null) {
 			for (Relation rel : content.getRelations()) {
 				Relation check = checkRelationByNameSource(ctx, name, rel, domainPK);
 				if (check!=null) {
@@ -365,7 +365,7 @@ public class ProjectManager {
 		}
 		// else try the DomainContent
 		DomainContent content = domains.peekDomainContent(domainPk);
-		if (content!=null) {
+		if (content!=null && content.getRelations()!=null) {
 			for (Relation rel : content.getRelations()) {
 				if (rel.getId().equals(relationPk)) {
 					checkRole(ctx, rel);
