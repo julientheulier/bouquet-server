@@ -35,7 +35,6 @@ import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 
@@ -43,7 +42,6 @@ import com.squid.core.api.CoreVersion;
 import com.squid.core.jdbc.vendor.IVendorSupport;
 import com.squid.core.jdbc.vendor.VendorSupportRegistry;
 import com.squid.kraken.v4.api.core.APIException;
-import com.squid.kraken.v4.api.core.EmailHelperImpl;
 import com.squid.kraken.v4.api.core.ServiceUtils;
 import com.squid.kraken.v4.api.core.client.ClientServiceRest;
 import com.squid.kraken.v4.api.core.connection.ConnectionServiceRest;
@@ -55,7 +53,6 @@ import com.squid.kraken.v4.model.AccessRight;
 import com.squid.kraken.v4.model.AccessToken;
 import com.squid.kraken.v4.model.AccessTokenPK;
 import com.squid.kraken.v4.model.AuthCode;
-import com.squid.kraken.v4.model.Client;
 import com.squid.kraken.v4.model.ClientPK;
 import com.squid.kraken.v4.model.CustomerInfo;
 import com.squid.kraken.v4.model.CustomerPK;
@@ -81,12 +78,6 @@ public class CustomerServiceRest {
 		}
 		return instance;
 	}
-
-	static public final String PARAM_REFRESH = "refresh";
-
-	static public final String PARAM_DEEP_READ = "deepread";
-
-	static public final String PARAM_OPTION = "option";
 
 	private CustomerServiceBaseImpl delegate = CustomerServiceBaseImpl
 			.getInstance();
@@ -183,7 +174,7 @@ public class CustomerServiceRest {
 	@DELETE
 	@ApiOperation(value = "Deletes a token")
 	public boolean deleteToken(@Context HttpServletRequest request, @PathParam("tokenId") String tokenId) {
-		AppContext userContext = getAnonymousUserContext(request, null, null);
+		AppContext userContext = ServiceUtils.getInstance().getAnonymousUserContext(request, null, null);
 		DAOFactory.getDAOFactory().getDAO(AccessToken.class).delete(userContext, new AccessTokenPK(tokenId));
 		return true;
 	}
@@ -203,7 +194,7 @@ public class CustomerServiceRest {
 			@ApiParam @FormParam("client_secret") String clientSecret,
 			@ApiParam(required = true) @FormParam("redirect_uri") String redirectUri,
 			@ApiParam @FormParam("assertion") String assertion) {
-		AppContext userContext = getAnonymousUserContext(request, null,
+		AppContext userContext = ServiceUtils.getInstance().getAnonymousUserContext(request, null,
 				clientId);
 		// process
 		ClientPK clientPk = new ClientPK(userContext.getCustomerId(), clientId);
@@ -258,7 +249,7 @@ public class CustomerServiceRest {
 			@ApiParam(required = true) @FormParam("login") String login,
 			@ApiParam(required = true) @FormParam("password") String password)
 			throws DuplicateUserException {
-		AppContext userContext = getAnonymousUserContext(request, customerId,
+		AppContext userContext = ServiceUtils.getInstance().getAnonymousUserContext(request, customerId,
 				clientId);
 		// process
 		ClientPK clientPk = new ClientPK(customerId, clientId);
@@ -302,7 +293,7 @@ public class CustomerServiceRest {
 			@ApiParam(required = true) @FormParam("login") String login,
 			@ApiParam(required = true) @FormParam("password") String password,
 			@ApiParam @FormParam("access_type") String accessType) {
-		AppContext userContext = getAnonymousUserContext(request, customerId,
+		AppContext userContext = ServiceUtils.getInstance().getAnonymousUserContext(request, customerId,
 				clientId);
 		// process
 		ClientPK clientPk = new ClientPK(customerId, clientId);
@@ -325,49 +316,6 @@ public class CustomerServiceRest {
 		AppContext userContext = getUserContext(request);
 		authService.logoutUser(userContext);
 		return "{ \"logout\" : \"true\" }";
-	}
-
-	/**
-	 * Start the reset-password process :<br>
-	 * Create a new 'reset_pwd' {@link AccessToken} for the user having the
-	 * passed email address.<br>
-	 * Send it by mail to the passed email address.<br>
-	 * The email will contain a link built by replacing <tt>{access_token}</tt>
-	 * by the token value in the provided link url which be checked for
-	 * validity.
-	 * 
-	 * @param customerId
-	 * @param clientId
-	 * @param email
-	 *            the email of the user account requesting a password reset.
-	 * @param lang
-	 *            the language used to build the email content or null for
-	 *            default.
-	 * @param linkURL
-	 *            the link url base used to build the link enclosed in the email
-	 *            (ie.
-	 *            <tt>http://api.squisolutions.com/release/api/reset_email?access_token={access_token}</tt>
-	 *            ). The url must match the {@link Client} authorized urls.
-	 * @return an "ok" message.
-	 */
-	@Path("/reset-user-pwd")
-	@GET
-	@ApiOperation(value = "Start the reset-password process. Create a new 'reset_pwd' AccessToken for the user having the passed email address.")
-	public String resetUserPassword(
-			@Context HttpServletRequest request,
-			@ApiParam(required = true) @QueryParam("customerId") String customerId,
-			@ApiParam(required = true) @QueryParam("clientId") String clientId,
-			@ApiParam(required = true, value = "the email of the user account requesting a password reset") @QueryParam("email") String email,
-			@QueryParam("lang") String lang,
-			@ApiParam(required = true, value = "the link url base used to build the link enclosed in the email (ie. http://api.squisolutions.com/release/api/reset_email?access_token={access_token}). The url must match the Client authorized urls") @QueryParam("link_url") String linkURL) {
-		String content = "Follow this link to reset your password : \n"
-				+ "${resetLink}";
-		content += "\n(this link will be valid for ${validity} hours)";
-		String subject = "Password reset procedure";
-		AppContext ctx = getAnonymousUserContext(request, customerId, clientId);
-		authService.resetUserPassword(ctx, EmailHelperImpl.getInstance(),
-				clientId, email, lang, linkURL, content, subject);
-		return "{ \"message\" : \"Reset password token sent, please check your emails.\" }";
 	}
 
 	/**
@@ -488,15 +436,15 @@ public class CustomerServiceRest {
 			String locale = sutils.getLocale(request);
 			AppContext.Builder ctxb = new AppContext.Builder(token, user)
 					.setDryRun(dryRun).setLocale(locale).setNoError(noError);
-			if (request.getParameter(PARAM_REFRESH) != null) {
+			if (request.getParameter(ServiceUtils.PARAM_REFRESH) != null) {
 				// cache invalidation
 				ctxb.setRefresh(true);
 			}
-			if (request.getParameter(PARAM_DEEP_READ) != null) {
+			if (request.getParameter(ServiceUtils.PARAM_DEEP_READ) != null) {
 				ctxb.setDeepRead(true);
 			}
 
-			String[] options = request.getParameterValues(PARAM_OPTION);
+			String[] options = request.getParameterValues(ServiceUtils.PARAM_OPTION);
 			if (options != null) {
 				ctxb.setOptions(Arrays.asList(options));
 			}
@@ -507,30 +455,5 @@ public class CustomerServiceRest {
 			sutils.logAPIRequest(ctx, request);
 		}
 	}
-
-	/**
-	 * Build an {@link AppContext} from an {@link HttpServletRequest}
-	 */
-	private AppContext getAnonymousUserContext(HttpServletRequest request,
-			String customerId, String clientId) {
-		ServiceUtils sutils = ServiceUtils.getInstance();
-		AppContext ctx = null;
-		try {
-			boolean dryRun = sutils.isDryRunEnabled(request);
-			boolean noError = sutils.isNoErrorEnabled(request);
-			String locale = sutils.getLocale(request);
-			AppContext.Builder ctxb = new AppContext.Builder(customerId,
-					clientId).setDryRun(dryRun).setLocale(locale)
-					.setNoError(noError);
-			if (request.getParameter(PARAM_REFRESH) != null) {
-				// perform cache invalidation
-				ctxb.setRefresh(true);
-			}
-			ctx = ctxb.build();
-			return ctx;
-		} finally {
-			// log the request
-			sutils.logAPIRequest(ctx, request);
-		}
-	}
+	
 }

@@ -68,6 +68,12 @@ import com.squid.kraken.v4.persistence.DAOFactory;
 import com.squid.kraken.v4.persistence.DataStoreEventBus;
 
 public class ServiceUtils {
+	
+	static public final String PARAM_REFRESH = "refresh";
+
+	static public final String PARAM_DEEP_READ = "deepread";
+
+	static public final String PARAM_OPTION = "option";
 
 	private static final String AUTHORIZATION = "Authorization";
 
@@ -543,6 +549,32 @@ public class ServiceUtils {
 			reqIp = req.getRemoteAddr();
 		}
 		return reqIp;
+	}
+	
+	/**
+	 * Build an {@link AppContext} from an {@link HttpServletRequest}
+	 */
+	public AppContext getAnonymousUserContext(HttpServletRequest request,
+			String customerId, String clientId) {
+		ServiceUtils sutils = ServiceUtils.getInstance();
+		AppContext ctx = null;
+		try {
+			boolean dryRun = sutils.isDryRunEnabled(request);
+			boolean noError = sutils.isNoErrorEnabled(request);
+			String locale = sutils.getLocale(request);
+			AppContext.Builder ctxb = new AppContext.Builder(customerId,
+					clientId).setDryRun(dryRun).setLocale(locale)
+					.setNoError(noError);
+			if (request.getParameter(PARAM_REFRESH) != null) {
+				// perform cache invalidation
+				ctxb.setRefresh(true);
+			}
+			ctx = ctxb.build();
+			return ctx;
+		} finally {
+			// log the request
+			sutils.logAPIRequest(ctx, request);
+		}
 	}
 
 }

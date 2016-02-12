@@ -25,23 +25,34 @@ package com.squid.kraken.v4.api.core.customer;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.FormParam;
+import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 
 import com.squid.kraken.v4.KrakenConfig;
 import com.squid.kraken.v4.api.core.EmailHelperImpl;
 import com.squid.kraken.v4.api.core.ServiceUtils;
+import com.squid.kraken.v4.model.AccessToken;
+import com.squid.kraken.v4.model.Client;
 import com.squid.kraken.v4.model.CustomerInfo;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.wordnik.swagger.annotations.Api;
+import com.wordnik.swagger.annotations.ApiOperation;
+import com.wordnik.swagger.annotations.ApiParam;
 import com.wordnik.swagger.annotations.Authorization;
 
 @Path("/admin")
 @Api(value = "All", authorizations = { @Authorization(value = "kraken_auth", type = "oauth2") })
 @Produces({ MediaType.APPLICATION_JSON })
+/**
+ * Admin Service holds the private API (not to be exposed to public access).
+ * @author obalbous
+ *
+ */
 public class AdminServiceRest {
 
 	static private AdminServiceRest instance;
@@ -54,6 +65,9 @@ public class AdminServiceRest {
 	}
 
 	private CustomerServiceBaseImpl delegate = CustomerServiceBaseImpl
+			.getInstance();
+	
+	private AuthServiceImpl authService = AuthServiceImpl
 			.getInstance();
 
 	public AdminServiceRest() {
@@ -108,6 +122,52 @@ public class AdminServiceRest {
 		AppContext ctx = delegate.accessRequest(customerName, email, login, password, locale,
 				reqIP, linkURL, defaultClientURL, EmailHelperImpl.getInstance());
 		return delegate.readCustomerInfo(ctx);
+	}
+	
+	/**
+	 * Start the reset-password process :<br>
+	 * Create a new 'reset_pwd' {@link AccessToken} for the user having the
+	 * passed email address.<br>
+	 * Send it by mail to the passed email address.<br>
+	 * The email will contain a link built by replacing <tt>{access_token}</tt>
+	 * by the token value in the provided link url which be checked for
+	 * validity.
+	 * 
+	 * @param customerId
+	 * @param clientId
+	 * @param email
+	 *            the email of the user account requesting a password reset.
+	 * @param lang
+	 *            the language used to build the email content or null for
+	 *            default.
+	 * @param linkURL
+	 *            the link url base used to build the link enclosed in the email
+	 *            (ie.
+	 *            <tt>http://api.squisolutions.com/release/api/reset_email?access_token={access_token}</tt>
+	 *            ). The url must match the {@link Client} authorized urls.
+	 * @return an "ok" message.
+	 */
+	@Path("/reset-user-pwd")
+	@GET
+	@ApiOperation(value = "Start the reset-password process. Create a new 'reset_pwd' AccessToken for the user having the passed email address.")
+	public String resetUserPassword(
+			@Context HttpServletRequest request,
+			@ApiParam(required = true) @QueryParam("customerId") String customerId,
+			@ApiParam(required = true) @QueryParam("clientId") String clientId,
+			@ApiParam(required = true, value = "the email of the user account requesting a password reset") @QueryParam("email") String email,
+			@QueryParam("lang") String lang,
+			@ApiParam(required = true, value = "the link url base used to build the link enclosed in the email"
+					+ " (ie. http://api.squisolutions.com/release/api/reset_email?access_token={access_token})."
+					+ " The url must match the Client authorized urls") @QueryParam("link_url") String linkURL) {
+		String content = "Follow this link to reset your password : \n"
+				+ "${resetLink}";
+		content += "\n(this link will be valid for ${validity} hours)";
+		String subject = "Password reset procedure";
+		AppContext ctx = ServiceUtils.getInstance().getAnonymousUserContext(
+				request, customerId, clientId);
+		authService.resetUserPassword(ctx, EmailHelperImpl.getInstance(),
+				clientId, email, lang, linkURL, content, subject);
+		return "{ \"message\" : \"Reset password token sent, please check your emails.\" }";
 	}
 
 }
