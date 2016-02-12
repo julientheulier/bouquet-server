@@ -44,6 +44,7 @@ import com.squid.kraken.v4.core.expression.scope.DomainExpressionScope;
 import com.squid.core.expression.scope.ExpressionScope;
 import com.squid.core.expression.scope.IdentifierType;
 import com.squid.core.expression.scope.ScopeException;
+import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainContent;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.core.analysis.engine.project.DynamicManager;
 import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
@@ -95,6 +96,13 @@ public class DomainExpressionScope extends DefaultScope {
 
 	public DomainExpressionScope(Universe universe, Domain domain) throws ScopeException {
 		this(universe, domain, (Space)null);
+	}
+
+	public DomainExpressionScope(Universe universe, Domain domain, DomainContent scope) throws ScopeException {
+		this(universe, domain, (Space)null);
+		this.scope = scope.getExpressionObjects();
+		this.tablex = scope.getTable();
+		this.relationScope = scope.getRelations();
 	}
 
 	public DomainExpressionScope(Universe universe, Domain domain, Collection<ExpressionObject<?>> scope) throws ScopeException {
