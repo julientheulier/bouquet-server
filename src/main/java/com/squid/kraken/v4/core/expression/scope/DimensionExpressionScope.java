@@ -28,6 +28,7 @@ import java.util.List;
 
 import com.squid.kraken.v4.core.expression.reference.ParameterReference;
 import com.squid.kraken.v4.core.expression.scope.DomainExpressionScope;
+import com.squid.core.database.model.Table;
 import com.squid.core.domain.IDomain;
 import com.squid.core.domain.analytics.AnalyticDomain;
 import com.squid.core.expression.ExpressionAST;
@@ -69,8 +70,8 @@ public class DimensionExpressionScope extends DomainExpressionScope {
 		super(universe, domain, scope);
 	}
 	
-	public DimensionExpressionScope(Universe universe, Domain domain, Dimension dimension, Collection<ExpressionObject<?>> scope) throws ScopeException {
-		super(universe, domain, scope);
+	public DimensionExpressionScope(Universe universe, Domain domain, Dimension dimension, Collection<ExpressionObject<?>> scope, Table table) throws ScopeException {
+		super(universe, domain, scope, table);
 		this.dimension = dimension;
 	}
 

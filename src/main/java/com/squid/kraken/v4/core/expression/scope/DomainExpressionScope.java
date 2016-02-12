@@ -139,6 +139,12 @@ public class DomainExpressionScope extends DefaultScope {
 		this.relationScope = relationScope;
 	}
 
+	public DomainExpressionScope(Universe universe, Domain domain, Collection<ExpressionObject<?>> scope,
+			Table table) throws ScopeException {
+		this(universe, domain, scope);
+		this.tablex = table;
+	}
+
 	@Override
 	public OperatorDefinition lookup(String fun) throws ScopeException {
 		OperatorDefinition opDef = super.lookup(fun);

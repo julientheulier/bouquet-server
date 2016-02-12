@@ -32,6 +32,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import com.google.common.base.Optional;
+import com.squid.core.database.model.Table;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.ExpressionRef;
 import com.squid.core.expression.parser.ParseException;
@@ -196,13 +197,9 @@ public class Parser {
 		return parse(dimension.getId(), new DimensionExpressionScope(universe, domain, dimension), dimension.getExpression().getValue());
 	}
 
-	public ExpressionAST parse(Domain domain, Dimension dimension, Collection<ExpressionObject<?>> scope) throws ScopeException {
-		return parse(dimension.getId(), new DimensionExpressionScope(universe, domain, dimension, scope), dimension.getExpression().getValue());
-	}
-
-	public ExpressionAST parse(Domain domain, Dimension dimension, String value, Collection<ExpressionObject<?>> scope) throws ScopeException {
+	public ExpressionAST parse(Domain domain, Dimension dimension, String value, Collection<ExpressionObject<?>> scope, Table table) throws ScopeException {
 		try {
-			return parse(dimension.getId(), new DimensionExpressionScope(universe, domain, dimension, scope), value);
+			return parse(dimension.getId(), new DimensionExpressionScope(universe, domain, dimension, scope, table), value);
 		} catch (ScopeException e) {
 			throw new ScopeException("error while parsing Dimension '"+dimension.getName()+"'\n caused by: "+e.getLocalizedMessage());
 		}
@@ -212,13 +209,9 @@ public class Parser {
 		return parse(metric.getId(), new MetricExpressionScope(universe, domain, metric), metric.getExpression().getValue());
 	}
 
-	public ExpressionAST parse(Domain domain, Metric metric, Collection<ExpressionObject<?>> scope) throws ScopeException {
-		return parse(metric.getId(), new MetricExpressionScope(universe, domain, metric, scope), metric.getExpression().getValue());
-	}
-
-	public ExpressionAST parse(Domain domain, Metric metric, String value, Collection<ExpressionObject<?>> scope) throws ScopeException {
+	public ExpressionAST parse(Domain domain, Metric metric, String value, Collection<ExpressionObject<?>> scope, Table table) throws ScopeException {
 		try {
-			return parse(metric.getId(), new MetricExpressionScope(universe, domain, metric, scope), value);
+			return parse(metric.getId(), new MetricExpressionScope(universe, domain, metric, scope, table), value);
 		} catch (ScopeException e) {
 			throw new ScopeException("error while parsing Metric '"+metric.getName()+"'\n caused by: "+e.getLocalizedMessage());
 		}

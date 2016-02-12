@@ -25,6 +25,7 @@ package com.squid.kraken.v4.core.expression.scope;
 
 import java.util.Collection;
 
+import com.squid.core.database.model.Table;
 import com.squid.core.domain.IDomain;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.kraken.v4.core.expression.scope.DomainExpressionScope;
@@ -56,8 +57,8 @@ public class MetricExpressionScope extends DomainExpressionScope {
 	}
 	
 	public MetricExpressionScope(Universe universe, Domain domain, Metric metric,
-			Collection<ExpressionObject<?>> scope) throws ScopeException {
-		super(universe, domain, scope);
+			Collection<ExpressionObject<?>> scope, Table table) throws ScopeException {
+		super(universe, domain, scope, table);
 		this.metric = metric;
 	}
 	
