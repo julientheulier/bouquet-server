@@ -23,8 +23,6 @@
  *******************************************************************************/
 package com.squid.kraken.v4.core.analysis.engine.project;
 
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -36,6 +34,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.squid.core.database.model.Column;
+import com.squid.core.database.model.Table;
 import com.squid.core.domain.IDomain;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.reference.ColumnReference;
@@ -58,6 +57,11 @@ import com.squid.kraken.v4.persistence.DAOFactory;
 import com.squid.kraken.v4.persistence.dao.DimensionDAO;
 import com.squid.kraken.v4.persistence.dao.MetricDAO;
 
+/**
+ * A tentative to make DynamicManager reusable => DO NOT USE IT, NOT TESTED, NOT UP-TO-DATE
+ * @author sergefantino
+ *
+ */
 public class DynamicDomainContentConstructor {
 
 	static final Logger logger = LoggerFactory
@@ -132,11 +136,18 @@ public class DynamicDomainContentConstructor {
 		return content;
 	}
 	
-	public void initStaticContent(List<ExpressionObject<?>> concrete) {
+	/**
+	 * NOT TESTED
+	 * @param domain
+	 * @param table
+	 * @param concrete
+	 */
+	public void initStaticContent(Domain domain, Table table, List<ExpressionObject<?>> concrete) {
 		String prefix = "dyn_"+space.getDomain().getId().toUUID()+"_dimension:";
 		//
 		// evaluate the concrete objects
-		ArrayList<ExpressionObject<?>> scope = new ArrayList<ExpressionObject<?>>();// T446: must define the scope incrementally and override the universe
+		DomainContent scope = new DomainContent(domain);// T446: must define the scope incrementally and override the universe
+		scope.setTable(table);
 		//
 		// sort by level (0 first, ...)
 		Collections.sort(concrete, new LevelComparator<ExpressionObject<?>>());
@@ -158,7 +169,7 @@ public class DynamicDomainContentConstructor {
                 		ids.add(space.A(dimension).getId());
                 	}
     				ExpressionAST expr = parseResilient(univ, domain, dimension, scope);
-    				scope.add(object);
+    				scope.add(dimension);
     				IDomain image = expr.getImageDomain();
     				dimension.setValueType(computeValueType(image));
     				if (expr instanceof ColumnReference) {
@@ -187,7 +198,7 @@ public class DynamicDomainContentConstructor {
 		        	}
 		        	if (metric.getExpression() != null) {
 			        	ExpressionAST expr = parseResilient(univ, domain, metric, scope);
-	    				scope.add(object);
+	    				scope.add(metric);
 			        	metricCoverage.add(expr);
 		        	}
     			} catch (ScopeException e) {
@@ -198,13 +209,13 @@ public class DynamicDomainContentConstructor {
         }
 	}
 
-	private ExpressionAST parseResilient(Universe root, Domain domain, Dimension dimension, Collection<ExpressionObject<?>> scope) throws ScopeException {
+	private ExpressionAST parseResilient(Universe root, Domain domain, Dimension dimension, DomainContent scope) throws ScopeException {
 		try {
-			return root.getParser().parse(domain, dimension, dimension.getExpression().getValue(), scope, null);
+			return root.getParser().parse(domain, dimension, dimension.getExpression().getValue(), scope);
 		} catch (ScopeException e) {
 			if (dimension.getExpression().getInternal()!=null) {
 				try {
-					ExpressionAST intern = root.getParser().parse(domain, dimension, dimension.getExpression().getInternal(), scope, null);
+					ExpressionAST intern = root.getParser().parse(domain, dimension, dimension.getExpression().getInternal(), scope);
 					String value = root.getParser().rewriteExpressionIntern(dimension.getExpression().getInternal(), intern);
 					dimension.getExpression().setValue(value);
 					return intern;
@@ -216,13 +227,13 @@ public class DynamicDomainContentConstructor {
 		}
 	}
 	
-	private ExpressionAST parseResilient(Universe root, Domain domain, Metric metric, Collection<ExpressionObject<?>> scope) throws ScopeException {
+	private ExpressionAST parseResilient(Universe root, Domain domain, Metric metric, DomainContent scope) throws ScopeException {
 		try {
-			return root.getParser().parse(domain, metric, metric.getExpression().getValue(), scope, null);
+			return root.getParser().parse(domain, metric, metric.getExpression().getValue(), scope);
 		} catch (ScopeException e) {
 			if (metric.getExpression().getInternal()!=null) {
 				try {
-					ExpressionAST intern = root.getParser().parse(domain, metric, metric.getExpression().getInternal(), scope, null);
+					ExpressionAST intern = root.getParser().parse(domain, metric, metric.getExpression().getInternal(), scope);
 					String value = root.getParser().rewriteExpressionIntern(metric.getExpression().getInternal(), intern);
 					metric.getExpression().setValue(value);
 					return intern;
