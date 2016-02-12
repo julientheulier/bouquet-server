@@ -200,11 +200,11 @@ public class DynamicDomainContentConstructor {
 
 	private ExpressionAST parseResilient(Universe root, Domain domain, Dimension dimension, Collection<ExpressionObject<?>> scope) throws ScopeException {
 		try {
-			return root.getParser().parse(domain, dimension, scope);
+			return root.getParser().parse(domain, dimension, dimension.getExpression().getValue(), scope, null);
 		} catch (ScopeException e) {
 			if (dimension.getExpression().getInternal()!=null) {
 				try {
-					ExpressionAST intern = root.getParser().parse(domain, dimension, dimension.getExpression().getInternal(), scope);
+					ExpressionAST intern = root.getParser().parse(domain, dimension, dimension.getExpression().getInternal(), scope, null);
 					String value = root.getParser().rewriteExpressionIntern(dimension.getExpression().getInternal(), intern);
 					dimension.getExpression().setValue(value);
 					return intern;
@@ -218,11 +218,11 @@ public class DynamicDomainContentConstructor {
 	
 	private ExpressionAST parseResilient(Universe root, Domain domain, Metric metric, Collection<ExpressionObject<?>> scope) throws ScopeException {
 		try {
-			return root.getParser().parse(domain, metric, scope);
+			return root.getParser().parse(domain, metric, metric.getExpression().getValue(), scope, null);
 		} catch (ScopeException e) {
 			if (metric.getExpression().getInternal()!=null) {
 				try {
-					ExpressionAST intern = root.getParser().parse(domain, metric, metric.getExpression().getInternal(), scope);
+					ExpressionAST intern = root.getParser().parse(domain, metric, metric.getExpression().getInternal(), scope, null);
 					String value = root.getParser().rewriteExpressionIntern(metric.getExpression().getInternal(), intern);
 					metric.getExpression().setValue(value);
 					return intern;
