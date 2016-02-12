@@ -25,8 +25,8 @@ package com.squid.kraken.v4.api.core.projectanalysisjob;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.io.OutputStreamWriter;
-import java.util.*;
+import java.util.List;
+import java.util.Set;
 
 import javax.ws.rs.DELETE;
 import javax.ws.rs.FormParam;
@@ -43,27 +43,23 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.ResponseBuilder;
 import javax.ws.rs.core.StreamingOutput;
 
-import com.squid.core.sql.render.*;
-import com.squid.kraken.v4.model.*;
-
 import org.apache.commons.codec.binary.Base64;
-import org.apache.velocity.VelocityContext;
-import org.apache.velocity.app.VelocityEngine;
-import org.apache.velocity.runtime.RuntimeConstants;
-import org.apache.velocity.tools.generic.DateTool;
-import org.apache.velocity.tools.generic.EscapeTool;
-import org.apache.velocity.tools.generic.MathTool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.core.sql.model.SQLScopeException;
+import com.squid.core.sql.render.RenderingException;
 import com.squid.kraken.v4.api.core.BaseServiceRest;
 import com.squid.kraken.v4.api.core.JobServiceBaseImpl.OutputCompression;
 import com.squid.kraken.v4.api.core.JobServiceBaseImpl.OutputFormat;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.export.ExportSourceWriterVelocity;
+import com.squid.kraken.v4.model.AccessRight;
+import com.squid.kraken.v4.model.DataTable;
+import com.squid.kraken.v4.model.ProjectAnalysisJob;
+import com.squid.kraken.v4.model.ProjectAnalysisJobPK;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.wordnik.swagger.annotations.Api;
 import com.wordnik.swagger.annotations.ApiOperation;
