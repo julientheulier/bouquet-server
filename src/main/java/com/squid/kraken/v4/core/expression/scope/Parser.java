@@ -181,6 +181,14 @@ public class Parser {
 		}
 	}
 	
+	public ExpressionAST parse(Domain domain, boolean restrictedScope) throws ScopeException {
+		try {
+			return parse(domain.getId(), new ProjectExpressionScope(universe, domain, restrictedScope), domain.getSubject().getValue());
+		} catch (ScopeException e) {
+			throw new ScopeException("error while parsing Domain '"+domain.getName()+"'\n caused by: "+e.getLocalizedMessage());
+		}
+	}
+	
 	public ExpressionAST parse(Domain domain, List<Domain> scope) throws ScopeException {
 		return parse(domain, domain.getSubject().getValue(), scope);
 	}
@@ -330,6 +338,16 @@ public class Parser {
 				ExpressionObject<?> x = prop.getExpressionObject();
 				if (x!=null && x.getExpression()!=null) {
 					int refLevel = x.getExpression().getLevel();
+					if (refLevel+1>level) {
+						level = refLevel+1;
+					}
+				}
+			}
+			// handle Domains
+			if (reference!=null && reference instanceof Domain) {
+				Domain domain = (Domain)reference;
+				if (domain.getSubject()!=null) {
+					int refLevel = domain.getSubject().getLevel();
 					if (refLevel+1>level) {
 						level = refLevel+1;
 					}
