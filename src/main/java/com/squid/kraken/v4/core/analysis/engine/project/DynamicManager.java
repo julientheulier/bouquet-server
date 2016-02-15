@@ -71,16 +71,19 @@ import com.squid.kraken.v4.api.core.AccessRightsUtils;
 import com.squid.kraken.v4.core.analysis.engine.cartography.Cartography;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainContent;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
+import com.squid.kraken.v4.core.analysis.engine.query.ExtractVariables;
+import com.squid.kraken.v4.core.analysis.scope.AxisExpression;
+import com.squid.kraken.v4.core.analysis.universe.Axis;
 import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.kraken.v4.core.database.impl.DatabaseServiceImpl;
 import com.squid.kraken.v4.core.database.impl.DatasourceDefinition;
 import com.squid.kraken.v4.core.expression.reference.ColumnDomainReference;
+import com.squid.kraken.v4.core.expression.reference.DomainReference;
 import com.squid.kraken.v4.core.expression.reference.ParameterReference;
 import com.squid.kraken.v4.core.expression.reference.QueryExpression;
 import com.squid.kraken.v4.core.expression.reference.RelationReference;
 import com.squid.kraken.v4.core.expression.visitor.ExtractColumns;
-import com.squid.kraken.v4.core.model.domain.DomainDomain;
 import com.squid.kraken.v4.model.AccessRight;
 import com.squid.kraken.v4.model.Dimension;
 import com.squid.kraken.v4.model.DimensionPK;
@@ -109,7 +112,7 @@ public class DynamicManager {
 	static final Logger logger = LoggerFactory
 			.getLogger(DynamicManager.class);
 
-	public static final boolean DYNAMIC_FLAG = new Boolean(KrakenConfig.getProperty("feature.dynamic", "false"));
+	public static final boolean DYNAMIC_FLAG = true;
 	public static final boolean SPARK_FLAG = new Boolean(KrakenConfig.getProperty("feature.spark", "false"));
 
 	public static final DynamicManager INSTANCE = new DynamicManager();
@@ -819,45 +822,50 @@ public class DynamicManager {
 						joins.add(join);
 					}
 					// create the relation to target
-					ExpressionAST join = joins.size()>1?ExpressionMaker.AND(joins):joins.get(0);
-					String idrel = "rel/" + domain.getId().toUUID() + "-" + target.getId().toUUID() + ":" + facet.prettyPrint();
-					String digest = digest(idrel);
-					RelationPK relationPk = new RelationPK(univ.getProject().getId(), digest);
-					Relation relation =
-							new Relation(relationPk,
-									domain.getId(),
-									Cardinality.MANY,
-									target.getId(),
-									Cardinality.ZERO_OR_ONE,
-									domain.getName(),
-									target.getName(),
-									new Expression(join.prettyPrint()), true);
-					AccessRightsUtils.getInstance().setAccessRights(univ.getContext(), relation, univ.getProject());
-					// add the relation locally
-					content.add(relation);
-					incrementalScope.add(relation);
-					//
-					try {
-						RelationReference ref = new RelationReference(univ, relation, domain, target);
-						if (true) {//(useRelation(relation, ref)) {
-							state.checkName.add(ref.getReferenceName());
-							String expr = ref.prettyPrint()+".$'SELF'";// add the SELF parameter
-							DimensionPK id = new DimensionPK(domain.getId(), digest(state.prefix+expr));
-							if (!state.ids.contains(id.getDimensionId())) {
-								String name = ref.getReferenceName();
-								name = checkName(">"+name,state.checkName);
-								Dimension dim = new Dimension(id, name, Type.INDEX, new Expression(expr), false);
-								dim.setValueType(ValueType.OBJECT);
-								dim.setImageDomain(ref.getImageDomain());
-								AccessRightsUtils.getInstance().setAccessRights(univ.getContext(), dim, domain);
-								content.add(dim);
-								incrementalScope.add(dim);
-								state.scope.add(dim);
-								state.checkName.add(name);
+					if (!joins.isEmpty()) {
+						ExpressionAST join = joins.size()>1?ExpressionMaker.AND(joins):joins.get(0);
+						String idrel = "rel/" + domain.getId().toUUID() + "-" + target.getId().toUUID() + ":" + facet.prettyPrint();
+						String digest = digest(idrel);
+						RelationPK relationPk = new RelationPK(univ.getProject().getId(), digest);
+						Relation relation =
+								new Relation(relationPk,
+										domain.getId(),
+										Cardinality.MANY,
+										target.getId(),
+										Cardinality.ZERO_OR_ONE,
+										domain.getName(),
+										target.getName(),
+										new Expression(join.prettyPrint()), true);
+						AccessRightsUtils.getInstance().setAccessRights(univ.getContext(), relation, univ.getProject());
+						// add the relation locally
+						content.add(relation);
+						incrementalScope.add(relation);
+						//
+						try {
+							RelationReference ref = new RelationReference(univ, relation, domain, target);
+							if (true) {//(useRelation(relation, ref)) {
+								state.checkName.add(ref.getReferenceName());
+								String expr = ref.prettyPrint()+".$'SELF'";// add the SELF parameter
+								DimensionPK id = new DimensionPK(domain.getId(), digest(state.prefix+expr));
+								if (!state.ids.contains(id.getDimensionId())) {
+									String name = ref.getReferenceName();
+									name = checkName(">"+name,state.checkName);
+									Dimension dim = new Dimension(id, name, Type.INDEX, new Expression(expr), false);
+									dim.setValueType(ValueType.OBJECT);
+									dim.setImageDomain(ref.getImageDomain());
+									AccessRightsUtils.getInstance().setAccessRights(univ.getContext(), dim, domain);
+									content.add(dim);
+									incrementalScope.add(dim);
+									state.scope.add(dim);
+									state.checkName.add(name);
+								}
 							}
+						} catch (ScopeException e) {
+							// ignore
 						}
-					} catch (ScopeException e) {
-						// ignore
+					} else {
+						// register an invalid dimension
+						
 					}
 				} else {
 					DynamicColumn col = createDynamicColumn(facet, skin);
@@ -973,9 +981,14 @@ public class DynamicManager {
 	}
 	
 	private List<ExpressionPair> extractRelation(Universe univ, ExpressionAST expr) throws ScopeException, SQLScopeException {
+		if (expr instanceof AxisExpression) {
+			AxisExpression ref = (AxisExpression)expr;
+			Axis axis = ref.getAxis();
+			return extractRelation(univ, axis.getDefinitionSafe());
+		}
 		if (expr instanceof RelationReference) {
 			RelationReference ref = (RelationReference)expr;
-			return getExportedKey(univ, ref.getRelation(), ref.getDirection());
+			return getExportedKey(univ, ref);
 		} if (expr instanceof Compose) {
 			Compose compose = (Compose)expr;
 			List<ExpressionPair> result = extractRelation(univ, compose.getHead());
@@ -988,7 +1001,59 @@ public class DynamicManager {
 		}
 	}
 	
-	private List<ExpressionPair> getExportedKey(Universe univ, Relation rel, RelationDirection direction) throws ScopeException, SQLScopeException {
+	private List<ExpressionPair> getExportedKey(Universe universe, RelationReference ref) throws ScopeException, SQLScopeException {
+		Relation rel = ref.getRelation();
+		Domain left = ref.getLeftDomain();
+		Domain right = ref.getRightDomain();
+		if (left==null || right==null) {
+			throw new ScopeException("Relation does not define Domains: "+ref.getReference().toString());
+		}
+		ExpressionAST join = universe.getParser().parse(rel);
+		if (join instanceof ForeignKeyReference) {
+			ForeignKey fk = ((ForeignKeyReference)join).getForeignKey();
+			if (fk.getKeys().isEmpty()) {
+				throw new SQLScopeException("Relation not supported (no valid key): "+ref.getReference().toString());
+			}
+			List<ExpressionPair> result = new ArrayList<>();
+			List<ExpressionAST> joins = new ArrayList<>();
+			for (KeyPair key : fk.getKeys()) {
+				ExpressionAST exported = 
+						ExpressionMaker.COMPOSE(new DomainReference(universe, left), new ColumnReference(key.getExported()));
+				ExpressionAST primary = 
+						ExpressionMaker.COMPOSE(new DomainReference(universe, right), new ColumnReference(key.getPrimary()));
+				result.add(new ExpressionPair(
+						exported,
+						primary,
+						ref.getDirection()));
+				joins.add(ExpressionMaker.EQUAL(exported, primary));
+			}
+			ExpressionAST explicitJoin = null;
+			if (joins.isEmpty()) {
+				throw new SQLScopeException("Relation not supported (no valid key): "+ref.getReference().toString());
+			} else if (joins.size()==1) {
+				explicitJoin = joins.get(0);
+			} else {
+				explicitJoin = ExpressionMaker.AND(joins);
+			}
+			return result;
+		} else {
+			ExtractVariables visitor = new ExtractVariables();
+			List<ExpressionAST> variables = visitor.apply(join);
+			List<ExpressionAST> filterBySourceDomain = new ArrayList<>();
+			for (ExpressionAST variable : variables) {
+				if (variable.getSourceDomain().equals(ref.getSourceDomain())) {
+					filterBySourceDomain.add(variable);
+				}
+			}
+			if (filterBySourceDomain.isEmpty()) {
+				throw new SQLScopeException("relation not supported (cannot figure out the exported key): "+ref.getReference().toString());
+			} else {
+				return null;// TODO
+			}
+		}
+	}
+	
+	private List<ExpressionPair> getExportedKeyOLD(Universe univ, Relation rel, RelationDirection direction) throws ScopeException, SQLScopeException {
 		ExpressionAST join = univ.getParser().parse(rel);
 		if (join instanceof ForeignKeyReference) {
 			ForeignKey fk = ((ForeignKeyReference)join).getForeignKey();
@@ -1299,12 +1364,18 @@ public class DynamicManager {
 
 	    private boolean isPartitionKey(Column col) {
 	    	if (stats!=null) {
-	            if (stats.isPartitionTable(col.getTable())) {
-	                PartitionInfo partition = stats.getPartitionInfo(col.getTable());
-	                if (partition.isPartitionKey(col)) {
-	                	return true;
-	                }
-	            }
+	    		if (col instanceof DynamicColumn) {
+	    			// for now do nothing...
+	    			// but we should be able to deduce range from the column definition
+	    			return false;
+	    		} else {
+		            if (stats.isPartitionTable(col.getTable())) {
+		                PartitionInfo partition = stats.getPartitionInfo(col.getTable());
+		                if (partition.isPartitionKey(col)) {
+		                	return true;
+		                }
+		            }
+	    		}
 	    	}
 	    	// else
 	    	return false;
