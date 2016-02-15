@@ -193,7 +193,11 @@ public class DomainExpressionScope extends DefaultScope {
 		if (domain.getSubject()==null || domain.getSubject().getValue()==null) {
 			return null;
 		}
-		return universe.getTable(domain);
+		if (this.restrictedScope) {
+			return ProjectManager.INSTANCE.peekTable(space);
+		} else {
+			return universe.getTable(domain);
+		}
 	}
 
 	@Override
@@ -352,7 +356,11 @@ public class DomainExpressionScope extends DefaultScope {
 			}
 		}
 		// else
-		return super.lookupObject(identifierType, identifier);
+		if (identifierType==IdentifierType.DEFAULT) {
+			throw new ScopeException("cannot find object '"+identifier+"' in Domain '"+domain.getName()+"'");
+		} else {
+			throw new ScopeException("cannot find "+identifierType.toString()+" '"+identifier+"' in Domain '"+domain.getName()+"'");
+		}
 	}
 	
 	@Override
