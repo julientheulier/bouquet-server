@@ -408,6 +408,19 @@ public class ProjectManager {
 			return lookupTable(space);
 		}
 	}
+	
+	public Table peekTable(Space space) throws ScopeException {
+		ProjectDynamicContent domains = getProjectContent(space.getUniverse().getContext(), space.getUniverse().getProject().getId());
+		DomainContent content = domains.peekDomainContent(space.getDomain().getId());
+		if (content!=null) {
+			// already initialized
+			return content.getTable();
+		} else {
+			// not yet or being done...
+			// still try to parse the table with restrictedScope=true
+			return lookupTable(space.getUniverse(), space.getDomain(), true);
+		}
+	}
 
 	protected Table lookupTable(Space space) throws ScopeException {
 		return lookupTable(space.getUniverse(), space.getDomain());
@@ -422,13 +435,17 @@ public class ProjectManager {
 	 * @return the Table or an exception if not well defined
 	 */
 	private Table lookupTable(Universe root, Domain domain) throws ScopeException {
+		return lookupTable(root, domain, false);
+	}
+	
+	private Table lookupTable(Universe root, Domain domain, boolean restrictedScope) throws ScopeException {
 		try {
 			if(domain.getOptions() != null && domain.getOptions().getAlink()){
 				Domain toUseDomain = ProjectManager.INSTANCE.getDomain(root.getContext(), new DomainPK(root.getContext().getCustomerId(), domain.getOptions().getLinkSource()));
 				if (toUseDomain.getSubject() == null) {
 					throw new ScopeException("Cannot lookup table definition for domain '" + toUseDomain.getName() + "'");
 				}
-				ExpressionAST subject = root.getParser().parse(toUseDomain);
+				ExpressionAST subject = root.getParser().parse(toUseDomain, restrictedScope);
 				IDomain image = subject.getImageDomain();// it should return a TableProxy
 				Object adapt = image.getAdapter(Table.class);
 				if (adapt != null && adapt instanceof Table) {
@@ -440,7 +457,7 @@ public class ProjectManager {
 				if (domain.getSubject() == null) {
 					throw new ScopeException("Subject is not defined");
 				}
-				ExpressionAST subject = root.getParser().parse(domain);
+				ExpressionAST subject = root.getParser().parse(domain, restrictedScope);
 				IDomain image = subject.getImageDomain();
 				if (image.isInstanceOf(TableDomain.DOMAIN)) {
 					Object adapt = image.getAdapter(Table.class);
@@ -455,7 +472,7 @@ public class ProjectManager {
 						if (adapt.equals(domain)) {
 							throw new ScopeException("Cyclic subject definition '"+domain.getSubject());
 						} else {
-							return lookupTable(root, (Domain)adapt);
+							return lookupTable(root, (Domain)adapt, restrictedScope);
 						}
 					} else {
 						throw new ScopeException("Cannot interpret subject definition '"+domain.getSubject());
