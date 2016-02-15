@@ -62,6 +62,8 @@ public class ProjectExpressionScope extends DefaultScope {
 	private Universe universe;
 	private Domain self = null;// if editing an existing Domain
 	private List<Domain> scope = null;
+	
+	private boolean restrictedScope = false;// if true do not resolve Domains
 
 	public ProjectExpressionScope(Universe universe) {
 		this.universe = universe;
@@ -70,6 +72,12 @@ public class ProjectExpressionScope extends DefaultScope {
 	public ProjectExpressionScope(Universe universe, Domain self) {
 		this.universe = universe;
 		this.self = self;
+	}
+
+	public ProjectExpressionScope(Universe universe, Domain self, boolean restrictedScope) {
+		this.universe = universe;
+		this.self = self;
+		this.restrictedScope = restrictedScope;
 	}
 
 	public ProjectExpressionScope(Universe universe, Domain self, List<Domain> scope) {
@@ -116,21 +124,19 @@ public class ProjectExpressionScope extends DefaultScope {
 		if (identifierType==IdentifierType.DEFAULT || identifierType==IdentifierType.TABLE) {
 			try {
 				table = universe.getTable(identifier);
-				if (table==null) {
-					throw new ScopeException("cannot lookup the table '"+identifier+"'");
-				}
-				if (identifierType==IdentifierType.TABLE) {
+				if (table!=null && identifierType==IdentifierType.TABLE) {
 					return table;
 				} else {
-					// maybe it can be also resolved as a domain
+					// maybe it can be also resolved as a domain (T821)
 				}
-			} catch (ExecutionException e) {
-				throw new ScopeException("cannot lookup the table '"+identifier+"'");
+			} catch (ScopeException | ExecutionException e) {
+				// ignore for now
+				// maybe it can be also resolved as a domain (T821)
 			}
 		}
 		//
 		// lookup for Domain - mainly for supporting the T821
-		if (identifierType==IdentifierType.DEFAULT) {
+		if (identifierType==IdentifierType.DEFAULT && !restrictedScope) {
 			for (Domain domain : getDomains()) {
 				if (domain.getName().equals(identifier)) {
 					if (self==null || !self.equals(domain)) {
@@ -147,10 +153,9 @@ public class ProjectExpressionScope extends DefaultScope {
 		// table ?
 		if (table!=null) {
 			return table;
+		} else {
+			throw new ScopeException("cannot lookup the table '"+identifier+"'");
 		}
-		//
-		// else
-		return super.lookupObject(identifierType, identifier);
 	}
 
 	@Override
@@ -168,16 +173,18 @@ public class ProjectExpressionScope extends DefaultScope {
 	public void buildDefinitionList(List<Object> definitions) {
 		super.buildDefinitionList(definitions);
 		//
-		// list the domains visible to the user
-		try {
-			// create the spaces here so we can exclude self if defined
-			for (Domain domain : getDomains()) {
-				if (this.self==null || this.self!=domain) {
-					definitions.add(domain);
+		if (!restrictedScope) {
+			// list the domains visible to the user
+			try {
+				// create the spaces here so we can exclude self if defined
+				for (Domain domain : getDomains()) {
+					if (this.self==null || this.self!=domain) {
+						definitions.add(domain);
+					}
 				}
+			} catch (ScopeException e1) {
+				// ignore
 			}
-		} catch (ScopeException e1) {
-			// ignore
 		}
 		//
 		// list the tables only if the user has some super powers
