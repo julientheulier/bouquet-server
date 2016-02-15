@@ -91,6 +91,36 @@ public class RelationReference extends ExpressionRef {
 	public IDomain getSourceDomain() {
 		return source;
 	}
+	
+	/**
+	 * return the left Domain
+	 * @return the Domain or null if can't figure out
+	 */
+	public Domain getLeftDomain() {
+		switch (this.direction) {
+		case LEFT_TO_RIGHT:
+			return (Domain)source.getAdapter(Domain.class);
+		case RIGHT_TO_LEFT:
+			return (Domain)image.getAdapter(Domain.class);
+		default:
+			return null;
+		}
+	}
+	
+	/**
+	 * return the right Domain
+	 * @return the Domain or null if can't figure out
+	 */
+	public Domain getRightDomain() {
+		switch (this.direction) {
+		case LEFT_TO_RIGHT:
+			return (Domain)image.getAdapter(Domain.class);
+		case RIGHT_TO_LEFT:
+			return (Domain)source.getAdapter(Domain.class);
+		default:
+			return null;
+		}
+	}
 
 	@Override
 	public String getReferenceName() {
