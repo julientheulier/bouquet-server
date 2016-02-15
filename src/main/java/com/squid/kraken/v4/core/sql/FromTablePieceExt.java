@@ -28,7 +28,7 @@ import com.squid.core.sql.db.render.FromTablePiece;
 import com.squid.core.sql.model.Scope;
 
 /**
- * extended version to keep a reference to the defining selectUniversal
+ * extended version to keep a reference to the defining SelectUniversal
  *
  */
 public class FromTablePieceExt extends FromTablePiece {
