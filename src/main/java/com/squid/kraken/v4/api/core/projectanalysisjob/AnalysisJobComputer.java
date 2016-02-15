@@ -36,8 +36,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.squid.core.expression.ExpressionAST;
+import com.squid.core.expression.ExpressionRef;
 import com.squid.core.expression.scope.ScopeException;
-import com.squid.core.jdbc.engine.IExecutionItem;
 import com.squid.core.sql.model.SQLScopeException;
 import com.squid.core.sql.render.IOrderByPiece.ORDERING;
 import com.squid.core.sql.render.RenderingException;
@@ -57,6 +57,7 @@ import com.squid.kraken.v4.core.analysis.universe.Measure;
 import com.squid.kraken.v4.core.analysis.universe.Property;
 import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
+import com.squid.kraken.v4.core.expression.visitor.ExtractReferences;
 import com.squid.kraken.v4.export.ExecuteAnalysisResult;
 import com.squid.kraken.v4.export.ExportSourceWriter;
 import com.squid.kraken.v4.export.ExportSourceWriterVelocity;
@@ -66,6 +67,7 @@ import com.squid.kraken.v4.model.Dimension;
 import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.DomainPK;
 import com.squid.kraken.v4.model.Expression;
+import com.squid.kraken.v4.model.ExpressionObject;
 import com.squid.kraken.v4.model.FacetSelection;
 import com.squid.kraken.v4.model.Metric;
 import com.squid.kraken.v4.model.MetricPK;
@@ -493,10 +495,31 @@ public class AnalysisJobComputer implements
 		// check user ACL
 		DimensionIndex index = axis.getIndex();
 		if (index == null) {
-			throw new ScopeException("Dimension is not defined");
+			//throw new ScopeException("Dimension is not defined");
+			ExtractReferences extract = new ExtractReferences();
+			List<ExpressionRef> refs = extract.apply(axis.getDefinition());
+			if (refs.isEmpty()) {
+				// something wrong here, we should not get there
+				throw new InvalidCredentialsAPIException(
+						"Unable to validate privileges for expression: "+expr, ctx.isNoError());
+			} else {
+				for (ExpressionRef ref : refs) {
+					Object xxx = ref.getReference();
+					if (xxx instanceof Property) {
+						Property prop = (Property)xxx;
+						AccessRightsUtils.getInstance().checkRole(ctx,
+								prop.getExpressionObject(), Role.READ);
+					} else if (xxx instanceof ExpressionObject<?>) {
+						ExpressionObject<?> model = (ExpressionObject<?>)xxx;
+						AccessRightsUtils.getInstance().checkRole(ctx,
+								model, Role.READ);
+					}
+				}
+			}
+		} else {
+			AccessRightsUtils.getInstance().checkRole(ctx,
+					index.getDimension(), Role.READ);
 		}
-		AccessRightsUtils.getInstance().checkRole(ctx,
-				index.getDimension(), Role.READ);
 		return axis;
 	}
 	
