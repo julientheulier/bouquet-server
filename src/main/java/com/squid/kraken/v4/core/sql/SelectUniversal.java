@@ -384,6 +384,25 @@ public class SelectUniversal extends PieceCreator {
 			}
 		}
 	}
+	
+	/**
+	 * generalized createFromPiece to support DynamicTable; must work with both from(),createInnerJoin() and createDecoratedJoin()
+	 * @param parent
+	 * @param domain
+	 * @return
+	 * @throws SQLScopeException
+	 * @throws ScopeException
+	 */
+	private IFromPiece createFromPieceNew(Scope parent, Domain domain) throws SQLScopeException, ScopeException {
+		Table table = getUniverse().getTableSafe(domain);
+		if (table instanceof DynamicTable) {
+			DynamicTable dyn = (DynamicTable)table;
+			return createFromPieceNew(parent, domain, dyn);
+		} else {
+			FromDomainPiece from = new FromDomainPiece(this,parent,domain,table,getStatement().getAliaser().getUniqueAlias());
+			return from;
+		}
+	}
 
 	/**
 	 * support selecting from a DynamicTable == SubQuery
@@ -394,7 +413,7 @@ public class SelectUniversal extends PieceCreator {
 	 * @throws SQLScopeException
 	 * @throws ScopeException
 	 */
-	private IFromPiece from(Scope parent, Domain domain, DynamicTable table) throws SQLScopeException, ScopeException {
+	private IFromPiece fromOLD(Scope parent, Domain domain, DynamicTable table) throws SQLScopeException, ScopeException {
 		QueryExpression query = table.getLineage();
 		// let's have fun...
 		// for now we will assume the table is always virtual
@@ -426,18 +445,82 @@ public class SelectUniversal extends PieceCreator {
 		parent.put(table, from);
 		return from;
 	}
+	
+	private IFromPiece from(Scope parent, Domain domain, DynamicTable table) throws SQLScopeException, ScopeException {
+		IFromPiece from = createFromPieceNew(parent, domain, table);
+		select.from(parent, table, from);
+		// register the subselect in the parent scope
+		parent.put(domain, from);
+		//parent.put(table, from);
+		return from;
+	}
+	
+	/**
+	 * This is the new createFromPiece to select a DynamicTable
+	 * @param parent
+	 * @param domain
+	 * @param table
+	 * @return
+	 * @throws SQLScopeException
+	 * @throws ScopeException
+	 */
+	private IFromPiece createFromPieceNew(Scope parent, Domain domain, DynamicTable table) throws SQLScopeException, ScopeException {
+		QueryExpression query = table.getLineage();
+		// let's have fun...
+		// for now we will assume the table is always virtual
+		// first create the subselect
+		SelectUniversal subselect = new SelectUniversal(this);
+		subselect.from(subselect.getScope(), query.getSubject().getDomain());
+		// wrap the subselect into a FROM piece
+		String segmentedAlias = subselect.getStatement().getAliaser().getUniqueAlias();
+		FromSelectUniversal from = new FromSelectUniversal(getStatement(), subselect, segmentedAlias);
+		// add filters if any (this is not encoded in the Table)
+		for (ExpressionAST filter : query.getFilters()) {
+			subselect.where(filter);
+		}
+		// now compute the virtual table by using the dynamicColumn's lineage
+		for (Column col : table.getColumns()) {
+			// the column should be a DynamicColumn
+			if (col instanceof DynamicColumn) {
+				DynamicColumn dyn = (DynamicColumn)col;
+				ISelectPiece piece = subselect.select(dyn.getLineage(), dyn.getName());
+				// map the definition in the outer scope
+				SubSelectReferencePiece ref = new SubSelectReferencePiece(from, piece);
+				ColumnReference colref = new ColumnReference(col);
+				subselect.getScope().put(colref, ref);// this is to allow joining with subselect
+				parent.put(colref, ref);// this is to import the selected column in outer scope
+			} else {
+				// error...
+			}
+		}
+		return from;
+	}
 
 	private IFromPiece from(Scope parent, Domain domain, Table table) throws SQLScopeException {
 		FromDomainPiece from = new FromDomainPiece(this,parent,domain,table,getStatement().getAliaser().getUniqueAlias());
-		return select.from(parent, table, from);
+		select.from(parent, table, from);
+		parent.put(domain,from);
+		return from;
 	}
 	
-	protected IFromPiece createFromPiece(Scope parent, Domain domain) throws SQLScopeException, ScopeException {
+	protected IFromPiece createFromPieceOLD(Scope parent, Domain domain) throws SQLScopeException, ScopeException {
 		Table table = getTable(domain);
-		FromTablePiece from = new FromTablePieceExt(this,parent,table,getStatement().getAliaser().getUniqueAlias());
+		FromDomainPiece from = new FromDomainPiece(this,parent,domain,table,getStatement().getAliaser().getUniqueAlias());
 		parent.put(table, from);
 		parent.put(domain,from);
 		return from;
+	}
+	
+	/**
+	 * now supporting DynamicTable
+	 * @param parent
+	 * @param domain
+	 * @return
+	 * @throws SQLScopeException
+	 * @throws ScopeException
+	 */
+	protected IFromPiece createFromPiece(Scope parent, Domain domain) throws SQLScopeException, ScopeException {
+		return createFromPieceNew(parent, domain);
 	}
 
 	private IFromPiece join(Context ctx, IFromPiece from, Relation relation, Domain source, Domain target) throws SQLScopeException, ScopeException {
@@ -497,11 +580,13 @@ public class SelectUniversal extends PieceCreator {
 
 	// create a simple natural join
 	private IFromPiece createNaturalJoin(IFromPiece from, Relation relation, Domain source, Domain target) throws SQLScopeException, ScopeException {
-		// just add the target and link
+		// just add the target as a regular from
 		Scope subscope = new Scope(from.getScope());
-		IFromPiece targetFromPiece = createFromPiece(subscope,target);
-		getStatement().getFromPieces().add(targetFromPiece);
+		IFromPiece targetFromPiece = from(subscope,target);
+		//IFromPiece targetFromPiece = createFromPiece(subscope,target);
+		//getStatement().getFromPieces().add(targetFromPiece);
 		//
+		// define the join condition
 		Scope joinScope = new Scope();
 		joinScope.put(source, from);
 		joinScope.put(getUniverse().getTable(source), from);// register both the domain and the table
@@ -534,9 +619,13 @@ public class SelectUniversal extends PieceCreator {
 		// just add the target and link
 		Scope subscope = new Scope(from.getScope());
 		IFromPiece targetFromPiece = createFromPiece(subscope,target);
-		//
-		if (targetFromPiece instanceof FromTablePiece && joinType==JoinType.LEFT) {
-			((FromTablePiece)targetFromPiece).setDense(false);// LEFT JOIN is NOT DENSE, i.e. it may return NULL records
+		subscope.put(target, targetFromPiece);
+		if (targetFromPiece instanceof FromTablePiece) {
+			FromTablePiece targetFromTable = (FromTablePiece)targetFromPiece;
+			subscope.put(targetFromTable.getTable(), targetFromPiece);
+			if (joinType==JoinType.LEFT) {
+				((FromTablePiece)targetFromPiece).setDense(false);// LEFT JOIN is NOT DENSE, i.e. it may return NULL records
+			}
 		}
 		//
 		Scope joinScope = new Scope();
