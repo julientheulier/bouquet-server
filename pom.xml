@@ -329,6 +329,7 @@
 							<Revision>${build.number}</Revision>
 						</manifestEntries>
 					</archive>
+<!--  					<failOnMissingWebXml>false</failOnMissingWebXml> -->
 				</configuration>
 			</plugin>
 
