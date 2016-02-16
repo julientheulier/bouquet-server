@@ -424,7 +424,7 @@ public class InternalAnalysisJobServiceRest extends BaseServiceRest {
                 for (DataTable.Row row : results.getRows()){
                     List<IPiece> subpieces = new ArrayList<IPiece>();
                     i = 0;
-                    for(String s : row.getV()) {
+                    for(Object s : row.getV()) {
                         IDomain domain_subpiece = columns.get(i).getType().getDomain();
                         subpieces.add(new SimpleConstantValuePiece(s,domain_subpiece));
                         i++;
