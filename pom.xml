@@ -181,7 +181,7 @@
 		</dependency>
 
 		<dependency>
-			<groupId>com.zaxxer</groupId>
+			<groupId>io.openbouquet</groupId>
 			<artifactId>HikariCP</artifactId>
 			<version>2.4.2-RC2+SquidSolutions</version>
 		</dependency>
