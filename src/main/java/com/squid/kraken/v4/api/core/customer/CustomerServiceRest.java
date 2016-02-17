@@ -440,7 +440,7 @@ public class CustomerServiceRest {
 		// log the request
 		ServiceUtils.getInstance().logAPIRequest(null, null, null, null,
 				request);
-		String res = "{ \"kraken\" : \""
+		String res = "{ \"bouquet-server\" : \""
 				+ ServiceUtils.getInstance().getBuildVersionString()+"\"";
 
 		for (IVendorSupport plugin:
@@ -448,7 +448,7 @@ public class CustomerServiceRest {
 			res += ",\""+plugin.getVendorId()+"\" : \""+plugin.getVendorVersion()+"\"";
 		}
 		CoreVersion version = new CoreVersion();
-		res +=", \""+"Core\":"+"\""+ version.getVendorVersion()+"\"";
+		res +=", \""+"bouquet-core\":"+"\""+ version.getVendorVersion()+"\"";
 
 		res += " }";
 		return res;
