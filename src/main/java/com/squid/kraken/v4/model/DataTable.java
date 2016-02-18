@@ -201,21 +201,22 @@ public class DataTable extends JobResultBaseImpl {
      */
     static public class Row implements Serializable {
 
-        private String[] v; // values
+//        private String[] v; // values
+      private Object [] v; // values
 
         public Row() {
         }
 
-        public Row(String[] v) {
+        public Row(Object[] v) {
             super();
             this.v = v;
         }
 
-        public String[] getV() {
+        public Object[] getV() {
             return v;
         }
 
-        public void setV(String[] v) {
+        public void setV(Object[] v) {
             this.v = v;
         }
 
@@ -224,7 +225,7 @@ public class DataTable extends JobResultBaseImpl {
             return "Row [values=" + Arrays.toString(v) + "]";
         }
 
-    }
+    } 
 
     @Override
     public long getTotalSize() {

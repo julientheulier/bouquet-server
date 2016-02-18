@@ -775,14 +775,15 @@ public class DataMatrix {
         int endIndex = startIndex + maxResults;
         for (IndirectionRow row : rows) {
             if (rowIndex >= startIndex) {
-	            String[] values = new String[visible_count + row.getDataCount()];
+	            //String[] values = new String[visible_count + row.getDataCount()];
+	            Object[] values = new Object[visible_count + row.getDataCount()];	           
 	            int colIdx = 0;
 	            for (int i = 0; i < axes_count; i++) {
 	            	AxisValues m = axes.get(i);
 	            	if (m.isVisible()) {
-		                Object value = row.getAxisValue(i);
+	                Object value = row.getAxisValue(i);
 		                if (value != null) {
-		                    values[colIdx++] = value.toString();
+		                    values[colIdx++] = row.getAxisValue(i);
 		                } else {
 		                    values[colIdx++] =  "";
 		                }
