@@ -781,13 +781,12 @@ public class DataMatrix {
 	            for (int i = 0; i < axes_count; i++) {
 	            	AxisValues m = axes.get(i);
 	            	if (m.isVisible()) {
-/*		                Object value = row.getAxisValue(i);
+	                Object value = row.getAxisValue(i);
 		                if (value != null) {
-		                    values[colIdx++] = value.toString();
+		                    values[colIdx++] = row.getAxisValue(i);
 		                } else {
 		                    values[colIdx++] =  "";
-		                }*/
-	            		values[colIdx++] =row.getAxisValue(i);
+		                }
 	            	}
 	            }
 	            for (int i = 0; i < kpi_count; i++) {
