@@ -32,6 +32,7 @@ import org.mongodb.morphia.annotations.Transient;
 
 import com.squid.kraken.v4.api.core.JobResult;
 import com.squid.kraken.v4.persistence.AppContext;
+import com.wordnik.swagger.annotations.ApiModelProperty;
 
 @SuppressWarnings("serial")
 @Indexes( @Index("temporary, creationTime") )
@@ -39,10 +40,13 @@ public abstract class JobBaseImpl<PK extends GenericPK, R extends JobResult> ext
 
     private Status status;
 
+    @ApiModelProperty(readOnly = true)
     private Error error;
 
+    @ApiModelProperty(readOnly = true)
     private Statistics statistics;
 
+    @ApiModelProperty(readOnly = true)
     private Long resultsSize;
     
     private Boolean temporary;
@@ -50,8 +54,10 @@ public abstract class JobBaseImpl<PK extends GenericPK, R extends JobResult> ext
     private Boolean autoRun;
     
     @Transient
+	@ApiModelProperty(readOnly = true)
     private transient R results;
     
+    @ApiModelProperty(readOnly = true)
     private Long creationTime;
 
     public JobBaseImpl(PK id) {
