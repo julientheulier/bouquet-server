@@ -327,6 +327,7 @@
 						<manifestEntries>
 							<Built-Date>${build.date}</Built-Date>
 							<Revision>${build.number}</Revision>
+							<Version>${project.version}</Version>
 						</manifestEntries>
 					</archive>
 <!--  					<failOnMissingWebXml>false</failOnMissingWebXml> -->
