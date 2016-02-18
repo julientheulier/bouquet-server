@@ -443,12 +443,21 @@ public class CustomerServiceRest {
 		String res = "{ \"bouquet-server\" : "
 				+ ServiceUtils.getInstance().getBuildVersionString();
 
-		for (IVendorSupport plugin:
-			 VendorSupportRegistry.INSTANCE.listVendors()){
-			res += ",\""+plugin.getVendorId()+"\" : \""+plugin.getVendorVersion()+"\"";
+		res += ",\"bouquet-plugins\" : [ ";
+		boolean first = true;
+		for (IVendorSupport plugin : VendorSupportRegistry.INSTANCE
+				.listVendors()) {
+			if (!first) {
+				res += ",";
+			} else {
+				first = false;
+			}
+			res += "{\"" + plugin.getVendorId() + "\" : \""
+					+ plugin.getVendorVersion() + "\"}";
 		}
+		res += "]";
 		CoreVersion version = new CoreVersion();
-		res +=", \""+"bouquet-core\":"+"\""+ version.getVendorVersion()+"\"";
+		res += ", \"bouquet-core\" : \"" + version.getVendorVersion() + "\"";
 
 		res += " }";
 		return res;
