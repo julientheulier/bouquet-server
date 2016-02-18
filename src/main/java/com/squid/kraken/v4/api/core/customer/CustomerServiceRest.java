@@ -440,8 +440,8 @@ public class CustomerServiceRest {
 		// log the request
 		ServiceUtils.getInstance().logAPIRequest(null, null, null, null,
 				request);
-		String res = "{ \"bouquet-server\" : \""
-				+ ServiceUtils.getInstance().getBuildVersionString()+"\"";
+		String res = "{ \"bouquet-server\" : "
+				+ ServiceUtils.getInstance().getBuildVersionString();
 
 		for (IVendorSupport plugin:
 			 VendorSupportRegistry.INSTANCE.listVendors()){
