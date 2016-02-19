@@ -28,6 +28,7 @@ import com.squid.core.domain.operators.ExtendedType;
 import com.squid.core.expression.ExpressionRef;
 import com.squid.core.expression.PrettyPrintConstant;
 import com.squid.core.expression.reference.ColumnReference;
+import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.core.sql.render.SQLSkin;
 import com.squid.kraken.v4.core.model.domain.ProxyDomainDomain;
@@ -37,6 +38,12 @@ public class DomainReference extends ExpressionRef {
 	
 	private Domain reference;
 	private IDomain image;
+	
+	public DomainReference(Space space) {
+		super();
+		this.reference = space.getDomain();
+		this.image = new ProxyDomainDomain(space.getUniverse(), this.reference);
+	}
 	
 	public DomainReference(Universe universe, Domain reference) {
 		super();
