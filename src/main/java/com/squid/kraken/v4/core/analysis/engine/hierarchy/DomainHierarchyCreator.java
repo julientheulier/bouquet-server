@@ -118,7 +118,9 @@ public class DomainHierarchyCreator {
 			try {
 				List<DimensionIndex> results = new ArrayList<>();
 				populateSubDomainHierarchy(hierarchy.getRoot(), root, axis, results, type);
-				hierarchy.addHierarchy(results);
+				if (!results.isEmpty()){
+					hierarchy.addHierarchy(results);
+				}
 			} catch (ScopeException | InterruptedException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();

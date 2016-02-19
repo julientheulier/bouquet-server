@@ -105,10 +105,11 @@ public class CXFServletService extends CXFNonSpringJaxrsServlet {
 
 		long ts_end = System.currentTimeMillis();
 		
-		logger.info("  _                 _                         ");
-		logger.info(" / \\ ._   _  ._    |_)  _       _.      _ _|_ ");
-		logger.info(" \\_/ |_) (/_ | |   |_) (_) |_| (_| |_| (/_ |_ ");
-		logger.info("     |                           |            ");     
+		logger.info("\n"+
+		"  _                 _                         \n"
+		+" / \\ ._   _  ._    |_)  _       _.      _ _|_ \n"
+		+" \\_/ |_) (/_ | |   |_) (_) |_| (_| |_| (/_ |_ \n"
+		+"     |                           |            ");  
 
 		logger.info("Initialization complete in " + (ts_end - ts_start) + "ms");
 	}
@@ -135,8 +136,12 @@ public class CXFServletService extends CXFNonSpringJaxrsServlet {
 			try {
 				Manifest manifest = new Manifest(input);
 				Attributes mainAttribs = manifest.getMainAttributes();
-				version = mainAttribs.getValue("Built-Date") + " ("
+				version = "{";
+				version += " \"build\" : \""+mainAttribs.getValue("Built-Date") + " ("
 						+ mainAttribs.getValue("Revision") + ")";
+				version += "\",";
+				version += " \"version\" :  \""+mainAttribs.getValue("Version");
+				version += "\"}";
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
