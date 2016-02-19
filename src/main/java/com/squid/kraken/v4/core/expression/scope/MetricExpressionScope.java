@@ -103,7 +103,7 @@ public class MetricExpressionScope extends DomainExpressionScope {
 	
 	@Override
 	protected boolean checkSelf(Object object) {
-		return this.metric!=null && this.metric.equals(metric);
+		return this.metric!=null && this.metric.equals(object);
 	}
 
 }
