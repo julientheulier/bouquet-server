@@ -51,28 +51,28 @@ import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
 
 public class QueryWorkerServer implements IQueryWorkerServer {
 
-    static final Logger logger = LoggerFactory.getLogger(QueryWorkerServer.class);
-    
+	static final Logger logger = LoggerFactory.getLogger(QueryWorkerServer.class);
+
 	//private static final boolean SPARK_FLAG = new Boolean(KrakenConfig.getProperty("feature.spark", "false"));
 
-    
-    private HashMap<String, SimpleDatabaseManager> managers ;
-	
-    private String host;
-	private int port;
-	
 
-//	private int maxRecords=1024;
+	private HashMap<String, SimpleDatabaseManager> managers ;
+
+	private String host;
+	private int port;
+
+
+	//	private int maxRecords=1024;
 
 	private int maxRecords=-1;
 
 	private int defaultTTLinSec = 3600;
-	
+
 	//redis
 	private String REDIS_SERVER_HOST;
 	private  int REDIS_SERVER_PORT;
 	private IRedisCacheProxy redis ;
-		
+
 
 	public QueryWorkerServer(AWSRedisCacheConfig conf) {
 		//redis
@@ -97,96 +97,110 @@ public class QueryWorkerServer implements IQueryWorkerServer {
 	public IRedisCacheProxy getCache(){
 		return this.redis;
 	}
-	
+
 	@Override
 	public String hello(){
 		return "Hello Query Worker server";
 	}
-	
+
 	@Override
 	public boolean fetch(String k, String SQLQuery, String RSjdbcURL, String username, String pwd, int ttl, long limit){
-	    IExecutionItem res;
-		byte[] serialized  = new byte[1] ;
-		boolean ok;
-		try {
+		try
+		{
+			IExecutionItem res = null;
+			boolean ok;
+			boolean isDone =false;
+			long linesProcessed = 0;
 			String key = username +"\\" + RSjdbcURL + "\\" +pwd;
-			SimpleDatabaseManager db;
-			synchronized(managers){
-				db = managers.get(key);
-				if (db == null ){
-					db = new SimpleDatabaseManager(RSjdbcURL, username, pwd);
-					managers.put(key, db);
+		
+			try	
+			{
+				SimpleDatabaseManager db;
+				synchronized(managers){
+					db = managers.get(key);
+					if (db == null ){
+						db = new SimpleDatabaseManager(RSjdbcURL, username, pwd);
+						managers.put(key, db);
+					}
 				}
-			}
-			res = db.executeQuery(SQLQuery);
 
-			RawMatrixStreamExecRes serializedRes = RawMatrix.streamExecutionItemToByteArray(res, maxRecords, limit);
-			boolean isDone ;
-			if ( (limit>-1) ){
-				// preview
-				if  (serializedRes.getNbLines() <= limit){
-					isDone = true;
-				}
-				else{
-					isDone = false;
-				}					
-			}else{
-				//export
-				
-				
-				isDone= false;
-			}
-			
-//			if (serializedRes.isDone()){
-				logger.info("The whole result set fits in one Redis chunk") ;
-				ok = redis.put(k, serializedRes.getStreamedMatrix()) ;
-				if (!ok) {
-					throw new RedisCacheException("We did not manage to store the result for query " + SQLQuery + "in redis");
-				}
-/*			}else{
-				logger.info("not done");
+				boolean firstCall = true;
+				res = db.executeQuery(SQLQuery);
+				isDone = false;
 
-				RedisCacheValuesList valuesList  = new RedisCacheValuesList() ;
-				// store first batch	
-				int nbBatches = 1;
+				RedisCacheValuesList valuesList  = new RedisCacheValuesList();
+				int batchLowerBound = 0 ;
+				int batchUpperBound = 0 ;
+				int nbBatches = 0;
+				long nbLinesLeftToRead = limit;
+				while (!isDone){
 
-				do{
-					int batchLowerBound = 0 ;
-					int batchUpperBound = batchLowerBound+serializedRes.getNbLines();
+					RawMatrixStreamExecRes serializedRes = RawMatrix.streamExecutionItemToByteArray(res, maxRecords, nbLinesLeftToRead);
+					linesProcessed += serializedRes.getNbLines();
+					nbLinesLeftToRead -= linesProcessed;
+					
+					logger.info("limit " + limit + ", linesProcessed " + linesProcessed + " hasMore:"+serializedRes.hasMore() );
+//					if ( ((limit>-1) && (linesProcessed >= limit)) || ((limit ==-1) && (!serializedRes.hasMore())) ){
+					if ((!serializedRes.hasMore())){
+						//(limit with enough lines) or (export and end of dataset reached) 
+						isDone =true;
+					}else{
+						isDone = false ;
+					}
+
+					if (firstCall){
+						if (isDone){
+							logger.info("The whole result set fits in one Redis chunk") ;
+							ok = redis.put(k, serializedRes.getStreamedMatrix()) ;
+							if (!ok) {
+								throw new RedisCacheException("We did not manage to store the result for query " + SQLQuery + "in redis");
+							}
+							break ;
+						}else{
+							logger.info("The whole result set won't fit in one Redis chunk");	
+						}
+						firstCall = false;
+					}
+					batchLowerBound = batchUpperBound;
+					batchUpperBound = batchLowerBound+serializedRes.getNbLines();
+
 					String batchKey = k+"_"+batchLowerBound + "-" + batchUpperBound;
-
 					ok  = redis.put(batchKey, serializedRes.getStreamedMatrix());
 					if (!ok) {
 						throw new RedisCacheException("We did not manage to store the result for query " + SQLQuery + "in redis");
 					}
 					valuesList.addReferenceKey(batchKey);
-					this.redis.put(k, valuesList.serialize());
+					valuesList.setDone(isDone);
+					this.redis.put(k, valuesList.serialize());	
+					nbBatches+=1;
+					if (isDone){
+						logger.info("The  result set was split into " + nbBatches + " Redis chunks") ;
+					}
 				}
-				while( !serializedRes.isDone());
 
-				valuesList.setDone(true);
-				this.redis.put(k, valuesList.serialize());
 
-				logger.info("The  result set was split into " + nbBatches + " Redis chunks") ;
+				/* ttl = -1=> no ttl
+				 * ttl = -2 => default ttl
+				 * else set ttl
+				 */
+				if (ttl == -2)
+					redis.setTTL(k, this.defaultTTLinSec);
+				else
+					if (ttl  != -1)
+						redis.setTTL(k, ttl);			
 
+				return true ;
+			} catch (ExecutionException e){
+				throw new RedisCacheException("Database Service exception for " + RSjdbcURL + " while executing the Query: "+e.getLocalizedMessage(), e) ;
+			} catch( SQLException | IOException e) {
+				throw new RedisCacheException("Database Service exception for " + RSjdbcURL + " while reading the Query results: "+e.getLocalizedMessage(), e) ;
 			}
-*/			
-		} catch (ExecutionException e){
-			throw new RedisCacheException("Database Service exception for " + RSjdbcURL + " while executing the Query: "+e.getLocalizedMessage(), e) ;
-		} catch( SQLException | IOException e) {
+			finally{
+				if (res!=null)
+					res.close();
+			}
+		}catch(SQLException e){
 			throw new RedisCacheException("Database Service exception for " + RSjdbcURL + " while reading the Query results: "+e.getLocalizedMessage(), e) ;
 		}
-		 
-		/* ttl = -1=> no ttl
-		 * ttl = -2 => default ttl
-		 * else set ttl
-		 */
-		if (ttl == -2)
-			redis.setTTL(k, this.defaultTTLinSec);
-		else
-			if (ttl  != -1)
-				redis.setTTL(k, ttl);			
-		
-		return ok ;
 	}
 }

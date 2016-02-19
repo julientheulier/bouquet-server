@@ -20,15 +20,15 @@ public class RawMatrixStreamExecRes {
 	public void setNbLines(int nbLines) {
 		this.nbLines = nbLines;
 	}
-	public boolean isDone() {
-		return isDone;
+	public boolean hasMore() {
+		return hasMore;
 	}
-	public void setDone(boolean isDone) {
-		this.isDone = isDone;
+	public void setHasMore(boolean hasMore) {
+		this.hasMore = hasMore;
 	}
 	private byte[] streamedMatrix;
 	private long executionTime;
 	private int nbLines;
-	private boolean isDone;
+	private boolean hasMore;
 	
 }
