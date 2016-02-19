@@ -52,7 +52,9 @@ import com.squid.core.database.statistics.IDatabaseStatistics;
 import com.squid.core.database.statistics.PartitionInfo;
 import com.squid.core.domain.IDomain;
 import com.squid.core.domain.IDomainMetaDomain;
+import com.squid.core.domain.associative.AssociativeDomainInformation;
 import com.squid.core.domain.operators.ExtendedType;
+import com.squid.core.domain.operators.OperatorDefinition;
 import com.squid.core.expression.Compose;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.ExpressionRef;
@@ -71,7 +73,6 @@ import com.squid.kraken.v4.api.core.AccessRightsUtils;
 import com.squid.kraken.v4.core.analysis.engine.cartography.Cartography;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainContent;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
-import com.squid.kraken.v4.core.analysis.engine.query.ExtractVariables;
 import com.squid.kraken.v4.core.analysis.scope.AxisExpression;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
 import com.squid.kraken.v4.core.analysis.universe.Space;
@@ -80,12 +81,12 @@ import com.squid.kraken.v4.core.database.impl.DatabaseServiceImpl;
 import com.squid.kraken.v4.core.database.impl.DatasourceDefinition;
 import com.squid.kraken.v4.core.expression.reference.ColumnDomainReference;
 import com.squid.kraken.v4.core.expression.reference.DomainReference;
-import com.squid.kraken.v4.core.expression.reference.ParameterReference;
 import com.squid.kraken.v4.core.expression.reference.QueryExpression;
 import com.squid.kraken.v4.core.expression.reference.RelationReference;
 import com.squid.kraken.v4.core.expression.visitor.ExtractColumns;
 import com.squid.kraken.v4.model.AccessRight;
 import com.squid.kraken.v4.model.Dimension;
+import com.squid.kraken.v4.model.Dimension.Type;
 import com.squid.kraken.v4.model.DimensionPK;
 import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.DomainPK;
@@ -99,7 +100,6 @@ import com.squid.kraken.v4.model.ReferencePK;
 import com.squid.kraken.v4.model.Relation;
 import com.squid.kraken.v4.model.RelationPK;
 import com.squid.kraken.v4.model.ValueType;
-import com.squid.kraken.v4.model.Dimension.Type;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DAOFactory;
 import com.squid.kraken.v4.persistence.dao.DimensionDAO;
@@ -804,26 +804,28 @@ public class DynamicManager {
 				IDomain image = facet.getImageDomain();
 				if (image.isInstanceOf(IDomain.OBJECT)) {
 					Domain target = (Domain)(image.getAdapter(Domain.class));
-					ExpressionAST leftDomain = new ParameterReference("LEFT", space.getImageDomain());
-					ExpressionAST rightDomain = new ParameterReference("RIGHT", image);
+					//ExpressionAST leftDomain = new ParameterReference("LEFT", space.getImageDomain());
+					//ExpressionAST rightDomain = new ParameterReference("RIGHT", image);
 					// need to find the key
-					List<ExpressionPair> pairs = extractRelationSafe(univ, facet);
-					List<ExpressionAST> joins = new ArrayList<>();
-					for (ExpressionPair pair : pairs) {
-						ExpressionAST left = pair.left;
-						DynamicColumn col = createDynamicColumn(left, skin);
-						col.setTable(table);
-						table.addColumn(col);
-						primaryKey.addColumn(col, pos++);
-						//
-						ExpressionAST join = ExpressionMaker.EQUAL(
-								ExpressionMaker.COMPOSE(leftDomain,new ColumnDomainReference(space, col)), 
-								ExpressionMaker.COMPOSE(rightDomain,pair.right));
-						joins.add(join);
+					ExpressionFunctor functor = extractRelationSafe(univ, facet);
+					ExpressionFunctor join = functor;
+					if (functor!=null) {
+						IDomain compare = query.getSourceDomain();
+						for (ExpressionAST variable : functor.getVariables()) {
+							IDomain source = variable.getSourceDomain();
+							if (source.isInstanceOf(compare)) {
+								DynamicColumn col = createDynamicColumn(variable, skin);
+								col.setTable(table);
+								table.addColumn(col);
+								primaryKey.addColumn(col, pos++);
+								//
+								ExpressionAST rebind = ExpressionMaker.COMPOSE(new DomainReference(space), new ColumnDomainReference(space, col));
+								join = join.replace(variable, rebind);
+							}
+						}
 					}
 					// create the relation to target
-					if (!joins.isEmpty()) {
-						ExpressionAST join = joins.size()>1?ExpressionMaker.AND(joins):joins.get(0);
+					if (join!=functor) {
 						String idrel = "rel/" + domain.getId().toUUID() + "-" + target.getId().toUUID() + ":" + facet.prettyPrint();
 						String digest = digest(idrel);
 						RelationPK relationPk = new RelationPK(univ.getProject().getId(), digest);
@@ -835,7 +837,7 @@ public class DynamicManager {
 										Cardinality.ZERO_OR_ONE,
 										domain.getName(),
 										target.getName(),
-										new Expression(join.prettyPrint()), true);
+										new Expression(join.getDefinition().prettyPrint()), true);
 						AccessRightsUtils.getInstance().setAccessRights(univ.getContext(), relation, univ.getProject());
 						// add the relation locally
 						content.add(relation);
@@ -879,7 +881,7 @@ public class DynamicManager {
 					if (!state.ids.contains(id.getDimensionId())) {
 						Type type = Type.INDEX;
 						String name = checkName(normalizeObjectName(col.getName()),state.checkName);
-						Dimension dim = new Dimension(id, name, type, new Expression(expr),true);
+						Dimension dim = new Dimension(id, name, type, new Expression(expr),false);
 						dim.setImageDomain(col.getTypeDomain());
 						dim.setValueType(computeValueType(col.getTypeDomain()));
 						AccessRightsUtils.getInstance().setAccessRights(univ.getContext(), dim, domain);
@@ -909,7 +911,7 @@ public class DynamicManager {
 				if (!state.ids.contains(id.getDimensionId())) {
 					Type type = Type.INDEX;
 					String name = checkName(normalizeObjectName(col.getName()),state.checkName);
-					Dimension dim = new Dimension(id, name, type, new Expression(expr),true);
+					Dimension dim = new Dimension(id, name, type, new Expression(expr),false);
 					dim.setImageDomain(col.getTypeDomain());
 					dim.setValueType(computeValueType(col.getTypeDomain()));
 					AccessRightsUtils.getInstance().setAccessRights(univ.getContext(), dim, domain);
@@ -920,6 +922,22 @@ public class DynamicManager {
 					if (col.getTypeDomain().isInstanceOf(IDomain.TEMPORAL)) {
 						periodCandidates.add(new RawDImension(col, dim));
 					}
+				}
+				//
+				// associative ?
+				IDomain image = metric.getImageDomain();
+				OperatorDefinition op = AssociativeDomainInformation.getAssociativeOperator(image);
+				if (op!=null) {
+					ExpressionAST m = ExpressionMaker.op(op, ref);
+					String expr2 = m.prettyPrint();
+					MetricPK id2 = new MetricPK(domain.getId(), digest(state.prefix+expr2));
+					String name2 = checkName(op.getName()+" "+normalizeObjectName(col.getName()),state.checkName);
+					Metric metric2 = new Metric(id2, name2, new Expression(expr2),false);
+					AccessRightsUtils.getInstance().setAccessRights(univ.getContext(), metric2, domain);
+					content.add(metric2);
+					incrementalScope.add(metric2);
+					state.scope.add(metric2);
+					state.checkName.add(name2);
 				}
 			}
 			//
@@ -935,7 +953,6 @@ public class DynamicManager {
 			}
 		}
 	}
-	
 	
 	private DynamicColumn createDynamicColumn(ExpressionAST definition, SQLSkin skin) {
 		String internal = normalizeExpressionName(definition);
@@ -972,15 +989,15 @@ public class DynamicManager {
 		}
 	}
 	
-	private List<ExpressionPair> extractRelationSafe(Universe univ, ExpressionAST expr) {
+	private ExpressionFunctor extractRelationSafe(Universe univ, ExpressionAST expr) {
 		try {
 			return extractRelation(univ, expr);
 		} catch (ScopeException | SQLScopeException e) {
-			return Collections.emptyList();
+			return null;
 		}
 	}
 	
-	private List<ExpressionPair> extractRelation(Universe univ, ExpressionAST expr) throws ScopeException, SQLScopeException {
+	private ExpressionFunctor extractRelation(Universe univ, ExpressionAST expr) throws ScopeException, SQLScopeException {
 		if (expr instanceof AxisExpression) {
 			AxisExpression ref = (AxisExpression)expr;
 			Axis axis = ref.getAxis();
@@ -991,17 +1008,19 @@ public class DynamicManager {
 			return getExportedKey(univ, ref);
 		} if (expr instanceof Compose) {
 			Compose compose = (Compose)expr;
-			List<ExpressionPair> result = extractRelation(univ, compose.getHead());
-			for (ExpressionPair pair : result) {
-				pair.left = new Compose(compose.getTail(),pair.left);
+			ExpressionFunctor functor = extractRelation(univ, compose.getHead());
+			for (ExpressionAST variable : functor.getVariables()) {
+				// rebind
+				Compose rebind = new Compose(compose.getTail(), variable);
+				functor = functor.replace(variable, rebind);
 			}
-			return result;// relink exported key
+			return functor;// relink exported key
 		} else {
-			return Collections.emptyList();
+			return null;
 		}
 	}
 	
-	private List<ExpressionPair> getExportedKey(Universe universe, RelationReference ref) throws ScopeException, SQLScopeException {
+	private ExpressionFunctor getExportedKey(Universe universe, RelationReference ref) throws ScopeException, SQLScopeException {
 		Relation rel = ref.getRelation();
 		Domain left = ref.getLeftDomain();
 		Domain right = ref.getRightDomain();
@@ -1010,21 +1029,17 @@ public class DynamicManager {
 		}
 		ExpressionAST join = universe.getParser().parse(rel);
 		if (join instanceof ForeignKeyReference) {
+			// in that case we have to translate the FK into a regular expression to transform
 			ForeignKey fk = ((ForeignKeyReference)join).getForeignKey();
 			if (fk.getKeys().isEmpty()) {
 				throw new SQLScopeException("Relation not supported (no valid key): "+ref.getReference().toString());
 			}
-			List<ExpressionPair> result = new ArrayList<>();
 			List<ExpressionAST> joins = new ArrayList<>();
 			for (KeyPair key : fk.getKeys()) {
 				ExpressionAST exported = 
 						ExpressionMaker.COMPOSE(new DomainReference(universe, left), new ColumnReference(key.getExported()));
 				ExpressionAST primary = 
 						ExpressionMaker.COMPOSE(new DomainReference(universe, right), new ColumnReference(key.getPrimary()));
-				result.add(new ExpressionPair(
-						exported,
-						primary,
-						ref.getDirection()));
 				joins.add(ExpressionMaker.EQUAL(exported, primary));
 			}
 			ExpressionAST explicitJoin = null;
@@ -1035,21 +1050,10 @@ public class DynamicManager {
 			} else {
 				explicitJoin = ExpressionMaker.AND(joins);
 			}
-			return result;
+			ExpressionFunctor functor = new ExpressionFunctor(explicitJoin);
+			return functor;
 		} else {
-			ExtractVariables visitor = new ExtractVariables();
-			List<ExpressionAST> variables = visitor.apply(join);
-			List<ExpressionAST> filterBySourceDomain = new ArrayList<>();
-			for (ExpressionAST variable : variables) {
-				if (variable.getSourceDomain().equals(ref.getSourceDomain())) {
-					filterBySourceDomain.add(variable);
-				}
-			}
-			if (filterBySourceDomain.isEmpty()) {
-				throw new SQLScopeException("relation not supported (cannot figure out the exported key): "+ref.getReference().toString());
-			} else {
-				return null;// TODO
-			}
+			return new ExpressionFunctor(join);
 		}
 	}
 	
