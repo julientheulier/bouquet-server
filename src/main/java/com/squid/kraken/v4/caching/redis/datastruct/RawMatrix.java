@@ -48,6 +48,7 @@ import com.squid.core.jdbc.vendor.IVendorSupport;
 import com.squid.core.jdbc.vendor.VendorSupportRegistry;
 import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValue.RedisCacheType;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionValuesDictionary;
+import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.io.Output;
 import com.esotericsoftware.kryo.io.Input;
@@ -405,26 +406,6 @@ public class RawMatrix extends RedisCacheValue {
 		// result.next())) {
 
 		while ((!maxSizeReached) && (moreData = result.next())) {
-
-
-			// stats: for long running queries, display evolution, and also
-			// stop if too much data
-			if (count % 100000 == 0) {
-				long intermediate = new Date().getTime();
-				float speed = Math.round(1000 * ((double) count) / (intermediate - metter_start));// in
-				// K/s
-				float size = Math.round(baout.size() / 1048576);
-				// logger.info("SQLQuery#" + item.getID() + " proceeded " +
-				// count + "items, still running for
-				// "+(intermediate-metter_start)/1000+" s at "+speed+ "
-				// rows/s, compressed size is "+size+" Mbytes");
-				logger.info("task=RawMatrix" + " method=streamExecutionItemToByteArray" + " duration="
-						+ (intermediate - metter_start) / 1000 + " error=false status=running queyrid="
-						+ item.getID() + " speed=" + speed + "size=" + size + " proceeded " + count
-						+ "items, still running for " + (intermediate - metter_start) / 1000 + " s at " + speed
-						+ " rows/s, compressed size is " + size + " Mbytes");
-			}
-
 			i = 0;
 			kout.writeBoolean(true);
 			while (i < nbColumns) {
@@ -455,6 +436,9 @@ public class RawMatrix extends RedisCacheValue {
 				}
 				i++;
 			}
+
+			count++;
+
 			// stats: display time for first 100th rows
 			if (count == 100) {
 				long intermediate = new Date().getTime();
@@ -462,19 +446,37 @@ public class RawMatrix extends RedisCacheValue {
 				// first 100 items in "+(intermediate-metter_start)+" ms");
 				logger.info("task=RawMatrix" + " method=streamExecutionItemToByteArray" + " duration="
 						+ ((intermediate - metter_start)) + " error=false status=running queryid=" + item.getID());
-				float size = Math.round(baout.size() / 1048576);
-				if (size >= 50) {
-					logger.info("Max size for one chunk reached");
-					maxSizeReached = true;
-					break;
-				}
 
 			}
+			// stats: for long running queries, display evolution
+			if (count % 100000 == 0) {
+				long intermediate = new Date().getTime();
+				float speed = Math.round(1000 * ((double) count) / (intermediate - metter_start));// in
+				// K/s
+				float size = Math.round(baout.size() / 1048576);
+				// logger.info("SQLQuery#" + item.getID() + " proceeded " +
+				// count + "items, still running for
+				// "+(intermediate-metter_start)/1000+" s at "+speed+ "
+				// rows/s, compressed size is "+size+" Mbytes");
+				logger.info("task=RawMatrix" + " method=streamExecutionItemToByteArray" + " duration="
+						+ (intermediate - metter_start) / 1000 + " error=false status=running queyrid="
+						+ item.getID() + " speed=" + speed + "size=" + size + " proceeded " + count
+						+ "items, still running for " + (intermediate - metter_start) / 1000 + " s at " + speed
+						+ " rows/s, compressed size is " + size + " Mbytes");
+			}
+			// if max chunk size of 50MB reached, stop 
+			if(count % 100 ==0){	
+				float size = Math.round(baout.size() / 1048576);
+				if (size >= 50) {
+					logger.info("Max size of 50MB for one chunk reached");
+					maxSizeReached = true;
+				}
+			}
+
 			// DEBUG CODE
 			if (count == 250){
 				maxSizeReached= true;
-			}else{
-				count++;
+				logger.info("Max debug size of 250 items reached");
 			}
 		}
 
@@ -849,5 +851,27 @@ public class RawMatrix extends RedisCacheValue {
 			return false;
 		}
 	}
-
+	
+	public static RawMatrix mergeMatrices(RawMatrix mergeInto, RawMatrix toMerge) throws ComputingException{
+		if (mergeInto == null){
+			return toMerge;
+		}
+		if (toMerge == null){
+			return mergeInto ;
+		}
+		
+		// check  if the  columns are the same (type +name) for both matrices
+		if (! 	(mergeInto.getColTypes().equals(toMerge.getColTypes()) 
+			&&  (mergeInto.getColNames().equals(toMerge.getColNames())))){ 
+			throw new ComputingException("Trying to merge matrices with difference signature types");
+		}
+		mergeInto.getRows().addAll(toMerge.getRows());
+		mergeInto.setExecutionDate(toMerge.getExecutionDate());
+		mergeInto.setFromCache(toMerge.fromCache);
+		mergeInto.setMoreData(toMerge.moreData);
+		mergeInto.setRedisKey(null);
+		return mergeInto;
+	}
+	
+	
 }

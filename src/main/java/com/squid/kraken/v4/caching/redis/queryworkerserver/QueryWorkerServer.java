@@ -171,10 +171,13 @@ public class QueryWorkerServer implements IQueryWorkerServer {
 					}
 					valuesList.addReferenceKey(batchKey);
 					valuesList.setDone(isDone);
+					
 					this.redis.put(k, valuesList.serialize());	
 					nbBatches+=1;
 					if (isDone){
 						logger.info("The  result set was split into " + nbBatches + " Redis chunks") ;
+						logger.info("Chunks : " +  valuesList.toString() ) ;
+
 					}
 				}
 
@@ -183,12 +186,13 @@ public class QueryWorkerServer implements IQueryWorkerServer {
 				 * ttl = -2 => default ttl
 				 * else set ttl
 				 */
-				if (ttl == -2)
+				if (ttl == -2){
 					redis.setTTL(k, this.defaultTTLinSec);
-				else
-					if (ttl  != -1)
-						redis.setTTL(k, ttl);			
-
+				}else{
+					if (ttl  != -1){
+						redis.setTTL(k, ttl);		
+					}
+				}
 				return true ;
 			} catch (ExecutionException e){
 				throw new RedisCacheException("Database Service exception for " + RSjdbcURL + " while executing the Query: "+e.getLocalizedMessage(), e) ;

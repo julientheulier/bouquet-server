@@ -89,7 +89,7 @@ public class RedisCacheValuesList extends RedisCacheValue {
 
 	@Override
 	public String toString(){
-		return "Reference Keys : " + this.referenceKeys.toString();
+		return "Reference Keys ?"+ done+ ": " + this.referenceKeys.toString();
 	}
 
 	protected void readObject(Input in) throws IOException, ClassNotFoundException{
