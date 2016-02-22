@@ -88,6 +88,22 @@ public class ProjectManager {
 	}
 	
 	/**
+	 * peek the Project if and only it is already loaded
+	 * @param ctx
+	 * @param projectPk
+	 * @return
+	 * @throws ScopeException 
+	 */
+	public Project peekProject(AppContext ctx, ProjectPK projectPk) throws ScopeException {
+		ProjectDynamicContent content = projects.get(projectPk);
+		if (content!=null) {
+			return getProject(ctx, projectPk);
+		} else {
+			return null;
+		}
+	}
+	
+	/**
 	 * load the project according to the context
 	 * @param ctx
 	 * @param projectPk
