@@ -23,8 +23,10 @@
  *******************************************************************************/
 package com.squid.kraken.v4.core.analysis.engine.index;
 
+import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -44,6 +46,7 @@ import com.squid.kraken.v4.ESIndexFacade.ESIndexFacadeException;
 import com.squid.kraken.v4.ESIndexFacade.ESMapping;
 import com.squid.kraken.v4.ESIndexFacade.ESMapping.ESIndexMapping;
 import com.squid.kraken.v4.ESIndexFacade.ESMapping.ESTypeMapping;
+import com.squid.kraken.v4.api.core.ServiceUtils;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex.Status;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionMember;
@@ -469,15 +472,31 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 			List<Map<String, Object>> elements) {
 		ArrayList<DimensionMember> members = new ArrayList<>();
 		if (getDimensionIndex().getDimension().getType() == Type.CONTINUOUS) {
+			IDomain image = getDimensionIndex().getAxis().getDefinitionSafe().getImageDomain();
+			boolean isDate = image.isInstanceOf(IDomain.TEMPORAL);
 			for (Map<String, Object> element : elements) {
 				Comparable lower_bound = (Comparable) element
 						.get(idName + "_l");
 				Comparable upper_bound = (Comparable) element
 						.get(idName + "_u");
 				if (lower_bound != null && upper_bound != null) {
-					IntervalleObject interval = new IntervalleObject(
-							lower_bound, upper_bound);
-					members.add(new DimensionMember(-1, interval, 0));
+					if (isDate) {
+						try {
+							Date lower_date = ServiceUtils.getInstance().toDate((String)lower_bound);
+							Date upper_date = ServiceUtils.getInstance().toDate((String)upper_bound);
+							IntervalleObject interval = new IntervalleObject(
+									lower_date, upper_date);
+							members.add(new DimensionMember(-1, interval, 0));
+						} catch (ParseException e) {
+							IntervalleObject interval = new IntervalleObject(
+									lower_bound, upper_bound);
+							members.add(new DimensionMember(-1, interval, 0));
+						}
+					} else {
+						IntervalleObject interval = new IntervalleObject(
+								lower_bound, upper_bound);
+						members.add(new DimensionMember(-1, interval, 0));
+					}
 				}
 			}
 		} else {
@@ -500,15 +519,31 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 			List<Map<String, Object>> elements) {
 		ArrayList<DimensionMember> members = new ArrayList<>();
 		if (getDimensionIndex().getDimension().getType() == Type.CONTINUOUS) {
+			IDomain image = getDimensionIndex().getAxis().getDefinitionSafe().getImageDomain();
+			boolean isDate = image.isInstanceOf(IDomain.TEMPORAL);
 			for (Map<String, Object> element : elements) {
 				Comparable lower_bound = (Comparable) element
 						.get(idName + "_l");
 				Comparable upper_bound = (Comparable) element
 						.get(idName + "_u");
 				if (lower_bound != null && upper_bound != null) {
-					IntervalleObject interval = new IntervalleObject(
-							lower_bound, upper_bound);
-					members.add(new DimensionMember(-1, interval, 0));
+					if (isDate) {
+						try {
+							Date lower_date = ServiceUtils.getInstance().toDate((String)lower_bound);
+							Date upper_date = ServiceUtils.getInstance().toDate((String)upper_bound);
+							IntervalleObject interval = new IntervalleObject(
+									lower_date, upper_date);
+							members.add(new DimensionMember(-1, interval, 0));
+						} catch (ParseException e) {
+							IntervalleObject interval = new IntervalleObject(
+									lower_bound, upper_bound);
+							members.add(new DimensionMember(-1, interval, 0));
+						}
+					} else {
+						IntervalleObject interval = new IntervalleObject(
+								lower_bound, upper_bound);
+						members.add(new DimensionMember(-1, interval, 0));
+					}
 				}
 			}
 		} else {
