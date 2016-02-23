@@ -27,7 +27,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
-import com.squid.core.database.model.Table;
 import com.squid.core.domain.DomainConstant;
 import com.squid.core.domain.IConstantValueDomain;
 import com.squid.core.domain.IDomain;
@@ -38,7 +37,6 @@ import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
 import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.core.expression.visitor.ExtractOutcomes;
-import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.Dimension.Type;
 
 public class DimensionIndexCreationUtils {
@@ -72,30 +70,11 @@ public class DimensionIndexCreationUtils {
     	List<DimensionIndex> result = new ArrayList<DimensionIndex>();
     	List<DimensionIndex> indexes = hierarchy.getDimensionIndexes();
         HashMap<DimensionIndex, DimensionIndex> parenting = new HashMap<>();
-        if (false) {
-        // if the target domain has a PK, create an index
-        IDomain image = source.getDefinitionSafe().getImageDomain();
-        Object adapter = image.getAdapter(Domain.class);
-        if (adapter!=null && adapter instanceof Domain) {
-        	Domain target = (Domain)adapter;
-        	Table table = source.getParent().getUniverse().getTable(target);
-        	if (table.getPrimaryKey()!=null) {
-        		try {
-					DimensionIndex self = new DimensionIndex(null, source);
-					result.add(self);
-				} catch (DimensionStoreException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-        	}
-        }
-        }
         //
+        Space subspace = space.S(getDefinition(source));
         for (DimensionIndex index : indexes) {
         	if (index.getDimension().getType()!=Type.CONTINUOUS) {// do not proxy continuous
 	            // create the axis that traverse the main dimension to join the sub-domain
-//	            logger.info("create proxy " + index.toString());
-	            Space subspace = space.S(getDefinition(source));
 	            Axis relink = subspace.A(index.getAxis());
 	            // define the index as a proxy to the sub-domain
 	            DimensionIndex new_parent = index.getParent()!=null?parenting.get(index.getParent()):null;

@@ -221,7 +221,7 @@ public class DomainExpressionScope extends DefaultScope {
 		throw new ScopeException("cannot apply "+first.prettyPrint()+" to "+getSpace().prettyPrint());
 	}
 
-	protected ExpressionScope createScope(Universe universe, Domain domain, Space target) {
+	protected ExpressionScope createScope(Universe universe, Domain domain, Space target) throws ScopeException {
 		try {
 			if (relationScope!=null) {
 				return new DomainExpressionScope(universe, domain, target, restrictedScope, relationScope);

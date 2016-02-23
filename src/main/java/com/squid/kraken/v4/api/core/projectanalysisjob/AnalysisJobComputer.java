@@ -36,13 +36,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.squid.core.expression.ExpressionAST;
+import com.squid.core.expression.ExpressionRef;
 import com.squid.core.expression.scope.ScopeException;
-import com.squid.core.jdbc.engine.IExecutionItem;
 import com.squid.core.sql.model.SQLScopeException;
 import com.squid.core.sql.render.IOrderByPiece.ORDERING;
 import com.squid.core.sql.render.RenderingException;
 import com.squid.kraken.v4.api.core.domain.DomainServiceBaseImpl;
 import com.squid.kraken.v4.api.core.project.ProjectServiceBaseImpl;
+import com.squid.kraken.v4.caching.NotInCacheException;
 import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainHierarchy;
@@ -57,6 +58,7 @@ import com.squid.kraken.v4.core.analysis.universe.Measure;
 import com.squid.kraken.v4.core.analysis.universe.Property;
 import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
+import com.squid.kraken.v4.core.expression.visitor.ExtractReferences;
 import com.squid.kraken.v4.export.ExecuteAnalysisResult;
 import com.squid.kraken.v4.export.ExportSourceWriter;
 import com.squid.kraken.v4.export.ExportSourceWriterVelocity;
@@ -66,6 +68,7 @@ import com.squid.kraken.v4.model.Dimension;
 import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.DomainPK;
 import com.squid.kraken.v4.model.Expression;
+import com.squid.kraken.v4.model.ExpressionObject;
 import com.squid.kraken.v4.model.FacetSelection;
 import com.squid.kraken.v4.model.Metric;
 import com.squid.kraken.v4.model.MetricPK;
@@ -88,7 +91,7 @@ import com.squid.kraken.v4.persistence.AppContext;
  * </ul>
  */
 public class AnalysisJobComputer implements
-		JobComputer<ProjectAnalysisJob, ProjectAnalysisJobPK, DataTable> {
+JobComputer<ProjectAnalysisJob, ProjectAnalysisJobPK, DataTable> {
 
 	static final Logger logger = LoggerFactory
 			.getLogger(AnalysisJobComputer.class);
@@ -96,10 +99,24 @@ public class AnalysisJobComputer implements
 
 	public static final AnalysisJobComputer INSTANCE = new AnalysisJobComputer();
 
+	/**
+	 * Preview Compute
+	 *<ul>
+	 *<li> Checks if an analysis is in Redis Cache <br>
+	 * 
+	 * <li>If yes, returns the results as a Datatable
+	 * <li>else
+	 * <ul>
+	 *  <li> if the lazy flag is set to true, throw a NotInCacheException (RuntimeException)
+	 *  <li> else compute the result from the database, and return the results as a Datatable
+	 * </ul>
+	 * </ul>
+	 */
+
 	@Override
 	public DataTable compute(AppContext ctx, ProjectAnalysisJob job,
 			Integer maxResults, Integer startIndex, boolean lazy) throws ComputingException,
-			InterruptedException {
+	InterruptedException {
 		// build the analysis
 		long start = System.currentTimeMillis();
 
@@ -116,11 +133,10 @@ public class AnalysisJobComputer implements
 		// run the analysis
 		DataMatrix datamatrix = ComputingService.INSTANCE.glitterAnalysis(
 				analysis, null);
-		if (lazy || (datamatrix ==null)){
-			logger.info("Lazy Analysis, data not in cache");
-			return new DataTable();
+		if (lazy && (datamatrix ==null)){
+			throw new NotInCacheException("Lazy preview analysis,"  +job.getOid() + " not in cache");
 		}else{
-		
+
 			job.setRedisKey(datamatrix.getRedisKey());
 
 			long stop = System.currentTimeMillis();
@@ -138,13 +154,26 @@ public class AnalysisJobComputer implements
 		}
 	}
 
-	
-	
-	
+
+	/**
+	 *<ul>
+	 * Export compute
+	 *<li> Checks if an analysis is in Redis Cache <br>
+	 * <li>If yes, write it into outputStream using writer
+	 * <li>else
+	 * <ul>
+	 *  <li> if the lazy flag is set to true, throw a NotInCacheException (RuntimeException)
+	 *  <li> else write it into outputStream using writer
+	 * </ul>
+	 * </ul>
+	 *  returns a datatable containing the number of lines written
+	 */
+
+
 	@Override
 	public DataTable compute(AppContext ctx, ProjectAnalysisJob job,
 			OutputStream outputStream, ExportSourceWriter writer, boolean lazy)
-			throws ComputingException, InterruptedException {
+					throws ComputingException, InterruptedException {
 		// build the analysis
 		long start = System.currentTimeMillis();
 		logger.info("Starting export compute for job " +job.getId().getAnalysisJobId().toString() );
@@ -154,60 +183,70 @@ public class AnalysisJobComputer implements
 		} catch (ScopeException e1) {
 			throw new ComputingException(e1);
 		}
-		
+
 		// run lazy glitter analysis to try and retrieve the dataset from Redis		
 		DataMatrix datamatrix = ComputingService.INSTANCE.glitterAnalysis(
 				analysis, null);
 		if (datamatrix !=  null){
-		
+
 			job.setRedisKey(datamatrix.getRedisKey());
 
 			logger.info(" Dataset for jobid="+job.getId().getAnalysisJobId().toString()  + " was recovered from cache") ;
 			long linesWritten;
 			if (writer instanceof ExportSourceWriterVelocity){				
-				 linesWritten = writer.write(datamatrix.toDataTable(ctx, null, null), outputStream);
+				linesWritten = writer.write(datamatrix.toDataTable(ctx, null, null), outputStream);
 			}else{
-				 linesWritten = writer.write(datamatrix, outputStream);
+				linesWritten = writer.write(datamatrix, outputStream);
 			}
 			DataTable results = new DataTable();
 			results.setTotalSize(linesWritten);
-			
+
 			return results;	
 		}else{
-			// run the analysis
-			ExecuteAnalysisResult res = ComputingService.INSTANCE
-					.executeAnalysis(analysis);
-			long linesWritten;
-			try {
-				// write to the outputStream
-	            long startExport = System.currentTimeMillis();
-				linesWritten = writer.write(res, outputStream);
-	            long stopExport = System.currentTimeMillis();
-				logger.info("task="+this.getClass().getName()+" method=compute.writeData"+" jobid="+job.getId().getAnalysisJobId().toString()+" SQLQuery=#"+res.getItem().getID()+" lineWritten="+linesWritten+" duration="+ (stopExport-startExport)+" error=false status=done");
-			} catch (Throwable e) {
-				logger.error("failed to export SQLQuery=#"+res.getItem().getID()+":", e);
-				throw e;
-			} finally {
+			if (lazy){
+				throw new NotInCacheException("Lazy export analysis,"  +job.getOid() + " not in cache");
+			}else{
+
+				// run the analysis
+				ExecuteAnalysisResult res = ComputingService.INSTANCE
+						.executeAnalysis(analysis);
+				long linesWritten;
+
 				try {
-					res.getItem().close();
-				} catch (SQLException e) {
-					// ignore
-					e.printStackTrace();
+
+
+					// write to the outputStream
+					long startExport = System.currentTimeMillis();
+					linesWritten = writer.write(res, outputStream);
+					long stopExport = System.currentTimeMillis();
+					logger.info("task="+this.getClass().getName()+" method=compute.writeData"+" jobid="+job.getId().getAnalysisJobId().toString()+" SQLQuery=#"+res.getItem().getID()+" lineWritten="+linesWritten+" duration="+ (stopExport-startExport)+" error=false status=done");
+				} catch (Throwable e) {
+					logger.error("failed to export SQLQuery=#"+res.getItem().getID()+":", e);
+					throw e;
+				} finally {
+					try {
+						res.getItem().close();
+					} catch (SQLException e) {
+						// ignore
+						e.printStackTrace();
+					}
+
 				}
+				DataTable results = new DataTable();
+				results.setTotalSize(linesWritten);
+
+				long stop = System.currentTimeMillis();
+				//logger.info("End of compute for job " + job.getId().getAnalysisJobId().toString()  + " in " +(stop-start)+ "ms" );
+				logger.info("task="+this.getClass().getName()+" method=compute" +" jobid="+job.getId().getAnalysisJobId().toString()+" status=done duration="+(stop-start));
+				JobStats queryLog = new JobStats(job.getId().toString(),"FacetJobComputer", (stop-start), job.getId().getProjectId());
+				PerfDB.INSTANCE.save(queryLog);
+
+				return results;
+
 			}
-			DataTable results = new DataTable();
-			results.setTotalSize(linesWritten);
-	
-			long stop = System.currentTimeMillis();
-			//logger.info("End of compute for job " + job.getId().getAnalysisJobId().toString()  + " in " +(stop-start)+ "ms" );
-	        logger.info("task="+this.getClass().getName()+" method=compute" +" jobid="+job.getId().getAnalysisJobId().toString()+" status=done duration="+(stop-start));
-			JobStats queryLog = new JobStats(job.getId().toString(),"FacetJobComputer", (stop-start), job.getId().getProjectId());
-			PerfDB.INSTANCE.save(queryLog);
-	
-			return results;
 		}
 	}
-	
+
 	public static List<Domain> readDomains(AppContext ctx, ProjectAnalysisJob job) throws ScopeException {
 		List<Domain> domains = new ArrayList<Domain>();
 		for (DomainPK domainId : job.getDomains()) {
@@ -215,7 +254,7 @@ public class AnalysisJobComputer implements
 		}
 		return domains;
 	}
-	
+
 	public String viewSQL(AppContext ctx, ProjectAnalysisJob job) throws ComputingException, InterruptedException, ScopeException, SQLScopeException, RenderingException {
 		DashboardAnalysis analysis;
 		try {
@@ -226,18 +265,18 @@ public class AnalysisJobComputer implements
 		// run the analysis
 		return ComputingService.INSTANCE.viewSQL(analysis);
 	}
-	
+
 
 	public static DashboardAnalysis buildDashboardAnalysis(AppContext ctx,
 			ProjectAnalysisJob job ) throws ScopeException, ComputingException,
-			InterruptedException {
+	InterruptedException {
 		return buildDashboardAnalysis(ctx, job, false);
 	} 
-	
+
 
 	public static DashboardAnalysis buildDashboardAnalysis(AppContext ctx,
 			ProjectAnalysisJob job, boolean lazy) throws ScopeException, ComputingException,
-			InterruptedException {
+	InterruptedException {
 		logger.info("AnalysisJobComputer.buildDashboardAnalysis(): start "
 				+ job.getId().toString());
 		ProjectServiceBaseImpl projService = ProjectServiceBaseImpl
@@ -253,19 +292,19 @@ public class AnalysisJobComputer implements
 		// visible to the user
 		long start = System.currentTimeMillis();
 		Project project = projService.read(ctx, projectPK, true);// use the user
-																	// ctx to
-																	// read the
-																	// project -
-																	// let the
-																	// query
-																	// worker
-																	// use the
-																	// root ctx
-																	// if needed
+		// ctx to
+		// read the
+		// project -
+		// let the
+		// query
+		// worker
+		// use the
+		// root ctx
+		// if needed
 		//logger.info("Project deep-read (ms) : "
 		//		+ (System.currentTimeMillis() - start));
 		long duration = (System.currentTimeMillis()-start);
-        logger.info(" jobid="+job.getId().getAnalysisJobId().toString()+" task=deepread "+" duration="+duration);
+		logger.info(" jobid="+job.getId().getAnalysisJobId().toString()+" task=deepread "+" duration="+duration);
 
 		JobStats queryLog = new JobStats(job.getId().getAnalysisJobId().toString(),"AnalysisJobComputer.ProjectDeepRead", duration, job.getId().getProjectId());
 		queryLog.setError(false);
@@ -493,13 +532,34 @@ public class AnalysisJobComputer implements
 		// check user ACL
 		DimensionIndex index = axis.getIndex();
 		if (index == null) {
-			throw new ScopeException("Dimension is not defined");
+			//throw new ScopeException("Dimension is not defined");
+			ExtractReferences extract = new ExtractReferences();
+			List<ExpressionRef> refs = extract.apply(axis.getDefinition());
+			if (refs.isEmpty()) {
+				// something wrong here, we should not get there
+				throw new InvalidCredentialsAPIException(
+						"Unable to validate privileges for expression: "+expr, ctx.isNoError());
+			} else {
+				for (ExpressionRef ref : refs) {
+					Object xxx = ref.getReference();
+					if (xxx instanceof Property) {
+						Property prop = (Property)xxx;
+						AccessRightsUtils.getInstance().checkRole(ctx,
+								prop.getExpressionObject(), Role.READ);
+					} else if (xxx instanceof ExpressionObject<?>) {
+						ExpressionObject<?> model = (ExpressionObject<?>)xxx;
+						AccessRightsUtils.getInstance().checkRole(ctx,
+								model, Role.READ);
+					}
+				}
+			}
+		} else {
+			AccessRightsUtils.getInstance().checkRole(ctx,
+					index.getDimension(), Role.READ);
 		}
-		AccessRightsUtils.getInstance().checkRole(ctx,
-				index.getDimension(), Role.READ);
 		return axis;
 	}
-	
+
 	private static ORDERING getOrderByDirection(Direction direction) {
 		if (direction == Direction.ASC) {
 			return ORDERING.ASCENT;

@@ -28,8 +28,8 @@ import java.util.Collection;
 import java.util.List;
 
 import com.squid.core.database.model.Table;
-import com.squid.kraken.v4.caching.awsredis.RedisCacheManager;
-import com.squid.kraken.v4.caching.awsredis.generationalkeysserver.RedisKey;
+import com.squid.kraken.v4.caching.redis.RedisCacheManager;
+import com.squid.kraken.v4.caching.redis.generationalkeysserver.RedisKey;
 import com.squid.kraken.v4.model.Dimension;
 import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.ExpressionObject;

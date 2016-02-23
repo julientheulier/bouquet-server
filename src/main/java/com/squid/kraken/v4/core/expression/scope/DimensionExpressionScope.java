@@ -91,13 +91,8 @@ public class DimensionExpressionScope extends DomainExpressionScope {
 	}
 	
 	@Override
-	protected ExpressionScope createScope(Universe universe, Domain domain, Space target) {
-		try {
-			return new DimensionExpressionScope(universe, domain, target, restrictedScope, scope);// the scope should contains all the available references
-		} catch (ScopeException e) {
-			e.printStackTrace();
-			return null;
-		}
+	protected ExpressionScope createScope(Universe universe, Domain domain, Space target) throws ScopeException {
+		return new DimensionExpressionScope(universe, domain, target, restrictedScope, scope);// the scope should contains all the available references
 	}
 	
 	public ExpressionAST createCompose(ExpressionAST first, ExpressionAST second) throws ScopeException {

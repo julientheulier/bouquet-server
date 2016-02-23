@@ -41,8 +41,8 @@ import com.squid.core.database.model.Database;
 import com.squid.core.domain.IDomain;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.scope.ScopeException;
-import com.squid.kraken.v4.caching.awsredis.datastruct.RawMatrix;
-import com.squid.kraken.v4.caching.awsredis.datastruct.RawRow;
+import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
+import com.squid.kraken.v4.caching.redis.datastruct.RawRow;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionMember;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
@@ -775,14 +775,15 @@ public class DataMatrix {
         int endIndex = startIndex + maxResults;
         for (IndirectionRow row : rows) {
             if (rowIndex >= startIndex) {
-	            String[] values = new String[visible_count + row.getDataCount()];
+	            //String[] values = new String[visible_count + row.getDataCount()];
+	            Object[] values = new Object[visible_count + row.getDataCount()];	           
 	            int colIdx = 0;
 	            for (int i = 0; i < axes_count; i++) {
 	            	AxisValues m = axes.get(i);
 	            	if (m.isVisible()) {
-		                Object value = row.getAxisValue(i);
+	                Object value = row.getAxisValue(i);
 		                if (value != null) {
-		                    values[colIdx++] = value.toString();
+		                    values[colIdx++] = row.getAxisValue(i);
 		                } else {
 		                    values[colIdx++] =  "";
 		                }

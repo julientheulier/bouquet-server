@@ -99,6 +99,7 @@ public class DomainHierarchyQueryGenerator {
 	 * @return a list of queries to run
 	 * @throws ScopeException
 	 * @throws SQLScopeException
+	 * @throws ExecutionException 
 	 * @throws DatabaseServiceException
 	 */
 	protected List<HierarchyQuery> prepareQueries(Space space,
@@ -264,7 +265,7 @@ public class DomainHierarchyQueryGenerator {
 	 * database statistic
 	 * 
 	 * @param root
-	 * @return
+	 * @return an IntervalObject or null if no statistics available
 	 * @throws ScopeException
 	 * @throws DatabaseServiceException
 	 */
@@ -340,15 +341,15 @@ public class DomainHierarchyQueryGenerator {
 							} catch (SQLException e) {
 								logger.warn(e.getMessage());
 							}
+							return IntervalleObject.createInterval(lower, upper);
 						}
-						return IntervalleObject.createInterval(lower, upper);
-					}
-				} else {
-					ColumnStatistics colstats = stats.getStatistics(column);
-					if (colstats != null) {
-						Object min = colstats.getMin();
-						Object max = colstats.getMax();
-						return IntervalleObject.createInterval(min, max);
+					} else {
+						ColumnStatistics colstats = stats.getStatistics(column);
+						if (colstats != null) {
+							Object min = colstats.getMin();
+							Object max = colstats.getMax();
+							return IntervalleObject.createInterval(min, max);
+						}
 					}
 				}
 			}

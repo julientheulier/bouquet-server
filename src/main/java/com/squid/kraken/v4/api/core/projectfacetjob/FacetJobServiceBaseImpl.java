@@ -84,7 +84,7 @@ public class FacetJobServiceBaseImpl extends
 
 	public Facet readFacet(AppContext userContext, String projectId,
 			String jobId, String facetId, String filter, Integer timeoutMs,
-			Integer maxResults, Integer startIndex, boolean waitComplete) {
+			Integer maxResults, Integer startIndex) {
 		//
 		Facet facet = null;
 		//
@@ -134,22 +134,12 @@ public class FacetJobServiceBaseImpl extends
 						throw new ScopeException("cannot list the facet for '"+axis.prettyPrint()+"': not in the job scope");
 					}
 				}
-				//
-				if (waitComplete) {
-					// wait for completion
-					facet = ComputingService.INSTANCE.glitterFacet(universe,
-							domain, sel, axis, filter,
-							startIndex != null ? startIndex : 0,
-							maxResults != null ? maxResults : 500,
-							null);// null timeout == block
-				} else {
-					// don't block on this call
-					facet = ComputingService.INSTANCE.glitterFacet(universe,
-							domain, sel, axis, filter,
-							startIndex != null ? startIndex : 0,
-							maxResults != null ? maxResults : 500, 
-							timeoutMs);
-				}
+				
+				facet = ComputingService.INSTANCE.glitterFacet(universe,
+						domain, sel, axis, filter,
+						startIndex != null ? startIndex : 0,
+						maxResults != null ? maxResults : 500, timeoutMs);
+
 				if (facet == null) {
 					throw new ObjectNotFoundAPIException(
 							"no facet found with id : " + facetId,

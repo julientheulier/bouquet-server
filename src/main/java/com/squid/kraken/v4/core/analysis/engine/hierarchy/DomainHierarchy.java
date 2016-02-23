@@ -39,7 +39,7 @@ import com.squid.core.domain.IDomain;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.api.core.AccessRightsUtils;
 import com.squid.kraken.v4.api.core.ObjectNotFoundAPIException;
-import com.squid.kraken.v4.caching.awsredis.RedisCacheManager;
+import com.squid.kraken.v4.caching.redis.RedisCacheManager;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
 import com.squid.kraken.v4.core.analysis.scope.AnalysisScope;
@@ -346,16 +346,20 @@ public class DomainHierarchy {
     }
     
     private void loadHierarchies(Space root, List<List<DimensionIndex>> structure) {
+    	//
+    	// clear global object since now we may load the hierarchy several times
+        this.dependencies = new HashSet<>();
+        this.flatten = new ArrayList<>();
+        this.segments = new ArrayList<>();
+        //
         this.objectName = "H/" + root.getDomain().getId().toUUID();
         // flatten
         HashSet<DomainPK> domains = new HashSet<DomainPK>();// list the sub-domains
-        this.dependencies = new HashSet<>();
         // add the project to dependencies to support refreshDB
         dependencies.add(root.getUniverse().getProject().getId().toUUID());
         // add the main domain
         domains.add(root.getDomain().getId());
         dependencies.add(root.getDomain().getId().toUUID());
-        this.flatten = new ArrayList<>();
         // add every linked dimension
         for (List<DimensionIndex> hierarchy : structure) {
             for (DimensionIndex index : hierarchy) {

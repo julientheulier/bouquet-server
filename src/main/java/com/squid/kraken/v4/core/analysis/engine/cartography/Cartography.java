@@ -212,10 +212,12 @@ public class Cartography {
 				getVicinity(left).add(right);
 				getDirectVicinity(left).add(right);
 				getPaths(left, right).add(new DirectPath(relation, left));
-				// add the reverse path from target to source
-				getVicinity(right).add(left);
-				getDirectVicinity(right).add(left);
-				getPaths(right, left).add(new DirectPath(relation, right));
+				// add the reverse path from target to source if not left==right
+				if (!left.equals(right)) {
+					getVicinity(right).add(left);
+					getDirectVicinity(right).add(left);
+					getPaths(right, left).add(new DirectPath(relation, right));
+				}
 			}
 		}
 	}

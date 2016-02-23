@@ -119,39 +119,41 @@ public class RelationExpressionScope extends DefaultScope {
 	public void buildDefinitionList(List<Object> definitions) {
 		super.buildDefinitionList(definitions);
 		//
-		if (left!=right) {
+		ExpressionAST leftAlias = null;
+		ExpressionAST rightAlias = null;
+		if (!left.equals(right)) {
 			// add left & right domains
 			definitions.add(left);
 			definitions.add(right);
-			//
-			buildSymetricNaturalJoinDefinition(definitions,left,right);
-			//
-			// add the foreign keys
-			try {
-				Table ltable = universe.getTable(left);
-				Table rtable = universe.getTable(right);
-				for (ForeignKey fk : ltable.getForeignKeys()) {
-					if (fk.getPrimaryTable().equals(rtable)) {
-						definitions.add(fk);
-					}
-				}
-				for (ForeignKey fk : rtable.getForeignKeys()) {
-					if (fk.getPrimaryTable().equals(ltable)) {
-						definitions.add(fk);
-					}
-				}
-			} catch (ScopeException | ExecutionException e) {
-				// ignore
-			}
 		} else {
 			// left==right
 			if (leftName==rightName) {// that also accounts for nulls
-				definitions.add(new ParameterReference("LEFT", DomainDomain.DOMAIN));
-				definitions.add(new ParameterReference("RIGHT", DomainDomain.DOMAIN));
+				definitions.add(leftAlias = new ParameterReference("LEFT", new ProxyDomainDomain(universe, left)));
+				definitions.add(rightAlias = new ParameterReference("RIGHT", new ProxyDomainDomain(universe, right)));
 			} else {
-				definitions.add(new ParameterReference(leftName, DomainDomain.DOMAIN));
-				definitions.add(new ParameterReference(rightName, DomainDomain.DOMAIN));
+				definitions.add(leftAlias = new ParameterReference(leftName, new ProxyDomainDomain(universe, left)));
+				definitions.add(rightAlias = new ParameterReference(rightName, new ProxyDomainDomain(universe, right)));
 			}
+		}
+		//
+		buildSymetricNaturalJoinDefinition(definitions,left,right,leftAlias,rightAlias);
+		//
+		// add the foreign keys
+		try {
+			Table ltable = universe.getTable(left);
+			Table rtable = universe.getTable(right);
+			for (ForeignKey fk : ltable.getForeignKeys()) {
+				if (fk.getPrimaryTable().equals(rtable)) {
+					definitions.add(fk);
+				}
+			}
+			for (ForeignKey fk : rtable.getForeignKeys()) {
+				if (fk.getPrimaryTable().equals(ltable)) {
+					definitions.add(fk);
+				}
+			}
+		} catch (ScopeException | ExecutionException e) {
+			// ignore
 		}
 	}
 	
@@ -160,9 +162,13 @@ public class RelationExpressionScope extends DefaultScope {
 	 * @param definitions
 	 * @param left
 	 * @param right
+	 * @param rightAlias 
+	 * @param leftAlias 
 	 */
-	private void buildSymetricNaturalJoinDefinition(List<Object> definitions, Domain left, Domain right) {
+	private void buildSymetricNaturalJoinDefinition(List<Object> definitions, Domain left, Domain right, ExpressionAST leftAlias, ExpressionAST rightAlias) {
 		try {
+			if (leftAlias==null) leftAlias = createReferringExpression(left);
+			if (rightAlias==null) rightAlias = createReferringExpression(right);
 			Table tleft = universe.getTable(left);
 			Table tright = universe.getTable(right);
 			Set<String> lnames = addColumnName(tleft);
@@ -175,8 +181,8 @@ public class RelationExpressionScope extends DefaultScope {
 					IDomain dleft = cleft.getTypeDomain();
 					IDomain dright = cright.getTypeDomain();
 					if (dleft.isInstanceOf(dright) || dright.isInstanceOf(dleft)) {
-						ExpressionAST eleft = ExpressionMaker.COMPOSE(createReferringExpression(left), new ColumnReference(cleft));
-						ExpressionAST eright = ExpressionMaker.COMPOSE(createReferringExpression(right), new ColumnReference(cright));
+						ExpressionAST eleft = ExpressionMaker.COMPOSE(leftAlias, new ColumnReference(cleft));
+						ExpressionAST eright = ExpressionMaker.COMPOSE(rightAlias, new ColumnReference(cright));
 						ExpressionAST equal = ExpressionMaker.EQUAL(eleft, eright);
 						definitions.add(equal);
 					}

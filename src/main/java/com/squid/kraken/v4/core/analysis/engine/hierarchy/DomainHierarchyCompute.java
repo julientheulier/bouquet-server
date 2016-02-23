@@ -37,7 +37,6 @@ import org.slf4j.LoggerFactory;
 
 import com.squid.core.concurrent.CancellableCallable;
 import com.squid.core.concurrent.ExecutionManager;
-import com.squid.core.database.impl.DatabaseServiceException;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.core.sql.model.SQLScopeException;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex.Status;
@@ -58,58 +57,64 @@ implements CancellableCallable<Boolean> {
     
     private List<Future<Boolean>> jobs;
     private HashMap<DimensionIndex, Future<Boolean>> jobLookup;
-    private DomainHierarchy hierarchy ;
+    private DomainHierarchy hierarchy;
+    private List<HierarchyQuery> queries;
     
     public DomainHierarchyCompute(DomainHierarchy hierarchy) {
     	super(hierarchy);
     	this.hierarchy = hierarchy;
     	hierarchy.setCompute(this);
-    }
-
-	@Override
-	public Boolean call() throws Exception {
-
-		logger.info("starting computation for " + hierarchy.toString());
-        // prepare the queries
-		this.hierarchy.setState(DomainHierarchy.State.STARTED);
-        try {
-        	
-            List<HierarchyQuery> queries = prepareQueries();
-   
-        // run the queries
-            logger.info("Preparing queries for "+hierarchy+" : "+queries.size() + " queries");
-            logger.info("class="+this.getClass().getName()+" size="+queries.size());
-      
-
-            CountDownLatch latch = runExecuteQueries(queries);
-            //logger.info("queries executing");
-            latch.await();
-            //logger.info("computation ok");
-			boolean result = true ;
-			for (Future<Boolean> job : jobs) {
-				if (job.isCancelled()) {
-					result = false;
-					break;
-				}
-			 }            
-			this.hierarchy.setState(DomainHierarchy.State.DONE) ;
-			return result;
-        } catch (ScopeException | SQLScopeException | DatabaseServiceException e) {
+    	try {
+    		// prepare the queries upfront since the ES indexes cannot work until the mapping is initialized, and this is a side effect of the query prep
+			queries = prepareQueries();
+		} catch (ScopeException | SQLScopeException | ExecutionException e) {
             // unable to run any query
             // need to provide some feedback to the user ?
             //result.setFatalError(e);
 			this.hierarchy.setState(DomainHierarchy.State.CANCELLED) ;
-			return false;
-        } catch (InterruptedException e) {
-			// cancel the queries
-        	for (Future<Boolean> job : jobs) {
-				if (!job.isCancelled()) {
-					job.cancel(true);
-				}
-			 } 
-			this.hierarchy.setState(DomainHierarchy.State.CANCELLED) ;
-			return false;
 		}
+    }
+
+    @Override
+    public Boolean call() throws Exception {
+
+    	logger.info("starting computation for " + hierarchy.toString());
+    	// the queries are already prepeared
+    	if (this.hierarchy.getState()==DomainHierarchy.State.CANCELLED) {
+    		// if prepareQueries() fails...
+    		return false;
+    	}
+    	this.hierarchy.setState(DomainHierarchy.State.STARTED);
+    	try {
+
+    		// run the queries
+    		logger.info("Preparing queries for "+hierarchy+" : "+queries.size() + " queries");
+    		logger.info("class="+this.getClass().getName()+" size="+queries.size());
+
+
+    		CountDownLatch latch = runExecuteQueries(queries);
+    		//logger.info("queries executing");
+    		latch.await();
+    		//logger.info("computation ok");
+    		boolean result = true ;
+    		for (Future<Boolean> job : jobs) {
+    			if (job.isCancelled()) {
+    				result = false;
+    				break;
+    			}
+    		}            
+    		this.hierarchy.setState(DomainHierarchy.State.DONE) ;
+    		return result;
+    	} catch (InterruptedException e) {
+    		// cancel the queries
+    		for (Future<Boolean> job : jobs) {
+    			if (!job.isCancelled()) {
+    				job.cancel(true);
+    			}
+    		} 
+    		this.hierarchy.setState(DomainHierarchy.State.CANCELLED) ;
+    		return false;
+    	}
     }
 
     /**

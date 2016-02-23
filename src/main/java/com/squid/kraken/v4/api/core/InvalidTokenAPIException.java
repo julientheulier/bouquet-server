@@ -23,8 +23,13 @@
  *******************************************************************************/
 package com.squid.kraken.v4.api.core;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.squid.kraken.v4.KrakenConfig;
+
 @SuppressWarnings("serial")
 public class InvalidTokenAPIException extends APIException {
+	
+    private static final String AUTH_URL = "kraken.oauth.endpoint";
 
     public InvalidTokenAPIException(boolean noError) {
         super(noError);
@@ -47,4 +52,8 @@ public class InvalidTokenAPIException extends APIException {
     	return 401;
     }
 
+    @JsonProperty
+    public String getLoginURL() {
+    	return KrakenConfig.getProperty(AUTH_URL);
+    }
 }

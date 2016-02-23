@@ -28,8 +28,8 @@ import java.util.Set;
 
 
 import com.google.common.base.Optional;
-import com.squid.kraken.v4.caching.awsredis.RedisCacheManager;
-import com.squid.kraken.v4.caching.awsredis.generationalkeysserver.RedisKey;
+import com.squid.kraken.v4.caching.redis.RedisCacheManager;
+import com.squid.kraken.v4.caching.redis.generationalkeysserver.RedisKey;
 import com.squid.kraken.v4.model.AccessRight;
 import com.squid.kraken.v4.model.AccessRight.Role;
 import com.squid.kraken.v4.model.GenericPK;

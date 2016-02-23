@@ -47,8 +47,8 @@ import com.squid.kraken.v4.api.core.AccessRightsUtils;
 import com.squid.kraken.v4.api.core.InvalidCredentialsAPIException;
 import com.squid.kraken.v4.api.core.ObjectNotFoundAPIException;
 import com.squid.kraken.v4.api.core.ServiceUtils;
-import com.squid.kraken.v4.caching.awsredis.RedisCacheManager;
-import com.squid.kraken.v4.caching.awsredis.generationalkeysserver.RedisKey;
+import com.squid.kraken.v4.caching.redis.RedisCacheManager;
+import com.squid.kraken.v4.caching.redis.generationalkeysserver.RedisKey;
 import com.squid.kraken.v4.core.analysis.engine.cartography.Cartography;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainContent;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainHierarchyManager;
@@ -91,6 +91,22 @@ public class ProjectManager {
 	
 	public ProjectManager() {
 		projects = new ConcurrentHashMap<ProjectPK, ProjectDynamicContent>();
+	}
+	
+	/**
+	 * peek the Project if and only it is already loaded
+	 * @param ctx
+	 * @param projectPk
+	 * @return
+	 * @throws ScopeException 
+	 */
+	public Project peekProject(AppContext ctx, ProjectPK projectPk) throws ScopeException {
+		ProjectDynamicContent content = projects.get(projectPk);
+		if (content!=null) {
+			return getProject(ctx, projectPk);
+		} else {
+			return null;
+		}
 	}
 	
 	/**

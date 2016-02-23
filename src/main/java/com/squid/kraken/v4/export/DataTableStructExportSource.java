@@ -94,7 +94,7 @@ public class DataTableStructExportSource implements IStructExportSource {
 		}
 		
 		@Override
-		public String[] getV() {
+		public Object[] getV() {
 			return r.getV();			
 		}		
 	}

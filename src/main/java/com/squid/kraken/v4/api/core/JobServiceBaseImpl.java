@@ -45,6 +45,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.google.common.base.Optional;
 import com.squid.kraken.v4.api.core.APIException.ApiError;
+import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.export.ExportSourceWriter;
 import com.squid.kraken.v4.export.ExportSourceWriterCSV;
 import com.squid.kraken.v4.model.ComputationJob;
@@ -66,7 +67,7 @@ import com.squid.kraken.v4.persistence.dao.JobDAO;
  *            the JobResult type
  */
 public abstract class JobServiceBaseImpl<T extends ComputationJob<PK, R>, PK extends GenericPK, R extends JobResult>
-		extends GenericServiceImpl<T, PK> {
+extends GenericServiceImpl<T, PK> {
 
 	private static final Logger logger = LoggerFactory
 			.getLogger(JobServiceBaseImpl.class);
@@ -110,7 +111,7 @@ public abstract class JobServiceBaseImpl<T extends ComputationJob<PK, R>, PK ext
 	public void initJobsExecutor(int poolSize) {
 		jobsExecutor = Executors.newFixedThreadPool(poolSize);
 	}
-	
+
 	public void initJobsGC(int temporaryJobMaxAgeInSeconds) {
 		try {
 			// update all 'zombie' running tasks (caused by previous server
@@ -119,7 +120,7 @@ public abstract class JobServiceBaseImpl<T extends ComputationJob<PK, R>, PK ext
 			JobDAO<T, PK> dao = ((JobDAO<T, PK>) factory.getDAO(type));
 			List<T> findAllNotDone = dao.findAllNotDone();
 			logger.info("Stopping " + findAllNotDone.size()
-					+ " 'zombie' running tasks.");
+			+ " 'zombie' running tasks.");
 			for (T job : findAllNotDone) {
 				job.setError(new ComputationJob.Error("Task stopped",
 						"Stopped due to server restart."));
@@ -148,20 +149,20 @@ public abstract class JobServiceBaseImpl<T extends ComputationJob<PK, R>, PK ext
 			logger.info("stopping executor pool for "
 					+ this.getClass().getName());
 			if (jobsExecutor!=null) {
-			jobsExecutor.shutdown();
-			jobsExecutor.awaitTermination(2, TimeUnit.SECONDS);
-			jobsExecutor.shutdownNow();
+				jobsExecutor.shutdown();
+				jobsExecutor.awaitTermination(2, TimeUnit.SECONDS);
+				jobsExecutor.shutdownNow();
 			}
 			if (jobsGCThread!=null) {
-			jobsGCThread.cancel(true);
+				jobsGCThread.cancel(true);
 			}
 			logger.info("stopping jobs GC scheduler for "
 					+ this.getClass().getName());
-            if (jobsGC!=null) {
-			jobsGC.shutdown();
-			jobsGC.awaitTermination(2, TimeUnit.SECONDS);
-			jobsGC.shutdownNow();
-            }
+			if (jobsGC!=null) {
+				jobsGC.shutdown();
+				jobsGC.awaitTermination(2, TimeUnit.SECONDS);
+				jobsGC.shutdownNow();
+			}
 
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -234,7 +235,7 @@ public abstract class JobServiceBaseImpl<T extends ComputationJob<PK, R>, PK ext
 			// DONE
 			try {
 				results = computer.compute(ctx, job, maxResults, startIndex, lazy);
-			} catch (Exception e) {
+			} catch (ComputingException | InterruptedException e) {
 				throw new APIException(job.getError().getMessage(), ctx.isNoError(), ApiError.COMPUTING_FAILED);
 			}
 		} else {
@@ -333,11 +334,11 @@ public abstract class JobServiceBaseImpl<T extends ComputationJob<PK, R>, PK ext
 	public T store(AppContext ctx, T job) {
 		return store(ctx, job, null, true, null, null, false);
 	}
-	
+
 	public T store(AppContext ctx, T job, Integer timeout) {
 		return store(ctx, job, timeout, true, null, null, false);
 	}
-	
+
 	public T store(AppContext ctx, T job, Integer timeout, Integer maxResults, Integer startIndex) {
 		return store(ctx, job, timeout, true, maxResults, startIndex, false);
 	}
@@ -346,7 +347,7 @@ public abstract class JobServiceBaseImpl<T extends ComputationJob<PK, R>, PK ext
 		return store(ctx, job, timeout, true, maxResults, startIndex, lazy);
 	}
 
-	
+
 	/**
 	 * Create, update and/or re-compute a Job.<br>
 	 * If a Job with the same Id already exist then (if non temporary, update
@@ -485,7 +486,7 @@ public abstract class JobServiceBaseImpl<T extends ComputationJob<PK, R>, PK ext
 		if ((!jobToStart.getStatus().equals(Status.RUNNING)) || (forceAutoRun)) {
 			JobTask<T, PK, R> task = new JobTask<T, PK, R>(ctx, jobToStart, computer,
 					type, out, writer);
-			
+
 			if (writer == null) {
 				// and start it asynchronously
 				Future<T> submit = getJobsExecutor().submit(task);

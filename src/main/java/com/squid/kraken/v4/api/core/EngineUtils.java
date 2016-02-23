@@ -23,6 +23,7 @@
  *******************************************************************************/
 package com.squid.kraken.v4.api.core;
 
+import java.text.ParseException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
@@ -31,6 +32,7 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionMember;
@@ -43,6 +45,8 @@ import com.squid.kraken.v4.core.analysis.model.DashboardSelection;
 import com.squid.kraken.v4.core.analysis.model.IntervalleObject;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
+import com.squid.kraken.v4.core.expression.scope.DimensionDefaultValueScope;
+import com.squid.kraken.v4.core.expression.scope.ExpressionEvaluator;
 import com.squid.kraken.v4.model.AccessRight.Role;
 import com.squid.kraken.v4.model.DimensionOption;
 import com.squid.kraken.v4.model.DimensionPK;
@@ -150,6 +154,36 @@ public class EngineUtils {
             throw new ScopeException("Invalid facet, ID is null");
         }
     }
+    
+    /**
+     * Convert the facet value into a date. 
+     * If the value start with '=', it is expected to be a Expression, in which case we'll try to resolve it to a Date constant.
+     * @param ctx
+     * @param index
+     * @param value
+     * @return
+     * @throws ParseException
+     * @throws ScopeException
+     */
+    public Date convertToDate(AppContext ctx, DimensionIndex index, String value) throws ParseException, ScopeException {
+    	if (value.startsWith("=")) {
+    		String expr = value.substring(1);
+    		DimensionDefaultValueScope scope = new DimensionDefaultValueScope(ctx, index);
+			ExpressionAST defaultExpression = scope.parseExpression(expr);
+			ExpressionEvaluator evaluator = new ExpressionEvaluator(ctx);
+			Object defaultValue = evaluator.evalSingle(defaultExpression);
+			if (defaultValue==null) {
+				throw new ScopeException("unable to parse the facet expression as a constant: "+value);
+			}
+			if (!(defaultValue instanceof Date)) {
+				throw new ScopeException("unable to parse the facet expression as a date: "+value);
+			}
+			// ok, it's a date
+			return (Date)defaultValue;
+    	} else {
+    		return ServiceUtils.getInstance().toDate(value);
+    	}
+    }
 
     /**
      * Apply a facet selection to a dashboard.
@@ -181,8 +215,8 @@ public class EngineUtils {
                         if (selectedItem instanceof FacetMemberInterval) {
                             FacetMemberInterval fmi = (FacetMemberInterval) selectedItem;
                             try {
-                                Date lowerDate = ServiceUtils.getInstance().toDate(fmi.getLowerBound());
-                                Date upperDate = ServiceUtils.getInstance().toDate(fmi.getUpperBound());
+                                Date lowerDate = convertToDate(ctx, index, fmi.getLowerBound());
+                                Date upperDate = convertToDate(ctx, index, fmi.getUpperBound());
                                 // add as a Date Interval
                                 ds.add(axis, IntervalleObject.createInterval(lowerDate, upperDate));
                             } catch (java.text.ParseException e) {
