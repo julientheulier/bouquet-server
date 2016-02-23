@@ -82,15 +82,11 @@ public class MetaModelObserver implements DataStoreEventObserver {
 
 	private MetaModelObserver() {
 	}
-
-	@Override
-	public void notifyEvent(DataStoreEvent event) {
-		DomainPK domainId = null;
+	
+	private boolean acceptEvent(DataStoreEvent event) {
 		Object origin = event.getOrigin();
 		Object sourceEvent = event.getSource();
-		//
 		if (origin == sourceEvent || origin == null) {
-		    
 			// shortcut to avoid loosing too much time with stuff we don't mind
 		    if (sourceEvent instanceof ProjectFacetJob 
 		            || sourceEvent instanceof ProjectFacetJobPK
@@ -100,16 +96,31 @@ public class MetaModelObserver implements DataStoreEventObserver {
 		            || sourceEvent instanceof StatePK
 		            || sourceEvent instanceof AccessTokenPK) {
 		    // just in case...
+		    	return false;
 		    } else if (sourceEvent instanceof Persistent || sourceEvent instanceof GenericPK) {
-		    	
+		    	return true;
+		    }
+		}
+		// else
+		return false;
+	}
+
+	@Override
+	public void notifyEvent(DataStoreEvent event) {
+		//
+		if (acceptEvent(event)) {
+			DomainPK domainId = null;
+			Object sourceEvent = event.getSource();
 		    Persistent<?> sourceObject = null;
 		    GenericPK sourcePk = null;
 		    // krkn-99: if event is external, the source is always a PK
+		    boolean local = true;
 		    if (sourceEvent instanceof Persistent) {
 		    	sourceObject = (Persistent<?>)sourceEvent;
 		    	sourcePk = sourceObject.getId();
 		    } else {
 		    	sourcePk = (GenericPK)sourceEvent;
+		    	local = false;
 		    }
 
 			// project update
@@ -117,21 +128,19 @@ public class MetaModelObserver implements DataStoreEventObserver {
 					&& event.getType() != DataStoreEvent.Type.CREATION) {
 				ProjectPK projectPK = ((ProjectPK) sourcePk);
 		        // force refresh
-		        Project project = getProject(projectPK, sourceObject);
-	        	if (project!=null && DatabaseServiceImpl.INSTANCE.invalidate(project,false)) {// invalidate the associated database if needed
-	        		// T267 -- if the database need update, we have to invalidate the ES storage too
-	        		try {
-						ProjectManager.INSTANCE.invalidate(project);
-					} catch (InterruptedException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					} catch (ScopeException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}
-	        	} else {
-	        		// soft refresh ?
-			        RedisCacheManager.getInstance().refresh(projectPK.toUUID());
+		        Project project = peekProject(projectPK, sourceObject);
+	        	if (project!=null) {
+	        		if (DatabaseServiceImpl.INSTANCE.invalidate(project,false)) {// invalidate the associated database if needed
+		        		// T267 -- if the database need update, we have to invalidate the ES storage too
+		        		try {
+							ProjectManager.INSTANCE.invalidate(project);
+						} catch (ScopeException | InterruptedException e) {
+							logger.error("failed to invalidate project '"+project.getName()+"' with PK="+projectPK);
+						}
+		        	} else {
+		        		// soft refresh ?
+				        RedisCacheManager.getInstance().refresh(projectPK.toUUID());
+		        	}
 	        	}
 			}
 
@@ -140,26 +149,32 @@ public class MetaModelObserver implements DataStoreEventObserver {
 				RelationPK id = (RelationPK) sourcePk;
 				ArrayList<String> refreshList = new ArrayList<String>();
 				refreshList.add(id.toUUID());
-				ProjectPK project = new ProjectPK(id.getCustomerId(),
+				ProjectPK projectPK = new ProjectPK(id.getCustomerId(),
 						id.getProjectId());
-				refreshList.add(project.toUUID());
-				// invalidate left & right domains
-	        	Relation relation = getRelation(id, sourceObject);
-				if (relation!=null && relation.getLeftId()!=null) {
-					refreshList.add(relation.getLeftId().toUUID());
-				}
-                if (relation!=null && relation.getRightId()!=null) {
-					refreshList.add(relation.getRightId().toUUID());
-                }
-				if (!refreshList.isEmpty()) {
-	                RedisCacheManager.getInstance().refresh(refreshList);
-				}
+		        Project project = peekProject(projectPK, sourceObject);
+		        if (project!=null) {
+					refreshList.add(projectPK.toUUID());
+					// invalidate left & right domains
+		        	Relation relation = getRelation(id, sourceObject);
+					if (relation!=null && relation.getLeftId()!=null) {
+						refreshList.add(relation.getLeftId().toUUID());
+					}
+	                if (relation!=null && relation.getRightId()!=null) {
+						refreshList.add(relation.getRightId().toUUID());
+	                }
+					if (!refreshList.isEmpty()) {
+		                RedisCacheManager.getInstance().refresh(refreshList);
+					}
+		        }
 			}
 
 			// domain
 			if (sourcePk.getClass().equals(DomainPK.class)) {
 				domainId = (DomainPK) sourcePk;
-				ProjectManager.INSTANCE.refreshDomain(domainId);
+		        Project project = peekProject(domainId.getParent(), sourceObject);
+		        if (project!=null) {
+		        	ProjectManager.INSTANCE.refreshDomain(domainId);
+		        }
 			}
 			
 			// dimension
@@ -167,37 +182,37 @@ public class MetaModelObserver implements DataStoreEventObserver {
 				DimensionPK id = (DimensionPK) sourcePk;
 				domainId = id.getParent();
                 //
-
-				List<String> refreshList = new ArrayList<String>();
-				refreshList.add(domainId.toUUID());
-				refreshList.add("H/"+domainId.toUUID());// refresh hierarchy too
-				refreshList.add(id.toUUID());
-                //
-                // refresh parent if any
-	        	Dimension dim = getDimension(id, sourceObject);
-	        	if (dim!=null && dim.getParentId()!=null) {
-	        		//AppContext ctx = ServiceUtils.getInstance().getRootUserContext(id.getCustomerId());
-			        Project project = getProject(id.getParent().getParent(), null);
-			        Dimension parent = getDimension(dim.getParentId(), null);
-			        if (project!=null && parent!=null) {
-				        Domain domain = getDomain(domainId, null);
-				        if (domain!=null) {
-			        		Universe universe = new Universe(project);
-			        		try {
-			        			// get the hierarchy Root
-				        		Axis axis = universe.S(domain).A(parent);
-				        		DimensionIndex index = axis.getIndex();
-				        		Dimension root = index.getRoot().getDimension();
-				        		refreshList.add(root.getId().toUUID());
-			        		} catch (InterruptedException | ComputingException | ScopeException e) {
-			        			logger.error("error while updating hierarchy for dimension "+dim.getName()+": "+e.getMessage(),e);
-			        		}
+				Project project = peekProject(domainId.getParent(), sourceObject);
+		        if (project!=null) {
+					List<String> refreshList = new ArrayList<String>();
+					refreshList.add(domainId.toUUID());
+					refreshList.add("H/"+domainId.toUUID());// refresh hierarchy too
+					refreshList.add(id.toUUID());
+	                //
+	                // refresh parent if any
+		        	Dimension dim = getDimension(id, sourceObject);
+		        	if (dim!=null && dim.getParentId()!=null) {
+				        Dimension parent = getDimension(dim.getParentId(), null);
+				        if (project!=null && parent!=null) {
+					        Domain domain = getDomain(domainId, null);
+					        if (domain!=null) {
+				        		Universe universe = new Universe(project);
+				        		try {
+				        			// get the hierarchy Root
+					        		Axis axis = universe.S(domain).A(parent);
+					        		DimensionIndex index = axis.getIndex();
+					        		Dimension root = index.getRoot().getDimension();
+					        		refreshList.add(root.getId().toUUID());
+				        		} catch (InterruptedException | ComputingException | ScopeException e) {
+				        			logger.error("error while updating hierarchy for dimension "+dim.getName()+": "+e.getMessage(),e);
+				        		}
+					        }
 				        }
-			        }
-	        	}
-	        	//
-	        	// final refresh
-        		RedisCacheManager.getInstance().refresh(refreshList);
+		        	}
+		        	//
+		        	// final refresh
+	        		RedisCacheManager.getInstance().refresh(refreshList);
+		        }
 			}
 
             // dimension.attribute
@@ -208,30 +223,34 @@ public class MetaModelObserver implements DataStoreEventObserver {
                 domainId = new DomainPK(dim.getCustomerId(), dim.getProjectId(),
                         dim.getDomainId());
                 //
-                RedisCacheManager.getInstance().refresh(domainId.toUUID(), dim.toUUID(), attr.toUUID());
+				Project project = peekProject(domainId.getParent(), sourceObject);
+				if (project!=null) {
+					RedisCacheManager.getInstance().refresh(domainId.toUUID(), dim.toUUID(), attr.toUUID());
+				}
             }
 
-			// metric
-			if (sourcePk.getClass().equals(MetricPK.class)) {
-				// deletion
-				MetricPK id = (MetricPK) sourcePk;
-				domainId = new DomainPK(id.getCustomerId(), id.getProjectId(),
-						id.getDomainId());
-				// no need to update the domain
-                RedisCacheManager.getInstance().refresh(domainId.toUUID(), id.toUUID());
-			}
-			
-		    }
+            // metric
+            if (sourcePk.getClass().equals(MetricPK.class)) {
+            	// deletion
+            	MetricPK id = (MetricPK) sourcePk;
+            	domainId = new DomainPK(id.getCustomerId(), id.getProjectId(),
+            			id.getDomainId());
+            	Project project = peekProject(domainId.getParent(), sourceObject);
+            	if (project!=null) {
+            		// no need to update the domain
+            		RedisCacheManager.getInstance().refresh(domainId.toUUID(), id.toUUID());
+            	}
+            }
 		}
 	}
 	
-	private Project getProject(ProjectPK pk, Persistent<?> sourceObject) {
+	private Project peekProject(ProjectPK pk, Persistent<?> sourceObject) {
 		if (sourceObject!=null && sourceObject instanceof Project) {
 			return (Project)sourceObject;
 		}
 		AppContext ctx = ServiceUtils.getInstance().getRootUserContext(pk.getCustomerId());
 		try {
-			return ProjectManager.INSTANCE.getProject(ctx, pk);
+			return ProjectManager.INSTANCE.peekProject(ctx, pk);
 		} catch (Exception e) {
 			return null;
 		}

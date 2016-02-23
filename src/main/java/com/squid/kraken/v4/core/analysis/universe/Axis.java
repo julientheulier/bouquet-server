@@ -294,7 +294,7 @@ public class Axis implements Property {
 	
 	@Override
 	public String toString() {
-		return "Axis/"+prettyPrint();
+		return "Axis/"+getParent().toString()+"."+(dimension!=null?dimension.getName():(def_cache!=null?def_cache.prettyPrint():"???"));
 	}
 
 	/**

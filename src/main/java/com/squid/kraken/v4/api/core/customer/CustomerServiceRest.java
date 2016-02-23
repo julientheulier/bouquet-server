@@ -371,52 +371,6 @@ public class CustomerServiceRest {
 	}
 
 	/**
-	 * Part of the user creation process :<br>
-	 * Create a new 'reset_pwd' {@link AccessToken} for the user having the
-	 * passed email address.<br>
-	 * Send it by mail to the passed email address.<br>
-	 * The email will contain a link built by replacing <tt>{access_token}</tt>
-	 * by the token value in the provided link url which be checked for
-	 * validity.
-	 * 
-	 * @param customerId
-	 * @param clientId
-	 * @param email
-	 *            the email of the user account.
-	 * @param lang
-	 *            the language used to build the email content or null for
-	 *            default.
-	 * @param linkURL
-	 *            the link url base used to build the link enclosed in the email
-	 *            (ie.
-	 *            <tt>http://api.squisolutions.com/release/api/reset_email?access_token={access_token}</tt>
-	 *            ). The url must match the {@link Client} authorized urls.
-	 * @return an "ok" message.
-	 */
-	@Path("/set-user-pwd")
-	@GET
-	@ApiOperation(value = "Part of the user creation process. Create a new 'reset_pwd' AccessToken for the user having the passed email address")
-	public String sendUserPasswordEmail(
-			@Context HttpServletRequest request,
-			@ApiParam(required = true) @QueryParam("customerId") String customerId,
-			@ApiParam(required = true) @QueryParam("clientId") String clientId,
-			@ApiParam(required = true, value = "the email of the user account") @QueryParam("email") String email,
-			@QueryParam("lang") String lang,
-			@ApiParam(required = true, value = "the link url base used to build the link enclosed in the email (ie. http://api.squisolutions.com/release/api/reset_email?access_token={access_token}). The url must match the Client authorized urls") @QueryParam("link_url") String linkURL) {
-
-		String content = "Your account has just been created.\n"
-				+ "Please follow the link "
-				+ "${resetLink} to define your password";
-		content += "\n(this link will be valid for ${validity} hours)";
-		String subject = "New Account";
-
-		AppContext ctx = getAnonymousUserContext(request, customerId, clientId);
-		authService.resetUserPassword(ctx, EmailHelperImpl.getInstance(),
-				clientId, email, lang, linkURL, content, subject);
-		return "{ \"message\" : \"Set password token sent, please check your emails.\" }";
-	}
-
-	/**
 	 * Get the current User (identified by the AccessToken).
 	 */
 	@Path("/user")
@@ -486,15 +440,24 @@ public class CustomerServiceRest {
 		// log the request
 		ServiceUtils.getInstance().logAPIRequest(null, null, null, null,
 				request);
-		String res = "{ \"kraken\" : \""
-				+ ServiceUtils.getInstance().getBuildVersionString()+"\"";
+		String res = "{ \"bouquet-server\" : "
+				+ ServiceUtils.getInstance().getBuildVersionString();
 
-		for (IVendorSupport plugin:
-			 VendorSupportRegistry.INSTANCE.listVendors()){
-			res += ",\""+plugin.getVendorId()+"\" : \""+plugin.getVendorVersion()+"\"";
+		res += ",\"bouquet-plugins\" : [ ";
+		boolean first = true;
+		for (IVendorSupport plugin : VendorSupportRegistry.INSTANCE
+				.listVendors()) {
+			if (!first) {
+				res += ",";
+			} else {
+				first = false;
+			}
+			res += "{\"" + plugin.getVendorId() + "\" : \""
+					+ plugin.getVendorVersion() + "\"}";
 		}
+		res += "]";
 		CoreVersion version = new CoreVersion();
-		res +=", \""+"Core\":"+"\""+ version.getVendorVersion()+"\"";
+		res += ", \"bouquet-core\" : \"" + version.getVendorVersion() + "\"";
 
 		res += " }";
 		return res;

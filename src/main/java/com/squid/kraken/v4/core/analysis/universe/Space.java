@@ -392,14 +392,18 @@ public class Space {
 	
 	protected Axis relink(Space space, Axis a) throws ScopeException, ComputingException, InterruptedException {
 		if (a.getParent().getDomain().equals(space.getDomain())) {
-			return space.A(a.getDimension());
+			if (a.getDimension()!=null) {
+				return space.A(a.getDimension());
+			} else {
+				return new Axis(space, a.getDefinition());
+			}
 		} else {
 			throw new ScopeException("cannot relink "+space.toString()+" with "+a.toString());
 		}
 	}
 	
 	protected Space relink(Space space) throws ScopeException {
-		if (space.getDomain().equals(getDomain())) {
+		if (space.getParent()==null && space.getDomain().equals(getDomain())) {//T830:beware the self join
 			return this;
 		} else if (space.getParent()==null) {
 			throw new ScopeException("cannot relink that space");

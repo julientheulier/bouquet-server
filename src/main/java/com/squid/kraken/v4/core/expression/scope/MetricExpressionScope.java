@@ -76,13 +76,8 @@ public class MetricExpressionScope extends DomainExpressionScope {
 	}
 
 	@Override
-	protected ExpressionScope createScope(Universe universe, Domain domain, Space target) {
-		try {
-			return new MetricExpressionScope(universe, domain, target, restrictedScope, scope);// the scope should contains all the available references
-		} catch (ScopeException e) {
-			e.printStackTrace();
-			return null;
-		}
+	protected ExpressionScope createScope(Universe universe, Domain domain, Space target) throws ScopeException {
+		return new MetricExpressionScope(universe, domain, target, restrictedScope, scope);// the scope should contains all the available references
 	}
 	
 	@Override
