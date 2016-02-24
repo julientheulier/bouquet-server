@@ -33,13 +33,19 @@ import com.esotericsoftware.kryo.io.Output;
 
 public class RedisCacheValuesList extends RedisCacheValue {
 
+	
+	public enum State{
+		ONGOING,  DONE, ERROR
+
+	}
+	
 	private  ArrayList<String> referenceKeys ;
-	private boolean done;
+	private State state;
 
 
 	public RedisCacheValuesList(){
 		this.referenceKeys  = new ArrayList<String>();
-		this.done = false;
+		this.state = State.ONGOING;
 	}
 
 
@@ -62,19 +68,23 @@ public class RedisCacheValuesList extends RedisCacheValue {
 	}
 
 
-	public void setDone(boolean done){
-		this.done= done;
+	public void setDone(){
+		this.state=State.DONE;
 	}
 
+	public void setError(){
+		this.state = State.ERROR;
+	}
+	
 	public boolean isDone(){
-		return this.done;
+		return this.state == State.DONE;
 	} 
 
 	@Override
 	public boolean equals(Object obj){
 		if (obj instanceof RedisCacheValuesList ){
 			RedisCacheValuesList o = (RedisCacheValuesList) obj;
-			if (this.done != o.done){
+			if (this.state != o.state){
 				return false;
 			}		
 			if (o.getReferenceKeys().equals(this.getReferenceKeys())){
@@ -89,7 +99,7 @@ public class RedisCacheValuesList extends RedisCacheValue {
 
 	@Override
 	public String toString(){
-		return "Reference Keys ?"+ done+ ": " + this.referenceKeys.toString();
+		return "Reference Keys ?"+ state+ ": " + this.referenceKeys.toString();
 	}
 
 	protected void readObject(Input in) throws IOException, ClassNotFoundException{
@@ -97,7 +107,7 @@ public class RedisCacheValuesList extends RedisCacheValue {
 		for (int i = 0; i <nbRefs ; i++){
 			this.addReferenceKey(in.readString());    	
 		}    	
-		this.done= in.readBoolean();
+		this.state=Enum.valueOf(State.class,  in.readString());
 	}
 
 	public byte[] serialize() throws IOException{
@@ -123,7 +133,7 @@ public class RedisCacheValuesList extends RedisCacheValue {
 		for(String key : this.referenceKeys ){
 			out.writeString(key);
 		}
-		out.writeBoolean(this.done);
+		out.writeString(this.state.toString());
 	}    
 
 }

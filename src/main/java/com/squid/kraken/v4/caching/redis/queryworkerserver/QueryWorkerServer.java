@@ -107,7 +107,7 @@ public class QueryWorkerServer implements IQueryWorkerServer {
 	public boolean fetch(String k, String SQLQuery, String RSjdbcURL, String username, String pwd, int ttl, long limit){
 		try
 		{
-			IExecutionItem res = null;
+			IExecutionItem item = null;
 			boolean ok;
 			boolean isDone =false;
 			long linesProcessed = 0;
@@ -125,7 +125,7 @@ public class QueryWorkerServer implements IQueryWorkerServer {
 				}
 
 				boolean firstCall = true;
-				res = db.executeQuery(SQLQuery);
+				item = db.executeQuery(SQLQuery);
 				isDone = false;
 
 				RedisCacheValuesList valuesList  = new RedisCacheValuesList();
@@ -135,7 +135,7 @@ public class QueryWorkerServer implements IQueryWorkerServer {
 				long nbLinesLeftToRead = limit;
 				while (!isDone){
 
-					RawMatrixStreamExecRes serializedRes = RawMatrix.streamExecutionItemToByteArray(res, maxRecords, nbLinesLeftToRead);
+					RawMatrixStreamExecRes serializedRes = RawMatrix.streamExecutionItemToByteArray(item, maxRecords, nbLinesLeftToRead);
 					linesProcessed += serializedRes.getNbLines();
 					nbLinesLeftToRead -= linesProcessed;
 					
@@ -161,11 +161,20 @@ public class QueryWorkerServer implements IQueryWorkerServer {
 						}
 						firstCall = false;
 					}
-					batchLowerBound = batchUpperBound;
+					
+					this.fetchChunkedMatrix(k, item, serializedRes, ttl, SQLQuery, limit);
+				/*	batchLowerBound = batchUpperBound;
 					batchUpperBound = batchLowerBound+serializedRes.getNbLines();
 
 					String batchKey = k+"_"+batchLowerBound + "-" + batchUpperBound;
 					ok  = redis.put(batchKey, serializedRes.getStreamedMatrix());
+					if (ttl == -2){
+						redis.setTTL(batchKey, this.defaultTTLinSec);
+					}else{
+						if (ttl  != -1){
+							redis.setTTL(batchKey, ttl);		
+						}
+					}
 					if (!ok) {
 						throw new RedisCacheException("We did not manage to store the result for query " + SQLQuery + "in redis");
 					}
@@ -178,10 +187,8 @@ public class QueryWorkerServer implements IQueryWorkerServer {
 						logger.info("The  result set was split into " + nbBatches + " Redis chunks") ;
 						logger.info("Chunks : " +  valuesList.toString() ) ;
 
-					}
+					} */
 				}
-
-
 				/* ttl = -1=> no ttl
 				 * ttl = -2 => default ttl
 				 * else set ttl
@@ -200,11 +207,70 @@ public class QueryWorkerServer implements IQueryWorkerServer {
 				throw new RedisCacheException("Database Service exception for " + RSjdbcURL + " while reading the Query results: "+e.getLocalizedMessage(), e) ;
 			}
 			finally{
-				if (res!=null)
-					res.close();
+				if (item!=null)
+					item.close();
 			}
 		}catch(SQLException e){
 			throw new RedisCacheException("Database Service exception for " + RSjdbcURL + " while reading the Query results: "+e.getLocalizedMessage(), e) ;
 		}
 	}
+	
+	
+	private void fetchChunkedMatrix( String key, IExecutionItem item,  RawMatrixStreamExecRes serializedFirstChunk,  int ttl, String SQLQuery, long limit){
+		int nbBatches = 1;
+		
+		long batchLowerBound = 0;
+		long batchUpperBound =0 ;
+		boolean done = false; 
+		boolean ok;
+		RawMatrixStreamExecRes  nextRes = serializedFirstChunk;
+		RedisCacheValuesList valuesList  = new RedisCacheValuesList();
+		long nbLinesLeftToRead  = limit  ;
+		boolean error= false;
+		do{
+			nbLinesLeftToRead -= nextRes.getNbLines();
+			batchLowerBound  = batchUpperBound;
+			batchUpperBound= batchLowerBound+ nextRes.getNbLines();
+			String batchKey = key+"_"+batchLowerBound + "-" + batchUpperBound;
+			ok  = redis.put(batchKey, nextRes.getStreamedMatrix());
+			if (ttl == -2){
+				redis.setTTL(batchKey, this.defaultTTLinSec);
+			}else{
+				if (ttl  != -1){
+					redis.setTTL(batchKey, ttl);		
+				}
+			}
+			if (!ok) {
+				throw new RedisCacheException("We did not manage to store the result for query " + SQLQuery + "in redis");
+			}
+			valuesList.addReferenceKey(batchKey);
+			if (!nextRes.hasMore()){
+				valuesList.setDone();
+				ok = true;
+			}else{
+				try {
+					nextRes = RawMatrix.streamExecutionItemToByteArray(item, maxRecords, nbLinesLeftToRead) ;
+				} catch (IOException |SQLException  e) {
+					error = true;previ
+				}
+			}
+			if (error){
+				valuesList.setError();
+			}
+			
+			this.redis.put(key, valuesList.serialize());
+			nbBatches+=1;
+		
+		}while(!done && !error);
+		
+		if (ttl == -2){
+			redis.setTTL(key, this.defaultTTLinSec);
+		}else{
+			if (ttl  != -1){
+				redis.setTTL(key, ttl);		
+			}
+		}
+		
+	}
+	
 }
