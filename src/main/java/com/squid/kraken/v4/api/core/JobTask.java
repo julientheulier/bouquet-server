@@ -121,6 +121,10 @@ public class JobTask<T extends ComputationJob<PK, R>, PK extends GenericPK, R ex
             // set the job's 'error'
             logger.error("Error in Job : " + job, e);
             job.setError(new ComputationJob.Error("Computation error", e.getLocalizedMessage()));
+            if (e instanceof APIException){
+            	APIException ae = (APIException) e;
+            	throw ae;
+            }
         } finally {
             // update the jobs status and stats
             job.setStatus(Status.DONE);
