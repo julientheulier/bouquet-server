@@ -28,9 +28,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.squid.core.sql.statements.SelectStatement;
 import com.squid.kraken.v4.api.core.*;
-import com.squid.kraken.v4.core.analysis.engine.query.SimpleQuery;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -69,6 +67,7 @@ import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.DomainPK;
 import com.squid.kraken.v4.model.Expression;
 import com.squid.kraken.v4.model.ExpressionObject;
+import com.squid.kraken.v4.model.FacetExpression;
 import com.squid.kraken.v4.model.FacetSelection;
 import com.squid.kraken.v4.model.Metric;
 import com.squid.kraken.v4.model.MetricPK;
@@ -356,6 +355,12 @@ JobComputer<ProjectAnalysisJob, ProjectAnalysisJobPK, DataTable> {
 					domains.add(domain);// krkn-61: add the direct parent
 					Space space = universe.S(domain);
 					Measure measure = space.M(metric);
+					// override the name using the analysis definition
+					if (metricData.getName() != null) {
+						measure.withName(metricData.getName());
+					} else if (metricData.getLName() != null) {
+						measure.withName(metricData.getLName());
+					}
 					// define a kpi
 					dash.add(measure);
 				} else {
@@ -398,10 +403,13 @@ JobComputer<ProjectAnalysisJob, ProjectAnalysisJobPK, DataTable> {
 		// -- pivot support (V2)
 		{
 			int pos = 0;
-			for (Expression expr : job.getFacets()) {
+			for (FacetExpression expr : job.getFacets()) {
 				if (expr.getValue() != null) {
 					try {
 						Axis axis = readAxis(ctx, universe, expr);
+						if (expr.getName()!=null) {
+							axis.setName(expr.getName());
+						}
 						dash.add(axis);
 					} catch (ScopeException e) {
 
