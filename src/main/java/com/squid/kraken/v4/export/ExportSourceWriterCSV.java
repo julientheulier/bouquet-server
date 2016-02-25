@@ -36,7 +36,6 @@ import org.slf4j.LoggerFactory;
 import com.squid.core.csv.CSVSettingsBean;
 import com.squid.core.csv.CSVWriter;
 import com.squid.core.export.IRawExportSource;
-import com.squid.core.jdbc.engine.IExecutionItem;
 import com.squid.core.jdbc.formatter.IJDBCDataFormatter;
 import com.squid.core.jdbc.vendor.IVendorSupport;
 import com.squid.core.jdbc.vendor.VendorSupportRegistry;
@@ -77,7 +76,7 @@ public class ExportSourceWriterCSV implements ExportSourceWriter {
 		
 		ResultSet rs = item.getItem().getResultSet();
 		try {
-			IRawExportSource source = new ExecutionItemExportSource(item.getItem(), settings);
+			IRawExportSource source = new ExecutionItemExportSource(item, settings);
 
 			IJDBCDataFormatter formatter = vendorSpecific.createFormatter(
 					settings, rs.getStatement().getConnection());
