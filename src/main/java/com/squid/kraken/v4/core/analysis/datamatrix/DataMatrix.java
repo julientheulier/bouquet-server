@@ -734,7 +734,7 @@ public class DataMatrix {
 				ExtendedType colExtType;
 	            if (dim!=null) {
 	            	colType = getDataType(m.getAxis());
-					colExtType = getDataExtendedType(m.getAxis());
+					colExtType = getExtendedType(m.getAxis().getDefinitionSafe());
 					assert(colType.equals(DataType.values()[colExtType.getDataType()]));
                     Col col = new Col(dim.getId(), m.getAxis().getName(), colExtType, Col.Role.DOMAIN);
                     col.setDefinition(m.getAxis().prettyPrint());
@@ -744,7 +744,7 @@ public class DataMatrix {
 	                String ID = m.getAxis().getId();
 	                String name = m.getAxis().getName();
 	                colType = getDataType(m.getAxis());
-					colExtType = getDataExtendedType(m.getAxis());
+					colExtType = getExtendedType(m.getAxis().getDefinitionSafe());
 					assert(colType.equals(DataType.values()[colExtType.getDataType()]));
 					DimensionPK pk = new DimensionPK(m.getAxis().getParent().getDomain().getId(),ID);
 	                Col col = new Col(pk, name, colExtType, Col.Role.DOMAIN);
@@ -757,7 +757,8 @@ public class DataMatrix {
             Measure m = kpis.get(i);
             // TODO DatType
             Metric metric = m.getMetric();
-			Col col = new Col(metric!=null?metric.getId():null, m.getName(), ExtendedType.NUMERIC, Col.Role.DATA);
+            ExtendedType type = getExtendedType(m.getDefinitionSafe());
+			Col col = new Col(metric!=null?metric.getId():null, m.getName(), type, Col.Role.DATA);
             col.setDefinition(m.prettyPrint());
             header.add(col);
         }
@@ -791,7 +792,7 @@ public class DataMatrix {
 	            }
 	            for (int i = 0; i < kpi_count; i++) {
 	                Object value = row.getDataValue(i);
-	                values[colIdx++] = value != null ? value.toString() : "";
+	                values[colIdx++] = value != null ? value : "";
 	            }
 	            //
 	            tableRows.add(new DataTable.Row(values));
@@ -826,22 +827,8 @@ public class DataMatrix {
         }
 	}
 
-	private ExtendedType getDataExtendedType(Axis axis) {
-		ExpressionAST expr = axis.getDefinitionSafe();
+	private ExtendedType getExtendedType(ExpressionAST expr) {
 		return expr.computeType(this.database.getSkin());
-
-        /*IDomain image = expr.getImageDomain();
-        if (image.isInstanceOf(IDomain.DATE)) {
-            return DataType.DATE;
-        } else if (image.isInstanceOf(IDomain.TIMESTAMP)) {
-            return DataType.DATE;
-        } else if (image.isInstanceOf(IDomain.NUMERIC)) {
-            return DataType.NUMBER;
-        } else if (image.isInstanceOf(IDomain.STRING)) {
-            return DataType.STRING;
-        } else {
-            return DataType.STRING;
-        }*/
 	}
 
 
