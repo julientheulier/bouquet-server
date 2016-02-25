@@ -53,6 +53,8 @@ public class Axis implements Property {
 	private Dimension dimension;
 	private String ID = "";
 	
+	private String name = null;// this can be used to force the axis name
+	
 	private ExpressionAST def_cache;// cache the axis definition
 	
 	protected Axis(Space parent, ExpressionAST expression) {
@@ -78,7 +80,28 @@ public class Axis implements Property {
 	    return new Axis(this, ID);
 	}
     
+    /**
+     * override the standard name
+     * @param name
+     */
+    public void setName(String name) {
+		this.name = name;
+	}
+	
+	/**
+	 * set this axis name
+	 * @param name
+	 * @return
+	 */
+	public Axis withName(String name) {
+	    this.name = name;
+	    return this;
+	}
+    
     public String getName() {
+    	if (name!=null) {
+    		return name;// use the provided one
+    	}
         if (dimension!=null) {
             DimensionIndex index;
             try {
@@ -306,7 +329,7 @@ public class Axis implements Property {
 	        return this;
 	    } else {
 	        Space root = new Space(this.parent.getUniverse(), this.getParent().getDomain());
-	        return root.A(this.dimension);
+	        return root.A(this.dimension).withName(name);
 	    }
 	}
 	
