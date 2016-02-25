@@ -23,6 +23,7 @@
  *******************************************************************************/
 package com.squid.kraken.v4.api.core.project;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -40,6 +41,8 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
+import com.fasterxml.jackson.core.JsonParseException;
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.google.common.base.Optional;
 import com.squid.core.database.impl.DatabaseServiceException;
 import com.squid.core.database.model.Database;
@@ -56,7 +59,19 @@ import com.squid.kraken.v4.api.core.projectfacetjob.FacetJobServiceRest;
 import com.squid.kraken.v4.api.core.relation.RelationServiceRest;
 import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
 import com.squid.kraken.v4.core.database.impl.DatabaseServiceImpl;
-import com.squid.kraken.v4.model.*;
+import com.squid.kraken.v4.dataviz.DatavizJob;
+import com.squid.kraken.v4.model.AccessRight;
+import com.squid.kraken.v4.model.Annotation;
+import com.squid.kraken.v4.model.AnnotationList;
+import com.squid.kraken.v4.model.AnnotationPK;
+import com.squid.kraken.v4.model.Domain;
+import com.squid.kraken.v4.model.DomainOption;
+import com.squid.kraken.v4.model.DomainPK;
+import com.squid.kraken.v4.model.ExpressionSuggestion;
+import com.squid.kraken.v4.model.GenericPK;
+import com.squid.kraken.v4.model.Persistent;
+import com.squid.kraken.v4.model.Project;
+import com.squid.kraken.v4.model.ProjectPK;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DAOFactory;
 import com.squid.kraken.v4.persistence.dao.ProjectDAO;
@@ -431,4 +446,19 @@ public class ProjectServiceRest extends BaseServiceRest {
 			@Context HttpServletRequest request) {
 		return new BookmarkServiceRest(userContext);
 	}
+	
+
+	// T886 prototype
+	@Path("{"+PARAM_NAME+"}"+"/dataviz")
+	@POST
+	@ApiOperation(value = "generate dataviz content")
+	public Object generateVegaContent(
+			@PathParam(PARAM_NAME) String projectId,
+			@ApiParam(required=true) String input 
+			) throws ScopeException, JsonParseException, JsonMappingException, IOException 
+	{
+		DatavizJob job = new DatavizJob(userContext);
+		return job.proceed(projectId, input);
+	}
+	
 }
