@@ -247,7 +247,7 @@ public class DatavizJob {
 	}
 	
 	private String formatName(String prettyPrint) {
-		return prettyPrint.replace(' ', '_').replace('(', ' ').replace(')', ' ').replace("'", "").replace("\"", "").replace(',', ' ').replace('.', ' ').trim().replace(' ','_');
+		return prettyPrint.replaceAll("[(),.]", " ").trim().replaceAll("[^ a-zA-Z_0-9]", "").replace(' ','_');
 	}
 	
 }
