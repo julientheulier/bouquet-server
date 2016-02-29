@@ -38,6 +38,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.zip.GZIPOutputStream;
 
+import org.apache.kafka.common.errors.ApiException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,9 +50,9 @@ import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.export.ExportSourceWriter;
 import com.squid.kraken.v4.export.ExportSourceWriterCSV;
 import com.squid.kraken.v4.model.ComputationJob;
+import com.squid.kraken.v4.model.ComputationJob.Error;
 import com.squid.kraken.v4.model.ComputationJob.Status;
 import com.squid.kraken.v4.model.GenericPK;
-import com.squid.kraken.v4.model.ProjectAnalysisJob;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DAOFactory;
 import com.squid.kraken.v4.persistence.dao.JobDAO;
@@ -286,7 +287,14 @@ extends GenericServiceImpl<T, PK> {
 				results = readResults(ctx, job.getId(), timeoutMs, reRunIfNoResults,
 						maxResults, startIndex,lazy, retryDelayMs);
 			} else {
-				results = store(ctx, job, timeoutMs).getResults();
+				job = store(ctx, job, timeoutMs);
+				Error error = job.getError();
+				if (error == null) {
+					results = store(ctx, job, timeoutMs).getResults();
+				} else {
+					// job computation failed
+					throw new ApiException(error.getMessage());
+				}
 			}
 			// JSON
 			ObjectMapper mapper = new ObjectMapper();
