@@ -57,6 +57,7 @@ import com.squid.kraken.v4.api.core.domain.DomainServiceRest;
 import com.squid.kraken.v4.api.core.projectanalysisjob.AnalysisJobServiceRest;
 import com.squid.kraken.v4.api.core.projectfacetjob.FacetJobServiceRest;
 import com.squid.kraken.v4.api.core.relation.RelationServiceRest;
+import com.squid.kraken.v4.api.core.simpleanalysisjob.SimpleAnalysisJobServiceRest;
 import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
 import com.squid.kraken.v4.core.database.impl.DatabaseServiceImpl;
 import com.squid.kraken.v4.dataviz.DatavizJob;
@@ -459,6 +460,12 @@ public class ProjectServiceRest extends BaseServiceRest {
 	{
 		DatavizJob job = new DatavizJob(userContext);
 		return job.proceed(projectId, input);
+	}
+	
+	// simple analysisjobs
+	@Path("{"+PARAM_NAME+"}"+"/analysis")
+	public SimpleAnalysisJobServiceRest getSimpleAnalysisJobService() {
+		return new SimpleAnalysisJobServiceRest(userContext);
 	}
 	
 }
