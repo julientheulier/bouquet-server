@@ -9,7 +9,7 @@ public class SimpleAnalysis implements Analysis {
 
 	private String domain;
 	
-	private List<String> columns;
+	private List<String> facets;
 	
 	private List<String> filters;
 	
@@ -40,20 +40,14 @@ public class SimpleAnalysis implements Analysis {
 		this.domain = domain;
 	}
 
-	/* (non-Javadoc)
-	 * @see com.squid.kraken.v4.model.Analysis#getColumns()
-	 */
 	@Override
-	public List<String> getColumns() {
-		return columns;
+	public List<String> getFacets() {
+		return facets;
 	}
 
-	/* (non-Javadoc)
-	 * @see com.squid.kraken.v4.model.Analysis#setColumns(java.util.List)
-	 */
 	@Override
-	public void setColumns(List<String> columns) {
-		this.columns = columns;
+	public void setFacets(List<String> facets) {
+		this.facets = facets;
 	}
 
 	/* (non-Javadoc)

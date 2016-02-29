@@ -443,6 +443,7 @@ public class ProjectServiceRest extends BaseServiceRest {
 	}
 
 	@Path("{"+PARAM_NAME+"}"+"/bookmarks")
+	@ApiOperation(value = "Get the Bookmarks")
 	public BookmarkServiceRest getBookmarkService(
 			@Context HttpServletRequest request) {
 		return new BookmarkServiceRest(userContext);
@@ -463,7 +464,8 @@ public class ProjectServiceRest extends BaseServiceRest {
 	}
 	
 	// simple analysisjobs
-	@Path("{"+PARAM_NAME+"}"+"/analysis")
+	@Path("{"+PARAM_NAME+"}"+"/analyses")
+	@ApiOperation(value = "Get the Analyses")
 	public SimpleAnalysisJobServiceRest getSimpleAnalysisJobService() {
 		return new SimpleAnalysisJobServiceRest(userContext);
 	}

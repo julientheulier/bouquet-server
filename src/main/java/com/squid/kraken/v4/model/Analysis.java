@@ -2,18 +2,20 @@ package com.squid.kraken.v4.model;
 
 import java.util.List;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.OrderBy;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.RollUp;
 
+@JsonDeserialize(as = SimpleAnalysis.class)
 public interface Analysis {
 
 	public abstract String getDomain();
 
 	public abstract void setDomain(String domain);
 
-	public abstract List<String> getColumns();
+	public abstract List<String> getFacets();
 
-	public abstract void setColumns(List<String> columns);
+	public abstract void setFacets(List<String> facets);
 
 	public abstract List<String> getFilters();
 
