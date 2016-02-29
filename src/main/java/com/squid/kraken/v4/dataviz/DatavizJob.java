@@ -35,6 +35,7 @@ import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.squid.core.domain.IDomain;
 import com.squid.core.expression.ExpressionAST;
+import com.squid.core.expression.ExpressionLeaf;
 import com.squid.core.expression.scope.ExpressionMaker;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.api.core.AccessRightsUtils;
@@ -47,6 +48,7 @@ import com.squid.kraken.v4.core.analysis.universe.Axis;
 import com.squid.kraken.v4.core.analysis.universe.Measure;
 import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
+import com.squid.kraken.v4.core.expression.reference.DomainReference;
 import com.squid.kraken.v4.core.expression.scope.DomainExpressionScope;
 import com.squid.kraken.v4.model.AccessRight;
 import com.squid.kraken.v4.model.Domain;
@@ -116,7 +118,7 @@ public class DatavizJob {
 		if (!url.endsWith("/rs/")) {
 			throw new ScopeException("invalid specification, this is not a valid API url, must end with /rs");
 		}
-		URL URL = new URL(url);
+		URL URL = new URL(url);// just to validate?
 		//
 		ProjectAnalysisJobPK pk = new ProjectAnalysisJobPK(projectPK, null);
 		ProjectAnalysisJob analysis = new ProjectAnalysisJob(pk);
@@ -127,9 +129,9 @@ public class DatavizJob {
 		//
 		// handle channels
 		// mark properties channels
-		boolean hasX = handleChannel(root, analysis, encoding, "x");
-		boolean hasY = handleChannel(root, analysis, encoding, "y");
-		if (!(hasX || hasY)) {
+		ChannelInfo channelX = handleChannel(root, analysis, encoding, "x");
+		ChannelInfo channelY = handleChannel(root, analysis, encoding, "y");
+		if (!(channelX!=null || channelY!=null)) {
 			throw new ScopeException("incomplete specification, you must specify at least x or y");
 		}
 		handleChannel(root, analysis, encoding, "color");
@@ -142,9 +144,9 @@ public class DatavizJob {
 		handleChannel(root, analysis, encoding, "order");
 		handleChannel(root, analysis, encoding, "path");
 		// facet channels
-		//boolean hasRow = 
+		ChannelInfo channelRow = 
 				handleChannel(root, analysis, encoding, "row");
-		//boolean hasColumn = 
+		ChannelInfo channelColumn = 
 				handleChannel(root, analysis, encoding, "column");
 		//
 		// select channel : this is used to change the dataset level of details without visual impact
@@ -164,6 +166,15 @@ public class DatavizJob {
 			selection.getFacets().add(segment);
 			//selection.
 			analysis.setSelection(selection);
+		}
+		// finalize the analysis
+		if (analysis.getLimit()==null) {
+			int complexity = analysis.getMetricList().size()+analysis.getFacets().size();
+			if (complexity<4) {
+				analysis.setLimit(10L^(complexity+1));
+			} else {
+				analysis.setLimit(100000L);
+			}
 		}
 		// register the analysis
 		analysis.setAutoRun(true);// run it so it will be in cache
@@ -185,18 +196,17 @@ public class DatavizJob {
 	 * @return
 	 * @throws ScopeException 
 	 */
-	private boolean handleChannel(Space root, ProjectAnalysisJob analysis, HashMap<String, Object> encoding, String channel) throws ScopeException {
+	private ChannelInfo handleChannel(Space root, ProjectAnalysisJob analysis, HashMap<String, Object> encoding, String channel) throws ScopeException {
 		HashMap<String, Object> properties = (HashMap<String, Object>) encoding.get(channel);
 		if (properties!=null) {
 			ExpressionAST expr = getExpression(root, properties, "expr");
 			if (expr!=null) {
 				// the caller may directly request a VEGA computation
-				genFieldDefinition(root, analysis, properties, expr);
+				return genFieldDefinition(root, analysis, properties, expr);
 			}
-			return true;
-		} else {
-			return false;
 		}
+		// else
+		return null;
 	}
 	
 	private ExpressionAST getExpression(Space root, HashMap<String, Object> properties, String property) throws ScopeException {
@@ -209,13 +219,21 @@ public class DatavizJob {
 		}
 	}
 	
-	private void genFieldDefinition(Space root, ProjectAnalysisJob analysis, HashMap<String, Object> properties, ExpressionAST expr) throws ScopeException {
+	private ChannelInfo genFieldDefinition(Space root, ProjectAnalysisJob analysis, HashMap<String, Object> properties, ExpressionAST expr) throws ScopeException {
+		ChannelInfo info = new ChannelInfo(expr);
 		IDomain image = expr.getImageDomain();
 		boolean aggr = image.isInstanceOf(IDomain.AGGREGATE);
 		String field = properties.containsKey("field")?properties.get("field").toString():null;
 		if (aggr) {
 			properties.put("type", "quantitative");
-			Measure m = root.getUniverse().asMeasure(expr);
+			if (!(expr instanceof ExpressionLeaf)) {
+				expr = ExpressionMaker.GROUP(expr);// add parenthesis...
+			}
+			ExpressionAST relink = 
+					ExpressionMaker.COMPOSE(
+							new DomainReference(root.getUniverse(), root.getDomain()), 
+							expr);
+			Measure m = root.getUniverse().asMeasure(relink);
 			if (m==null) throw new ScopeException("cannot use expresion='"+expr.prettyPrint()+"'");
 			Metric metric = new Metric();
 			metric.setExpression(new Expression(m.prettyPrint()));
@@ -223,6 +241,7 @@ public class DatavizJob {
 			String name = field!=null?field:formatName(m.getName());
 			metric.setName(name);
 			properties.put("field", name);
+			info.setFieldName(name);
 		} else {
 			if (image.isInstanceOf(IDomain.TEMPORAL)) {
 				properties.put("type", "temporal");
@@ -237,6 +256,7 @@ public class DatavizJob {
 			String name = field!=null?field:formatName(axis.getDimension()!=null?axis.getName():axis.getDefinitionSafe().prettyPrint());
 			analysis.getFacets().add(new FacetExpression(facet.prettyPrint(), name));
 			properties.put("field", name);
+			info.setFieldName(name);
 			if (axis.getDimension()==null) {
 				// better add an axis title...
 				HashMap<String, Object> axisProp = new HashMap<>();
@@ -244,6 +264,7 @@ public class DatavizJob {
 				properties.put("axis", axisProp);
 			}
 		}
+		return info;
 	}
 	
 	private String formatName(String prettyPrint) {
