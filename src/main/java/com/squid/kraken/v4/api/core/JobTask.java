@@ -134,8 +134,12 @@ public class JobTask<T extends ComputationJob<PK, R>, PK extends GenericPK, R ex
             // set the job's 'error'
             logger.error("Error in Job : " + job, e);
             job.setError(new ComputationJob.Error("Computation error", e.getLocalizedMessage()));
-            if ((e instanceof NotInCacheException) && ! this.returnJobIfNotInCache){
-            	throw (NotInCacheException) e;
+            if ((e instanceof NotInCacheException)){
+            	if (! this.returnJobIfNotInCache){
+                	throw (NotInCacheException) e;
+            	}else{
+            		job.getError().setEnableRerun(true);
+            	}
             } 
  		} finally {
             // update the jobs status and stats

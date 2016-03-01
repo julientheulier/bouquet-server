@@ -45,6 +45,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.google.common.base.Optional;
 import com.squid.kraken.v4.api.core.APIException.ApiError;
+import com.squid.kraken.v4.caching.NotInCacheException;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.export.ExportSourceWriter;
 import com.squid.kraken.v4.export.ExportSourceWriterCSV;
@@ -231,7 +232,7 @@ extends GenericServiceImpl<T, PK> {
 			} else {
 				throw new ComputingInProgressAPIException(null, ctx.isNoError(), null);
 			}
-		} else if (job.getError() == null) {
+		} else if ((job.getError() == null)||(job.getError().isEnableRerun())) {
 			// DONE
 			try {
 				results = computer.compute(ctx, job, maxResults, startIndex, lazy);
@@ -461,8 +462,8 @@ extends GenericServiceImpl<T, PK> {
 				} catch (ExecutionException e1) {
 					logger.warn("job computation exception : "+e1.getMessage(), e1);
 
-					if ( e1.getCause() instanceof APIException){
-						APIException ae  = (APIException) e1.getCause();
+					if ( e1.getCause() instanceof NotInCacheException){
+						NotInCacheException ae  = (NotInCacheException) e1.getCause();
 						throw ae;
 					}else{
 						jobToStart = super.read(ctx, jobToStart.getId());
@@ -478,8 +479,8 @@ extends GenericServiceImpl<T, PK> {
 					jobToStart = submit.get();
 				} catch (InterruptedException | ExecutionException e) {
 					logger.warn("job computation exception : "+e.getMessage(), e);
-					if ( e instanceof ExecutionException && e.getCause() instanceof APIException){
-						APIException ae  = (APIException) e.getCause();
+					if ( e instanceof ExecutionException && e.getCause() instanceof NotInCacheException){
+						APIException ae  = (NotInCacheException) e.getCause();
 						throw ae;
 					}
 					jobToStart = super.read(ctx, jobToStart.getId());
@@ -519,8 +520,8 @@ extends GenericServiceImpl<T, PK> {
 						jobToStart = super.read(ctx, jobToStart.getId());
 					} catch (ExecutionException e1) {
 						logger.warn("job computation exception : "+e1.getMessage(), e1);
-						if ( e1.getCause() instanceof APIException){
-							APIException ae  = (APIException) e1.getCause();
+						if ( e1.getCause() instanceof NotInCacheException){
+							NotInCacheException ae  = (NotInCacheException) e1.getCause();
 							throw ae;
 						}else{
 							jobToStart = super.read(ctx, jobToStart.getId());
