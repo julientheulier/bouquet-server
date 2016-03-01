@@ -370,6 +370,8 @@ extends GenericServiceImpl<T, PK> {
 		T jobToStart = null;
 		AppContext jobctx = ctx;
 		T existingJob = null;
+		
+		boolean returnJob= true;
 		if (job.getId() != null) {
 			Optional<T> existingJobOpt = factory.getDAO(type).read(ctx, job.getId());
 			if (existingJobOpt.isPresent()) {
@@ -414,31 +416,39 @@ extends GenericServiceImpl<T, PK> {
 
 		// start the job
 		if (run) {
-			jobToStart = runJob(jobctx, jobToStart, timeout, false, maxResults, startIndex, lazy);
+			jobToStart = runJob(jobctx, jobToStart, timeout, false, maxResults, startIndex, lazy, returnJob);
 		}
 		logger.info("job store end");
 		return jobToStart;
 	}
 
+	private T runJob(AppContext ctx, T jobToStart, Integer timeout,
+			boolean forceAutoRun, Integer maxResults, Integer startIndex, boolean lazy) {
+		return this.runJob(ctx, jobToStart, timeout, forceAutoRun, maxResults, startIndex, lazy, false);
+	}
+	
 	/**
 	 * Run a job (if required). Conditions are : if its status is not RUNNING or
 	 * if the job is autorun.
-	 * 
+
 	 * @param ctx
 	 * @param jobToStart
 	 * @param timeout if not set will wait for results
 	 * @param jobResultsCache
 	 * @param forceAutoRun
 	 *            bypass the autorun conditions check.
+	 * @param lazy  use to return a Job only if the analysis is already in cache; else a HTTP 204 is returned
+	 * @param returnJob if returnJob is set  to true, an AnalysisJob is always return, event in case NotInCacheException	 *
+	 * 	 	This is used to return a job if it is newly created or updated  (e.g. this is called by store) 
 	 * @return
 	 */
 	private T runJob(AppContext ctx, T jobToStart, Integer timeout,
-			boolean forceAutoRun, Integer maxResults, Integer startIndex, boolean lazy) {
+			boolean forceAutoRun, Integer maxResults, Integer startIndex, boolean lazy, boolean returnJob) {
 		logger.info("run job lazy?" + lazy);
 		if ((!jobToStart.getStatus().equals(Status.RUNNING))
 				&& ((jobToStart.getAutoRun() == true) || forceAutoRun)) {
 			JobTask<T, PK, R> task = new JobTask<T, PK, R>(ctx, jobToStart, computer,
-					type, maxResults, startIndex, lazy);
+					type, maxResults, startIndex, lazy, returnJob);
 			// and start it
 			Future<T> submit = getJobsExecutor().submit(task);
 			if (timeout != null) {
@@ -450,7 +460,13 @@ extends GenericServiceImpl<T, PK> {
 					jobToStart = super.read(ctx, jobToStart.getId());
 				} catch (ExecutionException e1) {
 					logger.warn("job computation exception : "+e1.getMessage(), e1);
-					jobToStart = super.read(ctx, jobToStart.getId());
+
+					if ( e1.getCause() instanceof APIException){
+						APIException ae  = (APIException) e1.getCause();
+						throw ae;
+					}else{
+						jobToStart = super.read(ctx, jobToStart.getId());
+					}
 				} catch (CancellationException e1) {
 					logger.info("job computation cancelled : "+e1.getMessage());
 					jobToStart = super.read(ctx, jobToStart.getId());
@@ -462,6 +478,10 @@ extends GenericServiceImpl<T, PK> {
 					jobToStart = submit.get();
 				} catch (InterruptedException | ExecutionException e) {
 					logger.warn("job computation exception : "+e.getMessage(), e);
+					if ( e instanceof ExecutionException && e.getCause() instanceof APIException){
+						APIException ae  = (APIException) e.getCause();
+						throw ae;
+					}
 					jobToStart = super.read(ctx, jobToStart.getId());
 				}
 			}
@@ -498,8 +518,13 @@ extends GenericServiceImpl<T, PK> {
 						logger.info("job computation interrupted : "+e1.getMessage());
 						jobToStart = super.read(ctx, jobToStart.getId());
 					} catch (ExecutionException e1) {
-						logger.info("job computation exception : "+e1.getMessage());
-						jobToStart = super.read(ctx, jobToStart.getId());
+						logger.warn("job computation exception : "+e1.getMessage(), e1);
+						if ( e1.getCause() instanceof APIException){
+							APIException ae  = (APIException) e1.getCause();
+							throw ae;
+						}else{
+							jobToStart = super.read(ctx, jobToStart.getId());
+						}
 					} catch (CancellationException e1) {
 						logger.info("job computation cancelled : "+e1.getMessage());
 						jobToStart = super.read(ctx, jobToStart.getId());
