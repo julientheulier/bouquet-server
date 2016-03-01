@@ -66,6 +66,7 @@ import com.squid.kraken.v4.core.expression.reference.DomainReference;
 import com.squid.kraken.v4.core.expression.scope.DomainExpressionScope;
 import com.squid.kraken.v4.model.AccessRight;
 import com.squid.kraken.v4.model.Analysis;
+import com.squid.kraken.v4.model.Analysis.AnalysisFacet;
 import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.Expression;
 import com.squid.kraken.v4.model.FacetExpression;
@@ -88,15 +89,13 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 	private static final Logger logger = LoggerFactory
 			.getLogger(SimpleAnalysisJobServiceRest.class);
 
-	private final static String PARAM_NAME = "jobId";
-
 	private AnalysisJobServiceBaseImpl delegate = AnalysisJobServiceBaseImpl
 			.getInstance();
 
 	public SimpleAnalysisJobServiceRest(AppContext userContext) {
 		super(userContext);
 	}
-	
+
 	@GET
 	@Path("/")
 	@ApiOperation(value = "Compute an Analysis")
@@ -104,6 +103,7 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 			@PathParam("projectId") String projectId,
 			@QueryParam("domain") String domainExpr,
 			@QueryParam("facet") String[] facetExpressions,
+			@QueryParam("facetName") String[] facetNames,
 			@QueryParam("filter") String[] filterExpressions,
 			@QueryParam("limit") Long limit,
 			@ApiParam(value = "response timeout in milliseconds in case the job is not yet computed. If no timeout set, the method will return according to current job status.") @QueryParam("timeout") Integer timeout,
@@ -117,20 +117,30 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 		Analysis analysis = new SimpleAnalysis();
 		analysis.setDomain(domainExpr);
 		if (facetExpressions != null) {
-			analysis.setFacets(Arrays.asList(facetExpressions));
+			List<AnalysisFacet> facets = new ArrayList<AnalysisFacet>();
+			for (int i = 0; i < facetExpressions.length; i++) {
+				AnalysisFacet f = new SimpleAnalysis.SimpleFacet();
+				f.setExpression(facetExpressions[i]);
+				if (facetNames.length > i) {
+					f.setName(facetNames[i]);
+				}
+				facets.add(f);
+			}
+			analysis.setFacets(facets);
 		}
 		if (filterExpressions != null) {
 			analysis.setFilters(Arrays.asList(filterExpressions));
 		}
 		analysis.setLimit(limit);
-		
-		ProjectAnalysisJob analysisJob  = createAnalysisJob(projectId, analysis, timeout, maxResults, startIndex, lazy, format, compression);
+
+		ProjectAnalysisJob analysisJob = createAnalysisJob(projectId, analysis,
+				timeout, maxResults, startIndex, lazy, format, compression);
 
 		// and run the job
 		return getResults(projectId, analysisJob, timeout, maxResults,
 				startIndex, lazy, format, compression, true);
 	}
-	
+
 	@POST
 	@Path("/")
 	@ApiOperation(value = "Compute an Analysis")
@@ -144,23 +154,18 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 			@ApiParam(value = "output format", allowableValues = "json,csv,vxls", defaultValue = "json") @QueryParam("format") String format,
 			@ApiParam(value = "output compression", allowableValues = "gzip, none, null", defaultValue = "none") @QueryParam("compression") String compression)
 			throws ScopeException {
-		ProjectAnalysisJob analysisJob  = createAnalysisJob(projectId, analysis, timeout, maxResults, startIndex, lazy, format, compression);
+		ProjectAnalysisJob analysisJob = createAnalysisJob(projectId, analysis,
+				timeout, maxResults, startIndex, lazy, format, compression);
 		// and run the job
 		return getResults(projectId, analysisJob, timeout, maxResults,
 				startIndex, lazy, format, compression, true);
 	}
-	
-	private ProjectAnalysisJob createAnalysisJob(
-			String projectId,
-			Analysis analysis,
-			Integer timeout,
-			Integer maxResults,
-			Integer startIndex,
-			boolean lazy,
-			String format,
-			String compression)
+
+	private ProjectAnalysisJob createAnalysisJob(String projectId,
+			Analysis analysis, Integer timeout, Integer maxResults,
+			Integer startIndex, boolean lazy, String format, String compression)
 			throws ScopeException {
-		
+
 		ProjectPK projectPK = new ProjectPK(userContext.getCustomerId(),
 				projectId);
 		Project project = ProjectManager.INSTANCE.getProject(userContext,
@@ -176,7 +181,8 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 		// -- using the universe scope for now; will change when merge with T821
 		// to also support query
 		UniverseScope scope = new UniverseScope(universe);
-		ExpressionAST domainExpression = scope.parseExpression(analysis.getDomain());
+		ExpressionAST domainExpression = scope.parseExpression(analysis
+				.getDomain());
 		if (!(domainExpression instanceof SpaceExpression)) {
 			throw new ScopeException(
 					"invalid specification, the domain expression must resolve to a Space");
@@ -191,10 +197,11 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 		// handle the columns
 		List<Metric> metrics = new ArrayList<Metric>();
 		List<FacetExpression> facets = new ArrayList<FacetExpression>();
-		DomainExpressionScope domainScope = new DomainExpressionScope(
-				universe, domain);
-		for (String colExpr : analysis.getFacets()) {
-			ExpressionAST colExpression = domainScope.parseExpression(colExpr);
+		DomainExpressionScope domainScope = new DomainExpressionScope(universe,
+				domain);
+		for (AnalysisFacet facet : analysis.getFacets()) {
+			ExpressionAST colExpression = domainScope.parseExpression(facet
+					.getExpression());
 			IDomain image = colExpression.getImageDomain();
 			if (image.isInstanceOf(IDomain.AGGREGATE)) {
 				// it's a metric
@@ -211,7 +218,10 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 				}
 				Metric metric = new Metric();
 				metric.setExpression(new Expression(m.prettyPrint()));
-				String name = m.prettyPrint();
+				String name = facet.getName();
+				if (name == null) {
+					name = m.prettyPrint();
+				}
 				metric.setName(name);
 				metrics.add(metric);
 			} else {
@@ -221,11 +231,14 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 					throw new ScopeException("cannot use expresion='"
 							+ colExpression.prettyPrint() + "'");
 				}
-				ExpressionAST facet = ExpressionMaker.COMPOSE(
+				ExpressionAST facetExp = ExpressionMaker.COMPOSE(
 						new SpaceExpression(root), colExpression);
-				String name = formatName(axis.getDimension() != null ? axis
-						.getName() : axis.getDefinitionSafe().prettyPrint());
-				facets.add(new FacetExpression(facet.prettyPrint(), name));
+				String name = facet.getName();
+				if (name == null) {
+					name = formatName(axis.getDimension() != null ? axis
+							.getName() : axis.getDefinitionSafe().prettyPrint());
+				}
+				facets.add(new FacetExpression(facetExp.prettyPrint(), name));
 			}
 		}
 
@@ -249,7 +262,7 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 		}
 
 		return analysisJob;
-		
+
 	}
 
 	private String formatName(String prettyPrint) {

@@ -9,7 +9,7 @@ public class SimpleAnalysis implements Analysis {
 
 	private String domain;
 	
-	private List<String> facets;
+	private List<AnalysisFacet> facets;
 	
 	private List<String> filters;
 	
@@ -41,12 +41,12 @@ public class SimpleAnalysis implements Analysis {
 	}
 
 	@Override
-	public List<String> getFacets() {
+	public List<AnalysisFacet> getFacets() {
 		return facets;
 	}
 
 	@Override
-	public void setFacets(List<String> facets) {
+	public void setFacets(List<AnalysisFacet> facets) {
 		this.facets = facets;
 	}
 
@@ -128,6 +128,31 @@ public class SimpleAnalysis implements Analysis {
 	@Override
 	public void setLimit(Long limit) {
 		this.limit = limit;
+	}
+	
+	static public class SimpleFacet implements AnalysisFacet {
+
+		private String name;
+		
+		private String expression;
+
+		public String getName() {
+			return name;
+		}
+
+		public void setName(String name) {
+			this.name = name;
+		}
+
+		public String getExpression() {
+			return expression;
+		}
+
+		public void setExpression(String expression) {
+			this.expression = expression;
+		}
+	
+		
 	}
 	
 }
