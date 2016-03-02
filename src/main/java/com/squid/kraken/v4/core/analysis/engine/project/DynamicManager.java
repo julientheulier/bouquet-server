@@ -814,7 +814,7 @@ public class DynamicManager {
 						for (ExpressionAST variable : functor.getVariables()) {
 							IDomain source = variable.getSourceDomain();
 							if (source.isInstanceOf(compare)) {
-								DynamicColumn col = createDynamicColumn(variable, skin);
+								DynamicColumn col = createDynamicColumn(table, variable, skin);
 								col.setTable(table);
 								table.addColumn(col);
 								primaryKey.addColumn(col, pos++);
@@ -870,17 +870,18 @@ public class DynamicManager {
 						
 					}
 				} else {
-					DynamicColumn col = createDynamicColumn(facet, skin);
+					DynamicColumn col = createDynamicColumn(table, facet, skin);
 					col.setTable(table);
 					table.addColumn(col);
 					primaryKey.addColumn(col, pos++);
 					//
 					ColumnReference ref = new ColumnReference(col);
 					String expr = ref.prettyPrint();
-					DimensionPK id = new DimensionPK(domain.getId(), digest(state.prefix+expr));
+					String idgen = facet.prettyPrint();// use the facet definition
+					DimensionPK id = new DimensionPK(domain.getId(), digest(state.prefix+idgen));
 					if (!state.ids.contains(id.getDimensionId())) {
 						Type type = Type.INDEX;
-						String name = checkName(normalizeObjectName(col.getName()),state.checkName);
+						String name = checkName(getIdentifierName(facet),state.checkName);
 						Dimension dim = new Dimension(id, name, type, new Expression(expr),false);
 						dim.setImageDomain(col.getTypeDomain());
 						dim.setValueType(computeValueType(col.getTypeDomain()));
@@ -901,13 +902,14 @@ public class DynamicManager {
 			}
 			//
 			for (ExpressionAST metric : query.getMetrics()) {
-				DynamicColumn col = createDynamicColumn(metric, skin);
+				DynamicColumn col = createDynamicColumn(table, metric, skin);
 				col.setTable(table);
 				table.addColumn(col);
 				//
 				ColumnReference ref = new ColumnReference(col);
 				String expr = ref.prettyPrint();
-				DimensionPK id = new DimensionPK(domain.getId(), digest(state.prefix+expr));
+				String idgen = metric.prettyPrint();// use the facet definition
+				DimensionPK id = new DimensionPK(domain.getId(), digest(state.prefix+idgen));
 				if (!state.ids.contains(id.getDimensionId())) {
 					Type type = Type.INDEX;
 					String name = checkName(normalizeObjectName(col.getName()),state.checkName);
@@ -931,13 +933,15 @@ public class DynamicManager {
 					ExpressionAST m = ExpressionMaker.op(op, ref);
 					String expr2 = m.prettyPrint();
 					MetricPK id2 = new MetricPK(domain.getId(), digest(state.prefix+expr2));
-					String name2 = checkName(op.getName()+" "+normalizeObjectName(col.getName()),state.checkName);
-					Metric metric2 = new Metric(id2, name2, new Expression(expr2),false);
-					AccessRightsUtils.getInstance().setAccessRights(univ.getContext(), metric2, domain);
-					content.add(metric2);
-					incrementalScope.add(metric2);
-					state.scope.add(metric2);
-					state.checkName.add(name2);
+					if (!state.ids.contains(id2)) {
+						String name2 = checkName(op.getName()+" "+normalizeObjectName(col.getName()),state.checkName);
+						Metric metric2 = new Metric(id2, name2, new Expression(expr2),false);
+						AccessRightsUtils.getInstance().setAccessRights(univ.getContext(), metric2, domain);
+						content.add(metric2);
+						incrementalScope.add(metric2);
+						state.scope.add(metric2);
+						state.checkName.add(name2);
+					}
 				}
 			}
 			//
@@ -954,8 +958,8 @@ public class DynamicManager {
 		}
 	}
 	
-	private DynamicColumn createDynamicColumn(ExpressionAST definition, SQLSkin skin) {
-		String internal = normalizeExpressionName(definition);
+	private DynamicColumn createDynamicColumn(Table table, ExpressionAST definition, SQLSkin skin) throws ScopeException {
+		String internal = normalizeColumnName(table,getExpressionName(definition));
 		DynamicColumn col = new DynamicColumn();
 		col.setName(internal);
 		col.setDescription(definition.prettyPrint());
@@ -973,19 +977,81 @@ public class DynamicManager {
 		return col;
 	}
 	
-	private String normalizeExpressionName(ExpressionAST expr) {
-		if (expr instanceof ExpressionRef) {
+	private String getExpressionName(ExpressionAST expr) {
+		if (expr.getName()!=null) {
+			// use the defined name:
+			return expr.getName();
+		} else if (expr instanceof ExpressionRef) {
 			ExpressionRef ref = (ExpressionRef)expr;
 			return ref.getReferenceName();
 		} else {
 			// assume it is a formula
-			String internal = normalizeObjectName(expr.prettyPrint());
-			internal = internal.replaceAll("'", "");
-			internal = internal.replaceAll("\\(", "_");
-			internal = internal.replaceAll("\\)", "");
-			internal = internal.replaceAll("\\#", "");
-			internal = internal.trim();
+			String internal = expr.prettyPrint();
 			return internal;
+		}
+	}
+
+	
+	private String getIdentifierName(ExpressionAST expr) {
+		if (expr.getName()!=null) {
+			// use the defined name, it's already a valid identifier so no need to change
+			return expr.getName();
+		} else if (expr instanceof ExpressionRef) {
+			// use the defined name, it's already a valid identifier so no need to change
+			ExpressionRef ref = (ExpressionRef)expr;
+			return ref.getReferenceName();
+		} else {
+			// assume it is a formula
+			String internal = expr.prettyPrint();
+			// need to clean up
+			return normalizeIdentifierName(internal);
+		}
+	}
+	
+	/**
+	 * make sure the name is OK for defining an identifier
+	 * @param name
+	 * @return
+	 */
+	private String normalizeIdentifierName(String name) {
+		return name
+				.replaceAll("[(),.]", " ") // keep some special chars as separators
+				.trim() // remove unnecessary separators
+				.replaceAll("[^ a-zA-Z_0-9]", "") // remove anything which is not supported
+				.replace(' ','_'); // underscore the spaces
+	}
+
+	/**
+	 * make sure the name is OK for defining a SQL column
+	 * @param table is the target table: needed to avoid collision
+	 * @param name
+	 * @return
+	 * @throws ScopeException 
+	 */
+	private String normalizeColumnName(Table table, String name) throws ScopeException {
+		String norm = normalizeIdentifierName(name);
+		if (norm.length()>30) {
+			// need to truncate
+			norm = norm.substring(0,30);
+		}
+		int count = 0;
+		try {
+			String candidate = norm;
+			while (table.findColumnByName(candidate)!=null) {
+				count++;
+				String alias = ""+count;
+				if (norm.length()+alias.length()>30) {
+					if (alias.length()>=30) {
+						// that will never happen right?
+						throw new ScopeException("unable to normalize column '"+name+"' - well played guy!"); 
+					}
+					candidate = norm.substring(0,30-alias.length());
+					candidate += alias;
+				}
+			}
+			return candidate;
+		} catch (ExecutionException e) {
+			return norm;
 		}
 	}
 	
