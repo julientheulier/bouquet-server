@@ -55,6 +55,7 @@ import com.squid.kraken.v4.api.core.BaseServiceRest;
 import com.squid.kraken.v4.api.core.JobServiceBaseImpl.OutputCompression;
 import com.squid.kraken.v4.api.core.JobServiceBaseImpl.OutputFormat;
 import com.squid.kraken.v4.api.core.projectanalysisjob.AnalysisJobServiceBaseImpl;
+import com.squid.kraken.v4.core.analysis.engine.hierarchy.SegmentManager;
 import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
 import com.squid.kraken.v4.core.analysis.scope.SpaceExpression;
 import com.squid.kraken.v4.core.analysis.scope.UniverseScope;
@@ -69,7 +70,10 @@ import com.squid.kraken.v4.model.Analysis;
 import com.squid.kraken.v4.model.Analysis.AnalysisFacet;
 import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.Expression;
+import com.squid.kraken.v4.model.Facet;
 import com.squid.kraken.v4.model.FacetExpression;
+import com.squid.kraken.v4.model.FacetMemberString;
+import com.squid.kraken.v4.model.FacetSelection;
 import com.squid.kraken.v4.model.Metric;
 import com.squid.kraken.v4.model.Project;
 import com.squid.kraken.v4.model.ProjectAnalysisJob;
@@ -242,12 +246,27 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 			}
 		}
 
+		// handle filters
+		FacetSelection selection = new FacetSelection();
+		for (String filter : analysis.getFilters()) {
+			ExpressionAST filterExpr = domainScope.parseExpression(filter);
+			if (!filterExpr.getImageDomain().isInstanceOf(IDomain.CONDITIONAL)) {
+				throw new ScopeException("invalid filter, must be a condition");
+			}
+			Facet segment = SegmentManager.newSegmentFacet(domain);
+			FacetMemberString openFilter = SegmentManager.newOpenFilter(
+					filterExpr, filter);
+			segment.getSelectedItems().add(openFilter);
+			selection.getFacets().add(segment);
+		}
+
 		// create
 		ProjectAnalysisJobPK pk = new ProjectAnalysisJobPK(projectPK, null);
 		ProjectAnalysisJob analysisJob = new ProjectAnalysisJob(pk);
 		analysisJob.setDomains(Collections.singletonList(domain.getId()));
 		analysisJob.setMetricList(metrics);
 		analysisJob.setFacets(facets);
+		analysisJob.setSelection(selection);
 		analysisJob.setAutoRun(true);
 		if (analysis.getLimit() == null) {
 			int complexity = analysisJob.getMetricList().size()
