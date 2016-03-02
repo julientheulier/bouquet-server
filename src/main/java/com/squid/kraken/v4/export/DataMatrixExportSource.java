@@ -26,9 +26,6 @@ package com.squid.kraken.v4.export;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.squid.core.export.IRawExportSource;
 
 import com.squid.kraken.v4.core.analysis.datamatrix.AxisValues;
@@ -39,9 +36,6 @@ import org.apache.avro.Schema;
 
 public class DataMatrixExportSource implements IRawExportSource{
 	
-	private static final Logger logger = LoggerFactory
-			.getLogger(DataMatrixExportSource.class);
-
 	private Schema schema;
 
 	private DataMatrix matrix; 
@@ -64,7 +58,8 @@ public class DataMatrixExportSource implements IRawExportSource{
 			AxisValues av = matrix.getAxes().get(i);
 			int originalPos = axesIndirection[i];
 			
-			this.columnNames[originalPos]=  matrix.getPropertyToAlias().get(av.getAxis()) ;
+			this.columnNames[originalPos]=  av.getAxis().getName();
+					//matrix.getPropertyToAlias().get(av.getAxis()) ;
 			this.columnTypes[originalPos] = matrix.getPropertyToInteger().get(av.getAxis());			
 		}		
 		
@@ -72,7 +67,8 @@ public class DataMatrixExportSource implements IRawExportSource{
 		for(int i = 0; i <matrix.getKPIs().size() ; i++ ){		
 			Measure av = matrix.getKPIs().get(i);
 			int originalPos = dataIndirection[i];
-			this.columnNames[originalPos]=matrix.getPropertyToAlias().get(av) ;
+			this.columnNames[originalPos] = av.getName();
+					//matrix.getPropertyToAlias().get(av) ;
 			this.columnTypes[originalPos] = matrix.getPropertyToInteger().get(av);			
 		}
 	}

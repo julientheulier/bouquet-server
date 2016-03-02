@@ -393,9 +393,9 @@ public class Space {
 	protected Axis relink(Space space, Axis a) throws ScopeException, ComputingException, InterruptedException {
 		if (a.getParent().getDomain().equals(space.getDomain())) {
 			if (a.getDimension()!=null) {
-				return space.A(a.getDimension());
+				return space.A(a.getDimension()).withName(a.getName());
 			} else {
-				return new Axis(space, a.getDefinition());
+				return new Axis(space, a.getDefinition()).withName(a.getName());
 			}
 		} else {
 			throw new ScopeException("cannot relink "+space.toString()+" with "+a.toString());

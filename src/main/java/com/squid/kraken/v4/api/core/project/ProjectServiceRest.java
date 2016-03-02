@@ -54,9 +54,21 @@ import com.squid.kraken.v4.api.core.domain.DomainServiceRest;
 import com.squid.kraken.v4.api.core.projectanalysisjob.AnalysisJobServiceRest;
 import com.squid.kraken.v4.api.core.projectfacetjob.FacetJobServiceRest;
 import com.squid.kraken.v4.api.core.relation.RelationServiceRest;
+import com.squid.kraken.v4.api.core.simpleanalysisjob.SimpleAnalysisJobServiceRest;
 import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
 import com.squid.kraken.v4.core.database.impl.DatabaseServiceImpl;
-import com.squid.kraken.v4.model.*;
+import com.squid.kraken.v4.model.AccessRight;
+import com.squid.kraken.v4.model.Annotation;
+import com.squid.kraken.v4.model.AnnotationList;
+import com.squid.kraken.v4.model.AnnotationPK;
+import com.squid.kraken.v4.model.Domain;
+import com.squid.kraken.v4.model.DomainOption;
+import com.squid.kraken.v4.model.DomainPK;
+import com.squid.kraken.v4.model.ExpressionSuggestion;
+import com.squid.kraken.v4.model.GenericPK;
+import com.squid.kraken.v4.model.Persistent;
+import com.squid.kraken.v4.model.Project;
+import com.squid.kraken.v4.model.ProjectPK;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DAOFactory;
 import com.squid.kraken.v4.persistence.dao.ProjectDAO;
@@ -427,8 +439,17 @@ public class ProjectServiceRest extends BaseServiceRest {
 	}
 
 	@Path("{"+PARAM_NAME+"}"+"/bookmarks")
+	@ApiOperation(value = "Get the Bookmarks")
 	public BookmarkServiceRest getBookmarkService(
 			@Context HttpServletRequest request) {
 		return new BookmarkServiceRest(userContext);
 	}
+	
+	// simple analysisjobs
+	@Path("{"+PARAM_NAME+"}"+"/analyses")
+	@ApiOperation(value = "Simple Analysis Service")
+	public SimpleAnalysisJobServiceRest getSimpleAnalysisJobService() {
+		return new SimpleAnalysisJobServiceRest(userContext);
+	}
+	
 }

@@ -69,7 +69,7 @@ public class ProjectAnalysisJob extends JobBaseImpl<ProjectAnalysisJobPK, DataTa
 
 	private List<Metric> metricList;
 	
-	private List<Expression> facets;
+	private List<FacetExpression> facets;
 	
 	@ApiModelProperty(value = "compute rollup on the given dimensions. It is a list of indices that references the dimension in either dimensions or facets list. In order to compute a grand-total, use id=-1 (it should be the first in the list). If several levels are defined, the analysis will compute sub-total for: (level0), then (level0,level1)... If a rollup is specified, the resulting DataTable will have a new column 'GROUPING_ID' in first position that will return 0 if the row is the grand-total, 1 for the first level sub-total, ... and null if it is not a rollup row.")
 	private List<RollUp> rollups;
@@ -172,14 +172,14 @@ public class ProjectAnalysisJob extends JobBaseImpl<ProjectAnalysisJobPK, DataTa
 		this.metricList = metricList;
 	}
 
-	public List<Expression> getFacets() {
+	public List<FacetExpression> getFacets() {
 		if (facets == null) {
-		    facets = new ArrayList<Expression>();
+		    facets = new ArrayList<FacetExpression>();
 		}
 		return facets;
 	}
 
-	public void setFacets(List<Expression> facets) {
+	public void setFacets(List<FacetExpression> facets) {
 		this.facets = facets;
 	}
 	
