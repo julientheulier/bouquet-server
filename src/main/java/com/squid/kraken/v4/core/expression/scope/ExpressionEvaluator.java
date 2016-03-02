@@ -47,14 +47,14 @@ import com.squid.kraken.v4.persistence.AppContext;
  */
 public class ExpressionEvaluator {
 	
-	private AppContext ctx;
+	//private AppContext ctx;
 
 	public ExpressionEvaluator(AppContext ctx) {
-		this.ctx = ctx;
+		//this.ctx = ctx;
 	}
 	
 	/**
-	 * evaluate the expression into a list of constants
+	 * evaluate the expression into a list of constants - it supports a Vector as an input expression
 	 * @param e
 	 * @return
 	 * @throws ScopeException 
@@ -71,6 +71,16 @@ public class ExpressionEvaluator {
 		}
 		//
 		return results;
+	}
+	
+	/**
+	 * evaluate the expression into a constant
+	 * @param e
+	 * @return
+	 * @throws ScopeException
+	 */
+	public Object evalSingle(ExpressionAST e) throws ScopeException {
+		return eval_single(e);
 	}
 
 	private Object eval_single(ExpressionAST e) throws ScopeException {
@@ -159,8 +169,50 @@ public class ExpressionEvaluator {
 			return eval_add_months(eval(op.getArguments()));
 		} else if (extendedID.startsWith(ExtractOperatorDefinition.EXTRACT_BASE)) {
 			return eval_extract(extendedID,eval(op.getArguments()));
+		} else
+		if (extendedID.equals(DateOperatorDefinition.DATE_ADD)
+		  | extendedID.equals(DateOperatorDefinition.DATE_SUB)) {
+			// only eval the first argument
+			if (op.getArguments().size()==3) {
+				List<Object> eval = eval(op.getArguments());
+				Object date = eval.get(0);
+				Object incr = eval.get(1);
+				Object type = eval.get(2);
+				if (date!=null && date instanceof Date  && incr!=null && incr instanceof Double && type!=null && type instanceof String) {
+					return eval_date_add(extendedID, (Date)date, (Double)incr, (String)type);
+				}
+			}
 		}
 		return null;
+	}
+
+	private Object eval_date_add(String extendedID, Date date, Double incr,
+			String type) {
+		boolean add = extendedID.equals(DateOperatorDefinition.DATE_ADD);
+		Calendar result = Calendar.getInstance();
+		result.setTime(date);
+		int calType = convertCalendarType(type);
+		if (calType!=0) {
+			int incrInt = incr.intValue();
+			if (!add) incrInt = -incrInt;
+			result.add(calType, incrInt);
+			return result.getTime();
+		}
+		// else
+		return null;
+	}
+	
+	private int convertCalendarType(String type) {
+		if (type.equalsIgnoreCase("month")) {
+			return Calendar.MONTH;
+		}
+		if (type.equalsIgnoreCase("year")) {
+			return Calendar.YEAR;
+		}
+		if (type.equalsIgnoreCase("day")) {
+			return Calendar.DAY_OF_YEAR;
+		}
+		return 0;
 	}
 
 	private Object eval_extract(String extendedID, List<Object> eval) {

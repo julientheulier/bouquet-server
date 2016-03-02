@@ -251,7 +251,7 @@ public class QueryWorkerServer implements IQueryWorkerServer {
 				try {
 					nextRes = RawMatrix.streamExecutionItemToByteArray(item, maxRecords, nbLinesLeftToRead) ;
 				} catch (IOException |SQLException  e) {
-					error = true;previ
+					error = true;
 				}
 			}
 			if (error){

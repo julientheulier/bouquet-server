@@ -41,6 +41,7 @@ import com.squid.core.database.impl.DatabaseServiceException;
 import com.squid.core.database.model.Column;
 import com.squid.core.database.model.Database;
 import com.squid.core.domain.IDomain;
+import com.squid.core.domain.aggregate.AggregateDomain;
 import com.squid.core.domain.analytics.AnalyticDomain;
 import com.squid.core.expression.ConstantValue;
 import com.squid.core.expression.ExpressionAST;
@@ -178,22 +179,29 @@ public class BaseQuery implements IQuery {
      * @throws SQLScopeException
      */
     private boolean checkAllowOrderBy(OrderBy order) throws ScopeException, SQLScopeException {
-    	// the order expression is not yet in the scope
-    	Axis axis = universe.asAxis(order.getExpression());
-    	if (axis==null) {
-    		return false;
+    	//
+    	ExpressionAST expr = order.getExpression();
+    	IDomain image = expr.getImageDomain();
+    	if (image.isInstanceOf(AggregateDomain.DOMAIN)) {
+    		return true;
     	} else {
-    		for (AxisMapping ax : getMapper().getAxisMapping()) {
-        		try {
-        			if (axis.isParentDimension(ax.getAxis())) {
-        				return true;
-        			}
-				} catch (ComputingException | InterruptedException e) {
-					// ignore
-				}
-    		}
-    		// cannot lookup 
-    		return false;
+	    	// the order expression is not yet in the scope
+	    	Axis axis = universe.asAxis(order.getExpression());
+	    	if (axis==null) {
+	    		return false;
+	    	} else {
+	    		for (AxisMapping ax : getMapper().getAxisMapping()) {
+	        		try {
+	        			if (axis.isParentDimension(ax.getAxis())) {
+	        				return true;
+	        			}
+					} catch (ComputingException | InterruptedException e) {
+						// ignore
+					}
+	    		}
+	    		// cannot lookup 
+	    		return false;
+	    	}
     	}
     }
     

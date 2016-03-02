@@ -29,6 +29,8 @@ import java.util.concurrent.Callable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.squid.kraken.v4.caching.NotInCacheException;
+import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.export.ExportSourceWriter;
 import com.squid.kraken.v4.model.ComputationJob;
 import com.squid.kraken.v4.model.ComputationJob.Status;
@@ -57,6 +59,8 @@ public class JobTask<T extends ComputationJob<PK, R>, PK extends GenericPK, R ex
     private Integer maxResults;
     private Integer startIndex;
     private boolean lazy;
+    private boolean returnJobIfNotInCache= false; 
+    
     
     private OutputStream outputStream = null;
     
@@ -95,9 +99,18 @@ public class JobTask<T extends ComputationJob<PK, R>, PK extends GenericPK, R ex
         this.lazy = lazy;
     }
 
+    public JobTask(AppContext ctx, T job, JobComputer<T, PK, R> computer, Class<T> type, Integer maxResults, Integer startIndex, boolean lazy, boolean returnJob) {
+        this(ctx, job, computer, type, maxResults, startIndex, lazy);
+        this.returnJobIfNotInCache = returnJob;
+    }
+
+    
+    
+    
     @Override
     public T call() {
         logger.info("Running Job : " + job + "\n lazy?"+lazy );
+        logger.info("JobId "+ job.getId());
         DAOFactory factory = DAOFactory.getDAOFactory();
         AppContext app = ServiceUtils.getInstance().getRootUserContext(job.getCustomerId());
         JobDAO<T, PK> dao = ((JobDAO<T, PK>) factory.getDAO(type));
@@ -121,7 +134,10 @@ public class JobTask<T extends ComputationJob<PK, R>, PK extends GenericPK, R ex
             // set the job's 'error'
             logger.error("Error in Job : " + job, e);
             job.setError(new ComputationJob.Error("Computation error", e.getLocalizedMessage()));
-        } finally {
+            if ((e instanceof NotInCacheException) && ! this.returnJobIfNotInCache){
+            	throw (NotInCacheException) e;
+            } 
+ 		} finally {
             // update the jobs status and stats
             job.setStatus(Status.DONE);
             job.getStatistics().setEndTime(System.currentTimeMillis());
