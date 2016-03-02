@@ -78,10 +78,7 @@ public class SegmentManager {
         return createSegmentFacet(universe, hierarchy, domain, FACET_ID, null, 100, 0, sel);
     }
 
-    public static Facet createSegmentFacet(Universe universe, DomainHierarchy hierarchy,
-            Domain domain, 
-            String facetId,
-            String filter, Integer maxResults, Integer startIndex, DashboardSelection sel) {
+    public static Facet newSegmentFacet(Domain domain) {
         Facet goalFacet = new Facet();
         goalFacet.setName(FACET_NAME);
         goalFacet.setId(SegmentManager.FACET_ID);
@@ -93,6 +90,16 @@ public class SegmentManager {
         goalFacet.setDimension(pseudo_dimension);
         goalFacet.setItems(new ArrayList<FacetMember>());
         goalFacet.setSelectedItems(new ArrayList<FacetMember>());
+        return goalFacet;
+    }
+
+    public static Facet createSegmentFacet(Universe universe, DomainHierarchy hierarchy,
+            Domain domain, 
+            String facetId,
+            String filter, Integer maxResults, Integer startIndex, DashboardSelection sel) {
+    	//
+    	// create the segment facet
+        Facet goalFacet = newSegmentFacet(domain);
         //
         HashSet<String> checkDuplicate = new HashSet<String>();
         // - disabling restriction on open-filters for now
@@ -111,10 +118,9 @@ public class SegmentManager {
                 SegmentExpressionScope scope = new SegmentExpressionScope(universe, domain);
                 condition = universe.getParser().parse(hierarchy.getRoot().getDomain().getId(),scope,formula);
                 if (condition.getImageDomain()!=IDomain.UNKNOWN) {
-                    String ID = OPEN_FILTER_ID+"_"+condition.hashCode();
-                    FacetMemberString openFilter = new FacetMemberString(ID, "="+formula);
+                	FacetMemberString openFilter = newOpenFilter(condition, formula);
                     goalFacet.getItems().add(openFilter);
-                    checkDuplicate.add(ID);
+                    checkDuplicate.add(openFilter.getId());
                 }
             } catch (ScopeException e) {
                 throw new APIException(e.getMessage(), e, false);
@@ -151,15 +157,20 @@ public class SegmentManager {
         }
         // add selected open filters if any
         for (ExpressionInput condition : sel.getConditions(domain)) {
-        	String ID = OPEN_FILTER_ID+"_"+condition.getExpression().hashCode();
-    		FacetMemberString openFilter = new FacetMemberString(ID, "="+condition.getInput());
+    		FacetMemberString openFilter = newOpenFilter(condition.getExpression(), condition.getInput());
     		goalFacet.getSelectedItems().add(openFilter);
-    		if (!checkDuplicate.contains(ID)) {
+    		if (!checkDuplicate.contains(openFilter.getId())) {
     			goalFacet.getItems().add(openFilter);
     		}
         }
         // check if there are some conditions in the current selection
         return goalFacet;
+    }
+    
+    public static FacetMemberString newOpenFilter(ExpressionAST condition, String formula) {
+    	String ID = OPEN_FILTER_ID+"_"+condition.hashCode();
+		FacetMemberString openFilter = new FacetMemberString(ID, "="+formula);
+		return openFilter;
     }
     
     public static boolean match(String value, String filter) {

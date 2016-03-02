@@ -110,7 +110,7 @@ public class RedisCacheValuesList extends RedisCacheValue {
 		this.state=Enum.valueOf(State.class,  in.readString());
 	}
 
-	public byte[] serialize() throws IOException{
+	public byte[] serialize() {
 		ByteArrayOutputStream baout =  new ByteArrayOutputStream();
 		Output kout = new Output(baout);
 		writeObject(kout);
@@ -119,7 +119,7 @@ public class RedisCacheValuesList extends RedisCacheValue {
 		return res;
 	}
 
-	private void writeObject(Output out) throws IOException
+	private void writeObject(Output out) 
 	{        
 		out.writeInt(0) ; // no registration needed for Kryo
 		int version = RedisCacheValue.VERSION ;

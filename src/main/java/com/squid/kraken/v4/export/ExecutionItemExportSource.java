@@ -27,11 +27,15 @@ import com.squid.core.csv.CSVSettingsBean;
 import com.squid.core.jdbc.engine.IExecutionItem;
 import com.squid.core.jdbc.vendor.IVendorSupport;
 import com.squid.core.jdbc.vendor.VendorSupportRegistry;
+import com.squid.kraken.v4.core.analysis.engine.query.mapping.AxisMapping;
+import com.squid.kraken.v4.core.analysis.engine.query.mapping.MeasureMapping;
+
 import org.apache.avro.Schema;
 
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
@@ -48,8 +52,9 @@ public class ExecutionItemExportSource implements IRawExportSource {
 	private int columnCount ;
 	private ResultSet rs ;
 	
-	public ExecutionItemExportSource(IExecutionItem item,  CSVSettingsBean settings) throws SQLException{
+	public ExecutionItemExportSource(ExecuteAnalysisResult result,  CSVSettingsBean settings) throws SQLException{
 		
+		IExecutionItem item = result.getItem();
 		rs = item.getResultSet();
 
 		ResultSetMetaData metadata = rs.getMetaData();
@@ -57,17 +62,44 @@ public class ExecutionItemExportSource implements IRawExportSource {
 		this.columnCount =  metadata.getColumnCount();
 		
 		this.columnNames = new String[columnCount];
+		
+		// reverse SQL column mapping
+		HashMap<String, Integer> positions = new HashMap<>();
 		for (int i = 0; i < columnCount; i++) {
-			columnNames[i] = metadata.getColumnName(i + 1);
+			String columnName = metadata.getColumnName(i + 1);
+			positions.put(columnName, i);// use zero-base index
+		}
+		int check =0;
+		// map axis
+		for (AxisMapping map : result.getMapper().getAxisMapping()) {
+			// look for actual name and position
+			String columnName = map.getPiece().getAlias();
+			Integer position = positions.get(columnName);
+			if (position==null) {
+				throw new SQLException("cannot map "+map.getAxis().toString()+" from resultset");
+			}
+			columnNames[position] = map.getAxis().getName();
+			check++;
+		}
+		// map measures
+		for (MeasureMapping map : result.getMapper().getMeasureMapping()) {
+			// look for actual name and position
+			String columnName = map.getPiece().getAlias();
+			Integer position = positions.get(columnName);
+			if (position==null) {
+				throw new SQLException("cannot map "+map.getMapping().toString()+" from resultset");
+			}
+			columnNames[position] = map.getMapping().getName();
+			check++;
+		}
+		if (check!=columnCount) {
+			throw new SQLException("cannot map all fields from resultset");
 		}
 	
 		IVendorSupport vendorSpecific = VendorSupportRegistry.INSTANCE
 				.getVendorSupport(item.getDatabase());
 		this.types = vendorSpecific
 					.getVendorMetadataSupport().normalizeColumnType(rs);
-
-
-
 	}
 
 	@Override

@@ -352,6 +352,30 @@ public class Universe extends Physics {
 		return null;
 	}
 	
+	/**
+     * try to convert the expression as an measure or return null if it is not possible.
+     * 
+     * @return
+	 * @throws ScopeException 
+     */
+	public Measure asMeasure(ExpressionAST expression) throws ScopeException {
+		if (expression instanceof MeasureExpression) {
+			return ((MeasureExpression)expression).getMeasure();
+		} else {
+		    IDomain source = expression.getSourceDomain();
+		    Object adapter = source.getAdapter(Domain.class);
+		    if (adapter!=null && adapter instanceof Domain) {
+		        Domain domain = (Domain)adapter;
+		        IDomain image = expression.getImageDomain();
+		        if (image.isInstanceOf(IDomain.INTRINSIC)) {
+		            return new Measure(S(domain), expression);
+		        }
+		    }
+		}
+		// else
+		return null;
+	}
+	
 	public ExpressionAST expression(String expression) throws ScopeException {
 		UniverseScope scope = new UniverseScope(this);
 		ExpressionAST expr = scope.parseExpression(expression);
