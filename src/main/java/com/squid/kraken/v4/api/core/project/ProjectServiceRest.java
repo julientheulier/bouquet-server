@@ -23,7 +23,6 @@
  *******************************************************************************/
 package com.squid.kraken.v4.api.core.project;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -41,8 +40,6 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
-import com.fasterxml.jackson.core.JsonParseException;
-import com.fasterxml.jackson.databind.JsonMappingException;
 import com.google.common.base.Optional;
 import com.squid.core.database.impl.DatabaseServiceException;
 import com.squid.core.database.model.Database;
@@ -60,7 +57,6 @@ import com.squid.kraken.v4.api.core.relation.RelationServiceRest;
 import com.squid.kraken.v4.api.core.simpleanalysisjob.SimpleAnalysisJobServiceRest;
 import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
 import com.squid.kraken.v4.core.database.impl.DatabaseServiceImpl;
-import com.squid.kraken.v4.dataviz.DatavizJob;
 import com.squid.kraken.v4.model.AccessRight;
 import com.squid.kraken.v4.model.Annotation;
 import com.squid.kraken.v4.model.AnnotationList;
@@ -449,23 +445,9 @@ public class ProjectServiceRest extends BaseServiceRest {
 		return new BookmarkServiceRest(userContext);
 	}
 	
-
-	// T886 prototype
-	@Path("{"+PARAM_NAME+"}"+"/dataviz")
-	@POST
-	@ApiOperation(value = "generate dataviz content")
-	public Object generateVegaContent(
-			@PathParam(PARAM_NAME) String projectId,
-			@ApiParam(required=true) String input 
-			) throws ScopeException, JsonParseException, JsonMappingException, IOException 
-	{
-		DatavizJob job = new DatavizJob(userContext);
-		return job.proceed(projectId, input);
-	}
-	
 	// simple analysisjobs
 	@Path("{"+PARAM_NAME+"}"+"/analyses")
-	@ApiOperation(value = "Get the Analyses")
+	@ApiOperation(value = "Simple Analysis Service")
 	public SimpleAnalysisJobServiceRest getSimpleAnalysisJobService() {
 		return new SimpleAnalysisJobServiceRest(userContext);
 	}
