@@ -6,6 +6,7 @@ import java.util.List;
 import com.squid.core.domain.IDomain;
 import com.squid.core.domain.operators.ExtendedType;
 import com.squid.core.expression.ExpressionAST;
+import com.squid.core.expression.NamedExpression;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.core.sql.render.SQLSkin;
 
@@ -18,7 +19,7 @@ import com.squid.core.sql.render.SQLSkin;
  * @author sergefantino
  *
  */
-public class QueryExpression implements ExpressionAST {
+public class QueryExpression extends NamedExpression implements ExpressionAST {
 	
 	private DomainReference subject;
 	
