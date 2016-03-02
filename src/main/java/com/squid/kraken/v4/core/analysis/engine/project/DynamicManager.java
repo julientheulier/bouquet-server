@@ -396,8 +396,7 @@ public class DynamicManager {
 		}
 	}
 	
-	protected Optional<? extends ExpressionObject<?>> findReference(Universe universe, ReferencePK<? extends GenericPK> ref) {
-		GenericPK pk = ref.getReference();
+	protected Optional<? extends ExpressionObject<?>> findReference(Universe universe, GenericPK pk) {
 		if (pk instanceof DimensionPK) {
 			return dimensionDAO.read(universe.getContext(), (DimensionPK)pk);
 		} else if (pk instanceof MetricPK) {
@@ -667,10 +666,14 @@ public class DynamicManager {
 		try {
 			if (dimension.getExpression().getReferences()!=null) {
 				scope = new ArrayList<>(scope);
-				for (ReferencePK<? extends GenericPK> ref : dimension.getExpression().getReferences()) {
-					Optional<? extends ExpressionObject<?>> value = findReference(root, ref);
-					if (value.isPresent()) {
-						scope.add(value.get());
+				for (Object safeCasting : dimension.getExpression().getReferences()) {
+					if (safeCasting instanceof ReferencePK<?>) {
+						ReferencePK<?> unwrap = (ReferencePK<?>)safeCasting;
+						GenericPK ref = unwrap.getReference();
+						Optional<? extends ExpressionObject<?>> value = findReference(root, ref);
+						if (value.isPresent()) {
+							scope.add(value.get());
+						}
 					}
 				}
 			}
@@ -694,10 +697,14 @@ public class DynamicManager {
 		try {
 			if (metric.getExpression().getReferences()!=null) {
 				scope = new ArrayList<>(scope);
-				for (ReferencePK<? extends GenericPK> ref : metric.getExpression().getReferences()) {
-					Optional<? extends ExpressionObject<?>> value = findReference(root, ref);
-					if (value.isPresent()) {
-						scope.add(value.get());
+				for (Object safeCasting : metric.getExpression().getReferences()) {
+					if (safeCasting instanceof ReferencePK<?>) {
+						ReferencePK<?> unwrap = (ReferencePK<?>)safeCasting;
+						GenericPK ref = unwrap.getReference();
+						Optional<? extends ExpressionObject<?>> value = findReference(root, ref);
+						if (value.isPresent()) {
+							scope.add(value.get());
+						}
 					}
 				}
 			}

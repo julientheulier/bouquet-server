@@ -62,11 +62,21 @@ public interface ComputationJob<PK extends GenericPK, R extends JobResult> exten
     public static class Error implements Serializable {
         private String reason;
         private String message;
+        private boolean enableRerun = false; 
 
+        
         public Error() {
         }
 
-        public Error(String reason, String message) {
+        public boolean isEnableRerun() {
+			return enableRerun;
+		}
+
+		public void setEnableRerun(boolean enableRerun) {
+			this.enableRerun = enableRerun;
+		}
+
+		public Error(String reason, String message) {
             super();
             this.reason = reason;
             this.message = message;
