@@ -30,6 +30,8 @@ import java.util.List;
 
 import com.squid.core.domain.extensions.AddMonthsOperatorDefinition;
 import com.squid.core.domain.extensions.DateOperatorDefinition;
+import com.squid.core.domain.extensions.DateTruncateOperatorDefinition;
+import com.squid.core.domain.extensions.DateTruncateShortcutsOperatorDefinition;
 import com.squid.core.domain.extensions.ExtractOperatorDefinition;
 import com.squid.core.domain.operators.IntrinsicOperators;
 import com.squid.core.domain.operators.OperatorScope;
@@ -183,6 +185,53 @@ public class ExpressionEvaluator {
 				}
 			}
 		}
+		// DATE TRUNCATE
+		else if (extendedID.equals(DateTruncateOperatorDefinition.DATE_TRUNCATE) && op.getArguments().size()==2) {
+			return eval_date_truncate(eval(op.getArguments().get(0)), eval(op.getArguments().get(1)));
+		}
+		// DATE TRUNCATE shortcuts
+		else if (extendedID.toUpperCase().startsWith(DateTruncateShortcutsOperatorDefinition.SHORTCUT_BASE.toUpperCase()) && op.getArguments().size()==1) {
+			String mode = extendedID.substring(DateTruncateShortcutsOperatorDefinition.SHORTCUT_BASE.length()+1);
+			return eval_date_truncate(eval(op.getArguments().get(0)), mode);
+		}
+		return null;
+	}
+
+	private Object eval_date_truncate(Object odate, Object omode) {
+		if (odate!=null && omode!=null && odate instanceof Date) {
+			Date date = (Date)odate;
+			String mode = omode.toString();
+			if (mode.equalsIgnoreCase(DateTruncateOperatorDefinition.MONTH)) {
+				// return the first day of month
+				Calendar cal = Calendar.getInstance();
+				cal.setTime(date);
+				cal.set(Calendar.DAY_OF_MONTH, 1);
+				return cal.getTime();
+			}
+			if (mode.equalsIgnoreCase(DateTruncateOperatorDefinition.YEAR)) {
+				// return the first day of month
+				Calendar cal = Calendar.getInstance();
+				cal.setTime(date);
+				cal.set(Calendar.MONTH, 0);
+				cal.set(Calendar.DAY_OF_MONTH, 1);
+				return cal.getTime();
+			}
+			if (mode.equalsIgnoreCase(DateTruncateOperatorDefinition.WEEK)) {
+				// return the first day of month
+				Calendar cal = Calendar.getInstance();
+				cal.setTime(date);
+				cal.add(Calendar.DAY_OF_MONTH, 1-cal.get(Calendar.DAY_OF_WEEK));
+				return cal.getTime();
+			}
+			if (mode.equalsIgnoreCase(DateTruncateOperatorDefinition.WEEK)) {
+				// return the first day of month
+				Calendar cal = Calendar.getInstance();
+				cal.setTime(date);
+				cal.add(Calendar.DAY_OF_MONTH, 1-cal.get(Calendar.DAY_OF_WEEK));
+				return cal.getTime();
+			}
+		}
+		// else
 		return null;
 	}
 
