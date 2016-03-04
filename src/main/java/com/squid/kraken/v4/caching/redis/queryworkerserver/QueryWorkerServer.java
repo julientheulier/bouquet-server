@@ -148,21 +148,23 @@ public class QueryWorkerServer implements IQueryWorkerServer {
 						isDone = false ;
 					}
 
-					if (firstCall){
-						if (isDone){
+					if (isDone){
 							logger.info("The whole result set fits in one Redis chunk") ;
 							ok = redis.put(k, serializedRes.getStreamedMatrix()) ;
+							if (ttl == -2){
+								redis.setTTL(k, this.defaultTTLinSec);
+							}else{
+								if (ttl  != -1){
+									redis.setTTL(k, ttl);		
+								}
+							}
 							if (!ok) {
 								throw new RedisCacheException("We did not manage to store the result for query " + SQLQuery + "in redis");
 							}
-							break ;
-						}else{
-							logger.info("The whole result set won't fit in one Redis chunk");	
-						}
-						firstCall = false;
+					}else{
+						logger.info("The whole result set won't fit in one Redis chunk");	
+						this.fetchChunkedMatrix(k, item, serializedRes, ttl, SQLQuery, limit);
 					}
-					
-					this.fetchChunkedMatrix(k, item, serializedRes, ttl, SQLQuery, limit);
 				/*	batchLowerBound = batchUpperBound;
 					batchUpperBound = batchLowerBound+serializedRes.getNbLines();
 
@@ -189,17 +191,7 @@ public class QueryWorkerServer implements IQueryWorkerServer {
 
 					} */
 				}
-				/* ttl = -1=> no ttl
-				 * ttl = -2 => default ttl
-				 * else set ttl
-				 */
-				if (ttl == -2){
-					redis.setTTL(k, this.defaultTTLinSec);
-				}else{
-					if (ttl  != -1){
-						redis.setTTL(k, ttl);		
-					}
-				}
+
 				return true ;
 			} catch (ExecutionException e){
 				throw new RedisCacheException("Database Service exception for " + RSjdbcURL + " while executing the Query: "+e.getLocalizedMessage(), e) ;
@@ -217,8 +209,7 @@ public class QueryWorkerServer implements IQueryWorkerServer {
 	
 	
 	private void fetchChunkedMatrix( String key, IExecutionItem item,  RawMatrixStreamExecRes serializedFirstChunk,  int ttl, String SQLQuery, long limit){
-		int nbBatches = 1;
-		
+		int nbBatches = 1;		
 		long batchLowerBound = 0;
 		long batchUpperBound =0 ;
 		boolean done = false; 
@@ -271,6 +262,12 @@ public class QueryWorkerServer implements IQueryWorkerServer {
 			}
 		}
 		
+	}
+
+	@Override
+	public int getLoad() {
+		// TODO Auto-generated method stub
+		return 0;
 	}
 	
 }

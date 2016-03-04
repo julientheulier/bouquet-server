@@ -487,10 +487,16 @@ public class RawMatrix extends RedisCacheValue {
 			moreData = !(count < limit);
 		} */
 
-		if ((nbLinesExpectedLeft>-1) &&	( !(count < nbLinesExpectedLeft))){
-			moreData= true;
-		}	
-
+		/* two reasons to stop : max chunk size was reached or there are no more data
+		 * we need to check in case of a limit query it the result set contains all the  result (ie the limit was not reached)
+		 */
+		if (!maxSizeReached){ // not chunk size
+			if(nbLinesExpectedLeft>-1){ // query with limit
+				if ( !(count < nbLinesExpectedLeft)){ //we've returned all the lines needed 
+					moreData= true;
+				}	 
+			}
+		}
 		
 		kout.writeBoolean(moreData);
 		// -- V1 only
