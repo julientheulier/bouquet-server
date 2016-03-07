@@ -133,7 +133,7 @@ JobComputer<ProjectAnalysisJob, ProjectAnalysisJobPK, DataTable> {
 		DataMatrix datamatrix = ComputingService.INSTANCE.glitterAnalysis(
 				analysis, null);
 		if (lazy && (datamatrix ==null)){
-			throw new NotInCacheException("Lazy preview analysis,"  +job.getOid() + " not in cache");
+			throw new NotInCacheException("Lazy preview, analysis not in cache");
 		}else{
 
 			job.setRedisKey(datamatrix.getRedisKey());
@@ -203,7 +203,7 @@ JobComputer<ProjectAnalysisJob, ProjectAnalysisJobPK, DataTable> {
 			return results;	
 		}else{
 			if (lazy){
-				throw new NotInCacheException("Lazy export analysis,"  +job.getOid() + " not in cache");
+				throw new NotInCacheException("Lazy export, analysis not in cache");
 			}else{
 
 				// run the analysis

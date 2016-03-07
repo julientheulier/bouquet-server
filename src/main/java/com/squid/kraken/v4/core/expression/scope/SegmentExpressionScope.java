@@ -34,6 +34,7 @@ import com.squid.core.expression.scope.DefaultScope;
 import com.squid.core.expression.scope.ExpressionDiagnostic;
 import com.squid.core.expression.scope.IdentifierType;
 import com.squid.core.expression.scope.ScopeException;
+import com.squid.kraken.v4.api.core.AccessRightsUtils;
 import com.squid.kraken.v4.core.analysis.scope.AxisExpression;
 import com.squid.kraken.v4.core.analysis.scope.MeasureExpression;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
@@ -42,6 +43,7 @@ import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.kraken.v4.core.expression.reference.ColumnDomainReference;
 import com.squid.kraken.v4.model.Domain;
+import com.squid.kraken.v4.model.AccessRight.Role;
 
 public class SegmentExpressionScope extends DefaultScope {
 
@@ -85,11 +87,27 @@ public class SegmentExpressionScope extends DefaultScope {
 
     @Override
     public Object lookupObject(IdentifierType identifierType, String identifier) throws ScopeException {
-    	// T15 - since the columns are visible, no need to build filter on this
+    	//
     	Axis axis = space.A(identifier);
     	if (axis!=null) return axis;
-        Measure measure = space.M(identifier);
-        if (measure!=null) return measure;
+    	try {
+    		Measure measure = space.M(identifier);
+    		if (measure!=null) return measure;
+    	} catch (ScopeException e) {
+    		// ignore
+    	}
+        //
+        // check for column only if user as privilege
+        if (table!=null && AccessRightsUtils.getInstance().hasRole(space.getUniverse().getContext(), space.getDomain(), Role.WRITE)) {
+        	try {
+				Column col = table.findColumnByName(identifier);
+				if (col!=null) {
+					return col;
+				}
+			} catch (ExecutionException e) {
+				// ignore
+			}
+        }
         return super.lookupObject(identifierType, identifier);
     }
     

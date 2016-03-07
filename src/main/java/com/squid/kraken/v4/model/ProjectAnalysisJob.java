@@ -335,6 +335,16 @@ public class ProjectAnalysisJob extends JobBaseImpl<ProjectAnalysisJobPK, DataTa
 		public OrderBy() {
 			super();
 		}
+		
+		public OrderBy(int col, Direction direction) {
+			this.col = col;
+			this.direction = direction;
+		}
+		
+		public OrderBy(Expression expression, Direction direction) {
+			this.expression = expression;
+			this.direction = direction;
+		}
 
 		/**
 		 * get the orderBy expression referenced by an index

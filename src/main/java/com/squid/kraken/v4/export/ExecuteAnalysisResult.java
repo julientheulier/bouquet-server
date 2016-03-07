@@ -17,16 +17,17 @@ public class ExecuteAnalysisResult {
 	public IExecutionItem getItem() {
 		return item;
 	}
+	
 	public void setItem(IExecutionItem item) {
 		this.item = item;
 	}
+	
 	public QueryMapper getMapper() {
 		return mapper;
 	}
+	
 	public void setMapper(QueryMapper mapper) {
 		this.mapper = mapper;
 	}
-	
-	
 
 }

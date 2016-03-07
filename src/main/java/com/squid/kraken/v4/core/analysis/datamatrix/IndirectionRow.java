@@ -23,11 +23,7 @@
  *******************************************************************************/
 package com.squid.kraken.v4.core.analysis.datamatrix;
 
-import java.io.Serializable;
-
 public class IndirectionRow implements Comparable<IndirectionRow>  {
-
-	private static final long serialVersionUID = 1L;
 
 	protected static final Object[] EMPTY_ARRAY = new Object[0];
 	
