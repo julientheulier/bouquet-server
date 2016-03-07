@@ -412,7 +412,9 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 		analysisJob.setSelection(selection);
 		analysisJob.setRollups(analysis.getRollups());
 		analysisJob.setAutoRun(true);
-		if (analysis.getLimit() == null) {
+		
+		// automatic limit?
+		if (analysis.getLimit() == null && getOutputFormat(format)==OutputFormat.JSON) {
 			int complexity = analysisJob.getFacets().size();
 			if (complexity < 4) {
 				analysisJob.setLimit((long)Math.pow(10, complexity + 1));
@@ -448,18 +450,21 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 		return prettyPrint.replaceAll("[(),.]", " ").trim()
 				.replaceAll("[^ a-zA-Z_0-9]", "").replace(' ', '_');
 	}
+	
+	private OutputFormat getOutputFormat(String format) {
+		if (format == null) {
+			return OutputFormat.JSON;
+		} else {
+			return OutputFormat.valueOf(format.toUpperCase());
+		}
+	}
 
 	private Response getResults(String projectId, final ProjectAnalysisJob job,
 			final Integer timeout, final Integer maxResults,
 			final Integer startIndex, final boolean lazy, String format,
 			String compression, boolean saveAs, String fileName) {
 
-		final OutputFormat outFormat;
-		if (format == null) {
-			outFormat = OutputFormat.JSON;
-		} else {
-			outFormat = OutputFormat.valueOf(format.toUpperCase());
-		}
+		final OutputFormat outFormat = getOutputFormat(format);
 
 		final OutputCompression outCompression;
 		if (compression == null) {
