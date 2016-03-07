@@ -33,6 +33,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 
+import com.squid.core.domain.IDomain;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex.Status;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
@@ -142,10 +143,13 @@ public class DomainFacetCompute extends FacetBuilder {
         DomainHierarchy hierarchy = universe.getDomainHierarchy(domain);
         List<Facet> facets = new ArrayList<>();
         for (DimensionIndex index : hierarchy.getDimensionIndexes()) {
+        	IDomain image = index.getAxis().getDefinitionSafe().getImageDomain();
             if (
             	!hierarchy.isSegment(index) // exclude segments
             	&&  
             	checkHasRole(universe,index.getDimension()) // check user role
+            	&&
+            	!image.isInstanceOf(IDomain.OBJECT) // hide the objects for now
             ) 
             {
             	// T70
