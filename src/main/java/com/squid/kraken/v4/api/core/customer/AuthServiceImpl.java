@@ -409,12 +409,16 @@ public class AuthServiceImpl extends
 							.getInstance().getTokenExpirationPeriodMillis(), null, null);
 			return token;
 		} catch (MalformedClaimException e) {
+			logger.debug(e.getMessage());
 			throw new InvalidCredentialsAPIException("Invalid JWT Claim", ctx.isNoError());
 		} catch (InvalidJwtException e) {
+			logger.debug(e.getMessage());
 			throw new InvalidCredentialsAPIException("Invalid JWT", ctx.isNoError());
 		} catch (NoSuchAlgorithmException e) {
+			logger.debug(e.getMessage());
 			throw new RuntimeException(e);
 		} catch (InvalidKeySpecException e) {
+			logger.debug(e.getMessage());
 			throw new RuntimeException(e);
 		}
 	}
