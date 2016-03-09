@@ -48,6 +48,8 @@ import javax.ws.rs.core.StreamingOutput;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.squid.core.domain.DomainNumericConstant;
 import com.squid.core.domain.IDomain;
 import com.squid.core.domain.sort.DomainSort;
@@ -56,6 +58,7 @@ import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.ExpressionLeaf;
 import com.squid.core.expression.scope.ExpressionMaker;
 import com.squid.core.expression.scope.ScopeException;
+import com.squid.kraken.v4.api.core.APIException;
 import com.squid.kraken.v4.api.core.AccessRightsUtils;
 import com.squid.kraken.v4.api.core.BaseServiceRest;
 import com.squid.kraken.v4.api.core.JobServiceBaseImpl.OutputCompression;
@@ -74,7 +77,11 @@ import com.squid.kraken.v4.core.expression.scope.DomainExpressionScope;
 import com.squid.kraken.v4.model.AccessRight;
 import com.squid.kraken.v4.model.Analysis;
 import com.squid.kraken.v4.model.Analysis.AnalysisFacet;
+import com.squid.kraken.v4.model.Bookmark;
+import com.squid.kraken.v4.model.BookmarkConfig;
+import com.squid.kraken.v4.model.BookmarkPK;
 import com.squid.kraken.v4.model.Domain;
+import com.squid.kraken.v4.model.DomainPK;
 import com.squid.kraken.v4.model.Expression;
 import com.squid.kraken.v4.model.Facet;
 import com.squid.kraken.v4.model.FacetExpression;
@@ -91,6 +98,7 @@ import com.squid.kraken.v4.model.ProjectAnalysisJobPK;
 import com.squid.kraken.v4.model.ProjectPK;
 import com.squid.kraken.v4.model.SimpleAnalysis;
 import com.squid.kraken.v4.persistence.AppContext;
+import com.squid.kraken.v4.persistence.DAOFactory;
 import com.wordnik.swagger.annotations.Api;
 import com.wordnik.swagger.annotations.ApiOperation;
 import com.wordnik.swagger.annotations.ApiParam;
@@ -121,6 +129,7 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 			@QueryParam("orderby") String[] orderExpressions,
 			@QueryParam("rollup") String[] rollupExpressions,
 			@QueryParam("limit") Long limit,
+			@QueryParam("bookmarkId") String bookmarkId,
 			@ApiParam(value = "response timeout in milliseconds in case the job is not yet computed. If no timeout set, the method will return according to current job status.") @QueryParam("timeout") Integer timeout,
 			@ApiParam(value = "paging size") @QueryParam("maxResults") Integer maxResults,
 			@ApiParam(value = "paging start index") @QueryParam("startIndex") Integer startIndex,
@@ -132,8 +141,9 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 			throws ScopeException {
 
 		Analysis analysis = new SimpleAnalysis();
+		analysis.setBookmarkId(bookmarkId);
 		analysis.setDomain(domainExpr);
-		if (facetExpressions != null) {
+		if ((facetExpressions != null) && (facetExpressions.length>0)) {
 			List<AnalysisFacet> facets = new ArrayList<AnalysisFacet>();
 			for (int i = 0; i < facetExpressions.length; i++) {
 				AnalysisFacet f = new SimpleAnalysis.SimpleFacet();
@@ -142,10 +152,10 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 			}
 			analysis.setFacets(facets);
 		}
-		if (filterExpressions != null) {
+		if ((filterExpressions != null) && (filterExpressions.length>0)) {
 			analysis.setFilters(Arrays.asList(filterExpressions));
 		}
-		if (orderExpressions != null) {
+		if ((orderExpressions != null) && (orderExpressions.length>0)){
 			List<OrderBy> orders = new ArrayList<OrderBy>();
 			for (int i = 0; i < orderExpressions.length; i++) {
 				OrderBy order = new OrderBy();
@@ -154,7 +164,7 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 			}
 			analysis.setOrderBy(orders);
 		}
-		if (rollupExpressions != null) {
+		if ((rollupExpressions != null) && (rollupExpressions.length>0)){
 			List<RollUp> rollups = new ArrayList<RollUp>();
 			int pos = 1;
 			for (int i = 0; i < rollupExpressions.length; i++) {
@@ -183,7 +193,7 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 		}
 		analysis.setLimit(limit);
 
-		ProjectAnalysisJob analysisJob = createAnalysisJob(projectId, analysis,
+		ProjectAnalysisJob analysisJob = createAnalysisJob(userContext, projectId, analysis,
 				timeout, maxResults, startIndex, lazy, format, compression);
 
 		// and run the job
@@ -214,7 +224,7 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 			@ApiParam(value = "output filename") @DefaultValue("/default") @QueryParam("filename") String filename
 			)
 			throws ScopeException {
-		ProjectAnalysisJob analysisJob = createAnalysisJob(projectId, analysis,
+		ProjectAnalysisJob analysisJob = createAnalysisJob(userContext, projectId, analysis,
 				timeout, maxResults, startIndex, lazy, format, compression);
 
 		// and run the job
@@ -230,18 +240,77 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 				startIndex, lazy, format, compression, saveAs, filename);
 	}
 
-	private ProjectAnalysisJob createAnalysisJob(String projectId,
+	private ProjectAnalysisJob createAnalysisJob(AppContext ctx, String projectId,
 			Analysis analysis, Integer timeout, Integer maxResults,
 			Integer startIndex, boolean lazy, String format, String compression)
 			throws ScopeException {
 
-		ProjectPK projectPK = new ProjectPK(userContext.getCustomerId(),
+		// enforce read role over the project
+		ProjectPK projectPK = new ProjectPK(ctx.getCustomerId(),
 				projectId);
 		Project project = ProjectManager.INSTANCE.getProject(userContext,
 				projectPK);
-		AccessRightsUtils.getInstance().checkRole(userContext, project,
+		AccessRightsUtils.getInstance().checkRole(ctx, project,
 				AccessRight.Role.READ);
-		Universe universe = new Universe(userContext, project);
+		
+		FacetSelection selection = null;
+		
+		// process bookmark config
+		if (analysis.getBookmarkId() != null) {
+			Bookmark bookmark = DAOFactory
+					.getDAOFactory()
+					.getDAO(Bookmark.class)
+					.readNotNull(ctx,
+							new BookmarkPK(projectPK, analysis.getBookmarkId()));
+			bookmark.getConfig();
+			ObjectMapper mapper = new ObjectMapper();
+			mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+			BookmarkConfig config;
+			try {
+				config = mapper.readValue(bookmark.getConfig(),
+						BookmarkConfig.class);
+			} catch (Exception e) {
+				throw new APIException(e);
+			}
+			if (analysis.getDomain() == null) {
+				analysis.setDomain("@'"+config.getDomain()+"'");
+			}
+			if (analysis.getLimit() == null) {
+				analysis.setLimit(config.getLimit());
+			}
+			if (analysis.getFacets() == null) {
+				List<AnalysisFacet> facets = new ArrayList<AnalysisFacet>();
+				if (config.getChosenDimensions() != null) {
+					for (String chosenDimension : config.getChosenDimensions()) {
+						AnalysisFacet f = new SimpleAnalysis.SimpleFacet();
+						if (chosenDimension.startsWith("@")) {
+							f.setExpression(chosenDimension);
+						} else {
+							f.setExpression("@'"+chosenDimension+"'");
+						}
+						facets.add(f);
+					}
+				}
+				if (config.getChosenMetrics() != null) {
+					for (String chosenMetric : config.getChosenMetrics()) {
+						AnalysisFacet f = new SimpleAnalysis.SimpleFacet();
+						f.setExpression("@'"+chosenMetric+"'");
+						facets.add(f);
+					}
+				}
+				analysis.setFacets(facets);
+			}
+			if (analysis.getOrderBy() == null) {
+				analysis.setOrderBy(config.getOrderBy());
+			}
+			if (analysis.getRollups() == null) {
+				analysis.setRollups(config.getRollups());
+			}
+
+			selection = config.getSelection();
+		}
+		
+		Universe universe = new Universe(ctx, project);
 		// read the domain reference
 		if (analysis.getDomain() == null) {
 			throw new ScopeException(
@@ -273,132 +342,141 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 		int legacyMetricCount = 0;
 		HashMap<Integer, Integer> lookup = new HashMap<>();// convert simple indexes into analysisJob indexes
 		HashSet<Integer> metricSet = new HashSet<>();// mark metrics
-		for (AnalysisFacet facet : analysis.getFacets()) {
-			ExpressionAST colExpression = domainScope.parseExpression(facet
-					.getExpression());
-			if (colExpression.getName()!=null) {
-				if (facet.getName()!=null && !facet.equals(colExpression.getName())) {
-					throw new ScopeException("the facet name is ambiguous: "+colExpression.getName()+"/"+facet.getName()+" for expresion: "+facet
-							.getExpression());
+		if (analysis.getFacets() != null) {
+			for (AnalysisFacet facet : analysis.getFacets()) {
+				ExpressionAST colExpression = domainScope.parseExpression(facet
+						.getExpression());
+				if (colExpression.getName()!=null) {
+					if (facet.getName()!=null && !facet.equals(colExpression.getName())) {
+						throw new ScopeException("the facet name is ambiguous: "+colExpression.getName()+"/"+facet.getName()+" for expresion: "+facet
+								.getExpression());
+					}
+					// else
+					facet.setName(colExpression.getName());
 				}
-				// else
-				facet.setName(colExpression.getName());
-			}
-			IDomain image = colExpression.getImageDomain();
-			if (image.isInstanceOf(IDomain.AGGREGATE)) {
-				// it's a metric, we need to relink with the domain
-				if (!(colExpression instanceof ExpressionLeaf)) {
-					// add parenthesis if it is not a simple expression so A+B => domain.(A+B)
-					colExpression = ExpressionMaker.GROUP(colExpression);
+				IDomain image = colExpression.getImageDomain();
+				if (image.isInstanceOf(IDomain.AGGREGATE)) {
+					// it's a metric, we need to relink with the domain
+					if (!(colExpression instanceof ExpressionLeaf)) {
+						// add parenthesis if it is not a simple expression so A+B => domain.(A+B)
+						colExpression = ExpressionMaker.GROUP(colExpression);
+					}
+					// relink with the domain
+					ExpressionAST relink = ExpressionMaker.COMPOSE(
+							new DomainReference(universe, domain), colExpression);
+					// now it can be transformed into a measure
+					Measure m = universe.asMeasure(relink);
+					if (m == null) {
+						throw new ScopeException("cannot use expression='"
+								+ facet.getExpression() + "'");
+					}
+					Metric metric = new Metric();
+					metric.setExpression(new Expression(m.prettyPrint()));
+					String name = facet.getName();
+					if (name == null) {
+						name = m.prettyPrint();
+					}
+					metric.setName(name);
+					metrics.add(metric);
+					//
+					lookup.put(facetCount, legacyMetricCount++);
+					metricSet.add(facetCount);
+					facetCount++;
+				} else {
+					// it's a dimension
+					Axis axis = root.getUniverse().asAxis(colExpression);
+					if (axis == null) {
+						throw new ScopeException("cannot use expression='"
+								+ colExpression.prettyPrint() + "'");
+					}
+					ExpressionAST facetExp = ExpressionMaker.COMPOSE(
+							new SpaceExpression(root), colExpression);
+					String name = facet.getName();
+					if (name == null) {
+						name = formatName(axis.getDimension() != null ? axis
+								.getName() : axis.getDefinitionSafe().prettyPrint());
+					}
+					facets.add(new FacetExpression(facetExp.prettyPrint(), name));
+					//
+					lookup.put(facetCount, legacyFacetCount++);
+					facetCount++;
 				}
-				// relink with the domain
-				ExpressionAST relink = ExpressionMaker.COMPOSE(
-						new DomainReference(universe, domain), colExpression);
-				// now it can be transformed into a measure
-				Measure m = universe.asMeasure(relink);
-				if (m == null) {
-					throw new ScopeException("cannot use expression='"
-							+ facet.getExpression() + "'");
-				}
-				Metric metric = new Metric();
-				metric.setExpression(new Expression(m.prettyPrint()));
-				String name = facet.getName();
-				if (name == null) {
-					name = m.prettyPrint();
-				}
-				metric.setName(name);
-				metrics.add(metric);
-				//
-				lookup.put(facetCount, legacyMetricCount++);
-				metricSet.add(facetCount);
-				facetCount++;
-			} else {
-				// it's a dimension
-				Axis axis = root.getUniverse().asAxis(colExpression);
-				if (axis == null) {
-					throw new ScopeException("cannot use expression='"
-							+ colExpression.prettyPrint() + "'");
-				}
-				ExpressionAST facetExp = ExpressionMaker.COMPOSE(
-						new SpaceExpression(root), colExpression);
-				String name = facet.getName();
-				if (name == null) {
-					name = formatName(axis.getDimension() != null ? axis
-							.getName() : axis.getDefinitionSafe().prettyPrint());
-				}
-				facets.add(new FacetExpression(facetExp.prettyPrint(), name));
-				//
-				lookup.put(facetCount, legacyFacetCount++);
-				facetCount++;
 			}
 		}
 
 		// handle filters
-		FacetSelection selection = new FacetSelection();
-		for (String filter : analysis.getFilters()) {
-			ExpressionAST filterExpr = domainScope.parseExpression(filter);
-			if (!filterExpr.getImageDomain().isInstanceOf(IDomain.CONDITIONAL)) {
-				throw new ScopeException("invalid filter, must be a condition");
+		if (analysis.getFilters() != null) {
+			if (selection == null) {
+				selection = new FacetSelection();
 			}
-			Facet segment = SegmentManager.newSegmentFacet(domain);
-			FacetMemberString openFilter = SegmentManager.newOpenFilter(
-					filterExpr, filter);
-			segment.getSelectedItems().add(openFilter);
-			selection.getFacets().add(segment);
+			for (String filter : analysis.getFilters()) {
+				ExpressionAST filterExpr = domainScope.parseExpression(filter);
+				if (!filterExpr.getImageDomain().isInstanceOf(IDomain.CONDITIONAL)) {
+					throw new ScopeException("invalid filter, must be a condition");
+				}
+				Facet segment = SegmentManager.newSegmentFacet(domain);
+				FacetMemberString openFilter = SegmentManager.newOpenFilter(
+						filterExpr, filter);
+				segment.getSelectedItems().add(openFilter);
+				selection.getFacets().add(segment);
+			}
 		}
 		
 		// handle orderBy
-		List<OrderBy> orderBy = new ArrayList<>();
 		int pos = 1;
-		for (OrderBy order : analysis.getOrderBy()) {
-			if (order.getExpression()!=null) {
-				// let's try to parse it
-				try {
-					ExpressionAST expr = domainScope.parseExpression(order.getExpression().getValue());
-					IDomain image = expr.getImageDomain();
-					Direction direction = getDirection(image);
-					if (direction!=null) {
-						order.setDirection(direction);
-					} else if (order.getDirection()==null) {
-						// we need direction!
-						throw new ScopeException("invalid orderBy expression at position "+pos+": this is not a sort expression, must use either ASC() or DESC() functions");
-					}
-					if (image.isInstanceOf(DomainNumericConstant.DOMAIN)) {
-						// it is a reference to the facets
-						DomainNumericConstant num = (DomainNumericConstant)image.getAdapter(DomainNumericConstant.class);
-						int index = num.getValue().intValue();
-						if (!lookup.containsKey(index)) {
-							throw new ScopeException("invalid orderBy expression at position "+pos+": the index specified ("+index+") is out of bounds");
+		List<OrderBy> orderBy = new ArrayList<>();
+		if (analysis.getOrderBy() != null) {
+			for (OrderBy order : analysis.getOrderBy()) {
+				if (order.getExpression()!=null) {
+					// let's try to parse it
+					try {
+						ExpressionAST expr = domainScope.parseExpression(order.getExpression().getValue());
+						IDomain image = expr.getImageDomain();
+						Direction direction = getDirection(image);
+						if (direction!=null) {
+							order.setDirection(direction);
+						} else if (order.getDirection()==null) {
+							// we need direction!
+							throw new ScopeException("invalid orderBy expression at position "+pos+": this is not a sort expression, must use either ASC() or DESC() functions");
 						}
-						int legacy = lookup.get(index);
-						if (metricSet.contains(index)) {
-							legacy += legacyFacetCount;
+						if (image.isInstanceOf(DomainNumericConstant.DOMAIN)) {
+							// it is a reference to the facets
+							DomainNumericConstant num = (DomainNumericConstant)image.getAdapter(DomainNumericConstant.class);
+							int index = num.getValue().intValue();
+							if (!lookup.containsKey(index)) {
+								throw new ScopeException("invalid orderBy expression at position "+pos+": the index specified ("+index+") is out of bounds");
+							}
+							int legacy = lookup.get(index);
+							if (metricSet.contains(index)) {
+								legacy += legacyFacetCount;
+							}
+							orderBy.add(new OrderBy(legacy, direction));
+						} else {
+							// it's an expression
+							orderBy.add(new OrderBy(order.getExpression(), direction));
 						}
-						orderBy.add(new OrderBy(legacy, direction));
-					} else {
-						// it's an expression
-						orderBy.add(new OrderBy(order.getExpression(), direction));
+					} catch (ScopeException e) {
+						throw new ScopeException("unable to parse orderBy expression at position "+pos+": "+e.getCause(),e);
 					}
-				} catch (ScopeException e) {
-					throw new ScopeException("unable to parse orderBy expression at position "+pos+": "+e.getCause(),e);
 				}
+				pos++;
 			}
-			pos++;
 		}
-		
 		// handle rollup - fix indexes
-		pos = 1;
-		for (RollUp rollup : analysis.getRollups()) {
-			if (rollup.getCol()>-1) {// ignore grand-total
-				// can't rollup on metric
-				if (metricSet.contains(rollup.getCol())) {
-					throw new ScopeException("invalid rollup expression at position "+pos+": the index specified ("+rollup.getCol()+") is not valid: cannot rollup on metric");
+		if (analysis.getRollups() != null) {
+			pos = 1;
+			for (RollUp rollup : analysis.getRollups()) {
+				if (rollup.getCol()>-1) {// ignore grand-total
+					// can't rollup on metric
+					if (metricSet.contains(rollup.getCol())) {
+						throw new ScopeException("invalid rollup expression at position "+pos+": the index specified ("+rollup.getCol()+") is not valid: cannot rollup on metric");
+					}
+					if (!lookup.containsKey(rollup.getCol())) {
+						throw new ScopeException("invalid rollup expression at position "+pos+": the index specified ("+rollup.getCol()+") is out of bounds");
+					}
+					int legacy = lookup.get(rollup.getCol());
+					rollup.setCol(legacy);
 				}
-				if (!lookup.containsKey(rollup.getCol())) {
-					throw new ScopeException("invalid rollup expression at position "+pos+": the index specified ("+rollup.getCol()+") is out of bounds");
-				}
-				int legacy = lookup.get(rollup.getCol());
-				rollup.setCol(legacy);
 			}
 		}
 		
