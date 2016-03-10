@@ -273,6 +273,9 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 		int legacyMetricCount = 0;
 		HashMap<Integer, Integer> lookup = new HashMap<>();// convert simple indexes into analysisJob indexes
 		HashSet<Integer> metricSet = new HashSet<>();// mark metrics
+		if (analysis.getFacets()==null || analysis.getFacets().isEmpty()) {
+			throw new ScopeException("there is no defined facet, can't run the analysis");
+		}
 		for (AnalysisFacet facet : analysis.getFacets()) {
 			ExpressionAST colExpression = domainScope.parseExpression(facet
 					.getExpression());
@@ -335,70 +338,76 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 
 		// handle filters
 		FacetSelection selection = new FacetSelection();
-		for (String filter : analysis.getFilters()) {
-			ExpressionAST filterExpr = domainScope.parseExpression(filter);
-			if (!filterExpr.getImageDomain().isInstanceOf(IDomain.CONDITIONAL)) {
-				throw new ScopeException("invalid filter, must be a condition");
+		if (analysis.getFilters()!=null) {
+			for (String filter : analysis.getFilters()) {
+				ExpressionAST filterExpr = domainScope.parseExpression(filter);
+				if (!filterExpr.getImageDomain().isInstanceOf(IDomain.CONDITIONAL)) {
+					throw new ScopeException("invalid filter, must be a condition");
+				}
+				Facet segment = SegmentManager.newSegmentFacet(domain);
+				FacetMemberString openFilter = SegmentManager.newOpenFilter(
+						filterExpr, filter);
+				segment.getSelectedItems().add(openFilter);
+				selection.getFacets().add(segment);
 			}
-			Facet segment = SegmentManager.newSegmentFacet(domain);
-			FacetMemberString openFilter = SegmentManager.newOpenFilter(
-					filterExpr, filter);
-			segment.getSelectedItems().add(openFilter);
-			selection.getFacets().add(segment);
 		}
 		
 		// handle orderBy
 		List<OrderBy> orderBy = new ArrayList<>();
 		int pos = 1;
-		for (OrderBy order : analysis.getOrderBy()) {
-			if (order.getExpression()!=null) {
-				// let's try to parse it
-				try {
-					ExpressionAST expr = domainScope.parseExpression(order.getExpression().getValue());
-					IDomain image = expr.getImageDomain();
-					Direction direction = getDirection(image);
-					if (direction!=null) {
-						order.setDirection(direction);
-					} else if (order.getDirection()==null) {
-						// we need direction!
-						throw new ScopeException("invalid orderBy expression at position "+pos+": this is not a sort expression, must use either ASC() or DESC() functions");
-					}
-					if (image.isInstanceOf(DomainNumericConstant.DOMAIN)) {
-						// it is a reference to the facets
-						DomainNumericConstant num = (DomainNumericConstant)image.getAdapter(DomainNumericConstant.class);
-						int index = num.getValue().intValue();
-						if (!lookup.containsKey(index)) {
-							throw new ScopeException("invalid orderBy expression at position "+pos+": the index specified ("+index+") is out of bounds");
+		if (analysis.getOrderBy()!=null) {
+			for (OrderBy order : analysis.getOrderBy()) {
+				if (order.getExpression()!=null) {
+					// let's try to parse it
+					try {
+						ExpressionAST expr = domainScope.parseExpression(order.getExpression().getValue());
+						IDomain image = expr.getImageDomain();
+						Direction direction = getDirection(image);
+						if (direction!=null) {
+							order.setDirection(direction);
+						} else if (order.getDirection()==null) {
+							// we need direction!
+							throw new ScopeException("invalid orderBy expression at position "+pos+": this is not a sort expression, must use either ASC() or DESC() functions");
 						}
-						int legacy = lookup.get(index);
-						if (metricSet.contains(index)) {
-							legacy += legacyFacetCount;
+						if (image.isInstanceOf(DomainNumericConstant.DOMAIN)) {
+							// it is a reference to the facets
+							DomainNumericConstant num = (DomainNumericConstant)image.getAdapter(DomainNumericConstant.class);
+							int index = num.getValue().intValue();
+							if (!lookup.containsKey(index)) {
+								throw new ScopeException("invalid orderBy expression at position "+pos+": the index specified ("+index+") is out of bounds");
+							}
+							int legacy = lookup.get(index);
+							if (metricSet.contains(index)) {
+								legacy += legacyFacetCount;
+							}
+							orderBy.add(new OrderBy(legacy, direction));
+						} else {
+							// it's an expression
+							orderBy.add(new OrderBy(order.getExpression(), direction));
 						}
-						orderBy.add(new OrderBy(legacy, direction));
-					} else {
-						// it's an expression
-						orderBy.add(new OrderBy(order.getExpression(), direction));
+					} catch (ScopeException e) {
+						throw new ScopeException("unable to parse orderBy expression at position "+pos+": "+e.getCause(),e);
 					}
-				} catch (ScopeException e) {
-					throw new ScopeException("unable to parse orderBy expression at position "+pos+": "+e.getCause(),e);
 				}
+				pos++;
 			}
-			pos++;
 		}
 		
 		// handle rollup - fix indexes
 		pos = 1;
-		for (RollUp rollup : analysis.getRollups()) {
-			if (rollup.getCol()>-1) {// ignore grand-total
-				// can't rollup on metric
-				if (metricSet.contains(rollup.getCol())) {
-					throw new ScopeException("invalid rollup expression at position "+pos+": the index specified ("+rollup.getCol()+") is not valid: cannot rollup on metric");
+		if (analysis.getRollups()!=null) {
+			for (RollUp rollup : analysis.getRollups()) {
+				if (rollup.getCol()>-1) {// ignore grand-total
+					// can't rollup on metric
+					if (metricSet.contains(rollup.getCol())) {
+						throw new ScopeException("invalid rollup expression at position "+pos+": the index specified ("+rollup.getCol()+") is not valid: cannot rollup on metric");
+					}
+					if (!lookup.containsKey(rollup.getCol())) {
+						throw new ScopeException("invalid rollup expression at position "+pos+": the index specified ("+rollup.getCol()+") is out of bounds");
+					}
+					int legacy = lookup.get(rollup.getCol());
+					rollup.setCol(legacy);
 				}
-				if (!lookup.containsKey(rollup.getCol())) {
-					throw new ScopeException("invalid rollup expression at position "+pos+": the index specified ("+rollup.getCol()+") is out of bounds");
-				}
-				int legacy = lookup.get(rollup.getCol());
-				rollup.setCol(legacy);
 			}
 		}
 		
