@@ -482,23 +482,29 @@ public class RawMatrix extends RedisCacheValue {
 
 		// WRITE moredata
 		kout.writeBoolean(false);// close the data stream, begin metadata
-
-/*		if (!((maxRecords > 0) && (limit <= maxRecords))) {
-			moreData = !(count < limit);
-		} */
-
-		/* two reasons to stop : max chunk size was reached or there are no more data
-		 * we need to check in case of a limit query it the result set contains all the  result (ie the limit was not reached)
-		 */
-		if (!maxSizeReached){ // not chunk size
-			if(nbLinesExpectedLeft>-1){ // query with limit
-				if ( !(count < nbLinesExpectedLeft)){ //we've returned all the lines needed 
-					moreData= true;
-				}	 
+		
+		
+		//we stop either if maxSize was reach or if there were no more data to read
+		boolean moreToRead = false; // we did not reach the end of the resultset
+		boolean moreThanLimit=false; // is case of a limit query, did we reach the limit
+		if (maxSizeReached){ // we  stopped because reached the hard memory limit for one chunk
+			if ( (nbLinesExpectedLeft>-1) && ( !(count < nbLinesExpectedLeft))){ //we read exqctly as many lines as the limit
+				moreThanLimit =  true;	
+			}else{
+				moreThanLimit = true  ;					
+				moreToRead = true;
+			}
+		}else{ 
+			if ( !moreData){ //no more lines to read
+				if(nbLinesExpectedLeft>-1){ // limit
+					if ( !(count < nbLinesExpectedLeft)){ //we read as many lines as the limit
+						moreThanLimit = true ;	
+					}
+				}
 			}
 		}
 		
-		kout.writeBoolean(moreData);
+		kout.writeBoolean(moreThanLimit);
 		// -- V1 only
 		if (version >= 1) {
 			kout.writeLong(item.getExecutionDate().getTime());// the
@@ -524,7 +530,7 @@ public class RawMatrix extends RedisCacheValue {
 
 		kout.close();
 
-		res.setHasMore(moreData);
+		res.setHasMore(moreToRead);			
 		res.setExecutionTime(metter_finish - metter_start);
 		res.setNbLines(count);
 		res.setStreamedMatrix(baout.toByteArray());

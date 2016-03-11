@@ -30,7 +30,11 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -61,6 +65,9 @@ public class QueryWorkerServer implements IQueryWorkerServer {
 	private String host;
 	private int port;
 
+	private int threadPoolSize = 5;
+	private AtomicInteger load;
+	private ExecutorService executor;
 
 	//	private int maxRecords=1024;
 
@@ -74,8 +81,14 @@ public class QueryWorkerServer implements IQueryWorkerServer {
 	private IRedisCacheProxy redis ;
 
 
+
+
 	public QueryWorkerServer(AWSRedisCacheConfig conf) {
+		this.load = new AtomicInteger(0);
+		this.executor = Executors.newFixedThreadPool(threadPoolSize);
+
 		//redis
+
 		this.REDIS_SERVER_HOST = conf.getRedisID().host;
 		this.REDIS_SERVER_PORT = conf.getRedisID().port;
 		this.managers = new HashMap<String, SimpleDatabaseManager>();
@@ -105,169 +118,178 @@ public class QueryWorkerServer implements IQueryWorkerServer {
 
 	@Override
 	public boolean fetch(String k, String SQLQuery, String RSjdbcURL, String username, String pwd, int ttl, long limit){
-		try
+		IExecutionItem item = null;
+		boolean ok;
+		String dbKey = username +"\\" + RSjdbcURL + "\\" +pwd;
+		try	
 		{
-			IExecutionItem item = null;
-			boolean ok;
-			boolean isDone =false;
-			long linesProcessed = 0;
-			String key = username +"\\" + RSjdbcURL + "\\" +pwd;
-		
-			try	
-			{
-				SimpleDatabaseManager db;
-				synchronized(managers){
-					db = managers.get(key);
-					if (db == null ){
-						db = new SimpleDatabaseManager(RSjdbcURL, username, pwd);
-						managers.put(key, db);
-					}
+			SimpleDatabaseManager db;
+			synchronized(managers){
+				db = managers.get(dbKey);
+				if (db == null ){
+					db = new SimpleDatabaseManager(RSjdbcURL, username, pwd);
+					managers.put(dbKey, db);
 				}
+			}
 
-				boolean firstCall = true;
-				item = db.executeQuery(SQLQuery);
-				isDone = false;
+			item = db.executeQuery(SQLQuery);
 
-				RedisCacheValuesList valuesList  = new RedisCacheValuesList();
-				int batchLowerBound = 0 ;
-				int batchUpperBound = 0 ;
-				int nbBatches = 0;
-				long nbLinesLeftToRead = limit;
-				while (!isDone){
+			RawMatrixStreamExecRes serializedRes = RawMatrix.streamExecutionItemToByteArray(item, maxRecords, limit);				
 
-					RawMatrixStreamExecRes serializedRes = RawMatrix.streamExecutionItemToByteArray(item, maxRecords, nbLinesLeftToRead);
-					linesProcessed += serializedRes.getNbLines();
-					nbLinesLeftToRead -= linesProcessed;
-					
-					logger.info("limit " + limit + ", linesProcessed " + linesProcessed + " hasMore:"+serializedRes.hasMore() );
-//					if ( ((limit>-1) && (linesProcessed >= limit)) || ((limit ==-1) && (!serializedRes.hasMore())) ){
-					if ((!serializedRes.hasMore())){
-						//(limit with enough lines) or (export and end of dataset reached) 
-						isDone =true;
-					}else{
-						isDone = false ;
-					}
-
-					if (isDone){
-							logger.info("The whole result set fits in one Redis chunk") ;
-							ok = redis.put(k, serializedRes.getStreamedMatrix()) ;
-							if (ttl == -2){
-								redis.setTTL(k, this.defaultTTLinSec);
-							}else{
-								if (ttl  != -1){
-									redis.setTTL(k, ttl);		
-								}
-							}
-							if (!ok) {
-								throw new RedisCacheException("We did not manage to store the result for query " + SQLQuery + "in redis");
-							}
-					}else{
-						logger.info("The whole result set won't fit in one Redis chunk");	
-						this.fetchChunkedMatrix(k, item, serializedRes, ttl, SQLQuery, limit);
-					}
-				/*	batchLowerBound = batchUpperBound;
-					batchUpperBound = batchLowerBound+serializedRes.getNbLines();
-
-					String batchKey = k+"_"+batchLowerBound + "-" + batchUpperBound;
-					ok  = redis.put(batchKey, serializedRes.getStreamedMatrix());
+			logger.info("limit " + limit + ", linesProcessed " + serializedRes.getNbLines() + " hasMore:"+serializedRes.hasMore() );
+			if (!serializedRes.hasMore()){		
+				try{
+					logger.info("The whole result set fits in one Redis chunk") ;
+					ok = redis.put(k, serializedRes.getStreamedMatrix()) ;
 					if (ttl == -2){
-						redis.setTTL(batchKey, this.defaultTTLinSec);
+						redis.setTTL(k, this.defaultTTLinSec);
 					}else{
 						if (ttl  != -1){
-							redis.setTTL(batchKey, ttl);		
+							redis.setTTL(k, ttl);		
 						}
 					}
 					if (!ok) {
 						throw new RedisCacheException("We did not manage to store the result for query " + SQLQuery + "in redis");
 					}
-					valuesList.addReferenceKey(batchKey);
-					valuesList.setDone(isDone);
-					
-					this.redis.put(k, valuesList.serialize());	
-					nbBatches+=1;
-					if (isDone){
-						logger.info("The  result set was split into " + nbBatches + " Redis chunks") ;
-						logger.info("Chunks : " +  valuesList.toString() ) ;
-
-					} */
+				}finally{
+					if (item!=null)
+						item.close();
 				}
 
-				return true ;
-			} catch (ExecutionException e){
-				throw new RedisCacheException("Database Service exception for " + RSjdbcURL + " while executing the Query: "+e.getLocalizedMessage(), e) ;
-			} catch( SQLException | IOException e) {
-				throw new RedisCacheException("Database Service exception for " + RSjdbcURL + " while reading the Query results: "+e.getLocalizedMessage(), e) ;
+			}else{
+				logger.info("The whole result set won't fit in one Redis chunk");	
+
+				// store first batch 
+				long nbLinesLeftToRead =  limit - serializedRes.getNbLines();
+				String batchKey = k+"_"+0 + "-" + (serializedRes.getNbLines()-1);
+				ok  = redis.put(batchKey, serializedRes.getStreamedMatrix());
+				if (ttl == -2){
+					redis.setTTL(batchKey, defaultTTLinSec);
+				}else{
+					if (ttl  != -1){
+						redis.setTTL(batchKey, ttl);		
+					}
+				}
+				if (!ok) {
+					throw new RedisCacheException("We did not manage to store the result for query " + SQLQuery + "in redis");
+				}
+				// save the batch list under the main key
+				RedisCacheValuesList valuesList  = new RedisCacheValuesList();
+				valuesList.addReferenceKey(batchKey);
+				ok  = redis.put(k, valuesList.serialize());
+
+				if (ttl == -2){
+					redis.setTTL(k, defaultTTLinSec);
+				}else{
+					if (ttl  != -1){
+						redis.setTTL(k, ttl);		
+					}
+				}
+
+				// process the remaining row in a separate thread
+				CallableChunkedMatrixFetch chunkedMatrixFetch =  new CallableChunkedMatrixFetch(k, valuesList, item, ttl, SQLQuery, serializedRes.getNbLines(), limit);
+				this.executor.submit(chunkedMatrixFetch);
 			}
-			finally{
-				if (item!=null)
-					item.close();
-			}
-		}catch(SQLException e){
+			return true ;
+		} catch (ExecutionException e){
+			throw new RedisCacheException("Database Service exception for " + RSjdbcURL + " while executing the Query: "+e.getLocalizedMessage(), e) ;
+		} catch( SQLException | IOException e) {
 			throw new RedisCacheException("Database Service exception for " + RSjdbcURL + " while reading the Query results: "+e.getLocalizedMessage(), e) ;
 		}
 	}
-	
-	
-	private void fetchChunkedMatrix( String key, IExecutionItem item,  RawMatrixStreamExecRes serializedFirstChunk,  int ttl, String SQLQuery, long limit){
-		int nbBatches = 1;		
-		long batchLowerBound = 0;
-		long batchUpperBound =0 ;
-		boolean done = false; 
-		boolean ok;
-		RawMatrixStreamExecRes  nextRes = serializedFirstChunk;
-		RedisCacheValuesList valuesList  = new RedisCacheValuesList();
-		long nbLinesLeftToRead  = limit  ;
-		boolean error= false;
-		do{
-			nbLinesLeftToRead -= nextRes.getNbLines();
-			batchLowerBound  = batchUpperBound;
-			batchUpperBound= batchLowerBound+ nextRes.getNbLines();
-			String batchKey = key+"_"+batchLowerBound + "-" + batchUpperBound;
-			ok  = redis.put(batchKey, nextRes.getStreamedMatrix());
-			if (ttl == -2){
-				redis.setTTL(batchKey, this.defaultTTLinSec);
-			}else{
-				if (ttl  != -1){
-					redis.setTTL(batchKey, ttl);		
-				}
-			}
-			if (!ok) {
-				throw new RedisCacheException("We did not manage to store the result for query " + SQLQuery + "in redis");
-			}
-			valuesList.addReferenceKey(batchKey);
-			if (!nextRes.hasMore()){
-				valuesList.setDone();
-				ok = true;
-			}else{
-				try {
-					nextRes = RawMatrix.streamExecutionItemToByteArray(item, maxRecords, nbLinesLeftToRead) ;
-				} catch (IOException |SQLException  e) {
-					error = true;
-				}
-			}
-			if (error){
-				valuesList.setError();
-			}
-			
-			this.redis.put(key, valuesList.serialize());
-			nbBatches+=1;
-		
-		}while(!done && !error);
-		
-		if (ttl == -2){
-			redis.setTTL(key, this.defaultTTLinSec);
-		}else{
-			if (ttl  != -1){
-				redis.setTTL(key, ttl);		
-			}
-		}
-		
-	}
+
 
 	@Override
 	public int getLoad() {
-		// TODO Auto-generated method stub
-		return 0;
+		return this.load.get();
 	}
-	
+
+	public class CallableChunkedMatrixFetch implements Callable<Boolean> {
+
+		private String key ;
+		private IExecutionItem item;
+		private int ttl;
+		private String SQLQuery;
+		private long nbLinesLeftToRead;
+		private int nbBatches ;		
+		private long batchLowerBound;
+		private	long batchUpperBound;
+		private RedisCacheValuesList  valuesList;
+
+
+		public CallableChunkedMatrixFetch(String key, RedisCacheValuesList valuesList, IExecutionItem item, int ttl, String SQLQuery,long nbLinesRead, long limit){
+			this.key = key;
+			this.item= item;
+			this.ttl =  ttl;
+			this.SQLQuery = SQLQuery;
+			this.nbLinesLeftToRead = limit - nbLinesRead	;
+			this.batchLowerBound=0 ;
+			this.batchUpperBound = nbLinesRead;
+			this.valuesList  = valuesList;
+			this.nbBatches=1;
+		}
+
+		@Override
+		public Boolean call( ) throws SQLException{
+			boolean done = false; 
+			boolean ok;
+			RawMatrixStreamExecRes  nextBatch = null;
+			boolean error= false;
+			try{
+				load.incrementAndGet();
+
+				do{					
+					try {
+						nextBatch = RawMatrix.streamExecutionItemToByteArray(item, maxRecords, nbLinesLeftToRead) ;
+					} catch (IOException |SQLException  e) {
+						error = true;
+					}
+					if (error){
+						valuesList.setError();
+					}else{					
+						nbLinesLeftToRead -= nextBatch.getNbLines();
+						batchLowerBound  = batchUpperBound;
+						batchUpperBound= batchLowerBound+ nextBatch.getNbLines();
+						String batchKey = key+"_"+batchLowerBound + "-" + (batchUpperBound -1);
+						ok  = redis.put(batchKey, nextBatch.getStreamedMatrix());
+						if (ttl == -2){
+							redis.setTTL(batchKey, defaultTTLinSec);
+						}else{
+							if (ttl  != -1){
+								redis.setTTL(batchKey, ttl);		
+							}
+						}
+						valuesList.addReferenceKey(batchKey);
+						if (!ok) {
+							valuesList.setError();
+							error = true;
+						}
+					}
+
+					if (!nextBatch.hasMore()){
+						valuesList.setDone();
+						done = true;
+					}
+
+					redis.put(key, valuesList.serialize());
+					this.nbBatches+=1;
+
+				}while(!done && !error);
+
+				if (error){
+					throw new RedisCacheException("We did not manage to store the result for query " + SQLQuery + "in redis");
+				}else{
+					logger.debug("Result for  " + SQLQuery + "was split into "+ nbBatches +" batches");
+				}
+				return true;
+			}finally{
+				load.decrementAndGet();
+				if (item!=null)
+					item.close();
+
+			}		
+		}
+
+	}
+
 }

@@ -162,7 +162,7 @@ public class RedisCacheProxy implements IRedisCacheProxy {
 	private RawMatrix getChunkedRawMatrix (String key, RedisCacheValuesList refList ) throws ComputingException, ClassNotFoundException, IOException{
 		try (Jedis jedis  = getResourceFromPool()){	
 			
-			logger.info("chunked Matrix");
+			logger.info("Rebuilding chunked matrix from cache");
 			RedisCacheValuesList  currRef = refList;
 			int nbChunks= 0 ;
 			RawMatrix res = null;
