@@ -76,5 +76,14 @@ public class QueryWorkerServerStub implements IQueryWorkerServer {
 	public String hello(){
 		return "Hello Query Worker Stub server";
 	}
+
+	@Override
+	public int getLoad() {
+		WebClient client = WebClient.create(baseURL);
+		client.path("load");
+		
+		int res  = client.get(Integer.class);
+		return res;
+	}
 	
 }

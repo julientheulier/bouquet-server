@@ -236,6 +236,7 @@ public class BaseQuery implements IQuery {
 		}
 	}
 	
+
 	@Override
 	public SQLScript generateScript() throws SQLScopeException {
 		if (isQualifyRequired() && select.getSkin().getFeatureSupport(QualifySupport.ID)==ISkinFeatureSupport.IS_NOT_SUPPORTED) {
@@ -414,46 +415,6 @@ public class BaseQuery implements IQuery {
 		return new DataMatrix( database,  rawMatrix, mapper.getMeasureMapping(), mapper.getAxisMapping());
 	}
 	
- 
-	/**
-	 * run the getResult under the ExecutionManager control: make sure we are not consuming too much memory and cpu for reading resultset
-	 * @param item
-	 * @param maxRecords
-	 * @return
-	 * @throws SQLException
-	 * @throws ScopeException
-	 * @throws ComputingException
-	 */ 
-	protected RawMatrix readResults_executionPolicy(final IExecutionItem item, final long maxRecords) throws SQLException, ScopeException, ComputingException {
-		Future<RawMatrix> result = ExecutionManager.INSTANCE.submit(
-				universe.getProject().getCustomerId(),
-				new Callable<RawMatrix>() {
-					@Override
-					public RawMatrix call() throws ScopeException, SQLException, ComputingException  {
-						return readResults(item,maxRecords);
-					}
-				});
-		try {
-			return result.get();
-		} catch (InterruptedException e) {
-			// ticket:2922 if we never call the callable, the item is never closed
-			item.close();
-			throw new ComputingException(e);
-		} catch (ExecutionException e) {
-			// ticket:2922 if we never call the callable, the item is never closed
-			item.close();
-			if (e.getCause() instanceof ComputingException) {
-				throw ((ComputingException)e.getCause());
-			} else {
-				throw new ComputingException(e.getCause());
-			}
-		}
-	} 
-
-	protected RawMatrix readResults(IExecutionItem item, long maxRecords) throws SQLException, ScopeException, ComputingException {
-		return RawMatrix.readExecutionItem(item, maxRecords);
-	}
-
 	protected IExecutionItem runSQL() throws ExecutionException, RenderingException {
 		// allow to override select definition
 		return runSQL(render());

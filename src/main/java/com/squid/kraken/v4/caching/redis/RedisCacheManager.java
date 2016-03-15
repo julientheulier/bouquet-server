@@ -36,7 +36,6 @@ import org.slf4j.LoggerFactory;
 
 import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
 import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheReference;
-import com.squid.kraken.v4.caching.redis.datastruct.TripletMapping;
 import com.squid.kraken.v4.caching.redis.generationalkeysserver.GenerationalKeysServerFactory;
 import com.squid.kraken.v4.caching.redis.generationalkeysserver.IGenerationalKeysServer;
 import com.squid.kraken.v4.caching.redis.generationalkeysserver.RedisKey;
@@ -55,9 +54,6 @@ public class RedisCacheManager implements IRedisCacheManager  {
 	private AWSRedisCacheConfig conf;
 	private IQueriesServer queriesServ;
 	private IGenerationalKeysServer genkeysServ ;
-	//private ArrayList<ServerID> queriesWorkers;
-	
-	private HashSet<TripletMapping> mappings ;
 	
 	//constructors
 	
@@ -88,7 +84,6 @@ public class RedisCacheManager implements IRedisCacheManager  {
 		
 		this.genkeysServ= GenerationalKeysServerFactory.INSTANCE.getNewGenerationalKeysServer(conf, false); 
 		this.queriesServ = QueriesServerFactory.INSTANCE.getNewQueriesServer(conf,false);
-		this.mappings = new HashSet<TripletMapping>();
 		
 		this.genkeysServ.start();
 		this.queriesServ.start();
@@ -223,15 +218,6 @@ public class RedisCacheManager implements IRedisCacheManager  {
 	public RawMatrix getRawMatrix(String k){
 		RawMatrix r =this.redis.getRawMatrix(k);
 		return r;
-	}
-	
-	
-	public boolean addTripletMapping(TripletMapping t){
-		return this.mappings.add(t);
-	}
-	
-	public HashSet<TripletMapping> getMappings(){
-		return this.mappings;
 	}
 	
 }

@@ -61,4 +61,10 @@ public class QueryWorkerRestService {
 		return serv.hello();		
 	}
 	
+	@GET
+	@Path("/load")
+	public int getLoad(){
+		return this.serv.getLoad();
+	}
+	
 }
