@@ -45,6 +45,9 @@ public class DataMatrixExportSource implements IRawExportSource{
 	
 	private String[] columnNames;
 
+	private int[] columnMapping;
+
+	private boolean needReorder;
 
 	public DataMatrixExportSource(DataMatrix matrix){
 		this.matrix = matrix;
@@ -53,23 +56,45 @@ public class DataMatrixExportSource implements IRawExportSource{
 		this.columnTypes= new int[columnCount];
 		this.columnNames= new String[columnCount];
 		
-		int[] axesIndirection = matrix.getRows().get(0).getAxesIndirection();	
-		for(int i = 0; i <matrix.getAxes().size() ; i++ ){		
-			AxisValues av = matrix.getAxes().get(i);
-			int originalPos = axesIndirection[i];
-			
-			this.columnNames[originalPos]=  av.getAxis().getName();
-					//matrix.getPropertyToAlias().get(av.getAxis()) ;
-			this.columnTypes[originalPos] = matrix.getPropertyToInteger().get(av.getAxis());			
-		}		
+		this.columnMapping = new int[columnCount];
+		this.needReorder = false;// default
 		
-		int[] dataIndirection = matrix.getRows().get(0).getDataIndirection();
-		for(int i = 0; i <matrix.getKPIs().size() ; i++ ){		
-			Measure av = matrix.getKPIs().get(i);
-			int originalPos = dataIndirection[i];
-			this.columnNames[originalPos] = av.getName();
-					//matrix.getPropertyToAlias().get(av) ;
-			this.columnTypes[originalPos] = matrix.getPropertyToInteger().get(av);			
+		if (matrix.getRows().size()>0) {// if the matrix is empty, can't init and don't need it anyway
+			int countAxes = matrix.getAxes().size();
+			int[] axesIndirection = matrix.getRows().get(0).getAxesIndirection();
+			for(int i = 0; i <countAxes ; i++ ){		
+				AxisValues av = matrix.getAxes().get(i);
+				int originalPos = i;//axesIndirection[i];
+				
+				this.columnNames[originalPos]=  av.getAxis().getName();
+						//matrix.getPropertyToAlias().get(av.getAxis()) ;
+				this.columnTypes[originalPos] = matrix.getPropertyToInteger().get(av.getAxis());	
+				
+				// so we need the indirection
+				this.columnMapping[originalPos] = axesIndirection[i];
+				if (this.columnMapping[originalPos]!=originalPos) {
+					this.needReorder = true;
+				}
+			}		
+			
+			int[] dataIndirection = matrix.getRows().get(0).getDataIndirection();
+			for(int i = 0; i <matrix.getKPIs().size() ; i++ ){		
+				Measure av = matrix.getKPIs().get(i);
+				int originalPos = i+countAxes;//dataIndirection[i];
+				this.columnNames[originalPos] = av.getName();
+						//matrix.getPropertyToAlias().get(av) ;
+				this.columnTypes[originalPos] = matrix.getPropertyToInteger().get(av);	
+				
+				// so we need the indirection
+				this.columnMapping[originalPos] = dataIndirection[i];
+				if (this.columnMapping[originalPos]!=originalPos) {
+					this.needReorder = true;
+				}	
+			}
+			
+			if (columnCount<matrix.getRows().get(0).getRawRow().length) {
+				this.needReorder = true;
+			}
 		}
 	}
 	
@@ -126,9 +151,18 @@ public class DataMatrixExportSource implements IRawExportSource{
 		@Override
 		public Object[] next() {
 			if (this.hasNext()){
-				IndirectionRow ir = matrix.getRows().get(cursor) ;
-				cursor+=1;				
-				return ir.getRawRow();			
+				IndirectionRow ir = matrix.getRows().get(cursor++) ;
+				Object[] raw = ir.getRawRow();
+				if (needReorder) {
+					// reorder
+					Object[] reorder = new Object[columnCount];
+					for (int i=0;i<columnCount;i++) {
+						reorder[i] = raw[columnMapping[i]];
+					}
+					return reorder;
+				} else {
+					return raw;
+				}
 			}else{
 				throw new NoSuchElementException();
 			}			

@@ -202,6 +202,12 @@ public class DomainHierarchyCreator {
 				// handling sub-domains with full inclusion
 				if (parent == null) {
 					populateSubDomainHierarchyLazy(space,root,axis,result, type);
+					// add as an index too ?
+					if (!dimensionIndexInList(result, axis)) {
+						DimensionIndex index = DimensionIndexCreationUtils
+								.createIndex(root, axis, type);
+						result.add(index);
+					}
 				} else {
 					// not OK
 					logger.error("Invalid definition: Object dimension cannot have a parent");

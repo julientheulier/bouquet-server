@@ -97,6 +97,21 @@ public class Axis implements Property {
 	    this.name = name;
 	    return this;
 	}
+	
+	public Axis withNickname(Axis axis) {
+		if (axis.name!=null) {
+			this.name = axis.name;
+		}
+		return this;
+	}
+	
+	/**
+	 * check if the Axis has a name
+	 * @return
+	 */
+	public boolean hasName() {
+		return name!=null;
+	}
     
     public String getName() {
     	if (name!=null) {

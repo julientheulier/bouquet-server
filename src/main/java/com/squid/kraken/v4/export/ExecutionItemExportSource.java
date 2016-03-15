@@ -43,13 +43,15 @@ import com.squid.core.export.IRawExportSource;
 
 public class ExecutionItemExportSource implements IRawExportSource {
 	
-
 	private Schema schema;
-	private int[] types ;
 	
-	private String[] columnNames ;
+	private int columnCount; // number of actual column in the resultset
 	
-	private int columnCount ;
+	// mapping info
+	private int[] mappingTypes ;
+	private String[] mappingNames ;
+	private int mappingCount ;
+	private HashMap<Integer, Integer> mappingOrder;
 	private ResultSet rs ;
 	
 	public ExecutionItemExportSource(ExecuteAnalysisResult result,  CSVSettingsBean settings) throws SQLException{
@@ -59,9 +61,12 @@ public class ExecutionItemExportSource implements IRawExportSource {
 
 		ResultSetMetaData metadata = rs.getMetaData();
 		
-		this.columnCount =  metadata.getColumnCount();
+		this.columnCount = metadata.getColumnCount();
 		
-		this.columnNames = new String[columnCount];
+		this.mappingCount = result.getMapper().size();
+		this.mappingNames = new String[mappingCount];
+		this.mappingTypes = new int[mappingCount];
+		this.mappingOrder = new HashMap<>();
 		
 		// reverse SQL column mapping
 		HashMap<String, Integer> positions = new HashMap<>();
@@ -69,43 +74,48 @@ public class ExecutionItemExportSource implements IRawExportSource {
 			String columnName = metadata.getColumnName(i + 1);
 			positions.put(columnName, i);// use zero-base index
 		}
-		int check =0;
 		// map axis
+		int position = 0;
 		for (AxisMapping map : result.getMapper().getAxisMapping()) {
 			// look for actual name and position
 			String columnName = map.getPiece().getAlias();
-			Integer position = positions.get(columnName);
-			if (position==null) {
+			Integer lookup = positions.get(columnName);
+			if (lookup==null) {
 				throw new SQLException("cannot map "+map.getAxis().toString()+" from resultset");
 			}
-			columnNames[position] = map.getAxis().getName();
-			check++;
+			mappingNames[position] = map.getAxis().getName();
+			mappingOrder.put(lookup, position);
+			position++;
 		}
 		// map measures
 		for (MeasureMapping map : result.getMapper().getMeasureMapping()) {
 			// look for actual name and position
 			String columnName = map.getPiece().getAlias();
-			Integer position = positions.get(columnName);
-			if (position==null) {
+			Integer lookup = positions.get(columnName);
+			if (lookup==null) {
 				throw new SQLException("cannot map "+map.getMapping().toString()+" from resultset");
 			}
-			columnNames[position] = map.getMapping().getName();
-			check++;
-		}
-		if (check!=columnCount) {
-			throw new SQLException("cannot map all fields from resultset");
+			mappingNames[position] = map.getMapping().getName();
+			mappingOrder.put(lookup, position);
+			position++;
 		}
 	
 		IVendorSupport vendorSpecific = VendorSupportRegistry.INSTANCE
 				.getVendorSupport(item.getDatabase());
-		this.types = vendorSpecific
+		int[] rawTypes = vendorSpecific
 					.getVendorMetadataSupport().normalizeColumnType(rs);
+		for (int i=0;i<columnCount;i++) {
+			if (mappingOrder.containsKey(i)) {
+				int j = mappingOrder.get(i);
+				mappingTypes[j] = rawTypes[i];
+			}
+		}
 	}
 
 	@Override
 	public Schema getSchema() {
 		if(schema==null) {
-			this.schema = SchemaAvro.constructAvroSchema("Name", types, columnNames);
+			this.schema = SchemaAvro.constructAvroSchema("Name", mappingTypes, mappingNames);
 		}
 		return schema;
 	}
@@ -113,18 +123,18 @@ public class ExecutionItemExportSource implements IRawExportSource {
 
 	@Override
 	public int getNumberOfColumns() {
-		return this.columnCount;
+		return this.mappingCount;
 	}
 
 	@Override
 	public String getColumnName(int pos) {
-		return this.columnNames[pos].toLowerCase();
+		return this.mappingNames[pos].toLowerCase();
 	}
 
 	@Override
 	public int getColumnType(int pos) {
-		if (pos < columnCount){
-			return this.types[pos];
+		if (pos < mappingCount){
+			return this.mappingTypes[pos];
 		}else{
 			return -1;
 		}
@@ -144,10 +154,11 @@ public class ExecutionItemExportSource implements IRawExportSource {
 	
 	private class RowIterator implements Iterator<Object[]>{
 
-		boolean hasMore ;
+		boolean hasMore;
 		
 		public RowIterator() throws SQLException{
-			hasMore= rs.next() ;
+			hasMore = rs.next() ;
+			
 		}
 		
 		@Override
@@ -159,10 +170,15 @@ public class ExecutionItemExportSource implements IRawExportSource {
 		public Object[] next() {
 			try {
 				if (hasMore){				
-					Object[] nextLine = new Object[columnCount];
+					Object[] nextLine = new Object[mappingCount];
 					for (int i = 0; i < columnCount; i++) {
-						Object value = rs.getObject(i+1);
-						nextLine[i] = value;
+						if (mappingOrder.containsKey(i)) {
+							int j = mappingOrder.get(i);
+							Object value = rs.getObject(i+1);
+							nextLine[j] = value;
+						} else {
+							// 
+						}
 					}
 					hasMore= rs.next() ;
 					return nextLine;
@@ -185,12 +201,12 @@ public class ExecutionItemExportSource implements IRawExportSource {
 
 	@Override
 	public int[] getColumnTypes() {
-		return this.types;
+		return this.mappingTypes;
 	}
 
 	@Override
 	public String[] getColumnNames() {
-		return this.columnNames;
+		return this.mappingNames;
 	}
 
 }

@@ -97,5 +97,13 @@ public class QueryMapper {
     public List<AxisMapping> getAxisMapping() {
 		return ax_map;
 	}
+    
+    /**
+     * return the total number of mappings (axis+measure)
+     * @return
+     */
+    public int size() {
+    	return ax_map.size()+kx_map.size();
+    }
 
 }
