@@ -187,12 +187,12 @@ public class ExpressionEvaluator {
 		}
 		// DATE TRUNCATE
 		else if (extendedID.equals(DateTruncateOperatorDefinition.DATE_TRUNCATE) && op.getArguments().size()==2) {
-			return eval_date_truncate(eval(op.getArguments().get(0)), eval(op.getArguments().get(1)));
+			return eval_date_truncate(eval_single(op.getArguments().get(0)), eval(op.getArguments().get(1)));
 		}
 		// DATE TRUNCATE shortcuts
 		else if (extendedID.toUpperCase().startsWith(DateTruncateShortcutsOperatorDefinition.SHORTCUT_BASE.toUpperCase()) && op.getArguments().size()==1) {
-			String mode = extendedID.substring(DateTruncateShortcutsOperatorDefinition.SHORTCUT_BASE.length()+1);
-			return eval_date_truncate(eval(op.getArguments().get(0)), mode);
+			String mode = extendedID.substring(DateTruncateShortcutsOperatorDefinition.SHORTCUT_BASE.length());
+			return eval_date_truncate(eval_single(op.getArguments().get(0)), mode);
 		}
 		return null;
 	}
@@ -207,6 +207,7 @@ public class ExpressionEvaluator {
 				cal.setTime(date);
 				cal.set(Calendar.MONTH, 0);
 				cal.set(Calendar.DAY_OF_MONTH, 1);
+				cal.set(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH), 0, 0, 0);// reset hours
 				return cal.getTime();
 			}
 			if (mode.equalsIgnoreCase(DateTruncateOperatorDefinition.MONTH)) {
@@ -214,6 +215,7 @@ public class ExpressionEvaluator {
 				Calendar cal = Calendar.getInstance();
 				cal.setTime(date);
 				cal.set(Calendar.DAY_OF_MONTH, 1);
+				cal.set(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH), 0, 0, 0);// reset hours
 				return cal.getTime();
 			}
 			if (mode.equalsIgnoreCase(DateTruncateOperatorDefinition.WEEK)) {
@@ -221,27 +223,28 @@ public class ExpressionEvaluator {
 				Calendar cal = Calendar.getInstance();
 				cal.setTime(date);
 				cal.add(Calendar.DAY_OF_MONTH, 1-cal.get(Calendar.DAY_OF_WEEK));
+				cal.set(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH), 0, 0, 0);// reset hours
 				return cal.getTime();
 			}
 			if (mode.equalsIgnoreCase(DateTruncateOperatorDefinition.DAY)) {
 				// return the day with no time info
 				Calendar cal = Calendar.getInstance();
 				cal.setTime(date);
-				cal.set(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH));
+				cal.set(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH), 0, 0, 0);// reset hours
 				return cal.getTime();
 			}
 			if (mode.equalsIgnoreCase(DateTruncateOperatorDefinition.HOUR)) {
 				// return the day with only hour
 				Calendar cal = Calendar.getInstance();
 				cal.setTime(date);
-				cal.set(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH), cal.get(Calendar.HOUR_OF_DAY), 0);
+				cal.set(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH), cal.get(Calendar.HOUR_OF_DAY), 0, 0);
 				return cal.getTime();
 			}
 			if (mode.equalsIgnoreCase(DateTruncateOperatorDefinition.MINUTE)) {
 				// return the day with only minute
 				Calendar cal = Calendar.getInstance();
 				cal.setTime(date);
-				cal.set(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH), cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE));
+				cal.set(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH), cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE), 0);
 				return cal.getTime();
 			}
 			if (mode.equalsIgnoreCase(DateTruncateOperatorDefinition.SECOND)) {
