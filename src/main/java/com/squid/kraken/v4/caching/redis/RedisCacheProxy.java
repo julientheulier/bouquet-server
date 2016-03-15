@@ -170,7 +170,7 @@ public class RedisCacheProxy implements IRedisCacheProxy {
 			while (!done){
 				int nbChunksDone = nbChunks;
 				for(int i = nbChunksDone;  i <currRef.getReferenceKeys().size() ; i ++){
-					String chunkKey  = currRef.getReferenceKeys().get(nbChunks);
+					String chunkKey  = currRef.getReferenceKeys().get(nbChunks).referencedKey;
 					logger.info("chunk key " + chunkKey);
 					RawMatrix chunk = this.getRawMatrix(chunkKey) ;
 					res = RawMatrix.mergeMatrices(res, chunk);				
@@ -184,6 +184,7 @@ public class RedisCacheProxy implements IRedisCacheProxy {
 					currRef = (RedisCacheValuesList) val;
 				}
 			}
+			res.setRedisKey(key);
 			return res; 
 		}
 	}

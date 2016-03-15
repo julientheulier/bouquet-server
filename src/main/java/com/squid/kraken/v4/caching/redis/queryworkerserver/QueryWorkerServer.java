@@ -51,6 +51,7 @@ import com.squid.kraken.v4.caching.redis.RedisCacheException;
 import com.squid.kraken.v4.caching.redis.RedisCacheProxy;
 import com.squid.kraken.v4.caching.redis.ServerID;
 import com.squid.kraken.v4.caching.redis.SimpleDatabaseManager;
+import com.squid.kraken.v4.caching.redis.datastruct.ChunkRef;
 import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
 
 public class QueryWorkerServer implements IQueryWorkerServer {
@@ -160,7 +161,6 @@ public class QueryWorkerServer implements IQueryWorkerServer {
 				logger.info("The whole result set won't fit in one Redis chunk");	
 
 				// store first batch 
-				long nbLinesLeftToRead =  limit - serializedRes.getNbLines();
 				String batchKey = k+"_"+0 + "-" + (serializedRes.getNbLines()-1);
 				ok  = redis.put(batchKey, serializedRes.getStreamedMatrix());
 				if (ttl == -2){
@@ -175,7 +175,7 @@ public class QueryWorkerServer implements IQueryWorkerServer {
 				}
 				// save the batch list under the main key
 				RedisCacheValuesList valuesList  = new RedisCacheValuesList();
-				valuesList.addReferenceKey(batchKey);
+				valuesList.addReferenceKey( new ChunkRef(batchKey, 0,serializedRes.getNbLines()-1 ));
 				ok  = redis.put(k, valuesList.serialize());
 
 				if (ttl == -2){
@@ -259,7 +259,7 @@ public class QueryWorkerServer implements IQueryWorkerServer {
 								redis.setTTL(batchKey, ttl);		
 							}
 						}
-						valuesList.addReferenceKey(batchKey);
+						valuesList.addReferenceKey(new ChunkRef(batchKey, batchLowerBound, batchUpperBound));
 						if (!ok) {
 							valuesList.setError();
 							error = true;

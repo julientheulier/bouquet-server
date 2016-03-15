@@ -39,31 +39,31 @@ public class RedisCacheValuesList extends RedisCacheValue {
 
 	}
 	
-	private  ArrayList<String> referenceKeys ;
+	private  ArrayList<ChunkRef> referenceKeys ;
 	private State state;
 
 
 	public RedisCacheValuesList(){
-		this.referenceKeys  = new ArrayList<String>();
+		this.referenceKeys  = new ArrayList<ChunkRef>();
 		this.state = State.ONGOING;
 	}
 
 
-	public RedisCacheValuesList(ArrayList<String>  refs){
+	public RedisCacheValuesList(ArrayList<ChunkRef>  refs){
 		this();
 		this.referenceKeys = refs;
 	}
 
 
-	public void addReferenceKey(String key){
+	public void addReferenceKey(ChunkRef key){
 		this.referenceKeys.add(key);
 	}
 
-	public ArrayList<String>  getReferenceKeys() {
+	public ArrayList<ChunkRef>  getReferenceKeys() {
 		return referenceKeys;
 	}
 
-	public void setReferenceKey(ArrayList<String>  referenceKeys) {
+	public void setReferenceKey(ArrayList<ChunkRef>  referenceKeys) {
 		this.referenceKeys = referenceKeys;
 	}
 
@@ -104,8 +104,9 @@ public class RedisCacheValuesList extends RedisCacheValue {
 
 	protected void readObject(Input in) throws IOException, ClassNotFoundException{
 		int nbRefs = in.readInt();
-		for (int i = 0; i <nbRefs ; i++){
-			this.addReferenceKey(in.readString());    	
+		for (int i = 0; i <nbRefs ; i++)
+		{
+			this.addReferenceKey(new ChunkRef(in.readString(), in.readLong(), in.readLong()));    	
 		}    	
 		this.state=Enum.valueOf(State.class,  in.readString());
 	}
@@ -130,8 +131,10 @@ public class RedisCacheValuesList extends RedisCacheValue {
 
 		out.writeInt(RedisCacheType.CACHE_REFERENCE_LIST.ordinal());    
 		out.writeInt(this.referenceKeys.size());
-		for(String key : this.referenceKeys ){
-			out.writeString(key);
+		for(ChunkRef cr  : this.referenceKeys ){
+			out.writeString(cr.referencedKey);
+			out.writeLong(cr.lowerBound);
+			out.writeLong(cr.upperBound);
 		}
 		out.writeString(this.state.toString());
 	}    
