@@ -81,7 +81,6 @@ import com.squid.kraken.v4.model.Bookmark;
 import com.squid.kraken.v4.model.BookmarkConfig;
 import com.squid.kraken.v4.model.BookmarkPK;
 import com.squid.kraken.v4.model.Domain;
-import com.squid.kraken.v4.model.DomainPK;
 import com.squid.kraken.v4.model.Expression;
 import com.squid.kraken.v4.model.Facet;
 import com.squid.kraken.v4.model.FacetExpression;
@@ -342,65 +341,66 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 		int legacyMetricCount = 0;
 		HashMap<Integer, Integer> lookup = new HashMap<>();// convert simple indexes into analysisJob indexes
 		HashSet<Integer> metricSet = new HashSet<>();// mark metrics
-		if (analysis.getFacets() != null) {
-			for (AnalysisFacet facet : analysis.getFacets()) {
-				ExpressionAST colExpression = domainScope.parseExpression(facet
-						.getExpression());
-				if (colExpression.getName()!=null) {
-					if (facet.getName()!=null && !facet.equals(colExpression.getName())) {
-						throw new ScopeException("the facet name is ambiguous: "+colExpression.getName()+"/"+facet.getName()+" for expresion: "+facet
-								.getExpression());
-					}
-					// else
-					facet.setName(colExpression.getName());
+		if (analysis.getFacets()==null || analysis.getFacets().isEmpty()) {
+			throw new ScopeException("there is no defined facet, can't run the analysis");
+		}
+		for (AnalysisFacet facet : analysis.getFacets()) {
+			ExpressionAST colExpression = domainScope.parseExpression(facet
+					.getExpression());
+			if (colExpression.getName()!=null) {
+				if (facet.getName()!=null && !facet.equals(colExpression.getName())) {
+					throw new ScopeException("the facet name is ambiguous: "+colExpression.getName()+"/"+facet.getName()+" for expresion: "+facet
+							.getExpression());
 				}
-				IDomain image = colExpression.getImageDomain();
-				if (image.isInstanceOf(IDomain.AGGREGATE)) {
-					// it's a metric, we need to relink with the domain
-					if (!(colExpression instanceof ExpressionLeaf)) {
-						// add parenthesis if it is not a simple expression so A+B => domain.(A+B)
-						colExpression = ExpressionMaker.GROUP(colExpression);
-					}
-					// relink with the domain
-					ExpressionAST relink = ExpressionMaker.COMPOSE(
-							new DomainReference(universe, domain), colExpression);
-					// now it can be transformed into a measure
-					Measure m = universe.asMeasure(relink);
-					if (m == null) {
-						throw new ScopeException("cannot use expression='"
-								+ facet.getExpression() + "'");
-					}
-					Metric metric = new Metric();
-					metric.setExpression(new Expression(m.prettyPrint()));
-					String name = facet.getName();
-					if (name == null) {
-						name = m.prettyPrint();
-					}
-					metric.setName(name);
-					metrics.add(metric);
-					//
-					lookup.put(facetCount, legacyMetricCount++);
-					metricSet.add(facetCount);
-					facetCount++;
-				} else {
-					// it's a dimension
-					Axis axis = root.getUniverse().asAxis(colExpression);
-					if (axis == null) {
-						throw new ScopeException("cannot use expression='"
-								+ colExpression.prettyPrint() + "'");
-					}
-					ExpressionAST facetExp = ExpressionMaker.COMPOSE(
-							new SpaceExpression(root), colExpression);
-					String name = facet.getName();
-					if (name == null) {
-						name = formatName(axis.getDimension() != null ? axis
-								.getName() : axis.getDefinitionSafe().prettyPrint());
-					}
-					facets.add(new FacetExpression(facetExp.prettyPrint(), name));
-					//
-					lookup.put(facetCount, legacyFacetCount++);
-					facetCount++;
+				// else
+				facet.setName(colExpression.getName());
+			}
+			IDomain image = colExpression.getImageDomain();
+			if (image.isInstanceOf(IDomain.AGGREGATE)) {
+				// it's a metric, we need to relink with the domain
+				if (!(colExpression instanceof ExpressionLeaf)) {
+					// add parenthesis if it is not a simple expression so A+B => domain.(A+B)
+					colExpression = ExpressionMaker.GROUP(colExpression);
 				}
+				// relink with the domain
+				ExpressionAST relink = ExpressionMaker.COMPOSE(
+						new DomainReference(universe, domain), colExpression);
+				// now it can be transformed into a measure
+				Measure m = universe.asMeasure(relink);
+				if (m == null) {
+					throw new ScopeException("cannot use expression='"
+							+ facet.getExpression() + "'");
+				}
+				Metric metric = new Metric();
+				metric.setExpression(new Expression(m.prettyPrint()));
+				String name = facet.getName();
+				if (name == null) {
+					name = m.prettyPrint();
+				}
+				metric.setName(name);
+				metrics.add(metric);
+				//
+				lookup.put(facetCount, legacyMetricCount++);
+				metricSet.add(facetCount);
+				facetCount++;
+			} else {
+				// it's a dimension
+				Axis axis = root.getUniverse().asAxis(colExpression);
+				if (axis == null) {
+					throw new ScopeException("cannot use expression='"
+							+ colExpression.prettyPrint() + "'");
+				}
+				ExpressionAST facetExp = ExpressionMaker.COMPOSE(
+						new SpaceExpression(root), colExpression);
+				String name = facet.getName();
+				if (name == null) {
+					name = formatName(axis.getDimension() != null ? axis
+							.getName() : axis.getDefinitionSafe().prettyPrint());
+				}
+				facets.add(new FacetExpression(facetExp.prettyPrint(), name));
+				//
+				lookup.put(facetCount, legacyFacetCount++);
+				facetCount++;
 			}
 		}
 
@@ -423,9 +423,9 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 		}
 		
 		// handle orderBy
-		int pos = 1;
 		List<OrderBy> orderBy = new ArrayList<>();
-		if (analysis.getOrderBy() != null) {
+		int pos = 1;
+		if (analysis.getOrderBy()!=null) {
 			for (OrderBy order : analysis.getOrderBy()) {
 				if (order.getExpression()!=null) {
 					// let's try to parse it
@@ -463,8 +463,8 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 			}
 		}
 		// handle rollup - fix indexes
-		if (analysis.getRollups() != null) {
-			pos = 1;
+		pos = 1;
+		if (analysis.getRollups()!=null) {
 			for (RollUp rollup : analysis.getRollups()) {
 				if (rollup.getCol()>-1) {// ignore grand-total
 					// can't rollup on metric
