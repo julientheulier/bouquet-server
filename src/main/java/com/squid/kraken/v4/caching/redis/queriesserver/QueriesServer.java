@@ -44,11 +44,18 @@ public class QueriesServer implements IQueriesServer {
     static final Logger logger = LoggerFactory.getLogger(QueriesServer.class);
 	
     
+    public static enum LoadDistributionPolicy{
+    	ROUND_ROBIN, LESS_LOADED 
+    }
+    
+    
     private HashMap<String, ExecutorService> executors;
 	private ArrayList<IQueryWorkerServer> workers;
 	private boolean debug ;
 	
 	private int nextWorker=0;
+	
+	private  LoadDistributionPolicy policy = LoadDistributionPolicy.LESS_LOADED;
 	
 	private int threadPoolSize=5;
 
@@ -88,9 +95,36 @@ public class QueriesServer implements IQueriesServer {
 	
 	
 	private  IQueryWorkerServer getNextWorker(){
-		IQueryWorkerServer nextWorkerServ = this.workers.get(this.nextWorker);
-		this.nextWorker =(this.nextWorker+1)% this.workers.size();
-		return nextWorkerServ;
+		if(this.workers.size() == 1){
+			return this.workers.get(0);
+		}else{
+		
+			if (this.policy == LoadDistributionPolicy.LESS_LOADED){
+				IQueryWorkerServer bestWorkerServ = this.workers.get(0);
+				int minimumLoad =bestWorkerServ.getLoad() ;
+				if (minimumLoad == 0){
+					return bestWorkerServ;
+				}
+				for (int i= 1 ; i< this.workers.size(); i++){
+					int nextLoad = this.workers.get(i).getLoad();
+					if (nextLoad == 0){
+						return this.workers.get(i) ; //
+					}else{
+						if (nextLoad < minimumLoad){
+							minimumLoad = nextLoad;
+							bestWorkerServ = this.workers.get(i);
+						}
+					}
+				}
+				return bestWorkerServ;
+				
+			}else{
+				//defaul policy Round Robin
+				IQueryWorkerServer nextWorkerServ = this.workers.get(this.nextWorker);
+				this.nextWorker =(this.nextWorker+1)% this.workers.size();
+				return nextWorkerServ;
+			}
+		}
 	}
 	
 	@Override

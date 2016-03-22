@@ -23,6 +23,8 @@
  *******************************************************************************/
 package com.squid.kraken.v4.model;
 
+import org.mongodb.morphia.annotations.Property;
+
 import com.wordnik.swagger.annotations.ApiModelProperty;
 
 /**
@@ -43,7 +45,8 @@ public abstract class DynamicObject<PK extends GenericPK> extends LzPersistentBa
 	 * default is false, you need to explicitly set the dynamic flag when creating the object
 	 * (previous versions had a transient flag)
 	 */
-    private boolean isDynamic2 = false;
+	@Property(value="isDynamic2")// this is for compatibility with projects generated with prior version
+    private boolean isDynamic = false;
     
     public DynamicObject() {
 		super(null);
@@ -55,7 +58,7 @@ public abstract class DynamicObject<PK extends GenericPK> extends LzPersistentBa
 
 	public DynamicObject(PK id, boolean isDynamic) {
 		super(id);
-		this.isDynamic2 = isDynamic;
+		this.isDynamic = isDynamic;
 	}
     
 	public DynamicObject(PK id, String name) {
@@ -65,7 +68,7 @@ public abstract class DynamicObject<PK extends GenericPK> extends LzPersistentBa
     public DynamicObject(PK id, String name,
 			boolean isDynamic) {
     	super(id, name);
-    	this.isDynamic2 = isDynamic;
+    	this.isDynamic = isDynamic;
 	}
 	
 	@Override
@@ -79,11 +82,11 @@ public abstract class DynamicObject<PK extends GenericPK> extends LzPersistentBa
      */
     @ApiModelProperty(value = "indicates if the object is automatically generated. This property can be updated.")
     public boolean isDynamic() {
-		return isDynamic2;
+		return isDynamic;
 	}
     
     public void setDynamic(boolean isDynamic) {
-		this.isDynamic2 = isDynamic;
+		this.isDynamic = isDynamic;
 	}
 
 

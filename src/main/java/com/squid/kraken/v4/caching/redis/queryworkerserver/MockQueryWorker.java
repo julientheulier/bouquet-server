@@ -104,5 +104,10 @@ public class MockQueryWorker implements IQueryWorkerServer{
 	public String hello(){
 		return "Hello Mock Query Worker server";
 	}
+
+	@Override
+	public int getLoad() {
+		return 0;
+	}
 	
 }
