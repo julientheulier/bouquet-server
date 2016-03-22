@@ -28,6 +28,8 @@ public interface IQueryWorkerServer {
 
 	public boolean fetch(String k, String SQLQuery, String RSjdbcURL, String username, String pwd, int TTL, long limit);
 	public void start();
+
+	public int getLoad();
 	
 	public String hello();
 }

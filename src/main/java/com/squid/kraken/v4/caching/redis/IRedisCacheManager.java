@@ -28,7 +28,6 @@ import java.util.HashSet;
 import java.util.List;
 
 import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
-import com.squid.kraken.v4.caching.redis.datastruct.TripletMapping;
 import com.squid.kraken.v4.caching.redis.generationalkeysserver.RedisKey;
 
 public interface IRedisCacheManager {
@@ -69,9 +68,6 @@ public interface IRedisCacheManager {
 
 	public RawMatrix getRawMatrix(String k);
 
-	public boolean addTripletMapping(TripletMapping t);
-
-	public HashSet<TripletMapping> getMappings();
 	
 	public boolean addCacheReference(String sqlNoLimit, List<String> dependencies, String referencedKey );
 

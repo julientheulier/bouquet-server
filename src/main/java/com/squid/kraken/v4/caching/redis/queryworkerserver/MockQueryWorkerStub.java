@@ -75,6 +75,11 @@ public class MockQueryWorkerStub implements IQueryWorkerServer {
 	public String hello(){
 		return "Hello Mock Query Worker Stub server";
 	}
+
+	@Override
+	public int getLoad() {
+		return 0;
+	}
 	
 
 }

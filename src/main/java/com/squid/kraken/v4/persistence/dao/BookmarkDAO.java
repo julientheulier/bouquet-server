@@ -113,46 +113,47 @@ public class BookmarkDAO extends
 		}
 		boolean isAdmin = AccessRightsUtils.getInstance().hasRole(ctx,
 				accessRightHolder, Role.WRITE);
-		// check if path is a USER path
-		boolean isUserPath = path.startsWith(Bookmark.SEPARATOR + Bookmark.Folder.USER + Bookmark.SEPARATOR);
-		if (isUserPath) {
-			// get the userID
-			String pathUserId = path.substring((Bookmark.SEPARATOR
-					+ Bookmark.Folder.USER + Bookmark.SEPARATOR).length());
-			if (pathUserId.contains(Bookmark.SEPARATOR)) {
-				pathUserId = path.substring(0,
-						pathUserId.indexOf(Bookmark.SEPARATOR));
-			}
-			if (pathUserId.equals(ctx.getUser().getOid())) {
-				// path user id is current user : keep it like it is
+		String[] pathSplit = path.split("\\"+Bookmark.SEPARATOR);
+		if (pathSplit.length>1) {
+			// check if path is a USER path
+			boolean isUserPath = pathSplit[1].equals(Bookmark.Folder.USER.name());
+			if (isUserPath) {
+				// get the userID
+				String pathUserId = pathSplit[2];
+				if (pathUserId.equals(ctx.getUser().getOid())) {
+					// path user id is current user : keep it like it is
+				} else {
+					// check if this is a valid user id
+					DAOFactory
+							.getDAOFactory()
+							.getDAO(User.class)
+							.readNotNull(ctx,
+									new UserPK(ctx.getCustomerId(), pathUserId));
+					// check if ctx user is admin
+					if (!isAdmin) {
+						throw new InvalidCredentialsAPIException(
+								"User cannot write in /USER path", ctx.isNoError());
+					}
+				}
 			} else {
-				// check if this is a valid user id
-				DAOFactory
-						.getDAOFactory()
-						.getDAO(User.class)
-						.readNotNull(ctx,
-								new UserPK(ctx.getCustomerId(), pathUserId));
-				// check if ctx user is admin
-				if (!isAdmin) {
+				// check if path is SHARED path
+				if (!pathSplit[1].equals(Bookmark.Folder.SHARED.name())) {
+					// not shared
+					if (path.charAt(0) != Bookmark.SEPARATOR.charAt(0)) {
+						path = Bookmark.SEPARATOR + path;
+					}
+					// force current user's path
+					path = Bookmark.SEPARATOR + Bookmark.Folder.USER
+							+ Bookmark.SEPARATOR + ctx.getUser().getOid() + path;
+				} else if (!isAdmin) {
 					throw new InvalidCredentialsAPIException(
-							"User cannot write in /USER path", ctx.isNoError());
+							"User cannot write in " + Bookmark.Folder.SHARED, ctx.isNoError());
 				}
 			}
 		} else {
-			// check if path is SHARED path
-			String sharedPrefix = Bookmark.SEPARATOR + Bookmark.Folder.SHARED;
-			if (!path.startsWith(sharedPrefix)) {
-				// not is shared
-				if (path.charAt(0) != Bookmark.SEPARATOR.charAt(0)) {
-					path = Bookmark.SEPARATOR + path;
-				}
-				// force in current user's path
-				path = Bookmark.SEPARATOR + Bookmark.Folder.USER
-						+ Bookmark.SEPARATOR + ctx.getUser().getOid() + path;
-			} else if (!isAdmin) {
-				throw new InvalidCredentialsAPIException(
-						"User cannot write in " + sharedPrefix, ctx.isNoError());
-			}
+			// force current user's path
+			path = Bookmark.SEPARATOR + Bookmark.Folder.USER
+					+ Bookmark.SEPARATOR + ctx.getUser().getOid() + path;
 		}
 		// remove any leading slash
 		if (path.endsWith(Bookmark.SEPARATOR)) {

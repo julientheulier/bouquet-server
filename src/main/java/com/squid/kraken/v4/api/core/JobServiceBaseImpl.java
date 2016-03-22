@@ -469,7 +469,6 @@ extends GenericServiceImpl<T, PK> {
 					jobToStart = super.read(ctx, jobToStart.getId());
 				} catch (ExecutionException e1) {
 					logger.warn("job computation exception : "+e1.getMessage(), e1);
-
 					if ( e1.getCause() instanceof NotInCacheException){
 						NotInCacheException ae  = (NotInCacheException) e1.getCause();
 						throw ae;
@@ -487,6 +486,7 @@ extends GenericServiceImpl<T, PK> {
 					jobToStart = submit.get();
 				} catch (InterruptedException | ExecutionException e) {
 					logger.warn("job computation exception : "+e.getMessage(), e);
+
 					if ( e instanceof ExecutionException && e.getCause() instanceof NotInCacheException){
 						APIException ae  = (NotInCacheException) e.getCause();
 						throw ae;
