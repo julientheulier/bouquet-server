@@ -248,10 +248,6 @@ public class RawMatrix extends RedisCacheValue {
 				Object[] rawrow = new Object[nbColumns];
 
 				i = 0;
-<<<<<<< HEAD
-=======
-
->>>>>>> branch 'develop' of https://github.com/openbouquet/bouquet-server
 				while (i < nbColumns) {
 					Object value = result.getObject(i + 1);
 					Object unbox = formatter.unboxJDBCObject(value, matrix.colTypes.get(i));
