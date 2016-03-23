@@ -44,7 +44,7 @@ public class RedisCacheProxy implements IRedisCacheProxy {
 
 	static final Logger logger = LoggerFactory.getLogger(RedisCacheProxy.class);
 
-	private static  RedisCacheProxy INSTANCE;
+	private static  IRedisCacheProxy INSTANCE;
 
 	private String REDIShost ="localhost" ;
 	private int REDISport =6379 ;
@@ -62,6 +62,14 @@ public class RedisCacheProxy implements IRedisCacheProxy {
 			INSTANCE = new RedisCacheProxy();
 		}
 		return INSTANCE;
+	}
+	
+	/**
+	 * internal method to support the mock proxy - we should have a clean factory here
+	 * @param instance
+	 */
+	protected static void initInstance(IRedisCacheProxy instance) {
+		INSTANCE = instance;
 	}
 
 	public RedisCacheProxy(){

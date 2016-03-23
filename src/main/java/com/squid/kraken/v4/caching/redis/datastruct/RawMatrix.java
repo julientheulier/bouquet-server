@@ -40,13 +40,11 @@ import com.squid.kraken.v4.api.core.SQLStats;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.squid.core.csv.CSVWriter;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.core.jdbc.engine.IExecutionItem;
 import com.squid.core.jdbc.formatter.IJDBCDataFormatter;
 import com.squid.core.jdbc.vendor.IVendorSupport;
 import com.squid.core.jdbc.vendor.VendorSupportRegistry;
-import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValue.RedisCacheType;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionValuesDictionary;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.esotericsoftware.kryo.Kryo;
@@ -248,10 +246,6 @@ public class RawMatrix extends RedisCacheValue {
 				Object[] rawrow = new Object[nbColumns];
 
 				i = 0;
-<<<<<<< HEAD
-=======
-
->>>>>>> branch 'develop' of https://github.com/openbouquet/bouquet-server
 				while (i < nbColumns) {
 					Object value = result.getObject(i + 1);
 					Object unbox = formatter.unboxJDBCObject(value, matrix.colTypes.get(i));

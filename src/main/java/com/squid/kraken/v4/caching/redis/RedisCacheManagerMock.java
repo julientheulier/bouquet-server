@@ -26,7 +26,6 @@ package com.squid.kraken.v4.caching.redis;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 
 import org.apache.commons.codec.digest.DigestUtils;
@@ -38,6 +37,7 @@ import com.squid.kraken.v4.caching.redis.generationalkeysserver.GenerationalKeys
 import com.squid.kraken.v4.caching.redis.generationalkeysserver.IGenerationalKeysServer;
 import com.squid.kraken.v4.caching.redis.generationalkeysserver.RedisKey;
 import com.squid.kraken.v4.caching.redis.queriesserver.IQueriesServer;
+import com.squid.kraken.v4.caching.redis.queriesserver.QueriesServerFactory;
 
 public class RedisCacheManagerMock implements IRedisCacheManager  {
 
@@ -69,28 +69,25 @@ public class RedisCacheManagerMock implements IRedisCacheManager  {
 	public void startCacheManager(){
 		if (this.genkeysServ == null) {
 			logger.info("starting cache manager");
-	
-			this.genkeysServ= new GenerationalKeysServerMock();
-			this.genkeysServ.start();
+
+			// need to init before the queriesServer
 			this.redis =  RedisCacheProxyMock.getInstance();
+			
+			this.genkeysServ= new GenerationalKeysServerMock();
+			this.queriesServ = QueriesServerFactory.INSTANCE.getNewQueriesServer(conf,true);
+			this.genkeysServ.start();
+			this.queriesServ.start();
 		}
 	}
 	
 	
 	public RawMatrix getData(String SQLQuery, List<String> dependencies, String RSjdbcURL,
-		String username, String pwd, int TTLinSec, long limit) throws InterruptedException{
+			String username, String pwd, int TTLinSec, long limit) throws InterruptedException{
 		//
 		// generate the key by adding projectID and SQL
-		String key = "";
-		if (dependencies.size()>0) {
-			key += dependencies.get(0);
-		}
-		key += "-" + DigestUtils.sha256Hex(SQLQuery);
-		//
-		RedisKey rk = getKey(key, dependencies);
-		String k = rk.getStringKey();
+		String k = buildCacheKey(SQLQuery, dependencies);
 		boolean inCache = this.inCache(k);
-		logger.info("cache hit = " + inCache + " for key = " + k);
+		logger.debug("cache hit = " + inCache + " for key = " + k);
 		if (!inCache){
 			boolean fetchOK = this.fetch(k, SQLQuery, RSjdbcURL, username, pwd,TTLinSec, limit );
 			if (!fetchOK){
@@ -101,6 +98,18 @@ public class RedisCacheManagerMock implements IRedisCacheManager  {
 		RawMatrix res = getRawMatrix(k);
 		res.setFromCache(inCache);
 		return res;
+	}
+
+	private String buildCacheKey(String SQLQuery, List<String> dependencies){
+		String key = "";
+		if (dependencies.size()>0) {
+			key += dependencies.get(0);
+		}
+		key += "-" + DigestUtils.sha256Hex(SQLQuery);
+		//
+		RedisKey rk = getKey(key, dependencies);
+		return rk.getStringKey();
+		
 	}
 	
 	public void clear(){

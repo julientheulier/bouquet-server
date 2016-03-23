@@ -23,46 +23,44 @@
  *******************************************************************************/
 package com.squid.kraken.v4.caching.redis.queriesserver;
 
-import java.util.ArrayList;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.squid.kraken.v4.caching.redis.AWSRedisCacheConfig;
-import com.squid.kraken.v4.caching.redis.ServerID;
 
 public class QueriesServerFactory {
 
 	public static final QueriesServerFactory INSTANCE = new QueriesServerFactory();
-	
-    static final Logger logger = LoggerFactory.getLogger(QueriesServerFactory.class);
 
-    private static IQueriesServer instServ =null;
-    
-    public IQueriesServer getQueriesServer(){
-    	return instServ;
-    }    
-    	
-    public IQueriesServer getNewQueriesServer(AWSRedisCacheConfig conf, boolean onLocalhost ){
-    	if (instServ ==null){
-    		if(onLocalhost || conf.getQueriesServerID().port==-1){
-    			instServ=  new QueriesServer(conf);
-    		}else{
-    			instServ= new QueriesServerStub(conf.getQueriesServerID(), conf.getAppName());
-    		}
-    	}
-    	return instServ;
-    }
-    
-/*    public IQueriesServer getQueriesServer(ServerID id, ServerID redisID, ArrayList<ServerID> workersID,  
-    		String RedShiftURL, String RSusername, String RSpassword,  boolean onLocalhost ){
-    	
-		if(onLocalhost || 						
-			(id.host.equals("localhost") && id.port==-1)){
-			return  new QueriesServer(redisID,workersID, RedShiftURL, RSusername, RSpassword);
-		}else{
-			return new QueriesServerStub(id);
+	static final Logger logger = LoggerFactory.getLogger(QueriesServerFactory.class);
+
+	private static IQueriesServer instServ = null;
+
+	public IQueriesServer getQueriesServer() {
+		return instServ;
+	}
+
+	public IQueriesServer getNewQueriesServer(AWSRedisCacheConfig conf, boolean onLocalhost) {
+		if (instServ == null) {
+			if (onLocalhost || conf == null) {
+				instServ = new QueriesServer(new AWSRedisCacheConfig());
+			} else if (conf.getQueriesServerID().port == -1) {
+				instServ = new QueriesServer(conf);
+			} else {
+				instServ = new QueriesServerStub(conf.getQueriesServerID(), conf.getAppName());
+			}
 		}
-    }*/
-    
+		return instServ;
+	}
+
+	/*
+	 * public IQueriesServer getQueriesServer(ServerID id, ServerID redisID,
+	 * ArrayList<ServerID> workersID, String RedShiftURL, String RSusername,
+	 * String RSpassword, boolean onLocalhost ){
+	 * 
+	 * if(onLocalhost || (id.host.equals("localhost") && id.port==-1)){ return
+	 * new QueriesServer(redisID,workersID, RedShiftURL, RSusername,
+	 * RSpassword); }else{ return new QueriesServerStub(id); } }
+	 */
+
 }

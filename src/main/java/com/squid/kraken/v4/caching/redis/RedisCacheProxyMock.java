@@ -25,13 +25,18 @@ package com.squid.kraken.v4.caching.redis;
 
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
+import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheReference;
+import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValue;
+import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValuesList;
 import com.squid.kraken.v4.caching.redis.generationalkeysserver.RedisKey;
+import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 
 public class RedisCacheProxyMock implements IRedisCacheProxy{
 
@@ -45,6 +50,7 @@ public class RedisCacheProxyMock implements IRedisCacheProxy{
 	public static IRedisCacheProxy getInstance(ServerID redisID) {
 		if (INSTANCE == null) {
 			INSTANCE = new RedisCacheProxyMock(redisID);
+			RedisCacheProxy.initInstance(INSTANCE);
 		}
 		return INSTANCE;
 
@@ -53,6 +59,7 @@ public class RedisCacheProxyMock implements IRedisCacheProxy{
 	public static IRedisCacheProxy getInstance() {
 		if (INSTANCE == null) {
 			INSTANCE = new RedisCacheProxyMock();
+			RedisCacheProxy.initInstance(INSTANCE);
 		}
 		return INSTANCE;
 	}
@@ -84,7 +91,7 @@ public class RedisCacheProxyMock implements IRedisCacheProxy{
 		return true;
 	}
 
-	public RawMatrix getRawMatrix(String key) {
+	public RawMatrix getRawMatrixOld(String key) {
 		byte[] serialized = cache.get(key.getBytes());
 		try {
 			RawMatrix res = RawMatrix.deserialize(serialized);
@@ -94,6 +101,76 @@ public class RedisCacheProxyMock implements IRedisCacheProxy{
 			e.printStackTrace();
 			return null;
 		}
+	}
+
+	public RawMatrix getRawMatrix(String key){
+		try {	
+
+			HashSet<String> pastKeys=  new HashSet<String>(); // do not get trapped in circular references
+			String currKey = key;
+			while(true){
+
+				byte[] serialized = cache.get(currKey.getBytes());
+
+				RedisCacheValue  val = RedisCacheValue.deserialize(serialized);
+				if (val instanceof RawMatrix){
+					RawMatrix res= (RawMatrix) val;
+					res.setRedisKey(currKey); 
+					return res;
+				}else{
+					if(val instanceof  RedisCacheReference){	
+						RedisCacheReference ref = (RedisCacheReference )val ;
+						logger.info("Cache Reference : "+ currKey + "   " +  ref.getReferenceKey());
+						pastKeys.add(currKey);
+						currKey = ref.getReferenceKey();
+						if (pastKeys.contains(currKey)){
+							throw new RuntimeException();
+						}
+
+					}else{
+						if(val instanceof RedisCacheValuesList){
+							RedisCacheValuesList  refList = (RedisCacheValuesList) val;
+							return  this.getChunkedRawMatrix(key, refList);
+						}else{
+							throw new ClassNotFoundException();
+						}
+					}
+				}
+			}
+
+		} catch (RuntimeException | ClassNotFoundException | IOException | ComputingException e) {
+			logger.error("failed to getRawMatrix() on key="+key);
+			throw new RuntimeException("Jedis: getRawMatrix() failed on key="+key, e);
+		} 
+	}
+
+
+
+	private RawMatrix getChunkedRawMatrix (String key, RedisCacheValuesList refList ) throws ComputingException, ClassNotFoundException, IOException{
+		logger.info("Rebuilding chunked matrix from cache");
+		RedisCacheValuesList currRef = refList;
+		int nbChunks = 0;
+		RawMatrix res = null;
+		boolean done = false;
+		while (!done) {
+			int nbChunksDone = nbChunks;
+			for (int i = nbChunksDone; i < currRef.getReferenceKeys().size(); i++) {
+				String chunkKey = currRef.getReferenceKeys().get(nbChunks).referencedKey;
+				logger.info("chunk key " + chunkKey);
+				RawMatrix chunk = this.getRawMatrix(chunkKey);
+				res = RawMatrix.mergeMatrices(res, chunk);
+				nbChunks++;
+			}
+			if (currRef.isDone()) {
+				done = true;
+			} else {
+				byte[] serialized = cache.get(key.getBytes());
+				RedisCacheValue val = RedisCacheValue.deserialize(serialized);
+				currRef = (RedisCacheValuesList) val;
+			}
+		}
+		res.setRedisKey(key);
+		return res; 
 	}
 
 	public byte[] get(String key) {
