@@ -20,6 +20,8 @@ public class SimpleAnalysis implements Analysis {
 	private Long offset;
 
 	private Long limit;
+	
+	private String bookmarkId;
 
 	public SimpleAnalysis() {
 	}
@@ -130,6 +132,16 @@ public class SimpleAnalysis implements Analysis {
 		this.limit = limit;
 	}
 	
+	@Override
+	public String getBookmarkId() {
+		return bookmarkId;
+	}
+
+	@Override
+	public void setBookmarkId(String bookmarkId) {
+		this.bookmarkId = bookmarkId;
+	}
+
 	static public class SimpleFacet implements AnalysisFacet {
 
 		private String name;
@@ -152,7 +164,6 @@ public class SimpleAnalysis implements Analysis {
 			this.expression = expression;
 		}
 	
-		
 	}
 	
 }

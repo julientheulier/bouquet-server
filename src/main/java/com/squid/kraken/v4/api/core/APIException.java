@@ -50,6 +50,18 @@ public class APIException extends RuntimeException {
 		this.noError = noError;
 		this.apiError = apiError;
 	}
+	
+	public APIException(String message) {
+		this(message, null, false, null);
+	}
+
+	public APIException(String message, ApiError apiError) {
+		this(message, null, false, apiError);
+	}
+
+	public APIException(Throwable cause) {
+		this(null, cause, false, null);
+	}
 
 	public APIException(String message, boolean noError) {
 		this(message, null, noError, null);
