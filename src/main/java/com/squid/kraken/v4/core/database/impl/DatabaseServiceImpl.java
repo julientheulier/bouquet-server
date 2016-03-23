@@ -122,33 +122,26 @@ public class DatabaseServiceImpl implements DatabaseService {
 				}
 		    }
 		    
-		    try {
-		    	for (String driverName : drivers) {
-		    		try {
-			    		Driver driver = (Driver)Class.forName(driverName, true, dd).newInstance();
-			    		Enumeration<Driver> availableDrivers = DriverManager.getDrivers();
-						Boolean duplicate = false;
-						while(availableDrivers.hasMoreElements()){
-							Driver already = availableDrivers.nextElement();
-							if(already instanceof DriverShim){
-								if(((DriverShim) already).getName() == driver.getClass().getName()){
-									duplicate = true;
-								}
+		    // load registered drivers
+	    	for (String driverName : drivers) {
+	    		try {
+		    		Driver driver = (Driver)Class.forName(driverName, true, dd).newInstance();
+		    		Enumeration<Driver> availableDrivers = DriverManager.getDrivers();
+					Boolean duplicate = false;
+					while(availableDrivers.hasMoreElements()){
+						Driver already = availableDrivers.nextElement();
+						if(already instanceof DriverShim){
+							if(((DriverShim) already).getName() == driver.getClass().getName()){
+								duplicate = true;
 							}
 						}
-						if(logger.isDebugEnabled()){logger.debug("driver available "+driver.getClass());};
-						if(!duplicate){DriverManager.registerDriver(new DriverShim(driver));};
-		    		} catch (ClassNotFoundException	e){
-		    			logger.warn("Cannot find the jdbc driver for "+driverName);
-		    		}
-		    	}
-		    	
-		    	
-		    	
-			} catch (InstantiationException | IllegalAccessException | SQLException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
+					}
+					logger.info("driver available "+driver.getClass());
+					if(!duplicate){DriverManager.registerDriver(new DriverShim(driver));};
+	    		} catch (Throwable	e){
+	    			logger.warn("Cannot find the jdbc driver for "+driverName);
+	    		}
+	    	}
 		}
 		Thread.currentThread().setContextClassLoader(classloader);
 
