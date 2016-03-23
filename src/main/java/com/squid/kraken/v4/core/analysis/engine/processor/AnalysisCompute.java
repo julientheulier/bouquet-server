@@ -79,7 +79,7 @@ public class AnalysisCompute {
 
 	static final Logger logger = LoggerFactory.getLogger(AnalysisCompute.class);
 	
-	private static final boolean SUPPORT_SOFT_FILTERS= false; // turn to true to support soft-filter optimization
+	private static final boolean SUPPORT_SOFT_FILTERS = false; // turn to true to support soft-filter optimization
 
 	public AnalysisCompute(Universe universe) {
 		this.universe = universe;
