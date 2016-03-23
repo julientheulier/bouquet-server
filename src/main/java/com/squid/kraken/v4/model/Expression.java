@@ -38,18 +38,15 @@ public class Expression implements Serializable {
     private String value;
     
     // T450
-    @JsonIgnore
     @ApiModelProperty(hidden=true)
     private String internal = null;// store the identifier only reference expression
     
     // T446
-    @JsonIgnore
     @ApiModelProperty(hidden=true)
     private int level = 0;// level of references (0=no model references, 1=at least one indirect reference, ...)
     
-    @JsonIgnore
     @ApiModelProperty(hidden=true)
-    private Collection<ReferencePK> references = null;
+    private Collection<ReferencePK> references2 = null;
     
     public Expression() {
     }
@@ -100,11 +97,11 @@ public class Expression implements Serializable {
 	}
     
     public Collection<ReferencePK> getReferences() {
-		return references;
+		return references2;
 	}
     
     public void setReferences(Collection<ReferencePK> references) {
-		this.references = references;
+		this.references2 = references;
 	}
 
     @Override
