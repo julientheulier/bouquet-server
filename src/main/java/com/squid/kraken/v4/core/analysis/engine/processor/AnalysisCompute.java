@@ -78,6 +78,8 @@ public class AnalysisCompute {
 	private boolean mandatory_link = false;
 
 	static final Logger logger = LoggerFactory.getLogger(AnalysisCompute.class);
+	
+	private static final boolean SUPPORT_SOFT_FILTERS = false; // turn to true to support soft-filter optimization
 
 	public AnalysisCompute(Universe universe) {
 		this.universe = universe;
@@ -134,7 +136,7 @@ public class AnalysisCompute {
 			return dm;
 		} else {
 			// disable the optimizing when using the limit feature
-			boolean optimize = !analysis.hasLimit() && !analysis.hasOffset()
+			boolean optimize = SUPPORT_SOFT_FILTERS && !analysis.hasLimit() && !analysis.hasOffset()
 					&& !analysis.hasRollup();
 			return computeAnalysisOpt(analysis, optimize);
 		}
