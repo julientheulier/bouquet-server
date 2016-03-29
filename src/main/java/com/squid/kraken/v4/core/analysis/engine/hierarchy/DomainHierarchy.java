@@ -446,7 +446,7 @@ public class DomainHierarchy {
     public DimensionIndex getDimensionIndex(Axis axis) {
         DimensionIndex check = lookup.get(axis);
         if (check==null) {
-        	logger.error("cannot lookup DimensionIndex for Axis "+axis);
+        	//logger.error("cannot lookup DimensionIndex for Axis "+axis);
         }
         return check;
     }
