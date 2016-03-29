@@ -285,8 +285,8 @@ public class DomainHierarchyQueryGenerator {
 						if (partition.isPartitionKey(column)) {
 							List<PartitionTable> partitions = partition
 									.getPartitionTables();
-							Comparable<?> lower = null;
-							Comparable<?> upper = null;
+							Object lower = null;
+							Object upper = null;
 							for (PartitionTable partitionTable : partitions) {
 								// using stats not working on GP for now
 								/*
@@ -318,16 +318,14 @@ public class DomainHierarchyQueryGenerator {
 											if (lower == null) {
 												lower = range.getUpperBound();
 											} else {
-												if (range.getUpperBound()
-														.compareTo(lower) < 0) {
+												if (range.compareUpperBoundTo(lower) < 0) {
 													lower = range.getUpperBound();
 												}
 											}
 											if (upper == null) {
 												upper = range.getLowerBound();
 											} else {
-												if (range.getLowerBound()
-														.compareTo(upper) > 0) {
+												if (range.compareLowerBoundTo(upper) > 0) {
 													upper = range.getLowerBound();
 												}
 											}
