@@ -156,6 +156,7 @@ public class BaseQuery implements IQuery {
         	orderBy.add(order);
             SimpleMapping m = mapper.find(order.getExpression());
             if (m!=null) {
+            	m.setOrdering(order.getOrdering());
                 select.orderBy(m.getPiece()).setOrdering(order.getOrdering());
             } else {
             	if (checkAllowOrderBy(order)) {
