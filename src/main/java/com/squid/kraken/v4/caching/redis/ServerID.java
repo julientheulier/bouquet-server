@@ -26,7 +26,7 @@ package com.squid.kraken.v4.caching.redis;
 // a container to carry  hostname +port
 
 public class ServerID {
-	public String host;
+	public String host = "localhost";
 	public int port;	
 	
 	public ServerID(){

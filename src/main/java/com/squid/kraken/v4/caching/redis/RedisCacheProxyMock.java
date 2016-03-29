@@ -24,6 +24,7 @@
 package com.squid.kraken.v4.caching.redis;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -35,27 +36,10 @@ import com.squid.kraken.v4.caching.redis.generationalkeysserver.RedisKey;
 
 public class RedisCacheProxyMock implements IRedisCacheProxy{
 
-	Map<byte[], byte[]> cache = new HashMap<byte[], byte[]>();
+	Map<ByteBuffer, byte[]> cache = new HashMap<ByteBuffer, byte[]>();
 
 	static final Logger logger = LoggerFactory
 			.getLogger(RedisCacheProxyMock.class);
-
-	private static RedisCacheProxyMock INSTANCE;
-
-	public static IRedisCacheProxy getInstance(ServerID redisID) {
-		if (INSTANCE == null) {
-			INSTANCE = new RedisCacheProxyMock(redisID);
-		}
-		return INSTANCE;
-
-	}
-
-	public static IRedisCacheProxy getInstance() {
-		if (INSTANCE == null) {
-			INSTANCE = new RedisCacheProxyMock();
-		}
-		return INSTANCE;
-	}
 
 	public RedisCacheProxyMock() {
 	}
@@ -80,12 +64,12 @@ public class RedisCacheProxyMock implements IRedisCacheProxy{
 	}
 
 	public boolean put(byte[] k, byte[] v) {
-		cache.put(k, v);
+		cache.put(ByteBuffer.wrap(k), v);
 		return true;
 	}
 
 	public RawMatrix getRawMatrix(String key) {
-		byte[] serialized = cache.get(key.getBytes());
+		byte[] serialized = cache.get(ByteBuffer.wrap(key.getBytes()));
 		try {
 			RawMatrix res = RawMatrix.deserialize(serialized);
 			res.setRedisKey(key);
@@ -97,7 +81,7 @@ public class RedisCacheProxyMock implements IRedisCacheProxy{
 	}
 
 	public byte[] get(String key) {
-		byte[] res = cache.get(key.getBytes());
+		byte[] res = cache.get(ByteBuffer.wrap(key.getBytes()));
 		return res;
 	}
 
@@ -106,7 +90,7 @@ public class RedisCacheProxyMock implements IRedisCacheProxy{
 	}
 
 	public boolean inCache(String key) {
-		boolean res = cache.containsKey(key.getBytes());
+		boolean res = cache.containsKey(ByteBuffer.wrap(key.getBytes()));
 		return res;
 	}
 

@@ -68,53 +68,6 @@ public class IndirectionRow implements Comparable<IndirectionRow>  {
 	public int[] getDataIndirection(){
 		return this.dataIndirection;
 	}
-	
-
-	public void mergeRows(IndirectionRow left, IndirectionRow right, int[] indirAxes, int[] indirData){
-		int nbColumns = indirAxes.length + indirData.length;
-		this.axesIndirection = indirAxes;
-		this.dataIndirection = indirData;
-		this.rawrow = new Object[nbColumns];
-
-		// we have to reorder
-		if(left == null  && right == null)
-			return;
-		else {
-			if (left == null){
-				// copy axes
-				int rrInd=0;
-				for(int i = 0; i < right.getAxesCount() ; i++){
-					this.rawrow[rrInd] = right.getAxisValue(i);
-					rrInd++ ;
-				}
-				// go directly to right part
-				rrInd = nbColumns - right.getDataCount();
-				for(int i = 0; i < right.getDataCount() ; i++){
-					this.rawrow[rrInd] = right.getDataValue(i);
-					rrInd++ ;
-				}
-			}else{
-				// copy axes
-				int rrInd=0;
-				for(int i = 0; i < left.getAxesCount() ; i++){
-					this.rawrow[rrInd] = left.getAxisValue(i);
-					rrInd++ ;
-				}
-				// copy left part
-				for(int i = 0; i < left.getDataCount() ; i++){
-					this.rawrow[rrInd] = left.getDataValue(i);
-					rrInd++ ;
-				}
-				if (right != null){
-					// copy right part
-					for(int i = 0; i < right.getDataCount() ; i++){
-						this.rawrow[rrInd] = right.getDataValue(i);
-						rrInd++ ;
-					}
-				}
-			}
-		}		
-	}
 
 	public int compareTo(IndirectionRow irthat) {
 	 	if (this==irthat) return 0;
