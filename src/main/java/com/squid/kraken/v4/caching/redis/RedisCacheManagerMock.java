@@ -43,8 +43,6 @@ public class RedisCacheManagerMock implements IRedisCacheManager  {
 
     static final Logger logger = LoggerFactory.getLogger(RedisCacheManagerMock.class);
 
-    private static IRedisCacheManager INSTANCE;
-
     private IRedisCacheProxy redis;
 	private AWSRedisCacheConfig conf;
 	private IQueriesServer queriesServ;
@@ -53,13 +51,6 @@ public class RedisCacheManagerMock implements IRedisCacheManager  {
 	//constructors
 	
 	public RedisCacheManagerMock(){	
-	}
-
-	public static IRedisCacheManager getInstance(){
-		if (INSTANCE == null) {
-			INSTANCE = new RedisCacheManagerMock();
-		}
-		return INSTANCE;
 	}
 	
 	public void setConfig(AWSRedisCacheConfig confCache){
@@ -71,7 +62,7 @@ public class RedisCacheManagerMock implements IRedisCacheManager  {
 			logger.info("starting cache manager");
 
 			// need to init before the queriesServer
-			this.redis =  RedisCacheProxyMock.getInstance();
+			this.redis =  RedisCacheProxy.getInstance();
 			
 			this.genkeysServ= new GenerationalKeysServerMock();
 			this.queriesServ = QueriesServerFactory.INSTANCE.getNewQueriesServer(conf,true);

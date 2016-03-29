@@ -45,21 +45,35 @@ public class RedisCacheProxy implements IRedisCacheProxy {
 	static final Logger logger = LoggerFactory.getLogger(RedisCacheProxy.class);
 
 	private static  IRedisCacheProxy INSTANCE;
+    
+    private static boolean isMock = false;
 
 	private String REDIShost ="localhost" ;
 	private int REDISport =6379 ;
 	private JedisPool pool;
+	
+	public static void setMock(){
+		isMock = true;
+	}
 
 	public static IRedisCacheProxy getInstance(ServerID redisID){
 		if (INSTANCE == null){
-			INSTANCE = new RedisCacheProxy(redisID);
+			if (isMock) {
+				INSTANCE = new RedisCacheProxyMock(redisID);
+			} else {
+				INSTANCE = new RedisCacheProxy(redisID);
+			}
 		}
 		return INSTANCE;
 
 	}
 	public static IRedisCacheProxy getInstance(){
 		if (INSTANCE == null){
-			INSTANCE = new RedisCacheProxy();
+			if (isMock) {
+				INSTANCE = new RedisCacheProxyMock();
+			} else {
+				INSTANCE = new RedisCacheProxy();
+			}
 		}
 		return INSTANCE;
 	}

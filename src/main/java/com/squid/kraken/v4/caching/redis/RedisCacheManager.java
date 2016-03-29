@@ -27,7 +27,6 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 
 import org.apache.commons.codec.digest.DigestUtils;
@@ -87,11 +86,8 @@ public class RedisCacheManager implements IRedisCacheManager  {
 		
 		this.genkeysServ.start();
 		this.queriesServ.start();
-		if (isMock) {
-			this.redis =  RedisCacheProxyMock.getInstance(conf.getRedisID());
-		} else {
-			this.redis =  RedisCacheProxy.getInstance(conf.getRedisID());
-		}
+		
+		this.redis =  RedisCacheProxy.getInstance(conf.getRedisID());
 		
 	}
 	
