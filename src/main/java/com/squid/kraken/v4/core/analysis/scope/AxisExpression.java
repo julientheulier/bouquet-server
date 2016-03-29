@@ -74,10 +74,10 @@ extends AnalysisExpression
 	
 	@Override
 	public String getReferenceName() {
-		if (value!=null) {
+		if (value!=null && value.getDimension()!=null) {
 			return value.getDimension().getName();
 		} else {
-			return "";
+			return value.getName();
 		}
 	}
 	
