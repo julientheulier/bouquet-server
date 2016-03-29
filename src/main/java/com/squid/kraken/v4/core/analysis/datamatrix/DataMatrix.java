@@ -310,6 +310,16 @@ public class DataMatrix {
 	public List<AxisValues> getAxes() {
 		return axes;
 	}
+
+	public AxisValues find(Axis axis) {
+		for (AxisValues av : axes) {
+			if (av.getAxis().equals(axis)) {
+				return av;
+			}
+		}
+		// else
+		return null;
+	}
 	
 	public AxisValues getAxisColumn(Axis axis) {
 		for (AxisValues ax : axes) {
