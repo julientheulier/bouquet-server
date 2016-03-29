@@ -25,6 +25,7 @@ package com.squid.kraken.v4.core.analysis.engine.processor;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -33,6 +34,8 @@ import java.util.concurrent.ConcurrentSkipListSet;
 import com.squid.kraken.v4.api.core.PerfDB;
 import com.squid.kraken.v4.api.core.SQLStats;
 
+import org.joda.time.Days;
+import org.joda.time.LocalDate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,6 +49,7 @@ import com.squid.core.sql.render.ISelectPiece;
 import com.squid.core.sql.render.RenderingException;
 import com.squid.kraken.v4.core.analysis.datamatrix.AxisValues;
 import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
+import com.squid.kraken.v4.core.analysis.datamatrix.JoinMerger;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionMember;
 import com.squid.kraken.v4.core.analysis.engine.query.SimpleQuery;
 import com.squid.kraken.v4.core.analysis.model.Dashboard;
@@ -54,6 +58,7 @@ import com.squid.kraken.v4.core.analysis.model.DomainSelection;
 import com.squid.kraken.v4.core.analysis.model.DashboardSelection;
 import com.squid.kraken.v4.core.analysis.model.ExpressionInput;
 import com.squid.kraken.v4.core.analysis.model.GroupByAxis;
+import com.squid.kraken.v4.core.analysis.model.IntervalleObject;
 import com.squid.kraken.v4.core.analysis.model.MeasureGroup;
 import com.squid.kraken.v4.core.analysis.model.OrderBy;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
@@ -134,14 +139,116 @@ public class AnalysisCompute {
 			SimpleQuery query = this.createOperatorNoKPI(analysis);
 			DataMatrix dm = query.run(analysis.isLazy());
 			return dm;
+		} else if (analysis.getSelection().hasCompare()) {
+			// handle compare T947
+			//
+			// compute present
+			DashboardSelection presentSelection = analysis.getSelection();
+			DomainSelection compare = presentSelection.getCompareSelection();
+			Axis joinAxis = null;
+			IntervalleObject presentInterval = null;
+			IntervalleObject pastInterval = null;
+			for (Axis filter : compare.getFilters()) {
+				// check if the filter is a join
+				if (analysis.findGrouping(filter)!=null) {
+					if (joinAxis!=null) {
+						throw new ScopeException("only one join axis supported");
+					}
+					joinAxis = filter;
+					// compute the min & max for present
+					Collection<DimensionMember> members = presentSelection.getMembers(filter);
+					presentInterval = computeMinMax(members);
+				}
+			}
+			DataMatrix present = computeAnalysisOpt(analysis, false);
+			//
+			// compute the past version
+			// copy the selection and replace with compare filters
+			DashboardSelection pastSelection = new DashboardSelection(presentSelection);
+			for (Axis filter : compare.getFilters()) {
+				pastSelection.clear(filter);
+				pastSelection.add(filter, compare.getMembers(filter));
+				if (joinAxis.equals(filter)) {
+					pastInterval = computeMinMax(compare.getMembers(filter));
+				}
+			}
+			analysis.setSelection(pastSelection);
+			DataMatrix past = computeAnalysisOpt(analysis, false);
+			//
+			final int offset = computeOffset(present, joinAxis, presentInterval, pastInterval);
+			//
+			JoinMerger join = new JoinMerger(present, past, joinAxis) {
+				@Override
+				protected Object translateRightToLeft(Object right) {
+					if (right instanceof Date) {
+						LocalDate delta = (new LocalDate(((Date)right).getTime())).plusDays(offset);
+						return new java.sql.Date(delta.toDate().getTime());
+					} else {
+						return right;
+					}
+				}
+				@Override
+				protected int compareJoinValue(int pos, Object left, Object right) {
+					if (right instanceof Date) {
+						return ((Date)left).compareTo((new LocalDate(((Date)right).getTime())).plusDays(offset).toDate());
+					} else {
+						return super.compareJoinValue(pos, left, right);
+					}
+				}
+			};
+			return join.merge(false);
 		} else {
 			// disable the optimizing when using the limit feature
+			@SuppressWarnings("unused")
 			boolean optimize = SUPPORT_SOFT_FILTERS && !analysis.hasLimit() && !analysis.hasOffset()
 					&& !analysis.hasRollup();
 			return computeAnalysisOpt(analysis, optimize);
 		}
 	}
 
+	private int computeOffset(DataMatrix present, Axis joinAxis, IntervalleObject presentInterval, IntervalleObject pastInterval) {
+		if (joinAxis==null || presentInterval==null || pastInterval==null) {
+			return 0;
+		} else {
+			AxisValues check = present.find(joinAxis);
+			if (check==null) {
+				return 0;// no need to bother
+			} else {
+				return computeOffset(presentInterval, pastInterval, check.getOrdering());
+			}
+		}
+	}
+
+	private int computeOffset(IntervalleObject presentInterval, IntervalleObject pastInterval, ORDERING ordering) {
+		Object present = ordering==ORDERING.ASCENT?presentInterval.getLowerBound():presentInterval.getUpperBound();
+		Object past = ordering==ORDERING.ASCENT?pastInterval.getLowerBound():pastInterval.getUpperBound();
+		if (present instanceof Date) {
+			return Days.daysBetween(new LocalDate(((Date)past).getTime()), new LocalDate(((Date)present).getTime())).getDays();
+		} else {
+			return 0;
+		}
+	}
+
+	private IntervalleObject computeMinMax(Collection<DimensionMember> members) throws ScopeException {
+		IntervalleObject result = null;
+		for (DimensionMember member : members) {
+			Object value = member.getID();
+			if (value instanceof IntervalleObject) {
+				if (result == null) {
+					result = (IntervalleObject) value;
+				} else {
+					result = result.merge((IntervalleObject) value);
+				}
+			} else {
+				if (result == null) {
+					result = new IntervalleObject(value, value);
+				} else {
+					result = result.include(value);
+				}
+			}
+		}
+		return result;
+	}
 
 	private DataMatrix computeAnalysisOpt(DashboardAnalysis analysis,
 			boolean optimize) throws ScopeException, ComputingException,

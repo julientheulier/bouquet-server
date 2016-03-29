@@ -97,7 +97,7 @@ public class FacetBuilder {
 						if (next.getID() instanceof IntervalleObject) {
 							IntervalleObject moreDate = (IntervalleObject) next
 									.getID();
-							value = IntervalleObject.merge(value, moreDate);
+							value = value.merge(moreDate);
 						} else {
 							items.add(toFacet(index, next));
 						}

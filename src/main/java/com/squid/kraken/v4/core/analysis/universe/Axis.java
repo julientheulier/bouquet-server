@@ -175,6 +175,21 @@ public class Axis implements Property {
 		return false;
 	}
 	
+	public DimensionMember getMemberByID(Object ID) {
+		DimensionIndex index = null;
+		try {
+			index = getIndex(true);
+		} catch (ComputingException | InterruptedException e) {
+			// ignore, assume that index is null
+		}
+		if (index!=null) {
+			return index.getMemberByID(ID);
+		} else {
+			// create a new one
+			return new DimensionMember(-1, ID, 0);
+		}
+	}
+	
 	public DimensionIndex getIndex() throws ComputingException, InterruptedException {
 		return getIndex(true);
 	}

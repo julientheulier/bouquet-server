@@ -61,6 +61,16 @@ public class DashboardAnalysis extends Dashboard {
 		return grouping;
 	}
 	
+	public GroupByAxis findGrouping(Axis axis) {
+		for (GroupByAxis groupBy : grouping) {
+			if (groupBy.getAxis().equals(axis)) {
+				return groupBy;
+			}
+		}
+		// else
+		return null;
+	}
+	
 	public void orderBy(OrderBy order) {
 	    orders.add(new OrderBy(orders.size(), order.getExpression(), order.getOrdering()));
 	}
