@@ -24,10 +24,13 @@
 package com.squid.kraken.v4.api.core;
 
 import java.text.ParseException;
+import java.util.Calendar;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -165,25 +168,51 @@ public class EngineUtils {
      * @throws ParseException
      * @throws ScopeException
      */
-    public Date convertToDate(AppContext ctx, DimensionIndex index, String value) throws ParseException, ScopeException {
-    	if (value.startsWith("=")) {
-    		String expr = value.substring(1);
-    		DimensionDefaultValueScope scope = new DimensionDefaultValueScope(ctx, index);
+	public Date convertToDate(Universe universe, DimensionIndex index, String value)
+			throws ParseException, ScopeException {
+		if (value.startsWith("=")) {
+			// if the value starts by equal token, this is a formula that can be
+			// evaluated
+			try {
+				String expr = value.substring(1);
+				// check if the index content is available and give some extra time to wait before using a default value
+				DomainHierarchy hierarchy = universe.getDomainHierarchy(index.getAxis().getParent().getDomain());
+				hierarchy.isDone(index, 10000);
+				// evaluate the expression
+				Object defaultValue = evaluateExpression(universe, index, expr);
+				// check we can use it
+				if (defaultValue == null) {
+					throw new ScopeException("unable to parse the facet expression as a constant: " + expr);
+				}
+				if (!(defaultValue instanceof Date)) {
+					throw new ScopeException("unable to parse the facet expression as a date: " + expr);
+				}
+				// ok, it's a date
+				return (Date) defaultValue;
+			} catch (ComputingException | InterruptedException | ExecutionException
+					| TimeoutException e) {
+				logger.error("unable to parse computed selection for " + index.getAxis());
+				return null;
+			}
+		} else {
+			return ServiceUtils.getInstance().toDate(value);
+		}
+	}
+	
+	private Object evaluateExpression(Universe universe, DimensionIndex index, String expr) throws ScopeException {
+		try {
+			DimensionDefaultValueScope scope = new DimensionDefaultValueScope(universe.getContext(), index);
 			ExpressionAST defaultExpression = scope.parseExpression(expr);
-			ExpressionEvaluator evaluator = new ExpressionEvaluator(ctx);
-			Object defaultValue = evaluator.evalSingle(defaultExpression);
-			if (defaultValue==null) {
-				throw new ScopeException("unable to parse the facet expression as a constant: "+value);
-			}
-			if (!(defaultValue instanceof Date)) {
-				throw new ScopeException("unable to parse the facet expression as a date: "+value);
-			}
-			// ok, it's a date
-			return (Date)defaultValue;
-    	} else {
-    		return ServiceUtils.getInstance().toDate(value);
-    	}
-    }
+			ExpressionEvaluator evaluator = new ExpressionEvaluator(universe.getContext());
+			Calendar calendar = Calendar.getInstance();
+			evaluator.setParameterValue("MAX", calendar.getTime());
+			calendar.add(Calendar.MONTH, -1);
+			evaluator.setParameterValue("MIN", calendar.getTime());
+			return evaluator.evalSingle(defaultExpression);
+		} catch (ScopeException e) {
+			throw new ScopeException("unable to parse the facet expression: " + expr + "\n" + e.getLocalizedMessage(), e);
+		}
+	}
 
     /**
      * Apply a facet selection to a dashboard.
@@ -215,8 +244,8 @@ public class EngineUtils {
                         if (selectedItem instanceof FacetMemberInterval) {
                             FacetMemberInterval fmi = (FacetMemberInterval) selectedItem;
                             try {
-                                Date lowerDate = convertToDate(ctx, index, fmi.getLowerBound());
-                                Date upperDate = convertToDate(ctx, index, fmi.getUpperBound());
+                                Date lowerDate = convertToDate(universe, index, fmi.getLowerBound());
+                                Date upperDate = convertToDate(universe, index, fmi.getUpperBound());
                                 // add as a Date Interval
                                 ds.add(axis, IntervalleObject.createInterval(lowerDate, upperDate));
                             } catch (java.text.ParseException e) {
