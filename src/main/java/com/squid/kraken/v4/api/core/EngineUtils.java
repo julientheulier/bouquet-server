@@ -238,7 +238,7 @@ public class EngineUtils {
 		        for (DomainSelection s : compare.get()) {
 		        	for (Axis filter : s.getFilters()) {
 		        		for (DimensionMember member : s.getMembers(filter)) {
-		        			ds.compare(filter, member);
+		        			ds.addCompareTo(filter, member);
 		        		}
 		        	}
 		        }
