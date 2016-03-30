@@ -90,6 +90,15 @@ public class JoinMerger extends Merger {
 		return null;
 	}
 	
+	/**
+	 * compute the past value based on the present value. Default is to return null.
+	 * @param left (== present) value
+	 * @return
+	 */
+	protected Object translateLeftToRight(Object left) {
+		return null;
+	}
+	
 	@Override
 	protected IndirectionRow createDefaultIndirectionRow() {
 		if (joinIsAColumn) {
@@ -140,7 +149,9 @@ public class JoinMerger extends Merger {
 					rrInd++;
 					if (right!=null) {
 						merged.rawrow[rrInd] = right.getAxisValue(i);
-					} // else keep the null value
+					} else {
+						merged.rawrow[rrInd] = translateLeftToRight(left.getAxisValue(i));
+					}
 					rrInd++;
 				} else {
 					merged.rawrow[rrInd] = left.getAxisValue(i);

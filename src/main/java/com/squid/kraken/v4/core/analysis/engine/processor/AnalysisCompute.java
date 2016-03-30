@@ -188,6 +188,15 @@ public class AnalysisCompute {
 					}
 				}
 				@Override
+				protected Object translateLeftToRight(Object left) {
+					if (left instanceof Date) {
+						LocalDate delta = (new LocalDate(((Date)left).getTime())).minusDays(offset);
+						return new java.sql.Date(delta.toDate().getTime());
+					} else {
+						return right;
+					}
+				}
+				@Override
 				protected int compareJoinValue(int pos, Object left, Object right) {
 					if (right instanceof Date) {
 						return ((Date)left).compareTo((new LocalDate(((Date)right).getTime())).plusDays(offset).toDate());
