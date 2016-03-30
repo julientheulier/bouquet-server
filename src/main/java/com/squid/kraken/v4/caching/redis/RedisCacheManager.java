@@ -94,20 +94,23 @@ public class RedisCacheManager implements IRedisCacheManager  {
 	
 	public RawMatrix getData(String SQLQuery, List<String> dependencies, String RSjdbcURL,
 		String username, String pwd, int TTLinSec, long limit) throws InterruptedException{
-		//
 		// generate the key by adding projectID and SQL
 		String k = buildCacheKey(SQLQuery, dependencies);
-		boolean inCache = this.inCache(k);
-		logger.debug("cache hit = " + inCache + " for key = " + k);
-		if (!inCache){
+		
+		RawMatrix res = getRawMatrix(k);
+		if (res != null){
+			logger.debug("cache hit for key = " + k);
+			res.setFromCache(true);
+		}else{
 			boolean fetchOK = this.fetch(k, SQLQuery, RSjdbcURL, username, pwd,TTLinSec, limit );
 			if (!fetchOK){
-				logger.info("failed to fetch query:\n" +SQLQuery  +"\nfetch failed") ;
+				logger.info("failed to fetch query:\n" +SQLQuery  +"\nfetch failed") ; 
 				return null;
 			}
+			res = getRawMatrix(k);
+			res.setFromCache(false);
 		}
-		RawMatrix res = getRawMatrix(k);
-		res.setFromCache(inCache);
+			
 		return res;
 	}
 	
@@ -115,7 +118,7 @@ public class RedisCacheManager implements IRedisCacheManager  {
 	public RawMatrix  getDataLazy(String SQLQuery, List<String> dependencies, String RSjdbcURL,
 			String username, String pwd, int TTLinSec){
 		String k = buildCacheKey(SQLQuery, dependencies);
-		boolean inCache = this.inCache(k);
+	/*	boolean inCache = this.inCache(k);
 		logger.debug("cache hit = " + inCache + " for key = " + k);
 		if (!inCache){
 			return null;
@@ -123,7 +126,16 @@ public class RedisCacheManager implements IRedisCacheManager  {
 			RawMatrix res = getRawMatrix(k);
 			res.setFromCache(inCache);
 			return res;
+		}*/
+		
+		RawMatrix res = getRawMatrix(k);
+		if (res != null){
+			logger.debug("cache hit for key = " + k);
+			res.setFromCache(true);
+		}else{ 
+			res= null;
 		}
+		return res;
 	}
 	
 	public boolean addCacheReference(String sqlNoLimit, List<String> dependencies, String referencedKey ){

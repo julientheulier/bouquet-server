@@ -146,6 +146,9 @@ public class RedisCacheProxy implements IRedisCacheProxy {
 			while(true){
 
 				byte[] serialized = jedis.get(currKey.getBytes());
+				if (serialized == null){
+					return null;
+				}
 
 				RedisCacheValue  val = RedisCacheValue.deserialize(serialized);
 				if (val instanceof RawMatrix){
