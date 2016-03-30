@@ -139,12 +139,12 @@ public class AnalysisCompute {
 			SimpleQuery query = this.createOperatorNoKPI(analysis);
 			DataMatrix dm = query.run(analysis.isLazy());
 			return dm;
-		} else if (analysis.getSelection().hasCompare()) {
+		} else if (analysis.getSelection().hasCompareToSelection()) {
 			// handle compare T947
 			//
 			// compute present
 			DashboardSelection presentSelection = analysis.getSelection();
-			DomainSelection compare = presentSelection.getCompareSelection();
+			DomainSelection compare = presentSelection.getCompareToSelection();
 			Axis joinAxis = null;
 			IntervalleObject presentInterval = null;
 			IntervalleObject pastInterval = null;
@@ -196,7 +196,8 @@ public class AnalysisCompute {
 					}
 				}
 			};
-			return join.merge(false);
+			DataMatrix debug = join.merge(false);
+			return debug;
 		} else {
 			// disable the optimizing when using the limit feature
 			@SuppressWarnings("unused")

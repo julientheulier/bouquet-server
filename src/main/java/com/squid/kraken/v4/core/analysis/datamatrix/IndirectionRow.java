@@ -121,7 +121,15 @@ public class IndirectionRow implements Comparable<IndirectionRow>  {
     		return 0;
     }
 
-
-
+	@Override
+	public String toString() {
+		StringBuilder dump = new StringBuilder("[");
+		for (int i=0;i<rawrow.length;i++) {
+			if (i>0) dump.append(",");
+			dump.append(rawrow[i]==null?"(null)":rawrow[i].toString());
+		}
+		dump.append("]");
+		return dump.toString();
+	}
 	
 }

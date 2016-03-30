@@ -818,4 +818,21 @@ public class DataMatrix {
 	public Map<Property, Integer> getPropertyToInteger(){
 		return this.propertyToType;
 	}
+	
+	@Override
+	public String toString() {
+		StringBuilder dump = new StringBuilder();
+		dump.append("DataMatrix: size="+(axes.size()+kpis.size())+"x"+rows.size()+(fullset?"(full)":"(partial)"));
+		if (rows!=null) {
+			int i=0;
+			for (IndirectionRow row : rows) {
+				dump.append("\n"+row.toString());
+				if (i++>10) {
+					dump.append("\n(...)");
+					break;
+				}
+			}
+		}
+		return dump.toString();
+	}
 }
