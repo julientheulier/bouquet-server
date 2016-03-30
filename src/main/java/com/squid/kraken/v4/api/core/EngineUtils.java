@@ -26,7 +26,6 @@ package com.squid.kraken.v4.api.core;
 import java.text.ParseException;
 import java.util.Calendar;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -45,6 +44,7 @@ import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainHierarchy;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.SegmentManager;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.core.analysis.model.DashboardSelection;
+import com.squid.kraken.v4.core.analysis.model.DomainSelection;
 import com.squid.kraken.v4.core.analysis.model.IntervalleObject;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
@@ -228,8 +228,78 @@ public class EngineUtils {
         //
     	DashboardSelection ds = new DashboardSelection();
     	//
-    	List<Facet> facetsSel = selection!=null?selection.getFacets():Collections.<Facet> emptyList();
-        for (Facet facetSel : facetsSel) {
+    	if (selection!=null) {
+	        addFacetSelection(ctx, universe, selection.getFacets(), ds);
+	        // T994 support the compareFacets
+	        if (selection.hasCompareFacets()) {
+	        	DashboardSelection compare = new DashboardSelection();
+		        addFacetSelection(ctx, universe, selection.getCompareTo(), compare);
+		        // we let the ds.compare chack that the selection is valid
+		        for (DomainSelection s : compare.get()) {
+		        	for (Axis filter : s.getFilters()) {
+		        		for (DimensionMember member : s.getMembers(filter)) {
+		        			ds.compare(filter, member);
+		        		}
+		        	}
+		        }
+	        }
+    	}
+        //
+        // krkn-61: handling dimension options
+        for (Domain domain : domains) {
+        	DomainHierarchy hierarchy = universe.getDomainHierarchy(domain);
+        	for (DimensionIndex index : hierarchy.getDimensionIndexes()) {
+        		DimensionOption option = DimensionOptionUtils.computeContextOption(index.getDimension(), ctx);
+        		if (option!=null) {
+					// handling dimension option
+					//
+					Collection<DimensionMember> sel = ds.getMembers(index.getAxis());
+					// is SingleSelection
+					if (option.isSingleSelection() && sel.size()>1) {
+						throw new ScopeException("Dimension '"+index.getDimensionName()+"' does not allow multi-selection");
+					}
+					// is unmodifiable
+					if (option.isUnmodifiableSelection()) {
+						// if no default value, this is a bug in the meta-model
+						if (option.getDefaultSelection()==null) {
+    						throw new ScopeException("Dimension '"+index.getDimensionName()+"' is unmodifiable but does not set a default value - report the isue to the application support");
+						}
+						// check if the default value is selected
+						if (!sel.isEmpty()) {
+							ds.clear(index.getAxis());
+    						sel = ds.getMembers(index.getAxis());
+						}
+					}
+					// default selection
+					if (sel.isEmpty() && option.getDefaultSelection()!=null) {
+						List<DimensionMember> defaultMembers = DimensionOptionUtils.computeDefaultSelection(index, option, ctx);
+						if (defaultMembers.isEmpty()) {
+							// ?
+						} else {
+							ds.add(index.getAxis(), defaultMembers);
+    						sel = ds.getMembers(index.getAxis());
+						}
+						//
+					}
+					// is mandatory
+					if (sel.isEmpty() && option.isMandatorySelection()) {
+						DomainFacetCompute compute = new DomainFacetCompute(universe);
+						List<DimensionMember> members = compute.populateDimensionFacets(index, ds, null, 0, 1);
+						if (!members.isEmpty()) {
+							ds.add(index.getAxis(), members.get(0));
+    						sel = ds.getMembers(index.getAxis());
+						}
+						//throw new ScopeException("Dimension '"+index.getDimensionName()+"' cannot be unselected");
+					}
+        		}
+        	}
+        }
+        //
+        return ds;
+    }
+
+	private void addFacetSelection(AppContext ctx, Universe universe, List<Facet> facetsSel, DashboardSelection ds) throws ScopeException, ComputingException, InterruptedException {
+		for (Facet facetSel : facetsSel) {
             if (SegmentManager.isSegmentFacet(facetSel)) {
                 SegmentManager.addSegmentSelection(ctx, universe, facetSel, ds);
             } else {
@@ -293,59 +363,6 @@ public class EngineUtils {
                 }
             }
         }
-        
-        //
-        // krkn-61: handling dimension options
-        for (Domain domain : domains) {
-        	DomainHierarchy hierarchy = universe.getDomainHierarchy(domain);
-        	for (DimensionIndex index : hierarchy.getDimensionIndexes()) {
-        		DimensionOption option = DimensionOptionUtils.computeContextOption(index.getDimension(), ctx);
-        		if (option!=null) {
-					// handling dimension option
-					//
-					Collection<DimensionMember> sel = ds.getMembers(index.getAxis());
-					// is SingleSelection
-					if (option.isSingleSelection() && sel.size()>1) {
-						throw new ScopeException("Dimension '"+index.getDimensionName()+"' does not allow multi-selection");
-					}
-					// is unmodifiable
-					if (option.isUnmodifiableSelection()) {
-						// if no default value, this is a bug in the meta-model
-						if (option.getDefaultSelection()==null) {
-    						throw new ScopeException("Dimension '"+index.getDimensionName()+"' is unmodifiable but does not set a default value - report the isue to the application support");
-						}
-						// check if the default value is selected
-						if (!sel.isEmpty()) {
-							ds.clear(index.getAxis());
-    						sel = ds.getMembers(index.getAxis());
-						}
-					}
-					// default selection
-					if (sel.isEmpty() && option.getDefaultSelection()!=null) {
-						List<DimensionMember> defaultMembers = DimensionOptionUtils.computeDefaultSelection(index, option, ctx);
-						if (defaultMembers.isEmpty()) {
-							// ?
-						} else {
-							ds.add(index.getAxis(), defaultMembers);
-    						sel = ds.getMembers(index.getAxis());
-						}
-						//
-					}
-					// is mandatory
-					if (sel.isEmpty() && option.isMandatorySelection()) {
-						DomainFacetCompute compute = new DomainFacetCompute(universe);
-						List<DimensionMember> members = compute.populateDimensionFacets(index, ds, null, 0, 1);
-						if (!members.isEmpty()) {
-							ds.add(index.getAxis(), members.get(0));
-    						sel = ds.getMembers(index.getAxis());
-						}
-						//throw new ScopeException("Dimension '"+index.getDimensionName()+"' cannot be unselected");
-					}
-        		}
-        	}
-        }
-        //
-        return ds;
-    }
+	}
     
 }
