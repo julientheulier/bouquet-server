@@ -157,6 +157,12 @@ public class RedisCacheProxy implements IRedisCacheProxy {
 		} 
 	}
 
+	
+	public RedisCacheValue followKey(RedisCacheReference ref ){
+		
+		
+		
+	}
 
 
 	private RawMatrix getChunkedRawMatrix (String key, RedisCacheValuesList refList ) throws ComputingException, ClassNotFoundException, IOException{

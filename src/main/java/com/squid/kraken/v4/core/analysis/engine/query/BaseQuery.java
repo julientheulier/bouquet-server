@@ -60,6 +60,7 @@ import com.squid.core.sql.render.IWherePiece;
 import com.squid.core.sql.render.RenderingException;
 import com.squid.kraken.v4.caching.redis.RedisCacheManager;
 import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
+import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValue;
 import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionMember;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
@@ -75,6 +76,7 @@ import com.squid.kraken.v4.core.database.impl.DatabaseServiceImpl;
 import com.squid.kraken.v4.core.database.impl.DatasourceDefinition;
 import com.squid.kraken.v4.core.sql.SelectUniversal;
 import com.squid.kraken.v4.core.sql.script.SQLScript;
+import com.squid.kraken.v4.export.ExportSourceWriter;
 import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.Project;
 
@@ -275,8 +277,84 @@ public class BaseQuery implements IQuery {
 		throw new RuntimeException("QUALIFY clause is not supported for that request");
 	}
 
+	public void  run(boolean lazy, QueryWriter writer){
+		
+		try {
+
+		 Project project = universe.asRootUserContext().getProject();
+		    //
+			ArrayList<String> deps = new ArrayList<String>();
+			deps.add(project.getId().toUUID());
+			setDependencies(deps);// to override
+			//
+			String url = project.getDbUrl() ;
+			String user = project.getDbUser();
+			String pwd = project.getDbPassword();
+			//
+			
+			boolean hasLimit = ( this.select.getStatement().getLimitValue() ==-1) ;
+			boolean isFromCache = false; 
+			String sql = render();		
+			String sqlNoLimitNoOrder ;						
+			if(hasLimit){
+				sqlNoLimitNoOrder = renderNoLimitNoOrderBy();
+			}
+			
+			// check the value 
+			RedisCacheValue res = RedisCacheManager.getInstance().getRedisCacheValue(sql, deps, url, user, pwd, -2);
+			
+			if (res  != null){
+				isFromCache = true;				
+			}
+			
+			
+			if (lazy){
+				
+			}else{
+				
+				
+				if ((res != null ) && !res.isFromCache() && (!res.isMoreData()) && !(sql.equals(sqlNoLimitNoOrder))){
+					// create a new reference
+					RedisCacheManager.getInstance().addCacheReference(sqlNoLimitNoOrder, deps, res.getRedisKey());					
+					logger.info("Get - Create new Cache Reference ");
+				} 
+				
+			}
+			
+			
+			
+			
+			if (res instanceof RawMatrix){
+				writer.write((RawMatrix) res,);
+				
+			}else{
+				
+				if (res instanceof )
+				
+			}
+			
+				
+			
+			
+			
+			if (writer){
+				
+				writer.write(matrix, out)
+			}
+			
+			
+		} catch (RenderingException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+				
+	}
+	
+	
+	
 	/**
-	 * execute the SQL statement and return the result as a DataMatrix; return data from cache if available.
+	 * execute the SQL statement and return the result as a DataMatrix; 
+	 * if lazy = true, return data from cache if available.
 	 * @throws ComputingException 
 	 */
 	public DataMatrix run(boolean lazy) throws ComputingException {
@@ -289,13 +367,13 @@ public class BaseQuery implements IQuery {
 		}
 	}
 	/**
-	 * execute the SQL statement and return the result as a DataMatrix; return data from cache if available.
+	 * execute the SQL statement and return the result as a DataMatrix;
 	 * @throws ComputingException 
 	 */
 	public DataMatrix run() throws ComputingException {
 			return run(false);
 	}	
-	
+	/*
 	public RawMatrix runRaw(boolean lazy) throws RenderingException, ComputingException{
 		logger.info("Run cache redis " + lazy);
 		
@@ -313,7 +391,7 @@ public class BaseQuery implements IQuery {
 		}	
 		
 	}
-	
+	 */
 	
 	protected DataMatrix run_cache_Redis(boolean lazy) throws RenderingException, DatabaseServiceException, SQLException, ScopeException, ComputingException {
 		logger.info("Run cache redis " + lazy);

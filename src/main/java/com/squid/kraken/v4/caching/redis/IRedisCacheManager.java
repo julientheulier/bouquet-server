@@ -28,6 +28,7 @@ import java.util.HashSet;
 import java.util.List;
 
 import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
+import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValue;
 import com.squid.kraken.v4.caching.redis.generationalkeysserver.RedisKey;
 
 public interface IRedisCacheManager {
@@ -53,6 +54,9 @@ public interface IRedisCacheManager {
 	public void refresh(String key);
 
 	public RedisKey getKey(String key);
+
+	public RedisCacheValue getRedisCacheValue(String SQLQuery, List<String> dependencies, String RSjdbcURL,
+			String username, String pwd, int TTLinSec ) ;
 
 	public RedisKey getKey(String key, Collection<String> dependencies);
 

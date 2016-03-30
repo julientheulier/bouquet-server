@@ -36,6 +36,7 @@ import org.slf4j.LoggerFactory;
 
 import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
 import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheReference;
+import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValue;
 import com.squid.kraken.v4.caching.redis.generationalkeysserver.GenerationalKeysServerFactory;
 import com.squid.kraken.v4.caching.redis.generationalkeysserver.IGenerationalKeysServer;
 import com.squid.kraken.v4.caching.redis.generationalkeysserver.RedisKey;
@@ -130,6 +131,19 @@ public class RedisCacheManager implements IRedisCacheManager  {
 		}
 	}
 	
+
+	public RedisCacheValue getRedisCacheValue(String SQLQuery, List<String> dependencies, String RSjdbcURL,
+			String username, String pwd, int TTLinSec ) {
+			String k = buildCacheKey(SQLQuery, dependencies);
+			RedisCacheValue res;
+			try {
+				 res = RedisCacheValue.deserialize(this.redis.get(k));
+			} catch (ClassNotFoundException | IOException e) {
+				return null;
+			}
+			return res;
+	}
+	
 	public boolean addCacheReference(String sqlNoLimit, List<String> dependencies, String referencedKey ){
 		try{
 			String k = buildCacheKey(sqlNoLimit, dependencies);
@@ -140,6 +154,7 @@ public class RedisCacheManager implements IRedisCacheManager  {
 			return false;
 		}
 	}
+	
 	
 	
 	private String buildCacheKey(String SQLQuery, List<String> dependencies){

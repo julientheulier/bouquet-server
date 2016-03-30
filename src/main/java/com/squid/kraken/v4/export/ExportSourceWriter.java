@@ -25,18 +25,20 @@ package com.squid.kraken.v4.export;
 
 import java.io.OutputStream;
 
-import com.squid.core.jdbc.engine.IExecutionItem;
 import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
 import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
 import com.squid.kraken.v4.model.DataTable;
+import com.squid.kraken.v4.writers.ChunkedRawMatrixWrapper;
 
-public interface ExportSourceWriter {
+public interface ExportSourceWriter  {
 	
 	public long write(ExecuteAnalysisResult item, OutputStream outputStream);
 
 	public long write(RawMatrix matrix, OutputStream out);
-
+	
 	public long write(DataMatrix matrix, OutputStream out);
 
+	public long write (ChunkedRawMatrixWrapper matrix, OutputStream out);
+	
 	public long write(DataTable matrix, OutputStream out);
 }
