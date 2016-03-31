@@ -28,7 +28,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -43,7 +42,6 @@ import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
 import com.squid.kraken.v4.caching.redis.datastruct.RawRow;
-import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionMember;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.core.analysis.engine.query.mapping.AxisMapping;
@@ -312,6 +310,16 @@ public class DataMatrix {
 	public List<AxisValues> getAxes() {
 		return axes;
 	}
+
+	public AxisValues find(Axis axis) {
+		for (AxisValues av : axes) {
+			if (av.getAxis().equals(axis)) {
+				return av;
+			}
+		}
+		// else
+		return null;
+	}
 	
 	public AxisValues getAxisColumn(Axis axis) {
 		for (AxisValues ax : axes) {
@@ -327,86 +335,12 @@ public class DataMatrix {
 	 * merge two matrix with different KPIs but must be on the same space
 	 * @param that
 	 * @return
+	 * @throws ScopeException 
 	 */
-	public DataMatrix merge(DataMatrix that) {
-		logger.info("merging matrices");
-		// need to work on sorted data
-		ArrayList<IndirectionRow> this_rows = this.sortRows();
-		ArrayList<IndirectionRow> that_rows = that.sortRows();
-		//
-		ArrayList<IndirectionRow> result = new ArrayList<IndirectionRow>();
-		Iterator<IndirectionRow> this_iter = this_rows.iterator();
-		Iterator<IndirectionRow> that_iter = that_rows.iterator();
-		IndirectionRow this_row = null;
-		IndirectionRow that_row = null;
-		int data_size = this.getDataSize()+that.getDataSize();
-		
-		// data will be reordered but we still need  indirection arrays
-		int[] axesIndir = new int[this.getAxes().size()];
-		int[] dataIndir = new int[data_size];
-		int count =0 ;
-		for (int i = 0; i <this.getAxes().size() ; i++ ){
-			axesIndir[i] = count;
-			count++;
-		}
-		for (int i = 0; i <data_size ; i++ ){
-			dataIndir[i] = count;
-			count++;
-		}
-				
-		
-		while (this_iter.hasNext() || that_iter.hasNext() || this_row!=null || that_row!=null) {
-			// read if needed and available
-			if (this_row==null && this_iter.hasNext()) {
-				this_row = this_iter.next();
-			}
-			if (that_row==null && that_iter.hasNext()) {
-				that_row = that_iter.next();
-			}
-			// manage remaining
-			if ( (this_row==null && that_row!=null) ||  (this_row!=null && that_row==null) ) {
-				IndirectionRow merged = new IndirectionRow();
-				merged.mergeRows(this_row, that_row, axesIndir, dataIndir);
-				result.add(merged);
-				that_row=null;		
-			}
-			// normal case
-			if (this_row!=null && that_row!=null) {
-				int cc = this_row.compareTo(that_row);
-				if (cc<0) {
-					IndirectionRow merged = new IndirectionRow();
-					merged.mergeRows(this_row, null, axesIndir, dataIndir);
-					result.add(merged);
-					this_row=null;
-				}
-				if (cc>0) {
-					IndirectionRow merged = new IndirectionRow();
-					merged.mergeRows(null, that_row, axesIndir, dataIndir);
-					result.add(merged);
-					that_row=null;
-				}
-				if (cc==0) {
-					IndirectionRow merged = new IndirectionRow();
-					merged.mergeRows(this_row, that_row, axesIndir, dataIndir);
-					result.add(merged);
-					that_row=null;this_row=null;
-				}
-			}
-		}
-		DataMatrix merge = new DataMatrix(that.database, result);
-		merge.setFromCache(fromCache && that.isFromCache());
-		merge.setExecutionDate(new Date(Math.min(executionDate.getTime(), that.executionDate.getTime())));
-		// list the new axis
-		for (AxisValues ax : this.getAxes()) {
-			merge.add(ax);
-		}
-		// list the new kpis
-		merge.kpis.addAll(this.kpis);
-		merge.kpis.addAll(that.kpis);
-		merge.fullset= (this.fullset && that.fullset);
-		return merge;
+	public DataMatrix merge(DataMatrix that) throws ScopeException {
+		Merger merger = new Merger(this, that);
+		return merger.merge(true);
 	}
-	
 
 	public DataMatrix filter(DashboardSelection selection) {
 		return filter(selection, true);
@@ -649,9 +583,7 @@ public class DataMatrix {
 				if (m.isVisible()) {
 					Object value = row.getAxisValue(i);
 					Axis a = m.getAxis();
-					DimensionIndex index = a!=null?a.getIndex():null;
-					String n = index!=null?index.getDimensionName():Integer.toString(i);
-					output.append(n);
+					output.append(a.getName());
 					output.append("=[");
 					output.append(value!=null?value.toString():"--");
 					output.append("];");
@@ -665,7 +597,7 @@ public class DataMatrix {
 				output.append(kpi.getName()).append("=").append(value!=null?value.toString():"--").append(";");
 			}
 			//
-			//logger.info(output.toString());
+			logger.info(output.toString());
 			count++;
 			if (count==sizeLimit) {
 			    break;

@@ -23,7 +23,7 @@
  *******************************************************************************/
 package com.squid.kraken.v4.api.core.metric;
 
-import java.util.List; 
+import java.util.List;
 import java.util.Set;
 
 import javax.ws.rs.DELETE;
@@ -48,9 +48,10 @@ import com.wordnik.swagger.annotations.Api;
 import com.wordnik.swagger.annotations.ApiOperation;
 import com.wordnik.swagger.annotations.ApiParam;
 import com.wordnik.swagger.annotations.Authorization;
+import com.wordnik.swagger.annotations.AuthorizationScope;
 
 @Produces({ MediaType.APPLICATION_JSON })
-@Api(value = "metrics", hidden = true, authorizations = { @Authorization(value = "kraken_auth", type = "oauth2") })
+@Api(value = "metrics", hidden = true, authorizations = { @Authorization(value = "kraken_auth", type = "oauth2", scopes = { @AuthorizationScope(scope = "access", description = "Access")}) })
 public class MetricServiceRest extends BaseServiceRest {
 
 	private final static String PARAM_NAME = "metricId";

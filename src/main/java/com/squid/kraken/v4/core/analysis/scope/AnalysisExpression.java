@@ -34,7 +34,7 @@ extends ExpressionRef
 
 	@Override
 	public ExtendedType computeType(SQLSkin skin) {
-		return IDomain.UNKNOWN.computeType(skin);
+		return getImageDomain().computeType(skin);
 	}
 
 

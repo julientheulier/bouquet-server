@@ -23,7 +23,30 @@
  *******************************************************************************/
 package com.squid.kraken.v4.api.core.internalAnalysisJob;
 
-import com.squid.core.database.model.*;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ExecutionException;
+
+import javax.ws.rs.DELETE;
+import javax.ws.rs.GET;
+import javax.ws.rs.POST;
+import javax.ws.rs.Path;
+import javax.ws.rs.PathParam;
+import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.squid.core.database.model.Column;
+import com.squid.core.database.model.Database;
+import com.squid.core.database.model.Index;
+import com.squid.core.database.model.Schema;
+import com.squid.core.database.model.Table;
 import com.squid.core.database.model.impl.SchemaImpl;
 import com.squid.core.database.model.impl.TableImpl;
 import com.squid.core.domain.IDomain;
@@ -60,35 +83,34 @@ import com.squid.kraken.v4.core.expression.reference.RelationReference;
 import com.squid.kraken.v4.core.sql.InsertSelectUniversal;
 import com.squid.kraken.v4.core.sql.SelectUniversal;
 import com.squid.kraken.v4.core.sql.script.SQLScript;
-import com.squid.kraken.v4.model.*;
+import com.squid.kraken.v4.export.ExportSourceWriterKafka;
+import com.squid.kraken.v4.model.DataTable;
+import com.squid.kraken.v4.model.Dimension;
 import com.squid.kraken.v4.model.Dimension.Type;
+import com.squid.kraken.v4.model.DimensionPK;
+import com.squid.kraken.v4.model.Domain;
+import com.squid.kraken.v4.model.DomainOption;
+import com.squid.kraken.v4.model.DomainPK;
+import com.squid.kraken.v4.model.Expression;
+import com.squid.kraken.v4.model.Project;
+import com.squid.kraken.v4.model.ProjectAnalysisJob;
+import com.squid.kraken.v4.model.ProjectAnalysisJobPK;
+import com.squid.kraken.v4.model.ProjectPK;
+import com.squid.kraken.v4.model.Relation;
+import com.squid.kraken.v4.model.RelationPK;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.wordnik.swagger.annotations.Api;
 import com.wordnik.swagger.annotations.ApiOperation;
 import com.wordnik.swagger.annotations.ApiParam;
 import com.wordnik.swagger.annotations.Authorization;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.squid.kraken.v4.export.ExportSourceWriterKafka;
-
-import javax.ws.rs.*;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
-
-import java.io.IOException;
-import java.io.OutputStream;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.ExecutionException;
+import com.wordnik.swagger.annotations.AuthorizationScope;
 
 /**
  * Created by lrabiet on 18/11/15.
  */
 
 @Produces({MediaType.APPLICATION_JSON})
-@Api(value = "internalanalysisjobs", hidden = true, authorizations = {@Authorization(value = "kraken_auth", type = "oauth2")})
+@Api(value = "internalanalysisjobs", hidden = true, authorizations = {@Authorization(value = "kraken_auth", type = "oauth2", scopes = { @AuthorizationScope(scope = "access", description = "Access")})})
 public class InternalAnalysisJobServiceRest extends BaseServiceRest {
     private static final Logger logger = LoggerFactory
             .getLogger(InternalAnalysisJobServiceRest.class);

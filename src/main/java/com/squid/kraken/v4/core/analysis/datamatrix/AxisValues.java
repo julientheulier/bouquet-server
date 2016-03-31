@@ -27,6 +27,7 @@ import java.util.Collection;
 import java.util.LinkedList;
 import java.util.concurrent.ConcurrentSkipListSet;
 
+import com.squid.core.sql.render.IOrderByPiece.ORDERING;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionMember;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
@@ -39,13 +40,15 @@ import com.squid.kraken.v4.core.analysis.universe.Axis;
  */
 public class AxisValues {
 	
-	private boolean isVisible = true;
 	private Axis axis;
 	private ConcurrentSkipListSet<Object> values = new ConcurrentSkipListSet<Object>();
+	private boolean isVisible = true;
+	private ORDERING ordering;
 
 	public AxisValues(AxisValues copy) {
 		this.axis = copy.axis;
 		this.isVisible = copy.isVisible;
+		this.ordering = copy.ordering;
 		// don't set values
 	}
 	
@@ -64,6 +67,14 @@ public class AxisValues {
 	
 	public boolean isVisible() {
 		return isVisible;
+	}
+
+	public void setOrdering(ORDERING ordering) {
+		this.ordering = ordering;
+	}
+	
+	public ORDERING getOrdering() {
+		return ordering;
 	}
 
 	public void setVisible(boolean isVisible) {

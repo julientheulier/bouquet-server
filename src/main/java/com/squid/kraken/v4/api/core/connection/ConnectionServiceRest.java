@@ -47,9 +47,9 @@ import com.squid.kraken.v4.api.core.ServiceUtils;
 import com.squid.kraken.v4.caching.redis.SimpleDatabaseManager;
 import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
 import com.squid.kraken.v4.core.database.impl.DatabaseServiceImpl;
+import com.squid.kraken.v4.model.AccessRight.Role;
 import com.squid.kraken.v4.model.Customer;
 import com.squid.kraken.v4.model.ExpressionSuggestion;
-import com.squid.kraken.v4.model.AccessRight.Role;
 import com.squid.kraken.v4.model.Project;
 import com.squid.kraken.v4.model.ProjectPK;
 import com.squid.kraken.v4.persistence.AppContext;
@@ -58,11 +58,12 @@ import com.wordnik.swagger.annotations.Api;
 import com.wordnik.swagger.annotations.ApiOperation;
 import com.wordnik.swagger.annotations.ApiParam;
 import com.wordnik.swagger.annotations.Authorization;
+import com.wordnik.swagger.annotations.AuthorizationScope;
 
 /**
  * handles connections management
  */
-@Api(value = "connections", hidden = true, authorizations = { @Authorization(value = "kraken_auth", type = "oauth2") })
+@Api(value = "connections", hidden = true, authorizations = { @Authorization(value = "kraken_auth", type = "oauth2", scopes = { @AuthorizationScope(scope = "access", description = "Access")}) })
 @Produces({ MediaType.APPLICATION_JSON })
 public class ConnectionServiceRest extends BaseServiceRest {
 	

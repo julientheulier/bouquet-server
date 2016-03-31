@@ -44,24 +44,46 @@ public class RedisCacheProxy implements IRedisCacheProxy {
 
 	static final Logger logger = LoggerFactory.getLogger(RedisCacheProxy.class);
 
-	private static  RedisCacheProxy INSTANCE;
+	private static  IRedisCacheProxy INSTANCE;
+    
+    private static boolean isMock = false;
 
 	private String REDIShost ="localhost" ;
 	private int REDISport =6379 ;
 	private JedisPool pool;
+	
+	public static void setMock(){
+		isMock = true;
+	}
 
 	public static IRedisCacheProxy getInstance(ServerID redisID){
 		if (INSTANCE == null){
-			INSTANCE = new RedisCacheProxy(redisID);
+			if (isMock) {
+				INSTANCE = new RedisCacheProxyMock(redisID);
+			} else {
+				INSTANCE = new RedisCacheProxy(redisID);
+			}
 		}
 		return INSTANCE;
 
 	}
 	public static IRedisCacheProxy getInstance(){
 		if (INSTANCE == null){
-			INSTANCE = new RedisCacheProxy();
+			if (isMock) {
+				INSTANCE = new RedisCacheProxyMock();
+			} else {
+				INSTANCE = new RedisCacheProxy();
+			}
 		}
 		return INSTANCE;
+	}
+	
+	/**
+	 * internal method to support the mock proxy - we should have a clean factory here
+	 * @param instance
+	 */
+	protected static void initInstance(IRedisCacheProxy instance) {
+		INSTANCE = instance;
 	}
 
 	public RedisCacheProxy(){
@@ -124,6 +146,9 @@ public class RedisCacheProxy implements IRedisCacheProxy {
 			while(true){
 
 				byte[] serialized = jedis.get(currKey.getBytes());
+				if (serialized == null){
+					return null;
+				}
 
 				RedisCacheValue  val = RedisCacheValue.deserialize(serialized);
 				if (val instanceof RawMatrix){

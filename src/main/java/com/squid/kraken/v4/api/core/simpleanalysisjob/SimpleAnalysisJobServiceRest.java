@@ -48,6 +48,8 @@ import javax.ws.rs.core.StreamingOutput;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.squid.core.domain.DomainNumericConstant;
 import com.squid.core.domain.IDomain;
 import com.squid.core.domain.sort.DomainSort;
@@ -56,6 +58,7 @@ import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.ExpressionLeaf;
 import com.squid.core.expression.scope.ExpressionMaker;
 import com.squid.core.expression.scope.ScopeException;
+import com.squid.kraken.v4.api.core.APIException;
 import com.squid.kraken.v4.api.core.AccessRightsUtils;
 import com.squid.kraken.v4.api.core.BaseServiceRest;
 import com.squid.kraken.v4.api.core.JobServiceBaseImpl.OutputCompression;
@@ -74,6 +77,9 @@ import com.squid.kraken.v4.core.expression.scope.DomainExpressionScope;
 import com.squid.kraken.v4.model.AccessRight;
 import com.squid.kraken.v4.model.Analysis;
 import com.squid.kraken.v4.model.Analysis.AnalysisFacet;
+import com.squid.kraken.v4.model.Bookmark;
+import com.squid.kraken.v4.model.BookmarkConfig;
+import com.squid.kraken.v4.model.BookmarkPK;
 import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.Expression;
 import com.squid.kraken.v4.model.Facet;
@@ -91,13 +97,15 @@ import com.squid.kraken.v4.model.ProjectAnalysisJobPK;
 import com.squid.kraken.v4.model.ProjectPK;
 import com.squid.kraken.v4.model.SimpleAnalysis;
 import com.squid.kraken.v4.persistence.AppContext;
+import com.squid.kraken.v4.persistence.DAOFactory;
 import com.wordnik.swagger.annotations.Api;
 import com.wordnik.swagger.annotations.ApiOperation;
 import com.wordnik.swagger.annotations.ApiParam;
 import com.wordnik.swagger.annotations.Authorization;
+import com.wordnik.swagger.annotations.AuthorizationScope;
 
 @Produces({ MediaType.APPLICATION_JSON })
-@Api(value = "analyses", hidden = true, authorizations = { @Authorization(value = "kraken_auth", type = "oauth2") })
+@Api(value = "analyses", hidden = true, authorizations = { @Authorization(value = "kraken_auth", type = "oauth2", scopes = { @AuthorizationScope(scope = "access", description = "Access")}) })
 public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 
 	private static final Logger logger = LoggerFactory
@@ -121,6 +129,7 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 			@QueryParam("orderby") String[] orderExpressions,
 			@QueryParam("rollup") String[] rollupExpressions,
 			@QueryParam("limit") Long limit,
+			@QueryParam("bookmarkId") String bookmarkId,
 			@ApiParam(value = "response timeout in milliseconds in case the job is not yet computed. If no timeout set, the method will return according to current job status.") @QueryParam("timeout") Integer timeout,
 			@ApiParam(value = "paging size") @QueryParam("maxResults") Integer maxResults,
 			@ApiParam(value = "paging start index") @QueryParam("startIndex") Integer startIndex,
@@ -132,8 +141,9 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 			throws ScopeException {
 
 		Analysis analysis = new SimpleAnalysis();
+		analysis.setBookmarkId(bookmarkId);
 		analysis.setDomain(domainExpr);
-		if (facetExpressions != null) {
+		if ((facetExpressions != null) && (facetExpressions.length>0)) {
 			List<AnalysisFacet> facets = new ArrayList<AnalysisFacet>();
 			for (int i = 0; i < facetExpressions.length; i++) {
 				AnalysisFacet f = new SimpleAnalysis.SimpleFacet();
@@ -142,10 +152,10 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 			}
 			analysis.setFacets(facets);
 		}
-		if (filterExpressions != null) {
+		if ((filterExpressions != null) && (filterExpressions.length>0)) {
 			analysis.setFilters(Arrays.asList(filterExpressions));
 		}
-		if (orderExpressions != null) {
+		if ((orderExpressions != null) && (orderExpressions.length>0)){
 			List<OrderBy> orders = new ArrayList<OrderBy>();
 			for (int i = 0; i < orderExpressions.length; i++) {
 				OrderBy order = new OrderBy();
@@ -154,7 +164,7 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 			}
 			analysis.setOrderBy(orders);
 		}
-		if (rollupExpressions != null) {
+		if ((rollupExpressions != null) && (rollupExpressions.length>0)){
 			List<RollUp> rollups = new ArrayList<RollUp>();
 			int pos = 1;
 			for (int i = 0; i < rollupExpressions.length; i++) {
@@ -183,7 +193,7 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 		}
 		analysis.setLimit(limit);
 
-		ProjectAnalysisJob analysisJob = createAnalysisJob(projectId, analysis,
+		ProjectAnalysisJob analysisJob = createAnalysisJob(userContext, projectId, analysis,
 				timeout, maxResults, startIndex, lazy, format, compression);
 
 		// and run the job
@@ -214,7 +224,7 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 			@ApiParam(value = "output filename") @DefaultValue("/default") @QueryParam("filename") String filename
 			)
 			throws ScopeException {
-		ProjectAnalysisJob analysisJob = createAnalysisJob(projectId, analysis,
+		ProjectAnalysisJob analysisJob = createAnalysisJob(userContext, projectId, analysis,
 				timeout, maxResults, startIndex, lazy, format, compression);
 
 		// and run the job
@@ -230,18 +240,77 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 				startIndex, lazy, format, compression, saveAs, filename);
 	}
 
-	private ProjectAnalysisJob createAnalysisJob(String projectId,
+	private ProjectAnalysisJob createAnalysisJob(AppContext ctx, String projectId,
 			Analysis analysis, Integer timeout, Integer maxResults,
 			Integer startIndex, boolean lazy, String format, String compression)
 			throws ScopeException {
 
-		ProjectPK projectPK = new ProjectPK(userContext.getCustomerId(),
+		// enforce read role over the project
+		ProjectPK projectPK = new ProjectPK(ctx.getCustomerId(),
 				projectId);
 		Project project = ProjectManager.INSTANCE.getProject(userContext,
 				projectPK);
-		AccessRightsUtils.getInstance().checkRole(userContext, project,
+		AccessRightsUtils.getInstance().checkRole(ctx, project,
 				AccessRight.Role.READ);
-		Universe universe = new Universe(userContext, project);
+		
+		FacetSelection selection = null;
+		
+		// process bookmark config
+		if (analysis.getBookmarkId() != null) {
+			Bookmark bookmark = DAOFactory
+					.getDAOFactory()
+					.getDAO(Bookmark.class)
+					.readNotNull(ctx,
+							new BookmarkPK(projectPK, analysis.getBookmarkId()));
+			bookmark.getConfig();
+			ObjectMapper mapper = new ObjectMapper();
+			mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+			BookmarkConfig config;
+			try {
+				config = mapper.readValue(bookmark.getConfig(),
+						BookmarkConfig.class);
+			} catch (Exception e) {
+				throw new APIException(e);
+			}
+			if (analysis.getDomain() == null) {
+				analysis.setDomain("@'"+config.getDomain()+"'");
+			}
+			if (analysis.getLimit() == null) {
+				analysis.setLimit(config.getLimit());
+			}
+			if (analysis.getFacets() == null) {
+				List<AnalysisFacet> facets = new ArrayList<AnalysisFacet>();
+				if (config.getChosenDimensions() != null) {
+					for (String chosenDimension : config.getChosenDimensions()) {
+						AnalysisFacet f = new SimpleAnalysis.SimpleFacet();
+						if (chosenDimension.startsWith("@")) {
+							f.setExpression(chosenDimension);
+						} else {
+							f.setExpression("@'"+chosenDimension+"'");
+						}
+						facets.add(f);
+					}
+				}
+				if (config.getChosenMetrics() != null) {
+					for (String chosenMetric : config.getChosenMetrics()) {
+						AnalysisFacet f = new SimpleAnalysis.SimpleFacet();
+						f.setExpression("@'"+chosenMetric+"'");
+						facets.add(f);
+					}
+				}
+				analysis.setFacets(facets);
+			}
+			if (analysis.getOrderBy() == null) {
+				analysis.setOrderBy(config.getOrderBy());
+			}
+			if (analysis.getRollups() == null) {
+				analysis.setRollups(config.getRollups());
+			}
+
+			selection = config.getSelection();
+		}
+		
+		Universe universe = new Universe(ctx, project);
 		// read the domain reference
 		if (analysis.getDomain() == null) {
 			throw new ScopeException(
@@ -337,8 +406,10 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 		}
 
 		// handle filters
-		FacetSelection selection = new FacetSelection();
-		if (analysis.getFilters()!=null) {
+		if (analysis.getFilters() != null) {
+			if (selection == null) {
+				selection = new FacetSelection();
+			}
 			for (String filter : analysis.getFilters()) {
 				ExpressionAST filterExpr = domainScope.parseExpression(filter);
 				if (!filterExpr.getImageDomain().isInstanceOf(IDomain.CONDITIONAL)) {
@@ -392,7 +463,6 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 				pos++;
 			}
 		}
-		
 		// handle rollup - fix indexes
 		pos = 1;
 		if (analysis.getRollups()!=null) {

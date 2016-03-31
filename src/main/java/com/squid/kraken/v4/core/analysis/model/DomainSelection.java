@@ -57,7 +57,20 @@ public class DomainSelection {
     
     public DomainSelection(DomainSelection copy) {
         this(copy.root);
-        throw new RuntimeException("NIY");
+        if (copy.hasConditions()) {
+        	conditions = new ArrayList<>(copy.conditions);
+        }
+        for (Axis filter : copy.getFilters()) {
+        	try {
+				add(filter,copy.getMembers(filter));
+			} catch (ScopeException e) {
+				// ok to ignore
+			}
+        }
+    }
+    
+    public Domain getDomain() {
+    	return root;
     }
 
 	public void clear(Axis axis) {

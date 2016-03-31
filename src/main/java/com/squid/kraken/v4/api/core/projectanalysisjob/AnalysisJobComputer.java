@@ -201,48 +201,43 @@ JobComputer<ProjectAnalysisJob, ProjectAnalysisJobPK, DataTable> {
 			results.setTotalSize(linesWritten);
 
 			return results;	
-		}else{
-			if (lazy){
+		}
+		else if (lazy) {
 				throw new NotInCacheException("Lazy export, analysis not in cache");
-			}else{
-
-				// run the analysis
-				ExecuteAnalysisResult res = ComputingService.INSTANCE
-						.executeAnalysis(analysis);
-				long linesWritten;
-
+		}
+		else{
+			// run the analysis
+			ExecuteAnalysisResult res = ComputingService.INSTANCE
+					.executeAnalysis(analysis);
+			long linesWritten;
+			try {
+				// write to the outputStream
+				long startExport = System.currentTimeMillis();
+				linesWritten = writer.write(res, outputStream);
+				long stopExport = System.currentTimeMillis();
+				logger.info("task="+this.getClass().getName()+" method=compute.writeData"+" jobid="+job.getId().getAnalysisJobId().toString()+" SQLQuery=#"+res.getItem().getID()+" lineWritten="+linesWritten+" duration="+ (stopExport-startExport)+" error=false status=done");
+			} catch (Throwable e) {
+				logger.error("failed to export SQLQuery=#"+res.getItem().getID()+":", e);
+				throw e;
+			} finally {
 				try {
-
-
-					// write to the outputStream
-					long startExport = System.currentTimeMillis();
-					linesWritten = writer.write(res, outputStream);
-					long stopExport = System.currentTimeMillis();
-					logger.info("task="+this.getClass().getName()+" method=compute.writeData"+" jobid="+job.getId().getAnalysisJobId().toString()+" SQLQuery=#"+res.getItem().getID()+" lineWritten="+linesWritten+" duration="+ (stopExport-startExport)+" error=false status=done");
-				} catch (Throwable e) {
-					logger.error("failed to export SQLQuery=#"+res.getItem().getID()+":", e);
-					throw e;
-				} finally {
-					try {
-						res.getItem().close();
-					} catch (SQLException e) {
-						// ignore
-						e.printStackTrace();
-					}
-
+					res.getItem().close();
+				} catch (SQLException e) {
+					// ignore
+					e.printStackTrace();
 				}
-				DataTable results = new DataTable();
-				results.setTotalSize(linesWritten);
-
-				long stop = System.currentTimeMillis();
-				//logger.info("End of compute for job " + job.getId().getAnalysisJobId().toString()  + " in " +(stop-start)+ "ms" );
-				logger.info("task="+this.getClass().getName()+" method=compute" +" jobid="+job.getId().getAnalysisJobId().toString()+" status=done duration="+(stop-start));
-				JobStats queryLog = new JobStats(job.getId().toString(),"FacetJobComputer", (stop-start), job.getId().getProjectId());
-				PerfDB.INSTANCE.save(queryLog);
-
-				return results;
 
 			}
+			DataTable results = new DataTable();
+			results.setTotalSize(linesWritten);
+
+			long stop = System.currentTimeMillis();
+			//logger.info("End of compute for job " + job.getId().getAnalysisJobId().toString()  + " in " +(stop-start)+ "ms" );
+			logger.info("task="+this.getClass().getName()+" method=compute" +" jobid="+job.getId().getAnalysisJobId().toString()+" status=done duration="+(stop-start));
+			JobStats queryLog = new JobStats(job.getId().toString(),"FacetJobComputer", (stop-start), job.getId().getProjectId());
+			PerfDB.INSTANCE.save(queryLog);
+
+			return results;
 		}
 	}
 

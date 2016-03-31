@@ -23,6 +23,8 @@
  *******************************************************************************/
 package com.squid.kraken.v4.model;
 
+import org.mongodb.morphia.annotations.Property;
+
 import com.wordnik.swagger.annotations.ApiModelProperty;
 
 /**
@@ -43,6 +45,7 @@ public abstract class DynamicObject<PK extends GenericPK> extends LzPersistentBa
 	 * default is false, you need to explicitly set the dynamic flag when creating the object
 	 * (previous versions had a transient flag)
 	 */
+	@Property(value="isDynamic2")// this is for compatibility with projects generated with prior version
     private boolean isDynamic = false;
     
     public DynamicObject() {

@@ -41,11 +41,11 @@ public class AWSRedisCacheConfig {
 			.getLogger(AWSRedisCacheConfig.class);
 
 	
-	private ServerID redisID;
+	private ServerID redisID = new ServerID();
 	
-	private ServerID generationalKeysServerID;
+	private ServerID generationalKeysServerID = new ServerID();
 	
-	private ServerID queriesServerID;
+	private ServerID queriesServerID = new ServerID();
 	
 	private ArrayList<ServerID> workers;
 	

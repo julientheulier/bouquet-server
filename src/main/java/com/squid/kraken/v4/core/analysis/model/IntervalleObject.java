@@ -24,8 +24,6 @@
 package com.squid.kraken.v4.core.analysis.model;
 
 import java.io.Serializable;
-import java.util.Calendar;
-import java.util.Date;
 
 public class IntervalleObject extends IntervalleAbstract implements Comparable<IntervalleObject>, Serializable {
 	
@@ -34,29 +32,9 @@ public class IntervalleObject extends IntervalleAbstract implements Comparable<I
 	 */
 	private static final long serialVersionUID = 662637256055226823L;
 	
-	private Comparable lower_bound;
-	private Comparable upper_bound;
+	private Object lower_bound;
+	private Object upper_bound;
 
-    /**
-     * create a new interval that merges the given intervals
-     * @return
-     */
-    public static IntervalleObject merge(IntervalleObject first, IntervalleObject second) {
-        if (first==null) {
-            return second;
-        } else if (second==null) {
-            return first;
-        } else {
-            Comparable lower = first.getLowerBound().compareTo(
-                    second.getLowerBound()) < 0 ? first
-                    .getLowerBound() : second.getLowerBound();
-            Comparable upper = first.getUpperBound().compareTo(
-                    second.getUpperBound()) > 0 ? first
-                    .getUpperBound() : second.getUpperBound();
-            return new IntervalleObject(lower, upper);
-        }
-    }
-	
     /**
      * try to create a interval, or return null if it not applicable
      * @param lower
@@ -68,15 +46,15 @@ public class IntervalleObject extends IntervalleAbstract implements Comparable<I
 	        if (lower==null || upper==null) {
 	            return null;
 	        } else {
-	            return new IntervalleObject((Comparable)lower, (Comparable)upper);
+	            return new IntervalleObject(lower, upper);
 	        }
 	    } catch (Exception e) {
 	        return null;
 	    }
 	}
 
-	public IntervalleObject(Comparable lower_bound, Comparable upper_bound) {
-		if (lower_bound.compareTo(upper_bound)<0) {
+	public IntervalleObject(Object lower_bound, Object upper_bound) {
+		if (compareTo(lower_bound, upper_bound)<0) {
 			this.lower_bound = lower_bound;
 			this.upper_bound = upper_bound;
 		} else {
@@ -88,22 +66,62 @@ public class IntervalleObject extends IntervalleAbstract implements Comparable<I
 	/* (non-Javadoc)
 	 * @see com.squid.kraken.v4.core.analysis.model.Intervalle#getLowerBound()
 	 */
-	public Comparable getLowerBound() {
+	public Object getLowerBound() {
 		return lower_bound;
 	}
 
 	/* (non-Javadoc)
 	 * @see com.squid.kraken.v4.core.analysis.model.Intervalle#getUpperBound()
 	 */
-	public Comparable getUpperBound() {
+	public Object getUpperBound() {
 		return upper_bound;
 	}
 
-	public static Date date(int year, int month, int day) {
-		Calendar c = Calendar.getInstance();
-		c.set(year, month-1, day-1);
-		return c.getTime();
+    /**
+     * create a new interval that merges the given intervals
+     * @return
+     */
+    public IntervalleObject merge(IntervalleObject with) {
+        if (with==null) {
+            return this;
+        } else {
+            Object lower = compareTo(getLowerBound(), with.getLowerBound()) < 0 ? getLowerBound() : with.getLowerBound();
+            Object upper = compareTo(getUpperBound(), with.getUpperBound()) > 0 ? getUpperBound() : with.getUpperBound();
+            return new IntervalleObject(lower, upper);
+        }
+    }
+
+    /**
+     * extend the interval to include the value
+     * @param member
+     * @return
+     */
+	public IntervalleObject include(Object value) {
+		if (compareLowerBoundTo(value)>0) {
+			return new IntervalleObject(value, upper_bound);
+		} else if (compareUpperBoundTo(value)<0) {
+			return new IntervalleObject(lower_bound, value);
+		} else {
+			return this;
+		}
 	}
+    
+	@SuppressWarnings("unchecked")
+	private <T> int compareTo(T o1, T o2) {
+    	if (o1.getClass().equals(o2.getClass()) && o1 instanceof Comparable<?>) {
+    		return ((Comparable<T>)o1).compareTo((T)o2);
+    	} else {
+    		return o1.toString().compareTo(o2.toString());
+    	}
+    }
+    
+    public int compareUpperBoundTo(Object value) {
+    	return compareTo(upper_bound, value);
+    }
+
+    public int compareLowerBoundTo(Object value) {
+    	return compareTo(lower_bound, value);
+    }
 
 	@Override
 	public int hashCode() {
@@ -140,11 +158,11 @@ public class IntervalleObject extends IntervalleAbstract implements Comparable<I
 
 	@Override
 	public int compareTo(IntervalleObject that) {
-		Comparable this_lower = this.lower_bound;
-		Comparable that_lower = that.lower_bound;
-		int compare_lower = this_lower.compareTo(that_lower);
+		Object this_lower = this.lower_bound;
+		Object that_lower = that.lower_bound;
+		int compare_lower = compareTo(this_lower, that_lower);
 		if (compare_lower==0) {
-			return (this.upper_bound).compareTo(that.upper_bound);
+			return compareTo(this.upper_bound, that.upper_bound);
 		} else {
 			return compare_lower;
 		}

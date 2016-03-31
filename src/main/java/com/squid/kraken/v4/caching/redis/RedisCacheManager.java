@@ -27,7 +27,6 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 
 import org.apache.commons.codec.digest.DigestUtils;
@@ -88,31 +87,31 @@ public class RedisCacheManager implements IRedisCacheManager  {
 		
 		this.genkeysServ.start();
 		this.queriesServ.start();
-		if (isMock) {
-			this.redis =  RedisCacheProxyMock.getInstance(conf.getRedisID());
-		} else {
-			this.redis =  RedisCacheProxy.getInstance(conf.getRedisID());
-		}
+		
+		this.redis =  RedisCacheProxy.getInstance(conf.getRedisID());
 		
 	}
 	
 	
 	public RawMatrix getData(String SQLQuery, List<String> dependencies, String RSjdbcURL,
 		String username, String pwd, int TTLinSec, long limit) throws InterruptedException{
-		//
 		// generate the key by adding projectID and SQL
 		String k = buildCacheKey(SQLQuery, dependencies);
-		boolean inCache = this.inCache(k);
-		logger.debug("cache hit = " + inCache + " for key = " + k);
-		if (!inCache){
+		
+		RawMatrix res = getRawMatrix(k);
+		if (res != null){
+			logger.debug("cache hit for key = " + k);
+			res.setFromCache(true);
+		}else{
 			boolean fetchOK = this.fetch(k, SQLQuery, RSjdbcURL, username, pwd,TTLinSec, limit );
 			if (!fetchOK){
-				logger.info("failed to fetch query:\n" +SQLQuery  +"\nfetch failed") ;
+				logger.info("failed to fetch query:\n" +SQLQuery  +"\nfetch failed") ; 
 				return null;
 			}
+			res = getRawMatrix(k);
+			res.setFromCache(false);
 		}
-		RawMatrix res = getRawMatrix(k);
-		res.setFromCache(inCache);
+			
 		return res;
 	}
 	
@@ -120,7 +119,7 @@ public class RedisCacheManager implements IRedisCacheManager  {
 	public RawMatrix  getDataLazy(String SQLQuery, List<String> dependencies, String RSjdbcURL,
 			String username, String pwd, int TTLinSec){
 		String k = buildCacheKey(SQLQuery, dependencies);
-		boolean inCache = this.inCache(k);
+	/*	boolean inCache = this.inCache(k);
 		logger.debug("cache hit = " + inCache + " for key = " + k);
 		if (!inCache){
 			return null;
@@ -128,7 +127,16 @@ public class RedisCacheManager implements IRedisCacheManager  {
 			RawMatrix res = getRawMatrix(k);
 			res.setFromCache(inCache);
 			return res;
+		}*/
+		
+		RawMatrix res = getRawMatrix(k);
+		if (res != null){
+			logger.debug("cache hit for key = " + k);
+			res.setFromCache(true);
+		}else{ 
+			res= null;
 		}
+		return res;
 	}
 	
 

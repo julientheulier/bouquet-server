@@ -38,6 +38,10 @@ public interface Analysis {
 
 	public abstract void setLimit(Long limit);
 	
+	public abstract String getBookmarkId();
+
+	public abstract void setBookmarkId(String bookmarkId);
+	
 	@JsonDeserialize(as = SimpleFacet.class)
 	static public interface AnalysisFacet {
 		

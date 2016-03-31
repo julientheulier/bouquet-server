@@ -446,6 +446,7 @@ public class DynamicManager {
         concrete.addAll(content.getDimensions());
         concrete.addAll(content.getMetrics());
 		Collections.sort(concrete, new LevelComparator<ExpressionObject<?>>());
+        List<ExpressionObject<?>> failed = new ArrayList<ExpressionObject<?>>();// keep track of failed evaluation, will try again latter
 		for (ExpressionObject<?> object : concrete) {
 			if (object.getName()!=null) {
 				checkName.add(object.getName());
@@ -484,6 +485,7 @@ public class DynamicManager {
     			} catch (ScopeException e) {
     				// invalid expression, just keep it
     				if(logger.isDebugEnabled()){logger.debug(("Invalid Dimension '"+domain.getName()+"'.'"+dimension.getName()+"' definition: "+ e.getLocalizedMessage()));}
+    				failed.add(object);
     			}
         	} else if (object instanceof Metric) {
         		// handle Metric
@@ -500,9 +502,13 @@ public class DynamicManager {
     			} catch (ScopeException e) {
     				// invalid expression, just keep it
     				if(logger.isDebugEnabled()){logger.debug(("Invalid Metric '"+domain.getName()+"'.'"+metric.getName()+"' definition: "+ e.getLocalizedMessage()));}
+    				failed.add(object);
     			}
         	}
         }
+		//
+		// try to recover failed ones
+		
         //
         try {
             // exclude keys

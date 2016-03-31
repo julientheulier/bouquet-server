@@ -28,6 +28,7 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 
 import com.squid.core.jdbc.formatter.IJDBCDataFormatter;
+import com.squid.core.sql.render.IOrderByPiece.ORDERING;
 import com.squid.core.sql.render.ISelectPiece;
 
 public class SimpleMapping implements IMapping {
@@ -74,6 +75,15 @@ public class SimpleMapping implements IMapping {
 		Object value = result.getObject(index);
 		Object unbox = formatter.unboxJDBCObject(value, type);
 		return unbox;
+	}
+
+	/**
+	 * set the mapping ordering based on the query requirement
+	 * Must override to actually propagate the information
+	 * @param ordering
+	 */
+	public void setOrdering(ORDERING ordering) {
+		// default do nothing for now, need to propagate
 	}
 	
 }

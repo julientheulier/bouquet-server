@@ -26,6 +26,7 @@ package com.squid.kraken.v4.core.expression.scope;
 import java.util.ArrayList; 
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 
 import com.squid.core.domain.extensions.AddMonthsOperatorDefinition;
@@ -40,6 +41,7 @@ import com.squid.core.expression.ConstantValue;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.Operator;
 import com.squid.core.expression.scope.ScopeException;
+import com.squid.kraken.v4.core.expression.reference.ParameterReference;
 import com.squid.kraken.v4.persistence.AppContext;
 
 /**
@@ -48,11 +50,15 @@ import com.squid.kraken.v4.persistence.AppContext;
  *
  */
 public class ExpressionEvaluator {
-	
-	//private AppContext ctx;
+
+	private HashMap<String, Object> paramValues = new HashMap<>();
 
 	public ExpressionEvaluator(AppContext ctx) {
 		//this.ctx = ctx;
+	}
+	
+	public void setParameterValue(String param, Object value) {
+		paramValues.put(param.toUpperCase(), value);
 	}
 	
 	/**
@@ -92,8 +98,19 @@ public class ExpressionEvaluator {
 		} else if (e instanceof Operator) {
 			Operator op = (Operator)e;
 			return eval_operator(op);
+		} else if (e instanceof ParameterReference) {
+			return eval_parameter((ParameterReference)e);
 		} else {
 			return null;// this is a kind of error
+		}
+	}
+
+	private Object eval_parameter(ParameterReference e) {
+		// check if there is a value associated with the parameter
+		if (paramValues.containsKey(e.getReferenceName().toUpperCase())) {
+			return paramValues.get(e.getReferenceName().toUpperCase());
+		} else {
+			return null;// not set
 		}
 	}
 

@@ -24,7 +24,9 @@
 package com.squid.kraken.v4.core.analysis.scope;
 
 import com.squid.core.domain.IDomain;
+import com.squid.core.domain.operators.ExtendedType;
 import com.squid.core.expression.PrettyPrintConstant;
+import com.squid.core.sql.render.SQLSkin;
 import com.squid.kraken.v4.core.analysis.universe.Measure;
 import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.model.Metric;
@@ -82,11 +84,20 @@ extends AnalysisExpression
 	}
 	
 	@Override
+	public ExtendedType computeType(SQLSkin skin) {
+		if (value!=null) {
+			return value.getDefinitionSafe().computeType(skin);
+		} else {
+	        return ExtendedType.UNDEFINED;
+		}
+	}
+	
+	@Override
 	public IDomain getImageDomain() {
-		try {
-			return value.getDefinition().getImageDomain();
-		} catch (Exception e) {
-			return IDomain.UNKNOWN;
+		if (value!=null) {
+			return value.getDefinitionSafe().getImageDomain();
+		} else {
+	        return IDomain.UNKNOWN;
 		}
 	}
 	
