@@ -44,11 +44,12 @@ public class JoinMerger extends Merger {
 	/**
 	 * The JoinMerger will merge 2 DataMatrices to compare the output.
 	 * If the join Axis is defined and exits in the input DM, it will be use to correctly join them.
+	 * @param mergeOrder 
 	 * @param join
 	 * @throws ScopeException 
 	 */
-	public JoinMerger(DataMatrix left, DataMatrix right, Axis join) throws ScopeException {
-		super(left, right);
+	public JoinMerger(DataMatrix left, DataMatrix right, int[] mergeOrder, Axis join) throws ScopeException {
+		super(left, right, mergeOrder);
 		this.join = join;
 		//
 		// check if join is a column
