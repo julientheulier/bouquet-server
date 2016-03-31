@@ -41,6 +41,7 @@ import org.slf4j.LoggerFactory;
 
 import com.squid.core.domain.IDomain;
 import com.squid.core.domain.set.SetDomain;
+import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.core.jdbc.engine.IExecutionItem;
 import com.squid.core.sql.model.SQLScopeException;
@@ -49,7 +50,6 @@ import com.squid.core.sql.render.ISelectPiece;
 import com.squid.core.sql.render.RenderingException;
 import com.squid.kraken.v4.core.analysis.datamatrix.AxisValues;
 import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
-import com.squid.kraken.v4.core.analysis.datamatrix.JoinMerger;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionMember;
 import com.squid.kraken.v4.core.analysis.engine.query.SimpleQuery;
 import com.squid.kraken.v4.core.analysis.model.Dashboard;
@@ -140,73 +140,7 @@ public class AnalysisCompute {
 			DataMatrix dm = query.run(analysis.isLazy());
 			return dm;
 		} else if (analysis.getSelection().hasCompareToSelection()) {
-			// handle compare T947
-			//
-			// compute present
-			DashboardSelection presentSelection = analysis.getSelection();
-			DomainSelection compare = presentSelection.getCompareToSelection();
-			Axis joinAxis = null;
-			IntervalleObject presentInterval = null;
-			IntervalleObject pastInterval = null;
-			for (Axis filter : compare.getFilters()) {
-				// check if the filter is a join
-				if (analysis.findGrouping(filter)!=null) {
-					if (joinAxis!=null) {
-						throw new ScopeException("only one join axis supported");
-					}
-					joinAxis = filter;
-					// compute the min & max for present
-					Collection<DimensionMember> members = presentSelection.getMembers(filter);
-					presentInterval = computeMinMax(members);
-				}
-			}
-			DataMatrix present = computeAnalysisOpt(analysis, false);
-			//
-			// compute the past version
-			// copy the selection and replace with compare filters
-			DashboardSelection pastSelection = new DashboardSelection(presentSelection);
-			for (Axis filter : compare.getFilters()) {
-				pastSelection.clear(filter);
-				pastSelection.add(filter, compare.getMembers(filter));
-				if (joinAxis.equals(filter)) {
-					pastInterval = computeMinMax(compare.getMembers(filter));
-				}
-			}
-			analysis.setSelection(pastSelection);
-			DataMatrix past = computeAnalysisOpt(analysis, false);
-			//
-			final int offset = computeOffset(present, joinAxis, presentInterval, pastInterval);
-			//
-			JoinMerger join = new JoinMerger(present, past, joinAxis) {
-				@Override
-				protected Object translateRightToLeft(Object right) {
-					if (right instanceof Date) {
-						LocalDate delta = (new LocalDate(((Date)right).getTime())).plusDays(offset);
-						return new java.sql.Date(delta.toDate().getTime());
-					} else {
-						return right;
-					}
-				}
-				@Override
-				protected Object translateLeftToRight(Object left) {
-					if (left instanceof Date) {
-						LocalDate delta = (new LocalDate(((Date)left).getTime())).minusDays(offset);
-						return new java.sql.Date(delta.toDate().getTime());
-					} else {
-						return right;
-					}
-				}
-				@Override
-				protected int compareJoinValue(int pos, Object left, Object right) {
-					if (right instanceof Date) {
-						return ((Date)left).compareTo((new LocalDate(((Date)right).getTime())).plusDays(offset).toDate());
-					} else {
-						return super.compareJoinValue(pos, left, right);
-					}
-				}
-			};
-			DataMatrix debug = join.merge(false);
-			return debug;
+			return computeCompareToAnalysis(analysis);
 		} else {
 			// disable the optimizing when using the limit feature
 			@SuppressWarnings("unused")
@@ -214,6 +148,103 @@ public class AnalysisCompute {
 					&& !analysis.hasRollup();
 			return computeAnalysisOpt(analysis, optimize);
 		}
+	}
+
+	// handle compare T947
+	public DataMatrix computeCompareToAnalysis(DashboardAnalysis analysis) throws ScopeException, ComputingException, SQLScopeException, InterruptedException {
+		// preparing the selection
+		DashboardSelection presentSelection = analysis.getSelection();
+		DomainSelection compare = presentSelection.getCompareToSelection();
+		Axis joinAxis = null;
+		IntervalleObject presentInterval = null;
+		IntervalleObject pastInterval = null;
+		for (Axis filter : compare.getFilters()) {
+			// check if the filter is a join
+			if (analysis.findGrouping(filter)!=null) {
+				if (joinAxis!=null) {
+					throw new ScopeException("only one join axis supported");
+				}
+				joinAxis = filter;
+				// compute the min & max for present
+				Collection<DimensionMember> members = presentSelection.getMembers(filter);
+				presentInterval = computeMinMax(members);
+			}
+		}
+		//
+		// handling orderBy in the proper way...
+		List<OrderBy> fixed = new ArrayList<>();
+		List<OrderBy> reminding = new ArrayList<>();
+		int i=0;
+		// list the dimensions
+		ArrayList<ExpressionAST> dimensions = new ArrayList<>();// order matter
+		for (GroupByAxis group : analysis.getGrouping()) {
+			dimensions.add(group.getAxis().getDefinitionSafe());
+		}
+		int[] mergeOrder = new int[dimensions.size()];// will hold in which order to merge
+		// rebuild the full order specs
+		for (OrderBy order : analysis.getOrders()) {
+			if (i==0 && joinAxis!=null) {
+				if (order.getExpression().equals(joinAxis.getDefinitionSafe())) {
+					// ok, it's first
+					fixed.add(new OrderBy(i, order.getExpression(), order.getOrdering()));
+					mergeOrder[i++] = dimensions.indexOf(order.getExpression());
+					continue;// done for this order
+				} else {
+					// add it first
+					fixed.add(new OrderBy(i, joinAxis.getDefinitionSafe(), ORDERING.DESCENT));// default to DESC
+					mergeOrder[i++] = dimensions.indexOf(joinAxis.getDefinitionSafe());
+					// now we need to take care of the order
+				}
+			}
+			// not (the first & join)...
+			// check if it is a dimension
+			if (dimensions.contains(order.getExpression())) {
+				// ok, just add it
+				fixed.add(new OrderBy(i, order.getExpression(), order.getOrdering()));
+				mergeOrder[i++] = dimensions.indexOf(order.getExpression());
+				// and remove the dimension from the list
+				dimensions.remove(order.getExpression());
+			} else {
+				// assuming it is a metric or something else, keep it but at the end
+				reminding.add(order);// don't know the position yet
+			}
+		}
+		// add missing dimensions
+		if (!dimensions.isEmpty()) {
+			for (ExpressionAST dim : dimensions) {
+				fixed.add(new OrderBy(i, dim, ORDERING.DESCENT));// default to DESC
+				mergeOrder[i++] = dimensions.indexOf(dim);
+			}
+		}
+		// add non-dimensions
+		if (!reminding.isEmpty()) {
+			for (OrderBy order : reminding) {
+				fixed.add(new OrderBy(i++, order.getExpression(), order.getOrdering()));
+			}
+		}
+		analysis.setOrders(fixed);
+		//
+		// compute present
+		DataMatrix present = computeAnalysisOpt(analysis, false);
+		//
+		// compute the past version
+		// copy the selection and replace with compare filters
+		DashboardSelection pastSelection = new DashboardSelection(presentSelection);
+		for (Axis filter : compare.getFilters()) {
+			pastSelection.clear(filter);
+			pastSelection.add(filter, compare.getMembers(filter));
+			if (joinAxis.equals(filter)) {
+				pastInterval = computeMinMax(compare.getMembers(filter));
+			}
+		}
+		analysis.setSelection(pastSelection);
+		DataMatrix past = computeAnalysisOpt(analysis, false);
+		//
+		final int offset = computeOffset(present, joinAxis, presentInterval, pastInterval);
+		//
+		CompareMerger merger = new CompareMerger(present, past, mergeOrder, joinAxis, offset);
+		DataMatrix debug = merger.merge(false);
+		return debug;
 	}
 
 	private int computeOffset(DataMatrix present, Axis joinAxis, IntervalleObject presentInterval, IntervalleObject pastInterval) {
