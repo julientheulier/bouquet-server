@@ -143,7 +143,7 @@ public class RedisCacheProxy implements IRedisCacheProxy {
 					}else{
 						if(val instanceof RedisCacheValuesList){
 							RedisCacheValuesList  refList = (RedisCacheValuesList) val;
-							return  this.getChunkedRawMatrix(key, refList);
+							return  this.buildChunkedRawMatrix(key, refList);
 						}else{
 							throw new ClassNotFoundException();
 						}
@@ -158,14 +158,51 @@ public class RedisCacheProxy implements IRedisCacheProxy {
 	}
 
 	
-	public RedisCacheValue followKey(RedisCacheReference ref ){
-		
+	public RedisCacheValue getRawOrList(String key ){
+		try (Jedis jedis  = getResourceFromPool()){	
+
+			HashSet<String> pastKeys=  new HashSet<String>(); // do not get trapped in circular references
+			String currKey = key;
+			while(true){
+
+				byte[] serialized = jedis.get(currKey.getBytes());
+
+				RedisCacheValue  val = RedisCacheValue.deserialize(serialized);
+				if (val instanceof RawMatrix){
+					RawMatrix res= (RawMatrix) val;
+					res.setRedisKey(currKey); 
+					return res;
+				}else{
+					if(val instanceof  RedisCacheReference){	
+						RedisCacheReference ref = (RedisCacheReference )val ;
+						logger.info("Cache Reference : "+ currKey + "   " +  ref.getReferenceKey());
+						pastKeys.add(currKey);
+						currKey = ref.getReferenceKey();
+						if (pastKeys.contains(currKey)){
+							throw new RuntimeException();
+						}
+
+					}else{
+						if(val instanceof RedisCacheValuesList){
+							RedisCacheValuesList  refList = (RedisCacheValuesList) val;
+							return  this.buildChunkedRawMatrix(key, refList);
+						}else{
+							throw new ClassNotFoundException();
+						}
+					}
+				}
+			}
+
+		} catch (RuntimeException | ClassNotFoundException | IOException | ComputingException e) {
+			logger.error("failed to getRawMatrix() on key="+key);
+			throw new RuntimeException("Jedis: getRawMatrix() failed on key="+key, e);
+		} 
 		
 		
 	}
 
 
-	private RawMatrix getChunkedRawMatrix (String key, RedisCacheValuesList refList ) throws ComputingException, ClassNotFoundException, IOException{
+	private RawMatrix buildChunkedRawMatrix (String key, RedisCacheValuesList refList ) throws ComputingException, ClassNotFoundException, IOException{
 		try (Jedis jedis  = getResourceFromPool()){	
 			
 			logger.info("Rebuilding chunked matrix from cache");

@@ -135,13 +135,25 @@ public class RedisCacheManager implements IRedisCacheManager  {
 	public RedisCacheValue getRedisCacheValue(String SQLQuery, List<String> dependencies, String RSjdbcURL,
 			String username, String pwd, int TTLinSec ) {
 			String k = buildCacheKey(SQLQuery, dependencies);
-			RedisCacheValue res;
 			try {
-				 res = RedisCacheValue.deserialize(this.redis.get(k));
+				RedisCacheValue res ;
+				while (true){
+					byte[] serialized = this.redis.get(k);
+					if (serialized != null) {
+				
+						res = RedisCacheValue.deserialize(serialized);
+						if (res instanceof RedisCacheReference){
+							k = ((RedisCacheReference) res).getReferenceKey();
+						
+						}else{						
+							return res;
+						}
+					}					
+				}
+				
 			} catch (ClassNotFoundException | IOException e) {
 				return null;
 			}
-			return res;
 	}
 	
 	public boolean addCacheReference(String sqlNoLimit, List<String> dependencies, String referencedKey ){
