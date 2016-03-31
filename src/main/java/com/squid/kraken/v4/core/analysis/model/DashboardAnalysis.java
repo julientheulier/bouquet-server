@@ -87,6 +87,10 @@ public class DashboardAnalysis extends Dashboard {
         return orders;
     }
 	
+	public void setOrders(List<OrderBy> orders) {
+		this.orders = new ArrayList<>(orders);
+	}
+	
 	public boolean hasOrderBy() {
 	    return !orders.isEmpty();
 	}
