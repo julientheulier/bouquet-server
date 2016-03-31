@@ -215,10 +215,15 @@ public class Merger {
 				that_row = that_iter.next();
 			}
 			// manage remaining
-			if ( (this_row==null && that_row!=null) ||  (this_row!=null && that_row==null) ) {
+			if ((this_row == null && that_row != null)) {
 				IndirectionRow merged = merge(this_row, that_row, schema);
 				result.add(merged);
-				that_row=null;		
+				that_row = null;
+			}
+			if ((this_row != null && that_row == null)) {
+				IndirectionRow merged = merge(this_row, that_row, schema);
+				result.add(merged);
+				this_row=null;		
 			}
 			// normal case
 			if (this_row!=null && that_row!=null) {
