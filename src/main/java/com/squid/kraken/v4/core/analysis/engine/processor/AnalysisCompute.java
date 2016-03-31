@@ -173,18 +173,18 @@ public class AnalysisCompute {
 		//
 		// handling orderBy in the proper way...
 		List<OrderBy> fixed = new ArrayList<>();
-		List<OrderBy> reminding = new ArrayList<>();
+		List<OrderBy> remaining = new ArrayList<>();
 		int i=0;
 		// list the dimensions
 		ArrayList<ExpressionAST> dimensions = new ArrayList<>();// order matter
 		for (GroupByAxis group : analysis.getGrouping()) {
-			dimensions.add(group.getAxis().getDefinitionSafe());
+			dimensions.add(group.getAxis().getReference());
 		}
 		int[] mergeOrder = new int[dimensions.size()];// will hold in which order to merge
 		// rebuild the full order specs
 		for (OrderBy order : analysis.getOrders()) {
 			if (i==0 && joinAxis!=null) {
-				if (order.getExpression().equals(joinAxis.getDefinitionSafe())) {
+				if (order.getExpression().equals(joinAxis.getReference())) {
 					// ok, it's first
 					fixed.add(new OrderBy(i, order.getExpression(), order.getOrdering()));
 					mergeOrder[i++] = dimensions.indexOf(order.getExpression());
@@ -192,7 +192,7 @@ public class AnalysisCompute {
 				} else {
 					// add it first
 					fixed.add(new OrderBy(i, joinAxis.getDefinitionSafe(), ORDERING.DESCENT));// default to DESC
-					mergeOrder[i++] = dimensions.indexOf(joinAxis.getDefinitionSafe());
+					mergeOrder[i++] = dimensions.indexOf(joinAxis.getReference());
 					// now we need to take care of the order
 				}
 			}
@@ -206,7 +206,7 @@ public class AnalysisCompute {
 				dimensions.remove(order.getExpression());
 			} else {
 				// assuming it is a metric or something else, keep it but at the end
-				reminding.add(order);// don't know the position yet
+				remaining.add(order);// don't know the position yet
 			}
 		}
 		// add missing dimensions
@@ -217,8 +217,8 @@ public class AnalysisCompute {
 			}
 		}
 		// add non-dimensions
-		if (!reminding.isEmpty()) {
-			for (OrderBy order : reminding) {
+		if (!remaining.isEmpty()) {
+			for (OrderBy order : remaining) {
 				fixed.add(new OrderBy(i++, order.getExpression(), order.getOrdering()));
 			}
 		}
