@@ -168,7 +168,7 @@ public class AnalysisCompute {
 			for (Axis filter : compare.getFilters()) {
 				pastSelection.clear(filter);
 				pastSelection.add(filter, compare.getMembers(filter));
-				if (joinAxis.equals(filter)) {
+				if (joinAxis!=null && joinAxis.equals(filter)) {
 					pastInterval = computeMinMax(compare.getMembers(filter));
 				}
 			}
