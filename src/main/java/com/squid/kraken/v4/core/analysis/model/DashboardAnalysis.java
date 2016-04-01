@@ -131,6 +131,11 @@ public class DashboardAnalysis extends Dashboard {
     	return this.lazy;
     }
 
+	public GroupByAxis add(GroupByAxis slice) {
+		grouping.add(slice);
+		return slice;
+	}
+
 	public GroupByAxis add(Axis axis) {
 		GroupByAxis slice = new GroupByAxis(axis);
 		grouping.add(slice);
@@ -154,6 +159,10 @@ public class DashboardAnalysis extends Dashboard {
         axis.setRollup(true);
         axis.setRollupPosition(position);
         rollup.add(axis);
+    }
+    
+    public void setRollup(List<GroupByAxis> rollup) {
+    	this.rollup = new ArrayList<>(rollup);
     }
     
     public List<GroupByAxis> getRollup() {
