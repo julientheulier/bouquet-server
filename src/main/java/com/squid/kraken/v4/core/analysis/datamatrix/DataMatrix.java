@@ -670,6 +670,7 @@ public class DataMatrix {
 					assert(colType.equals(DataType.values()[colExtType.getDataType()]));
                     Col col = new Col(dim.getId(), m.getAxis().getName(), colExtType, Col.Role.DOMAIN);
                     col.setDefinition(m.getAxis().prettyPrint());
+                    col.setOriginType(m.getAxis().getOriginType());
                     header.add(col);
 	            } else {
 	                String def = m.getAxis().getDefinitionSafe().prettyPrint();
@@ -681,17 +682,18 @@ public class DataMatrix {
 					DimensionPK pk = new DimensionPK(m.getAxis().getParent().getDomain().getId(),ID);
 	                Col col = new Col(pk, name, colExtType, Col.Role.DOMAIN);
 	                if (def!=null) col.setDefinition(m.getAxis().prettyPrint());
+                    col.setOriginType(m.getAxis().getOriginType());
 	                header.add(col);
 	            }
             }
         }
         for (int i = 0; i < kpis.size(); i++) {
             Measure m = kpis.get(i);
-            // TODO DatType
             Metric metric = m.getMetric();
             ExtendedType type = getExtendedType(m.getDefinitionSafe());
 			Col col = new Col(metric!=null?metric.getId():null, m.getName(), type, Col.Role.DATA);
             col.setDefinition(m.prettyPrint());
+            col.setOriginType(m.getOriginType());
             header.add(col);
         }
         // export data
