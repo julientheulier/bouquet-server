@@ -161,11 +161,12 @@ public class AnalysisCompute {
 		IntervalleObject pastInterval = null;
 		for (Axis filter : compare.getFilters()) {
 			// check if the filter is a join
-			if (currentAnalysis.findGrouping(filter)!=null) {
+			GroupByAxis groupBy = findGroupingJoin(filter, currentAnalysis);
+			if (groupBy!=null) {
 				if (joinAxis!=null) {
 					throw new ScopeException("only one join axis supported");
 				}
-				joinAxis = filter;
+				joinAxis = groupBy.getAxis();
 				// compute the min & max for present
 				Collection<DimensionMember> members = presentSelection.getMembers(filter);
 				presentInterval = computeMinMax(members);
@@ -192,7 +193,7 @@ public class AnalysisCompute {
 					continue;// done for this order
 				} else {
 					// add it first
-					fixed.add(new OrderBy(i, joinAxis.getDefinitionSafe(), ORDERING.DESCENT));// default to DESC
+					fixed.add(new OrderBy(i, joinAxis.getReference(), ORDERING.DESCENT));// default to DESC
 					mergeOrder[i++] = dimensions.indexOf(joinAxis.getReference());
 					// now we need to take care of the order
 				}
@@ -213,8 +214,10 @@ public class AnalysisCompute {
 		// add missing dimensions
 		if (!dimensions.isEmpty()) {
 			for (ExpressionAST dim : dimensions) {
-				fixed.add(new OrderBy(i, dim, ORDERING.DESCENT));// default to DESC
-				mergeOrder[i++] = dimensions.indexOf(dim);
+				if (joinAxis==null || !joinAxis.getReference().equals(dim)) {
+					fixed.add(new OrderBy(i, dim, ORDERING.DESCENT));// default to DESC
+					mergeOrder[i++] = dimensions.indexOf(dim);
+				}
 			}
 		}
 		// add non-dimensions
@@ -272,6 +275,27 @@ public class AnalysisCompute {
 		CompareMerger merger = new CompareMerger(present, past, mergeOrder, joinAxis, offset);
 		DataMatrix debug = merger.merge(false);
 		return debug;
+	}
+	
+	private GroupByAxis findGroupingJoin(Axis join, DashboardAnalysis from) {
+		DateExpressionAssociativeTransformationExtractor checker = new DateExpressionAssociativeTransformationExtractor();
+		ExpressionAST naked1 = checker.eval(join.getDefinitionSafe());
+		IDomain d1 = join.getDefinitionSafe().getImageDomain();
+		for (GroupByAxis groupBy : from.getGrouping()) {
+			IDomain d2 = groupBy.getAxis().getDefinitionSafe().getImageDomain();
+			if (d1.isInstanceOf(IDomain.TEMPORAL) && d2.isInstanceOf(IDomain.TEMPORAL)) {
+				// if 2 dates, try harder...
+				// => the groupBy can be a associative transformation of the filter
+				ExpressionAST naked2 = checker.eval(groupBy.getAxis().getDefinitionSafe());
+				if (naked1.equals(naked2)) {
+					return groupBy;
+				}
+			} else if (join.equals(groupBy.getAxis())) {
+				return groupBy;
+			}
+		}
+		// else
+		return null;
 	}
 
 	private int computeOffset(DataMatrix present, Axis joinAxis, IntervalleObject presentInterval, IntervalleObject pastInterval) {
