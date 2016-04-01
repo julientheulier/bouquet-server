@@ -33,6 +33,13 @@ import com.squid.kraken.v4.model.ExpressionObject;
  *
  */
 public interface Property {
+	
+	// provide a way to communicate the origin of the property
+	public enum OriginType {
+		USER, 		// created by the user
+		ROLLUP, 	// created by the rollup analysis
+		COMPARETO	// created by the compareTo analysis
+	};
     
     /**
      * the space
@@ -51,5 +58,11 @@ public interface Property {
 	public ExpressionAST getReference();
 	
 	public ExpressionObject<?> getExpressionObject();
+	
+	/**
+	 * return the origin type for this
+	 * @return
+	 */
+	public OriginType getOriginType();
 
 }

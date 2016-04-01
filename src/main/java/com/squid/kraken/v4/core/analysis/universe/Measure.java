@@ -45,6 +45,16 @@ public class Measure implements Property {
 	private String name = null;
 	
 	private ExpressionAST definition = null;
+	
+	private OriginType originType = OriginType.USER;// default to User type
+	
+	public Measure(Measure copy) {
+		this.parent = copy.parent;
+		this.metric = copy.metric;
+		this.ID = copy.ID;
+		this.name = copy.name;
+		this.definition = copy.definition;
+	}
 
 	public Measure(Space parent, String metricName) throws ScopeException {
 		this.parent = parent;
@@ -80,6 +90,15 @@ public class Measure implements Property {
 		this.metric = metric;
 		this.ID = (parent!=null?parent.getID()+"/":"")+this.metric.getId().toUUID();
 	}
+	
+	@Override
+	public OriginType getOriginType() {
+		return originType;
+	}
+	
+	public void setOriginType(OriginType originType) {
+		this.originType = originType;
+	}
 
 	public String getId() {
 		return parent.getDomain().getId().toUUID()+"/"+ID;
@@ -110,6 +129,14 @@ public class Measure implements Property {
 		} else {
 			return "metric_"+definition.prettyPrint();
 		}
+	}
+    
+    /**
+     * override the standard name
+     * @param name
+     */
+    public void setName(String name) {
+		this.name = name;
 	}
 	
 	/**
