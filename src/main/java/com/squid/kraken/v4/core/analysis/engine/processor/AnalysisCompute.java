@@ -63,6 +63,7 @@ import com.squid.kraken.v4.core.analysis.model.MeasureGroup;
 import com.squid.kraken.v4.core.analysis.model.OrderBy;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
 import com.squid.kraken.v4.core.analysis.universe.Measure;
+import com.squid.kraken.v4.core.analysis.universe.Property.OriginType;
 import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.kraken.v4.export.ExecuteAnalysisResult;
@@ -151,16 +152,16 @@ public class AnalysisCompute {
 	}
 
 	// handle compare T947
-	public DataMatrix computeCompareToAnalysis(DashboardAnalysis analysis) throws ScopeException, ComputingException, SQLScopeException, InterruptedException {
+	public DataMatrix computeCompareToAnalysis(DashboardAnalysis currentAnalysis) throws ScopeException, ComputingException, SQLScopeException, InterruptedException {
 		// preparing the selection
-		DashboardSelection presentSelection = analysis.getSelection();
+		DashboardSelection presentSelection = currentAnalysis.getSelection();
 		DomainSelection compare = presentSelection.getCompareToSelection();
 		Axis joinAxis = null;
 		IntervalleObject presentInterval = null;
 		IntervalleObject pastInterval = null;
 		for (Axis filter : compare.getFilters()) {
 			// check if the filter is a join
-			if (analysis.findGrouping(filter)!=null) {
+			if (currentAnalysis.findGrouping(filter)!=null) {
 				if (joinAxis!=null) {
 					throw new ScopeException("only one join axis supported");
 				}
@@ -177,12 +178,12 @@ public class AnalysisCompute {
 		int i=0;
 		// list the dimensions
 		ArrayList<ExpressionAST> dimensions = new ArrayList<>();// order matter
-		for (GroupByAxis group : analysis.getGrouping()) {
+		for (GroupByAxis group : currentAnalysis.getGrouping()) {
 			dimensions.add(group.getAxis().getReference());
 		}
 		int[] mergeOrder = new int[dimensions.size()];// will hold in which order to merge
 		// rebuild the full order specs
-		for (OrderBy order : analysis.getOrders()) {
+		for (OrderBy order : currentAnalysis.getOrders()) {
 			if (i==0 && joinAxis!=null) {
 				if (order.getExpression().equals(joinAxis.getReference())) {
 					// ok, it's first
@@ -222,23 +223,49 @@ public class AnalysisCompute {
 				fixed.add(new OrderBy(i++, order.getExpression(), order.getOrdering()));
 			}
 		}
-		analysis.setOrders(fixed);
+		currentAnalysis.setOrders(fixed);
 		//
 		// compute present
-		DataMatrix present = computeAnalysisOpt(analysis, false);
+		DataMatrix present = computeAnalysisOpt(currentAnalysis, false);
 		//
 		// compute the past version
+		DashboardAnalysis compareToAnalysis = new DashboardAnalysis(universe);
+		// copy dimensions
+		for (GroupByAxis groupBy : currentAnalysis.getGrouping()) {
+			if (groupBy.getAxis().equals(joinAxis)) {
+				Axis compareToAxis = new Axis(groupBy.getAxis());
+				compareToAxis.setOriginType(OriginType.COMPARETO);
+				compareToAxis.setName(groupBy.getAxis().getName()+" (compare)");
+				GroupByAxis compareToGroupBy = compareToAnalysis.add(compareToAxis, groupBy.isRollup());
+				compareToGroupBy.setRollupPosition(groupBy.getRollupPosition());
+			} else {
+				compareToAnalysis.add(groupBy);
+			}
+		}
+		// copy metrics
+		for (Measure kpi : currentAnalysis.getKpis()) {
+			Measure compareToKpi = new Measure(kpi);
+			compareToKpi.setOriginType(OriginType.COMPARETO);
+			compareToKpi.setName(kpi.getName()+" (compare)");
+			compareToAnalysis.add(compareToKpi);
+		}
+		// copy stuff
+		if (currentAnalysis.hasLimit()) compareToAnalysis.limit(currentAnalysis.getLimit());
+		if (currentAnalysis.hasOffset()) compareToAnalysis.offset(currentAnalysis.getOffset());
+		if (currentAnalysis.isRollupGrandTotal()) compareToAnalysis.setRollupGrandTotal(true);
+		if (currentAnalysis.hasRollup()) compareToAnalysis.setRollup(currentAnalysis.getRollup());
+		compareToAnalysis.setOrders(currentAnalysis.getOrders());
 		// copy the selection and replace with compare filters
 		DashboardSelection pastSelection = new DashboardSelection(presentSelection);
 		for (Axis filter : compare.getFilters()) {
 			pastSelection.clear(filter);
 			pastSelection.add(filter, compare.getMembers(filter));
-			if (joinAxis!=null && joinAxis.equals(filter)) {
+			if (joinAxis!=null && filter.equals(joinAxis)) {
 				pastInterval = computeMinMax(compare.getMembers(filter));
 			}
 		}
-		analysis.setSelection(pastSelection);
-		DataMatrix past = computeAnalysisOpt(analysis, false);
+		compareToAnalysis.setSelection(pastSelection);
+		DataMatrix past = computeAnalysisOpt(compareToAnalysis, false);
 		//
 		final int offset = computeOffset(present, joinAxis, presentInterval, pastInterval);
 		//
