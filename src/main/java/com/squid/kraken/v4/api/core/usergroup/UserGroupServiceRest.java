@@ -124,12 +124,14 @@ public class UserGroupServiceRest extends BaseServiceRest {
 
     @Path("{"+PARAM_NAME+"}"+"/access")
     @GET
+    @ApiOperation(value = "Gets a UserGroups's access rights")
     public Set<AccessRight> readAccessRights(@PathParam(PARAM_NAME) String objectId) {
         return delegate.readAccessRights(userContext, new UserGroupPK(userContext.getCustomerId(), objectId));
     }
     
     @Path("{"+PARAM_NAME+"}"+"/access")
     @POST
+    @ApiOperation(value = "Sets a UserGroups's access rights")
     public Set<AccessRight> storeAccessRights(@PathParam(PARAM_NAME) String objectId,
     		@ApiParam(required = true) Set<AccessRight> accessRights) {
         return delegate.storeAccessRights(userContext, new UserGroupPK(userContext.getCustomerId(), objectId),

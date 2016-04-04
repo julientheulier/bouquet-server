@@ -119,6 +119,7 @@ public class BookmarkServiceRest extends BaseServiceRest {
 
 	@Path("{" + PARAM_NAME + "}" + "/access")
 	@GET
+	@ApiOperation(value = "Gets a bookmark's access rights")
 	public Set<AccessRight> readAccessRights(
 			@PathParam("projectId") String projectId,
 			@PathParam(PARAM_NAME) String domainId) {
@@ -128,6 +129,7 @@ public class BookmarkServiceRest extends BaseServiceRest {
 
 	@Path("{" + PARAM_NAME + "}" + "/access")
 	@POST
+	@ApiOperation(value = "Sets a bookmark's access rights")
 	public Set<AccessRight> storeAccessRights(
 			@PathParam("projectId") String projectId,
 			@PathParam(PARAM_NAME) String domainId,
