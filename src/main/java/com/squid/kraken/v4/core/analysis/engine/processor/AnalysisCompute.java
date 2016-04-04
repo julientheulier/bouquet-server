@@ -279,7 +279,7 @@ public class AnalysisCompute {
 	
 	private GroupByAxis findGroupingJoin(Axis join, DashboardAnalysis from) {
 		DateExpressionAssociativeTransformationExtractor checker = new DateExpressionAssociativeTransformationExtractor();
-		ExpressionAST naked1 = checker.eval(join.getDefinitionSafe());
+		ExpressionAST naked1 = checker.eval(join.getDimension()!=null?join.getReference():join.getDefinitionSafe());
 		IDomain d1 = join.getDefinitionSafe().getImageDomain();
 		for (GroupByAxis groupBy : from.getGrouping()) {
 			IDomain d2 = groupBy.getAxis().getDefinitionSafe().getImageDomain();
