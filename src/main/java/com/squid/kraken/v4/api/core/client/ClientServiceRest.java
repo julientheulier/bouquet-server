@@ -129,6 +129,7 @@ public class ClientServiceRest extends BaseServiceRest {
 
 	@Path("{" + PARAM_NAME + "}"+"/access")
 	@GET
+	@ApiOperation(value = "Gets a Client's access rights")
 	public Set<AccessRight> readAccessRights(
 			@PathParam(PARAM_NAME) String objectId) {
 		return delegate.readAccessRights(userContext,
