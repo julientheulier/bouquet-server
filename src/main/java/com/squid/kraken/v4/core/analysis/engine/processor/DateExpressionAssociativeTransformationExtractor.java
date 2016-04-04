@@ -24,14 +24,21 @@
 package com.squid.kraken.v4.core.analysis.engine.processor;
 
 import com.squid.core.domain.DomainConstant;
+import com.squid.core.domain.IDomain;
 import com.squid.core.domain.extensions.AddMonthsOperatorDefinition;
+import com.squid.core.domain.extensions.CastOperatorDefinition;
 import com.squid.core.domain.extensions.DateOperatorDefinition;
 import com.squid.core.domain.extensions.DateTruncateOperatorDefinition;
 import com.squid.core.domain.extensions.DateTruncateShortcutsOperatorDefinition;
 import com.squid.core.domain.operators.IntrinsicOperators;
 import com.squid.core.expression.ExpressionAST;
+import com.squid.core.expression.ExpressionLeaf;
 import com.squid.core.expression.Operator;
 import com.squid.core.expression.scope.ScopeException;
+import com.squid.kraken.v4.core.analysis.scope.AxisExpression;
+import com.squid.kraken.v4.core.analysis.scope.MeasureExpression;
+import com.squid.kraken.v4.core.analysis.universe.Axis;
+import com.squid.kraken.v4.core.analysis.universe.Measure;
 
 /**
  * if the expression is T(E) then it returns E, given that for any x, T(E)+x==T(E+x)
@@ -53,8 +60,22 @@ public class DateExpressionAssociativeTransformationExtractor {
 		if (transformed instanceof Operator) {
 			Operator op = (Operator)transformed;
 			return eval_operator(op);
+		} else if (transformed instanceof ExpressionLeaf) {
+			return eval_leaf((ExpressionLeaf)transformed);
 		} else {
 			return transformed;
+		}
+	}
+	
+	protected ExpressionAST eval_leaf(ExpressionLeaf leaf) {
+		if (leaf instanceof AxisExpression) {
+			Axis axis = ((AxisExpression)leaf).getAxis();
+			return eval(axis.getDefinitionSafe());
+		} else if (leaf instanceof MeasureExpression) {
+			Measure measure = ((MeasureExpression)leaf).getMeasure();
+			return eval(measure.getDefinitionSafe());
+		} else {
+			return leaf;
 		}
 	}
 
@@ -84,6 +105,11 @@ public class DateExpressionAssociativeTransformationExtractor {
 	}
 
 	private ExpressionAST eval_extended_operator(Operator op, String extendedID) {
+		if (extendedID.equals(CastOperatorDefinition.TO_DATE)) {
+			if (op.getArguments().size()==1 && op.getArguments().get(0).getImageDomain().isInstanceOf(IDomain.TEMPORAL)) {
+				return eval(op.getArguments().get(0));
+			}
+		} else
 		if (extendedID.equals(AddMonthsOperatorDefinition.ADD_MONTHS)) {
 			return eval_add_months(op);
 		} else
