@@ -34,6 +34,7 @@ import java.util.concurrent.TimeoutException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.squid.core.domain.IDomain;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex;
@@ -164,11 +165,12 @@ public class EngineUtils {
      * @param ctx
      * @param index
      * @param value
+     * @param compareFromInterval 
      * @return
      * @throws ParseException
      * @throws ScopeException
      */
-	public Date convertToDate(Universe universe, DimensionIndex index, String value)
+	public Date convertToDate(Universe universe, DimensionIndex index, String value, IntervalleObject compareFromInterval)
 			throws ParseException, ScopeException {
 		if (value.startsWith("=")) {
 			// if the value starts by equal token, this is a formula that can be
@@ -179,7 +181,7 @@ public class EngineUtils {
 				DomainHierarchy hierarchy = universe.getDomainHierarchy(index.getAxis().getParent().getDomain());
 				hierarchy.isDone(index, 10000);
 				// evaluate the expression
-				Object defaultValue = evaluateExpression(universe, index, expr);
+				Object defaultValue = evaluateExpression(universe, index, expr, compareFromInterval);
 				// check we can use it
 				if (defaultValue == null) {
 					throw new ScopeException("unable to parse the facet expression as a constant: " + expr);
@@ -199,15 +201,25 @@ public class EngineUtils {
 		}
 	}
 	
-	private Object evaluateExpression(Universe universe, DimensionIndex index, String expr) throws ScopeException {
+	private Object evaluateExpression(Universe universe, DimensionIndex index, String expr, IntervalleObject compareFromInterval) throws ScopeException {
 		try {
 			DimensionDefaultValueScope scope = new DimensionDefaultValueScope(universe.getContext(), index);
+			if (compareFromInterval!=null) {
+				scope.addParam("UPPER",IDomain.DATE);
+				scope.addParam("LOWER", IDomain.DATE);
+			}
 			ExpressionAST defaultExpression = scope.parseExpression(expr);
 			ExpressionEvaluator evaluator = new ExpressionEvaluator(universe.getContext());
+			// provide sensible default for MIN & MAX -- we don't want the parser to fail is not set
 			Calendar calendar = Calendar.getInstance();
 			evaluator.setParameterValue("MAX", calendar.getTime());
 			calendar.add(Calendar.MONTH, -1);
 			evaluator.setParameterValue("MIN", calendar.getTime());
+			// handle compareFrom interval values if available
+			if (compareFromInterval!=null) {
+				evaluator.setParameterValue("LOWER", compareFromInterval.getLowerBound());
+				evaluator.setParameterValue("UPPER", compareFromInterval.getUpperBound());
+			}
 			return evaluator.evalSingle(defaultExpression);
 		} catch (ScopeException e) {
 			throw new ScopeException("unable to parse the facet expression: " + expr + "\n" + e.getLocalizedMessage(), e);
@@ -229,11 +241,11 @@ public class EngineUtils {
     	DashboardSelection ds = new DashboardSelection();
     	//
     	if (selection!=null) {
-	        addFacetSelection(ctx, universe, selection.getFacets(), ds);
+	        addFacetSelection(ctx, universe, selection.getFacets(), ds, null);
 	        // T994 support the compareFacets
 	        if (selection.hasCompareFacets()) {
 	        	DashboardSelection compare = new DashboardSelection();
-		        addFacetSelection(ctx, universe, selection.getCompareTo(), compare);
+		        addFacetSelection(ctx, universe, selection.getCompareTo(), compare, ds);
 		        // we let the ds.compare chack that the selection is valid
 		        for (DomainSelection s : compare.get()) {
 		        	for (Axis filter : s.getFilters()) {
@@ -298,7 +310,18 @@ public class EngineUtils {
         return ds;
     }
 
-	private void addFacetSelection(AppContext ctx, Universe universe, List<Facet> facetsSel, DashboardSelection ds) throws ScopeException, ComputingException, InterruptedException {
+    /**
+     * initialise the DashboardSelection
+     * @param ctx
+     * @param universe
+     * @param facetsSel
+     * @param ds : the output selection
+     * @param compareFrom : if the output selection is a compareTo, you can provide the current selection in order to resolve $LOWER and $UPPER parameters
+     * @throws ScopeException
+     * @throws ComputingException
+     * @throws InterruptedException
+     */
+	private void addFacetSelection(AppContext ctx, Universe universe, List<Facet> facetsSel, DashboardSelection ds, DashboardSelection compareFrom) throws ScopeException, ComputingException, InterruptedException {
 		for (Facet facetSel : facetsSel) {
             if (SegmentManager.isSegmentFacet(facetSel)) {
                 SegmentManager.addSegmentSelection(ctx, universe, facetSel, ds);
@@ -312,10 +335,20 @@ public class EngineUtils {
                     AccessRightsUtils.getInstance().checkRole(ctx, index.getDimension(), Role.READ);
                     for (FacetMember selectedItem : facetSel.getSelectedItems()) {
                         if (selectedItem instanceof FacetMemberInterval) {
+                        	IntervalleObject compareFromInterval = null;
+                        	if (compareFrom!=null) {
+                        		Collection<DimensionMember> members = compareFrom.getMembers(axis);
+                        		if (members.size()==1) {
+                        			DimensionMember member = members.iterator().next();
+                        			if (member.getID() instanceof IntervalleObject) {
+                        				compareFromInterval = (IntervalleObject)member.getID();
+                        			}
+                        		}
+                        	}
                             FacetMemberInterval fmi = (FacetMemberInterval) selectedItem;
                             try {
-                                Date lowerDate = convertToDate(universe, index, fmi.getLowerBound());
-                                Date upperDate = convertToDate(universe, index, fmi.getUpperBound());
+                                Date lowerDate = convertToDate(universe, index, fmi.getLowerBound(), compareFromInterval);
+                                Date upperDate = convertToDate(universe, index, fmi.getUpperBound(), compareFromInterval);
                                 // add as a Date Interval
                                 ds.add(axis, IntervalleObject.createInterval(lowerDate, upperDate));
                             } catch (java.text.ParseException e) {
