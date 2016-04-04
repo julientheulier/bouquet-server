@@ -129,6 +129,7 @@ public class DimensionServiceRest extends BaseServiceRest {
 
 	@Path("{"+PARAM_NAME+"}"+"/access")
 	@GET
+	@ApiOperation(value = "Gets a dimension's access rights")
 	public Set<AccessRight> readAccessRights(
 			@PathParam("projectId") String projectId,
 			@PathParam("domainId") String domainId,
@@ -139,6 +140,7 @@ public class DimensionServiceRest extends BaseServiceRest {
 
 	@Path("{"+PARAM_NAME+"}"+"/access")
 	@POST
+	@ApiOperation(value = "Sets a dimension's access rights")
 	public Set<AccessRight> storeAccessRights(
 			@PathParam("projectId") String projectId,
 			@PathParam("domainId") String domainId,

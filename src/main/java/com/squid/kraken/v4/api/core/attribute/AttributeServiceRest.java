@@ -130,6 +130,7 @@ public class AttributeServiceRest extends BaseServiceRest {
 
 	@Path("{" + PARAM_NAME + "}"+"/access")
 	@GET
+	@ApiOperation(value = "Gets an Attribute's access rights")
 	public Set<AccessRight> readAccessRights(
 			@PathParam("projectId") String projectId,
 			@PathParam("domainId") String domainId,
@@ -142,6 +143,7 @@ public class AttributeServiceRest extends BaseServiceRest {
 
 	@Path("{" + PARAM_NAME + "}"+"/access")
 	@POST
+	@ApiOperation(value = "Sets an Attribute's access rights")
 	public Set<AccessRight> storeAccessRights(
 			@PathParam("projectId") String projectId,
 			@PathParam("domainId") String domainId,
