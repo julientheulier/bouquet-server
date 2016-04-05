@@ -312,13 +312,18 @@ public class AnalysisCompute {
 	}
 
 	private int computeOffset(IntervalleObject presentInterval, IntervalleObject pastInterval, ORDERING ordering) {
-		Object present = ordering==ORDERING.ASCENT?presentInterval.getLowerBound():presentInterval.getUpperBound();
-		Object past = ordering==ORDERING.ASCENT?pastInterval.getLowerBound():pastInterval.getUpperBound();
-		if (present instanceof Date) {
-			return Days.daysBetween(new LocalDate(((Date)past).getTime()), new LocalDate(((Date)present).getTime())).getDays();
+		// it is better to compare on the lower bound because alignment on the end of month is not accurate
+		Object present = presentInterval.getLowerBound();
+		Object past = pastInterval.getLowerBound();
+		if (present instanceof Date && past instanceof Date) {
+			return daysBetween((Date)past, (Date)present);
 		} else {
 			return 0;
 		}
+	}
+	
+	private int daysBetween(Date lower, Date upper) {
+		return Days.daysBetween(new LocalDate(((Date)lower).getTime()), new LocalDate(((Date)upper).getTime())).getDays();
 	}
 
 	private IntervalleObject computeMinMax(Collection<DimensionMember> members) throws ScopeException {
