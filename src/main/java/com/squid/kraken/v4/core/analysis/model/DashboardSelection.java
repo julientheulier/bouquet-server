@@ -192,13 +192,17 @@ public class DashboardSelection {
 			compareToSelection.add(axis, member);
 		} else {
 			if (!compareToSelection.getDomain().equals(domain)) {
-				throw new ScopeException("invalid compare, already defined on domain '"+domain.getName()+"'");
+				throw new ScopeException("invalid compareTo, already defined on domain '"+domain.getName()+"'");
 			}
 			if (compareToSelection.getMembers(axis).isEmpty()) {
-				throw new ScopeException("invalid compare, only one axis is supported");
+				throw new ScopeException("invalid compareTo, only one axis is supported");
 			}
 			compareToSelection.add(axis, member);
 		}
+	}
+
+	public void add(DomainSelection selection) {
+		this.selections.put(selection.getDomain(), selection);
 	}
 
 	public void addCompareTo(Axis axis, Intervalle intervalle) throws ScopeException {
