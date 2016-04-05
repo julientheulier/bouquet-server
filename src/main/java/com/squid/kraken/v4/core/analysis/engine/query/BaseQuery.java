@@ -29,14 +29,11 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.squid.core.concurrent.ExecutionManager;
 import com.squid.core.database.impl.DatabaseServiceException;
 import com.squid.core.database.model.Column;
 import com.squid.core.database.model.Database;
@@ -63,6 +60,7 @@ import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
 import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionMember;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
+import com.squid.kraken.v4.core.analysis.engine.processor.DateExpressionAssociativeTransformationExtractor;
 import com.squid.kraken.v4.core.analysis.engine.query.mapping.AxisMapping;
 import com.squid.kraken.v4.core.analysis.engine.query.mapping.MeasureMapping;
 import com.squid.kraken.v4.core.analysis.engine.query.mapping.QueryMapper;
@@ -193,8 +191,16 @@ public class BaseQuery implements IQuery {
 	    	} else {
 	    		for (AxisMapping ax : getMapper().getAxisMapping()) {
 	        		try {
-	        			if (axis.isParentDimension(ax.getAxis())) {
+	        			if (axis.equals(ax.getAxis())) {
 	        				return true;
+	        			} else if (axis.isParentDimension(ax.getAxis())) {
+	        				return true;
+	        			} else {
+	        				// check if there are the same after transformation
+		        			DateExpressionAssociativeTransformationExtractor ex = new DateExpressionAssociativeTransformationExtractor();
+		        			ExpressionAST naked1 = ex.eval(axis.getDefinitionSafe());
+		        			ExpressionAST naked2 = ex.eval(ax.getAxis().getDefinitionSafe());
+		        			return naked1.equals(naked2);
 	        			}
 					} catch (ComputingException | InterruptedException e) {
 						// ignore
