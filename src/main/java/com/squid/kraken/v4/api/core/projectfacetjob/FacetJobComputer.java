@@ -40,6 +40,7 @@ import com.squid.kraken.v4.api.core.project.ProjectServiceBaseImpl;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingService;
 import com.squid.kraken.v4.core.analysis.model.DashboardSelection;
+import com.squid.kraken.v4.core.analysis.universe.Axis;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.kraken.v4.export.ExportSourceWriter;
 import com.squid.kraken.v4.model.Domain;
@@ -99,15 +100,7 @@ public class FacetJobComputer implements
 
 			// setup the results
 			for (Domain domain : domains) {
-				Collection<Facet> facets;
-				if (job.getEngineVersion() == null) {
-					facets = ComputingService.INSTANCE.glitterFacets(universe,
-							domain, ds);
-				} else {
-					facets = ComputingService.INSTANCE.glitterFacets(universe,
-							domain, ds, null);
-				}
-				result.addAll(facets);
+				result.addAll(glitterFacets(job, universe, domain, ds));
 			}
 			/*logger.info("FacetJobComputer.compute(): done in "
 					+ ((new Date().getTime()) - start) + " ms");*/
@@ -117,12 +110,34 @@ public class FacetJobComputer implements
 			PerfDB.INSTANCE.save(queryLog);
 			FacetSelection facetSelectionResult = new FacetSelection();
 			facetSelectionResult.setFacets(result);
+			// handling compareTo (T947)
+			if (ds.hasCompareToSelection()) {
+				// create a fresh seelction with the compareTo
+				DashboardSelection compareDS = new DashboardSelection();
+				Domain domain = ds.getCompareToSelection().getDomain();
+				compareDS.add(ds.getCompareToSelection());
+				ArrayList<Facet> facets = new ArrayList<>();
+				for (Axis filter : ds.getCompareToSelection().getFilters()) {
+					facets.add(ComputingService.INSTANCE.glitterFacet(universe, domain, compareDS, filter, null, 0, 100, null));
+				}
+				facetSelectionResult.setCompareTo(facets);
+			}
 			return facetSelectionResult;
 		} catch (ScopeException e) {
 			throw new ComputingException(e.getLocalizedMessage(), e);
 		} catch (TimeoutException e) {
 			throw new ComputingInProgressAPIException(null,
 					ctx.isNoError(), null);
+		}
+	}
+	
+	protected Collection<Facet> glitterFacets(ProjectFacetJob job, Universe universe, Domain domain, DashboardSelection ds) throws ComputingException, InterruptedException, TimeoutException {
+		if (job.getEngineVersion() == null) {
+			return ComputingService.INSTANCE.glitterFacets(universe,
+					domain, ds);
+		} else {
+			return ComputingService.INSTANCE.glitterFacets(universe,
+					domain, ds, null);
 		}
 	}
 
