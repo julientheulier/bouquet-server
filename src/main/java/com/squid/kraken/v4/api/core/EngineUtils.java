@@ -31,6 +31,8 @@ import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 
+import org.joda.time.Days;
+import org.joda.time.LocalDate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -69,6 +71,10 @@ import com.squid.kraken.v4.persistence.AppContext;
  *
  */
 public class EngineUtils {
+
+    enum Bound {
+    	LOWER, UPPER
+    }
     
     static final Logger logger = LoggerFactory.getLogger(EngineUtils.class);
 
@@ -164,15 +170,58 @@ public class EngineUtils {
      * If the value start with '=', it is expected to be a Expression, in which case we'll try to resolve it to a Date constant.
      * @param ctx
      * @param index
+     * @param lower 
      * @param value
      * @param compareFromInterval 
      * @return
      * @throws ParseException
      * @throws ScopeException
      */
-	public Date convertToDate(Universe universe, DimensionIndex index, String value, IntervalleObject compareFromInterval)
+	public Date convertToDate(Universe universe, DimensionIndex index, Bound bound, String value, IntervalleObject compareFromInterval)
 			throws ParseException, ScopeException {
-		if (value.startsWith("=")) {
+		if (value.startsWith("__")) {
+			//
+			// support hardcoded shortcuts
+			if (compareFromInterval!=null) {
+				if (value.equalsIgnoreCase("__COMPARE_TO_PREVIOUS_PERIOD")) {
+					LocalDate localLower = new LocalDate(((Date)compareFromInterval.getLowerBound()).getTime());
+					if (bound==Bound.UPPER) {
+						LocalDate date = localLower.minusDays(1);
+						return date.toDate();
+					} else {
+						LocalDate localUpper = new LocalDate(((Date)(Date)compareFromInterval.getUpperBound()).getTime());
+						Days days = Days.daysBetween(localLower, localUpper);
+						LocalDate date = localLower.minusDays(1+days.getDays());
+						return date.toDate();
+					}
+				}
+				if (value.equalsIgnoreCase("__COMPARE_TO_PREVIOUS_MONTH")) {
+					LocalDate localLower = new LocalDate(((Date)compareFromInterval.getLowerBound()).getTime());
+					LocalDate compareLower = localLower.minusMonths(1);
+					if (bound==Bound.LOWER) {
+						return compareLower.toDate();
+					} else {
+						LocalDate localUpper = new LocalDate(((Date)(Date)compareFromInterval.getUpperBound()).getTime());
+						Days days = Days.daysBetween(localLower, localUpper);
+						LocalDate compareUpper = compareLower.plusDays(days.getDays());
+						return compareUpper.toDate();
+					}
+				}
+				if (value.equalsIgnoreCase("__COMPARE_TO_PREVIOUS_YEAR")) {
+					LocalDate localLower = new LocalDate(((Date)compareFromInterval.getLowerBound()).getTime());
+					LocalDate compareLower = localLower.minusYears(1);
+					if (bound==Bound.LOWER) {
+						return compareLower.toDate();
+					} else {
+						LocalDate localUpper = new LocalDate(((Date)(Date)compareFromInterval.getUpperBound()).getTime());
+						Days days = Days.daysBetween(localLower, localUpper);
+						LocalDate compareUpper = compareLower.plusDays(days.getDays());
+						return compareUpper.toDate();
+					}
+				}
+			}
+			throw new ScopeException("undefined facet expression alias: " + value);
+		} else if (value.startsWith("=")) {
 			// if the value starts by equal token, this is a formula that can be
 			// evaluated
 			try {
@@ -347,8 +396,8 @@ public class EngineUtils {
                         	}
                             FacetMemberInterval fmi = (FacetMemberInterval) selectedItem;
                             try {
-                                Date lowerDate = convertToDate(universe, index, fmi.getLowerBound(), compareFromInterval);
-                                Date upperDate = convertToDate(universe, index, fmi.getUpperBound(), compareFromInterval);
+                                Date lowerDate = convertToDate(universe, index, Bound.LOWER, fmi.getLowerBound(), compareFromInterval);
+                                Date upperDate = convertToDate(universe, index, Bound.UPPER, fmi.getUpperBound(), compareFromInterval);
                                 // add as a Date Interval
                                 ds.add(axis, IntervalleObject.createInterval(lowerDate, upperDate));
                             } catch (java.text.ParseException e) {
