@@ -26,9 +26,10 @@ package com.squid.kraken.v4.export;
 import java.io.OutputStream;
 
 import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
+import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValuesList;
 import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
+import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.model.DataTable;
-import com.squid.kraken.v4.writers.ChunkedRawMatrixWrapper;
 
 public interface ExportSourceWriter  {
 	
@@ -38,7 +39,7 @@ public interface ExportSourceWriter  {
 	
 	public long write(DataMatrix matrix, OutputStream out);
 
-	public long write (ChunkedRawMatrixWrapper matrix, OutputStream out);
+	public long write (RedisCacheValuesList matrix, OutputStream out) throws ComputingException;
 	
 	public long write(DataTable matrix, OutputStream out);
 }

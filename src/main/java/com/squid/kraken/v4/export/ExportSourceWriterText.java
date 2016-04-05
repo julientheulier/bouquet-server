@@ -33,6 +33,7 @@ import org.slf4j.LoggerFactory;
 
 import com.squid.core.jdbc.engine.IExecutionItem;
 import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
+import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValuesList;
 import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
 import com.squid.kraken.v4.model.DataTable;
 
@@ -102,5 +103,11 @@ public class ExportSourceWriterText implements ExportSourceWriter {
 	public long write(DataTable matrix, OutputStream out) {
         throw new UnsupportedOperationException();				
     }
+
+	@Override
+	public long write(RedisCacheValuesList matrix, OutputStream out) {
+		// TODO Auto-generated method stub
+		return 0;
+	}
 
 }

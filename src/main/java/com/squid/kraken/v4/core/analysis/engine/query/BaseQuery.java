@@ -58,6 +58,7 @@ import com.squid.core.sql.render.ISelectPiece;
 import com.squid.core.sql.render.ISkinFeatureSupport;
 import com.squid.core.sql.render.IWherePiece;
 import com.squid.core.sql.render.RenderingException;
+import com.squid.kraken.v4.caching.NotInCacheException;
 import com.squid.kraken.v4.caching.redis.RedisCacheManager;
 import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
 import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValue;
@@ -79,6 +80,7 @@ import com.squid.kraken.v4.core.sql.script.SQLScript;
 import com.squid.kraken.v4.export.ExportSourceWriter;
 import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.Project;
+import com.squid.kraken.v4.writers.QueryWriter;
 
 /**
  * Implements the IQuery interface on top of the SelctMapping
@@ -88,12 +90,12 @@ import com.squid.kraken.v4.model.Project;
 public class BaseQuery implements IQuery {
 
 	static final Logger logger = LoggerFactory.getLogger(BaseQuery.class);
-	
+
 	private Universe universe;
 	protected SelectUniversal select;
-	
+
 	private QueryMapper mapper = new QueryMapper();
-	
+
 	public BaseQuery() {
 		//
 	}
@@ -110,123 +112,123 @@ public class BaseQuery implements IQuery {
 		this.universe = universe;
 		this.select = new SelectUniversal(universe);
 	}
-	
+
 	public BaseQuery(Universe universe, Domain subject) throws SQLScopeException, ScopeException {
 		this(universe);
 		this.select.from(universe.S(subject));
 	}
-	
+
 	public SelectUniversal getSelect() {
 		return select;
 	}
-	
+
 	public DatasourceDefinition getDatasource() {
-	    return select.getDatasource();
+		return select.getDatasource();
 	}
-	
+
 	public Universe getUniverse() {
 		return universe;
 	}
-	
+
 	public QueryMapper getMapper() {
 		return mapper;
 	}
-	
+
 	protected void add(AxisMapping axis) {
 		mapper.add(axis);
 	}
-    
-    protected void add(int index, AxisMapping axis) {
-    	mapper.add(index, axis);
-    }
-	
-    protected void add(MeasureMapping measure) {
-    	mapper.add(measure);
-    }
-    
-    private List<OrderBy> orderBy = new ArrayList<OrderBy>();
-    
-    /**
-     * add an global order by clause to the select
-     * indexes are column indexes
-     * @param indexes
-     * @throws SQLScopeException 
-     * @throws ScopeException 
-     */
-    public void orderBy(List<OrderBy> orders) throws ScopeException, SQLScopeException {
-        for (OrderBy order : orders) {
-        	orderBy.add(order);
-            SimpleMapping m = mapper.find(order.getExpression());
-            if (m!=null) {
-            	m.setOrdering(order.getOrdering());
-                select.orderBy(m.getPiece()).setOrdering(order.getOrdering());
-            } else {
-            	if (checkAllowOrderBy(order)) {
-            		// the order by will imply a new group by, but because it is a parent of an existing one that won't change the results
-            		// so you don't have to display the added column if not already present
-            		// e.g. if group by city and I want to orderBy country, I d'ont have to display the country
-            		IPiece piece = select.createPiece(Context.ORDERBY, order.getExpression());
-            		select.orderBy(piece).setOrdering(order.getOrdering());
-            	} else {
-            		throw new ScopeException("invalid orderBy expression "+order.getExpression().prettyPrint() + ": you must select it (or a child dimension) as a facet");
-            	}
-            }
-        }
-    }
-    
-    /**
-     * Check if it's ok to orderBy an expression which is not yet selected, but only if a child of the dimension is selected
-     * @param order
-     * @return
-     * @throws ScopeException
-     * @throws SQLScopeException
-     */
-    private boolean checkAllowOrderBy(OrderBy order) throws ScopeException, SQLScopeException {
-    	//
-    	ExpressionAST expr = order.getExpression();
-    	IDomain image = expr.getImageDomain();
-    	if (image.isInstanceOf(AggregateDomain.DOMAIN)) {
-    		return true;
-    	} else {
-	    	// the order expression is not yet in the scope
-	    	Axis axis = universe.asAxis(order.getExpression());
-	    	if (axis==null) {
-	    		return false;
-	    	} else {
-	    		for (AxisMapping ax : getMapper().getAxisMapping()) {
-	        		try {
-	        			if (axis.isParentDimension(ax.getAxis())) {
-	        				return true;
-	        			}
+
+	protected void add(int index, AxisMapping axis) {
+		mapper.add(index, axis);
+	}
+
+	protected void add(MeasureMapping measure) {
+		mapper.add(measure);
+	}
+
+	private List<OrderBy> orderBy = new ArrayList<OrderBy>();
+
+	/**
+	 * add an global order by clause to the select
+	 * indexes are column indexes
+	 * @param indexes
+	 * @throws SQLScopeException 
+	 * @throws ScopeException 
+	 */
+	public void orderBy(List<OrderBy> orders) throws ScopeException, SQLScopeException {
+		for (OrderBy order : orders) {
+			orderBy.add(order);
+			SimpleMapping m = mapper.find(order.getExpression());
+			if (m!=null) {
+				m.setOrdering(order.getOrdering());
+				select.orderBy(m.getPiece()).setOrdering(order.getOrdering());
+			} else {
+				if (checkAllowOrderBy(order)) {
+					// the order by will imply a new group by, but because it is a parent of an existing one that won't change the results
+					// so you don't have to display the added column if not already present
+					// e.g. if group by city and I want to orderBy country, I d'ont have to display the country
+					IPiece piece = select.createPiece(Context.ORDERBY, order.getExpression());
+					select.orderBy(piece).setOrdering(order.getOrdering());
+				} else {
+					throw new ScopeException("invalid orderBy expression "+order.getExpression().prettyPrint() + ": you must select it (or a child dimension) as a facet");
+				}
+			}
+		}
+	}
+
+	/**
+	 * Check if it's ok to orderBy an expression which is not yet selected, but only if a child of the dimension is selected
+	 * @param order
+	 * @return
+	 * @throws ScopeException
+	 * @throws SQLScopeException
+	 */
+	private boolean checkAllowOrderBy(OrderBy order) throws ScopeException, SQLScopeException {
+		//
+		ExpressionAST expr = order.getExpression();
+		IDomain image = expr.getImageDomain();
+		if (image.isInstanceOf(AggregateDomain.DOMAIN)) {
+			return true;
+		} else {
+			// the order expression is not yet in the scope
+			Axis axis = universe.asAxis(order.getExpression());
+			if (axis==null) {
+				return false;
+			} else {
+				for (AxisMapping ax : getMapper().getAxisMapping()) {
+					try {
+						if (axis.isParentDimension(ax.getAxis())) {
+							return true;
+						}
 					} catch (ComputingException | InterruptedException e) {
 						// ignore
 					}
-	    		}
-	    		// cannot lookup 
-	    		return false;
-	    	}
-    	}
-    }
-    
-    public List<OrderBy> getOrderBy() {
+				}
+				// cannot lookup 
+				return false;
+			}
+		}
+	}
+
+	public List<OrderBy> getOrderBy() {
 		return orderBy;
 	}
-    
-    public void orderBy(ISelectPiece piece, ORDERING ordering) {
-        this.select.orderBy(piece).setOrdering(ordering);
-    }
-    
-    public void limit(long limit) {
-        this.select.getStatement().setLimitValue(limit);
-    }
-    
-    public void offset(long limit) {
-        this.select.getStatement().setOffsetValue(limit);
-    }
+
+	public void orderBy(ISelectPiece piece, ORDERING ordering) {
+		this.select.orderBy(piece).setOrdering(ordering);
+	}
+
+	public void limit(long limit) {
+		this.select.getStatement().setLimitValue(limit);
+	}
+
+	public void offset(long limit) {
+		this.select.getStatement().setOffsetValue(limit);
+	}
 
 	@Override
 	public SelectUniversal getSelectUniversal() {
-			return select;
+		return select;
 	}
 
 	@Override
@@ -238,7 +240,7 @@ public class BaseQuery implements IQuery {
 			return e.toString();
 		}
 	}
-	
+
 
 	@Override
 	public SQLScript generateScript() throws SQLScopeException {
@@ -257,33 +259,33 @@ public class BaseQuery implements IQuery {
 		}
 	}
 
-	
+
 	public String renderNoLimitNoOrderBy() throws RenderingException {
 		long limit =  this.select.getStatement().getLimitValue() ;
 		ArrayList<IOrderByPiece> orderByPieces = (ArrayList<IOrderByPiece>) this.select.getStatement().getOrderByPieces() ;
 
 		this.select.getStatement().setLimitValue(-1);		
 		this.select.getStatement().setOrderByPieces(new ArrayList<IOrderByPiece>()) ;
-		
+
 		String sqlNoLimit = select.render();
-		
+
 		this.select.getStatement().setLimitValue(limit);
 		this.select.getStatement().setOrderByPieces(orderByPieces) ;
-		
+
 		return sqlNoLimit;
 	}
-	
+
 
 	protected SQLScript generateQualifyScript() throws SQLScopeException {
 		throw new RuntimeException("QUALIFY clause is not supported for that request");
 	}
 
-	public void  run(boolean lazy, QueryWriter writer){
-		
+	public void  run(boolean lazy, QueryWriter writer) throws ComputingException{
+
 		try {
 
-		 Project project = universe.asRootUserContext().getProject();
-		    //
+			Project project = universe.asRootUserContext().getProject();
+			//
 			ArrayList<String> deps = new ArrayList<String>();
 			deps.add(project.getId().toUUID());
 			setDependencies(deps);// to override
@@ -292,67 +294,59 @@ public class BaseQuery implements IQuery {
 			String user = project.getDbUser();
 			String pwd = project.getDbPassword();
 			//
-			
-			boolean hasLimit = ( this.select.getStatement().getLimitValue() ==-1) ;
+
 			boolean isFromCache = false; 
 			String sql = render();		
-			String sqlNoLimitNoOrder ;						
-			if(hasLimit){
-				sqlNoLimitNoOrder = renderNoLimitNoOrderBy();
+			String sqlNoLimitNoOrder   = renderNoLimitNoOrderBy();
+			RedisCacheValue result;
+			
+			result = RedisCacheManager.getInstance().getRedisCacheValueLazy(sqlNoLimitNoOrder, deps, url, user, pwd, -2); 			
+			
+			if ((result ==null ) && !(sql.equals(sqlNoLimitNoOrder))){
+				result = RedisCacheManager.getInstance().getRedisCacheValueLazy(sql, deps, url, user, pwd, -2);
 			}
-			
-			// check the value 
-			RedisCacheValue res = RedisCacheManager.getInstance().getRedisCacheValue(sql, deps, url, user, pwd, -2);
-			
-			if (res  != null){
-				isFromCache = true;				
+
+			if (result != null){
+				isFromCache = true;
 			}
-			
-			
-			if (lazy){
+
+			if (result == null){
+				if (lazy){
+					logger.info("Lazy query, analysis not in cache");
+					throw new NotInCacheException("Lazy query, analysis not in cache");
+				}else{
 				
-			}else{
-				
-				
-				if ((res != null ) && !res.isFromCache() && (!res.isMoreData()) && !(sql.equals(sqlNoLimitNoOrder))){
-					// create a new reference
-					RedisCacheManager.getInstance().addCacheReference(sqlNoLimitNoOrder, deps, res.getRedisKey());					
-					logger.info("Get - Create new Cache Reference ");
-				} 
-				
-			}
-			
-			
-			
-			
-			if (res instanceof RawMatrix){
-				writer.write((RawMatrix) res,);
-				
-			}else{
-				
-				if (res instanceof )
-				
-			}
-			
-				
-			
-			
-			
-			if (writer){
-				
-				writer.write(matrix, out)
-			}
-			
-			
-		} catch (RenderingException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-				
+					result=  RedisCacheManager.getInstance().getRedisCacheValue(sql, deps, url, user, pwd, -2 , this.getSelectUniversal().getStatement().getLimitValue());
+					
+					if (result == null){
+						throw new ComputingException("Failed to compute or retrieve the matrix");
+					}else{
+						if (!isFromCache && !	sql.equals(sqlNoLimitNoOrder) ){
+							if (result instanceof RawMatrix){
+
+								// create a new reference
+								RawMatrix rm = (RawMatrix) result;
+								if (!rm.isMoreData()){
+									RedisCacheManager.getInstance().addCacheReference(sqlNoLimitNoOrder, deps, rm.getRedisKey());					
+									logger.info("Get - Create new Cache Reference ");
+								}
+							}
+						}						
+					}
+				}
+			}		
+			writer.setSource(result);
+			writer.setMapper(this.mapper);
+			writer.setDatabase(getDatasource().getDatabase());
+			writer.write() ;
+
+		} catch (InterruptedException| RenderingException |ScopeException e) {
+			throw new ComputingException("Failed to compute or retrieve the matrix");
+		}		
 	}
-	
-	
-	
+
+
+
 	/**
 	 * execute the SQL statement and return the result as a DataMatrix; 
 	 * if lazy = true, return data from cache if available.
@@ -372,14 +366,14 @@ public class BaseQuery implements IQuery {
 	 * @throws ComputingException 
 	 */
 	public DataMatrix run() throws ComputingException {
-			return run(false);
+		return run(false);
 	}	
-	/*
+	
 	public RawMatrix runRaw(boolean lazy) throws RenderingException, ComputingException{
 		logger.info("Run cache redis " + lazy);
-		
+
 		RawMatrix m = this.getFromRedisCache(lazy);
-		
+
 		if (m==null ) {
 			if (lazy){
 				return null;
@@ -390,32 +384,32 @@ public class BaseQuery implements IQuery {
 		}else{
 			return m;
 		}	
-		
+
 	}
-	 */
-	
+	 
+
 	protected DataMatrix run_cache_Redis(boolean lazy) throws RenderingException, DatabaseServiceException, SQLException, ScopeException, ComputingException {
 		logger.info("Run cache redis " + lazy);
-		
+
 		RawMatrix m = this.getFromRedisCache(lazy);
-		
+
 		if (m==null ) {
 			if (lazy){
 				return null;
 			}else{
 				// krkn-34: we should be able to get the original exception here...
-			    throw new ComputingException("Failed to compute or retrieve the matrix");
+				throw new ComputingException("Failed to compute or retrieve the matrix");
 			}
 		}else{
 			DataMatrix res = computeDataMatrix(getDatasource().getDatabase(), m);
 			return res;
 		}
 	}
-	
+
 	protected RawMatrix getFromRedisCache(boolean lazy) throws RenderingException{
-	    //
-        Project project = universe.asRootUserContext().getProject();
-	    //
+		//
+		Project project = universe.asRootUserContext().getProject();
+		//
 		ArrayList<String> deps = new ArrayList<String>();
 		deps.add(project.getId().toUUID());
 		setDependencies(deps);// to override
@@ -424,7 +418,7 @@ public class BaseQuery implements IQuery {
 		String user = project.getDbUser();
 		String pwd = project.getDbPassword();
 		//
-		
+
 		String sql = render();
 		String sqlNoLimitNoOrder = renderNoLimitNoOrderBy();
 		RawMatrix result ;
@@ -433,10 +427,10 @@ public class BaseQuery implements IQuery {
 				result = RedisCacheManager.getInstance().getDataLazy(sqlNoLimitNoOrder, deps, url, user, pwd, -2); 			
 				if ((result ==null ) && !(sql.equals(sqlNoLimitNoOrder))){
 					result = RedisCacheManager.getInstance().getDataLazy(sql, deps, url, user, pwd, -2);
-					}
+				}
 			}else{
 				result=  RedisCacheManager.getInstance().getData(sql, deps, url, user, pwd, -2 , this.getSelectUniversal().getStatement().getLimitValue());
-				
+
 				if ((result != null ) && !result.isFromCache() && (!result.isMoreData()) && !(sql.equals(sqlNoLimitNoOrder))){
 					// create a new reference
 					RedisCacheManager.getInstance().addCacheReference(sqlNoLimitNoOrder, deps, result.getRedisKey());					
@@ -457,7 +451,7 @@ public class BaseQuery implements IQuery {
 	protected void setDependencies(List<String> deps) {
 		// nothing for now
 	}
-	
+
 	public IExecutionItem executeQuery() throws ComputingException {
 		IExecutionItem item;
 		try {
@@ -466,7 +460,7 @@ public class BaseQuery implements IQuery {
 		} catch (Exception e) {
 			throw new ComputingException(e);
 		}
-		
+
 	}
 
 	public Boolean execute() throws ComputingException {
@@ -489,23 +483,23 @@ public class BaseQuery implements IQuery {
 		Boolean noresult = DatabaseServiceImpl.INSTANCE.execute(getDatasource(), SQL);
 		return noresult;
 	}
-	
+
 	protected DataMatrix computeDataMatrix(Database database, RawMatrix rawMatrix) throws ScopeException {
 		return new DataMatrix( database,  rawMatrix, mapper.getMeasureMapping(), mapper.getAxisMapping());
 	}
-	
+
 	protected IExecutionItem runSQL() throws ExecutionException, RenderingException {
 		// allow to override select definition
 		return runSQL(render());
 	}
-	
+
 	protected IExecutionItem runSQL(String SQL) throws ExecutionException {
 		//
-	    IExecutionItem item = DatabaseServiceImpl.INSTANCE.executeQuery(getDatasource(), SQL);
+		IExecutionItem item = DatabaseServiceImpl.INSTANCE.executeQuery(getDatasource(), SQL);
 		//
-        return item;
+		return item;
 	}
-	
+
 	//
 	/**
 	 * helper method that construct the formula: (expr>intervalle.min and expr<intervalle.max)
@@ -521,7 +515,7 @@ public class BaseQuery implements IQuery {
 		where = createIntervalle(expr, expr, lower, upper);
 		return where!=null?ExpressionMaker.GROUP(where):null;
 	}
-	
+
 	protected ExpressionAST createIntervalle(ExpressionAST start, ExpressionAST end, ExpressionAST lower, ExpressionAST upper) {
 		if (lower!=null && upper!=null) {
 			return ExpressionMaker.AND(
@@ -536,110 +530,110 @@ public class BaseQuery implements IQuery {
 			return null;
 		}
 	}
-	
+
 	public enum FilterType {
-	    WHERE,EXISTS
+		WHERE,EXISTS
 	}
-	
+
 	public class Filter {
-	    
-	    private FilterType type;
-	    private Axis axis;
-	    private Collection<DimensionMember> filters;
-	    
-        public Filter(FilterType type, Axis axis,
-                Collection<DimensionMember> filters) {
-            super();
-            this.type = type;
-            this.axis = axis;
-            this.filters = filters;
-        }
 
-        public FilterType getType() {
-            return type;
-        }
+		private FilterType type;
+		private Axis axis;
+		private Collection<DimensionMember> filters;
 
-        public Axis getAxis() {
-            return axis;
-        }
+		public Filter(FilterType type, Axis axis,
+				Collection<DimensionMember> filters) {
+			super();
+			this.type = type;
+			this.axis = axis;
+			this.filters = filters;
+		}
 
-        public Collection<DimensionMember> getFilters() {
-            return filters;
-        }
+		public FilterType getType() {
+			return type;
+		}
+
+		public Axis getAxis() {
+			return axis;
+		}
+
+		public Collection<DimensionMember> getFilters() {
+			return filters;
+		}
 
 		@Override
 		public String toString() {
 			return "Filter [" + type + " " + axis + "="
 					+ filters + "]";
 		}
-    	
-    	public void applyFilter(SelectUniversal select) throws ScopeException, SQLScopeException {
-    	    switch (getType()) {
-    	    case WHERE:
-    	        where(select, getAxis(), getFilters());
-    	        break;
-    	    case EXISTS:
-    	        SelectUniversal subselect = select.exists(getAxis().getParent().getDefinition());
-                where(subselect, getAxis(), getFilters());
-                break;
-    	    }
-    	}
-	    
+
+		public void applyFilter(SelectUniversal select) throws ScopeException, SQLScopeException {
+			switch (getType()) {
+			case WHERE:
+				where(select, getAxis(), getFilters());
+				break;
+			case EXISTS:
+				SelectUniversal subselect = select.exists(getAxis().getParent().getDefinition());
+				where(subselect, getAxis(), getFilters());
+				break;
+			}
+		}
+
 	}
-	
+
 	private List<Filter> filters = null;
-	
+
 	private void addFilter(Filter filter) {
-	    if (filters==null) {
-	        filters = new ArrayList<>();
-	    }
-	    filters.add(filter);
+		if (filters==null) {
+			filters = new ArrayList<>();
+		}
+		filters.add(filter);
 	}
-	
+
 	public List<Filter> getFilters() {
-	    if (filters==null) {
-	        return Collections.emptyList();
-	    } else {
-	        return filters;
-	    }
+		if (filters==null) {
+			return Collections.emptyList();
+		} else {
+			return filters;
+		}
 	}
-	
+
 	public void exists(Axis axis, Collection<DimensionMember> filters) throws ScopeException, SQLScopeException {
 		SelectUniversal subselect = select.exists(axis.getParent().getDefinition());
 		if (where(subselect, axis, filters)) {
-		    addFilter(new Filter(FilterType.EXISTS, axis, filters));
+			addFilter(new Filter(FilterType.EXISTS, axis, filters));
 		}
 	}
-	
+
 	public void where(Axis axis, Collection<DimensionMember> filters) throws ScopeException, SQLScopeException {
 		if (where(this.select, axis, filters)) {
-            addFilter(new Filter(FilterType.WHERE, axis, filters));
+			addFilter(new Filter(FilterType.WHERE, axis, filters));
 		}
 	}
-	
+
 	private List<ExpressionAST> conditions = null;
-	
+
 	private boolean isQualify = false;// check if any condition implies a Qualify
-	
+
 	public List<ExpressionAST> getConditions() {
-	    if (conditions==null) {
-	        return Collections.emptyList();
-	    } else {
-	        return conditions;
-	    }
+		if (conditions==null) {
+			return Collections.emptyList();
+		} else {
+			return conditions;
+		}
 	}
-	
+
 	public void where(ExpressionAST condition) throws ScopeException, SQLScopeException {
-	    if (conditions==null) {
-	        conditions = new ArrayList<>();
-	    }
-	    conditions.add(condition);
-	    if (condition.getImageDomain().isInstanceOf(AnalyticDomain.DOMAIN)) {
-	    	isQualify = true;
-	    }
-	    this.select.where(condition);
+		if (conditions==null) {
+			conditions = new ArrayList<>();
+		}
+		conditions.add(condition);
+		if (condition.getImageDomain().isInstanceOf(AnalyticDomain.DOMAIN)) {
+			isQualify = true;
+		}
+		this.select.where(condition);
 	}
-	
+
 	public boolean isQualifyRequired() {
 		return isQualify;
 	}
@@ -664,28 +658,28 @@ public class BaseQuery implements IQuery {
 				// get the first
 				Iterator<DimensionMember> iter = filters.iterator();
 				DimensionMember member = iter.next();
-                if (member.getID() instanceof Boolean && ((Boolean)member.getID()).booleanValue()) {
-                    // if true, add the predicate
-                    IWherePiece piece = select.where(expr);
-                    piece.addComment("filtering on: "+axis.getName());
-                    return true;
-                }
+				if (member.getID() instanceof Boolean && ((Boolean)member.getID()).booleanValue()) {
+					// if true, add the predicate
+					IWherePiece piece = select.where(expr);
+					piece.addComment("filtering on: "+axis.getName());
+					return true;
+				}
 			}
 			// else
 			return false;
 		}
 		ExpressionAST filter_by_intervalle = null;
 		for (DimensionMember filter : filters) {
-		    Object value = filter.getID();
-		    // check if the member is an interval
-            if (value instanceof Intervalle) {
-                ExpressionAST where = where(expr,(Intervalle)value);
-                if (filter_by_intervalle==null) {
-                    filter_by_intervalle = where;
-                } else if (where!=null) {
-                    filter_by_intervalle = ExpressionMaker.OR(filter_by_intervalle, where);
-                }
-            } else {
+			Object value = filter.getID();
+			// check if the member is an interval
+			if (value instanceof Intervalle) {
+				ExpressionAST where = where(expr,(Intervalle)value);
+				if (filter_by_intervalle==null) {
+					filter_by_intervalle = where;
+				} else if (where!=null) {
+					filter_by_intervalle = ExpressionMaker.OR(filter_by_intervalle, where);
+				}
+			} else {
 				filter_by_members.add((filter).getID());
 			}
 		}
@@ -703,7 +697,7 @@ public class BaseQuery implements IQuery {
 		}
 		if (filterALL!=null) {
 			IWherePiece piece = select.where(filterALL);
-            piece.addComment("filtering on: "+axis.getName());
+			piece.addComment("filtering on: "+axis.getName());
 		}
 		//
 		// handling constraint propagation...
@@ -715,7 +709,7 @@ public class BaseQuery implements IQuery {
 				DimensionMember timeFilter = null;
 				for(DimensionMember filter: filters){
 					if (filter.getID() instanceof Intervalle){
-						 timeFilter = filter;
+						timeFilter = filter;
 					}
 				}
 				if(timeFilter!=null){
@@ -726,17 +720,17 @@ public class BaseQuery implements IQuery {
 				}else{
 					select.getAnalyzer().addConstraint(c,filters);
 				}
-				
+
 			}
 		}
 		//
 		return filterALL!=null;
 	}
-	
+
 	public void setComment(String comment) {
 		this.select.getStatement().addComment(comment);
 	}
-	
+
 	/**
 	 * check that all the metrics are associative. That allows to compute rollup in two steps for instance
 	 *
@@ -751,6 +745,6 @@ public class BaseQuery implements IQuery {
 		// 
 		return true;
 	}
-	
+
 
 }

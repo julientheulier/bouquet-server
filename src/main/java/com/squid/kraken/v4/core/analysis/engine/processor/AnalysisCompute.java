@@ -66,9 +66,12 @@ import com.squid.kraken.v4.core.analysis.universe.Measure;
 import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.kraken.v4.export.ExecuteAnalysisResult;
+import com.squid.kraken.v4.export.ExportSourceWriter;
 import com.squid.kraken.v4.model.Dimension;
 import com.squid.kraken.v4.model.Dimension.Type;
 import com.squid.kraken.v4.model.Domain;
+import com.squid.kraken.v4.writers.PreviewWriter;
+import com.squid.kraken.v4.writers.QueryWriter;
 
 /**
  * this is where the actual computations take place, in relation with a given
@@ -137,8 +140,12 @@ public class AnalysisCompute {
 		List<MeasureGroup> groups = analysis.getGroups();
 		if (groups.isEmpty()) {
 			SimpleQuery query = this.createOperatorNoKPI(analysis);
-			DataMatrix dm = query.run(analysis.isLazy());
-			return dm;
+/*			DataMatrix dm = query.run(analysis.isLazy());
+			return dm; */
+			PreviewWriter  qw = new PreviewWriter();
+			query.run(analysis.isLazy(), qw );
+			return qw.getDataMatrix();
+			
 		} else if (analysis.getSelection().hasCompare()) {
 			// handle compare T947
 			//
@@ -262,8 +269,12 @@ public class AnalysisCompute {
 			SimpleQuery query = this.createOperatorKPIPopulateFilters(analysis,
 					group, optimize, soft_filters, hidden_slice);
 
-			DataMatrix dm;
-			dm = query.run(analysis.isLazy());
+/*			DataMatrix dm;
+			dm = query.run(analysis.isLazy()); */
+			PreviewWriter  qw = new PreviewWriter();
+			query.run(analysis.isLazy(), qw );
+			DataMatrix dm =  qw.getDataMatrix();
+
 
 			if (dm != null) {
 
@@ -343,6 +354,54 @@ public class AnalysisCompute {
      * @throws ComputingException
      * @throws InterruptedException
      */
+    public void executeAnalysis(DashboardAnalysis analysis, QueryWriter writer, boolean lazy) throws ComputingException, InterruptedException {
+	    try {
+            long start = System.currentTimeMillis();
+    		logger.info("start of sql generation");
+
+	        List<MeasureGroup> groups = analysis.getGroups();
+            if (groups.isEmpty()) {
+                 SimpleQuery query = this.createOperatorNoKPI(analysis);
+                
+                long stop = System.currentTimeMillis();
+        		//logger.info("End of sql generation  in " +(stop-start)+ "ms" );
+    			logger.info("task="+this.getClass().getName()+" method=executeAnalysis.SQLGeneration"+" duration="+ (stop-start)+" error=false status=done");
+                try {
+                    String sql = query.render();
+                    SQLStats queryLog = new SQLStats(query.toString(), "executeAnalysis.SQLGeneration",sql, (stop-start), analysis.getUniverse().getProject().getId().getProjectId());
+                    queryLog.setError(false);
+                    PerfDB.INSTANCE.save(queryLog);
+
+                } catch (RenderingException e) {
+                    e.printStackTrace();
+                }
+                
+                query.run(lazy, writer);
+                        	
+            } else {
+                // possible only if there is only one group
+                if (groups.size()!=1) {
+                    throw new ComputingException("the analysis cannot be exported in a single query - try removing some metrics");
+                }
+                // select with one or several KPI groups
+                Collection<Domain> domains = analysis.getAllDomains();
+                //
+                MeasureGroup group = groups.get(0);
+                //
+                SimpleQuery query = genAnalysisQuery(analysis, domains, group, false, false, null, null);
+        		//
+                
+                query.run(lazy, writer);
+
+            }
+	    } catch (ScopeException e) {
+	        throw new ComputingException(e);
+        } catch (SQLScopeException e) {
+            throw new ComputingException(e);
+        }
+	}
+    
+   /* 
 	public ExecuteAnalysisResult executeAnalysis(DashboardAnalysis analysis) throws ComputingException, InterruptedException {
 	    try {
             long start = System.currentTimeMillis();
@@ -390,7 +449,7 @@ public class AnalysisCompute {
         } catch (SQLScopeException e) {
             throw new ComputingException(e);
         }
-	}
+	} */
 
 
 	/**
@@ -588,9 +647,7 @@ public class AnalysisCompute {
 		//
 		if (analysis.hasLimit()) {
 			query.limit(analysis.getLimit());
-		} else {
-			query.limit(1000);// if you want all, use the export
-		}
+		} 
 		if (analysis.hasOffset()) {
 			query.offset(analysis.getOffset());
 		}

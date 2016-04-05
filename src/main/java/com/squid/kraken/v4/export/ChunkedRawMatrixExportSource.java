@@ -1,7 +1,6 @@
 package com.squid.kraken.v4.export;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
@@ -10,16 +9,13 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 import org.apache.avro.Schema;
-import org.junit.experimental.theories.Theories;
 
-import com.google.common.primitives.Ints;
 import com.squid.core.export.IRawExportSource;
 import com.squid.kraken.v4.caching.redis.RedisCacheException;
 import com.squid.kraken.v4.caching.redis.RedisCacheProxy;
 import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
 import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValue;
 import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValuesList;
-import com.squid.kraken.v4.writers.ChunkedRawMatrixWrapper;
 
 public class ChunkedRawMatrixExportSource implements IRawExportSource{
 
@@ -40,13 +36,10 @@ public class ChunkedRawMatrixExportSource implements IRawExportSource{
 
 	private ExecutorService executor;
 	
-	public ChunkedRawMatrixExportSource(ChunkedRawMatrixWrapper wrappedMat) throws InterruptedException, ExecutionException{
-		this(wrappedMat.key, wrappedMat.refList);
-	}
+
 	
-	
-	public ChunkedRawMatrixExportSource(String key,RedisCacheValuesList refList ) throws InterruptedException, ExecutionException{
-		this.key = key;
+	public ChunkedRawMatrixExportSource(RedisCacheValuesList refList ) throws InterruptedException, ExecutionException{
+		this.key = refList.getRedisKey();
 		this.refList = refList;
 		this.executor= Executors.newFixedThreadPool(1);
 		

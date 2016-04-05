@@ -2,42 +2,57 @@ package com.squid.kraken.v4.writers;
 
 import java.io.OutputStream;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.squid.kraken.v4.api.core.projectanalysisjob.AnalysisJobComputer;
 import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
 import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheReference;
 import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValuesList;
+import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.export.ExportSourceWriter;
 
 public class ExportQueryWriter extends QueryWriter {
 
 	OutputStream out; 
 	ExportSourceWriter writer ;
-		
+	long linesWritten;
+	String jobID;
 	
-	public ExportQueryWriter(ExportSourceWriter w, OutputStream out){
+	static final Logger logger = LoggerFactory
+			.getLogger(QueryWriter.class);
+	
+	public ExportQueryWriter(ExportSourceWriter w, OutputStream out, String jobId){
 		this.out = out;
 		this.writer = w ;
-		
+		this.jobID = jobId;
 	}
 
-	
-	public void  write(){
-			
-		if (val instanceof RawMatrix ){
-			writer.write((RawMatrix) val, out) ;
-		}
+	@Override
+	public void write() throws ComputingException{
+		long startExport = System.currentTimeMillis();
+		try{
+		
+			if (val instanceof RawMatrix ){
+				this.linesWritten =	writer.write((RawMatrix) val, out) ;
+			}
  
-		if (val instanceof RedisCacheValuesList){
-			RedisCacheValuesList list = (RedisCacheValuesList) val;
-			writer.write( new ChunkedRawMatrixWrapper(this.key, list), out );			
-		}	
-		
-		
-		if (val instanceof RedisCacheReference){
+			if (val instanceof RedisCacheValuesList){
+				this.linesWritten =	writer.write( (RedisCacheValuesList) val, out );			
+			}			
 			
-			
-		}
+			long stopExport = System.currentTimeMillis();
+//			logger.info("task="+this.getClass().getName()+" method=compute.writeData"+" jobid="+ +" SQLQuery=#"+res.getItem().getID()+" lineWritten="+linesWritten+" duration="+ (stopExport-startExport)+" error=false status=done");
+			logger.info("task="+this.getClass().getName()+" method=compute.writeData"+" jobid="+jobID +" lineWritten="+linesWritten+" duration="+ (stopExport-startExport)+" error=false status=done");
 
-		
+		} catch (Throwable e) {
+			logger.error("failed to export jobId="+jobID +":", e);
+			throw e;
+		}		
+	}
+	
+	public long getLinesWritten(){
+		return this.linesWritten;
 	}
 	
 }

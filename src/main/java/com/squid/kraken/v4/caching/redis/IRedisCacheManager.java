@@ -55,9 +55,12 @@ public interface IRedisCacheManager {
 
 	public RedisKey getKey(String key);
 
-	public RedisCacheValue getRedisCacheValue(String SQLQuery, List<String> dependencies, String RSjdbcURL,
+	public RedisCacheValue getRedisCacheValueLazy(String SQLQuery, List<String> dependencies, String RSjdbcURL,
 			String username, String pwd, int TTLinSec ) ;
-
+	
+	public RedisCacheValue getRedisCacheValue(String SQLQuery, List<String> dependencies, String RSjdbcURL,
+			String username, String pwd, int TTLinSec, long limit ) throws InterruptedException ;
+	
 	public RedisKey getKey(String key, Collection<String> dependencies);
 
 	public RedisKey getKey(String key, String... dependencies);

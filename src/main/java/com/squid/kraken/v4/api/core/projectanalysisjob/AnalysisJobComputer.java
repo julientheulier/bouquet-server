@@ -79,6 +79,7 @@ import com.squid.kraken.v4.model.ProjectAnalysisJob.RollUp;
 import com.squid.kraken.v4.model.ProjectAnalysisJobPK;
 import com.squid.kraken.v4.model.ProjectPK;
 import com.squid.kraken.v4.persistence.AppContext;
+import com.squid.kraken.v4.writers.ExportQueryWriter;
 
 /**
  * Compute a ProjectAnalysisJob using the Engine.<br>
@@ -168,8 +169,60 @@ JobComputer<ProjectAnalysisJob, ProjectAnalysisJobPK, DataTable> {
 	 *  returns a datatable containing the number of lines written
 	 */
 
+	public DataTable compute(AppContext ctx, ProjectAnalysisJob job,
+			OutputStream outputStream, ExportSourceWriter writer, boolean lazy)
+					throws ComputingException, InterruptedException {
+		// build the analysis
+		long start = System.currentTimeMillis();
+		logger.info("Starting export compute for job " +job.getId().getAnalysisJobId().toString() );
+		DashboardAnalysis analysis;
+		try {
+			analysis = buildDashboardAnalysis(ctx, job, true);
+		} catch (ScopeException e1) {
+			throw new ComputingException(e1);
+		}
 
-	@Override
+		// run lazy glitter analysis to try and retrieve the dataset from Redis		
+/*		DataMatrix datamatrix = ComputingService.INSTANCE.glitterAnalysis(
+				analysis, null);
+		if (datamatrix !=  null){
+
+			job.setRedisKey(datamatrix.getRedisKey());
+
+			logger.info(" Dataset for jobid="+job.getId().getAnalysisJobId().toString()  + " was recovered from cache") ;
+			long linesWritten;
+			if (writer instanceof ExportSourceWriterVelocity){				
+				linesWritten = writer.write(datamatrix.toDataTable(ctx, null, null), outputStream);
+			}else{
+				linesWritten = writer.write(datamatrix, outputStream);
+			}
+			DataTable results = new DataTable();
+			results.setTotalSize(linesWritten);
+
+			return results;	
+		}
+		else if (lazy) {
+				throw new NotInCacheException("Lazy export, analysis not in cache");
+		}
+		else{ */
+						
+		ExportQueryWriter eqw = new ExportQueryWriter(writer, outputStream,job.getId().getAnalysisJobId().toString() ); 
+		ComputingService.INSTANCE.executeAnalysis(analysis, eqw, lazy);
+
+		DataTable results = new DataTable();
+		results.setTotalSize(eqw.getLinesWritten());
+
+		long stop = System.currentTimeMillis();
+		//logger.info("End of compute for job " + job.getId().getAnalysisJobId().toString()  + " in " +(stop-start)+ "ms" );
+		logger.info("task="+this.getClass().getName()+" method=compute" +" jobid="+job.getId().getAnalysisJobId().toString()+" status=done duration="+(stop-start));
+		JobStats queryLog = new JobStats(job.getId().toString(),"FacetJobComputer", (stop-start), job.getId().getProjectId());
+		PerfDB.INSTANCE.save(queryLog);
+
+		return results;
+//			}
+	}	
+
+/*	@Override
 	public DataTable compute(AppContext ctx, ProjectAnalysisJob job,
 			OutputStream outputStream, ExportSourceWriter writer, boolean lazy)
 					throws ComputingException, InterruptedException {
@@ -239,7 +292,12 @@ JobComputer<ProjectAnalysisJob, ProjectAnalysisJobPK, DataTable> {
 
 			return results;
 		}
-	}
+	} */
+	
+	
+	
+	
+	
 
 	public static List<Domain> readDomains(AppContext ctx, ProjectAnalysisJob job) throws ScopeException {
 		List<Domain> domains = new ArrayList<Domain>();

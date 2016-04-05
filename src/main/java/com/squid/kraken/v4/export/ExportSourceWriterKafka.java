@@ -34,6 +34,7 @@ import com.squid.core.jdbc.vendor.VendorSupportRegistry;
 import com.squid.kraken.v4.KrakenConfig;
 import com.squid.kraken.v4.api.core.NotYetImplementedException;
 import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
+import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValuesList;
 import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
 import com.squid.kraken.v4.model.DataTable;
 
@@ -226,6 +227,13 @@ public class ExportSourceWriterKafka implements ExportSourceWriter {
 	@Override
 	public long write(ExecuteAnalysisResult item, OutputStream outputStream) {
         throw new NotYetImplementedException();
+	}
+
+
+	@Override
+	public long write(RedisCacheValuesList matrix, OutputStream out) {
+		// TODO Auto-generated method stub
+		return 0;
 	}
 
 }

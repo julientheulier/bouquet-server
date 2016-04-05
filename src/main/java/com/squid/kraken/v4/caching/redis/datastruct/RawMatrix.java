@@ -65,17 +65,10 @@ public class RawMatrix extends RedisCacheValue {
 	private transient int version = VERSION;
 	private transient HashMap<String, Integer> registration;
 
-	private transient String redisKey = null;
 
 	static final Logger logger = LoggerFactory.getLogger(RawMatrix.class);
 
-	public String getRedisKey() {
-		return redisKey;
-	}
 
-	public void setRedisKey(String redisKey) {
-		this.redisKey = redisKey;
-	}
 
 	public RawMatrix() {
 		this.rows = new ArrayList<RawRow>();

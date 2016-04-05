@@ -139,6 +139,30 @@ public class RedisCacheProxy implements IRedisCacheProxy {
 	//GET
 
 	public RawMatrix getRawMatrix(String key){
+		try {
+			RedisCacheValue rcv = this.getRawOrList(key);
+			if (rcv == null){
+				return null;
+			}else{
+				if (rcv instanceof RawMatrix){
+					return (RawMatrix) rcv;
+				}else{
+					if (rcv instanceof RedisCacheValuesList){
+						return this.buildChunkedRawMatrix(key, (RedisCacheValuesList) rcv) ;
+					}else{
+						throw new ComputingException();
+					}
+				}
+			}
+			
+		} catch (RuntimeException | ClassNotFoundException | IOException | ComputingException e) {
+			logger.error("failed to getRawMatrix() on key="+key);
+			throw new RuntimeException("Jedis: getRawMatrix() failed on key="+key, e);
+		} 
+	}
+
+	
+	public RedisCacheValue getRawOrList(String key ){
 		try (Jedis jedis  = getResourceFromPool()){	
 
 			HashSet<String> pastKeys=  new HashSet<String>(); // do not get trapped in circular references
@@ -168,7 +192,8 @@ public class RedisCacheProxy implements IRedisCacheProxy {
 					}else{
 						if(val instanceof RedisCacheValuesList){
 							RedisCacheValuesList  refList = (RedisCacheValuesList) val;
-							return  this.buildChunkedRawMatrix(key, refList);
+							refList.setRedisKey(currKey);
+							return  refList;
 						}else{
 							throw new ClassNotFoundException();
 						}
@@ -176,54 +201,10 @@ public class RedisCacheProxy implements IRedisCacheProxy {
 				}
 			}
 
-		} catch (RuntimeException | ClassNotFoundException | IOException | ComputingException e) {
+		} catch (RuntimeException | ClassNotFoundException | IOException e ) {
 			logger.error("failed to getRawMatrix() on key="+key);
 			throw new RuntimeException("Jedis: getRawMatrix() failed on key="+key, e);
 		} 
-	}
-
-	
-	public RedisCacheValue getRawOrList(String key ){
-		try (Jedis jedis  = getResourceFromPool()){	
-
-			HashSet<String> pastKeys=  new HashSet<String>(); // do not get trapped in circular references
-			String currKey = key;
-			while(true){
-
-				byte[] serialized = jedis.get(currKey.getBytes());
-
-				RedisCacheValue  val = RedisCacheValue.deserialize(serialized);
-				if (val instanceof RawMatrix){
-					RawMatrix res= (RawMatrix) val;
-					res.setRedisKey(currKey); 
-					return res;
-				}else{
-					if(val instanceof  RedisCacheReference){	
-						RedisCacheReference ref = (RedisCacheReference )val ;
-						logger.info("Cache Reference : "+ currKey + "   " +  ref.getReferenceKey());
-						pastKeys.add(currKey);
-						currKey = ref.getReferenceKey();
-						if (pastKeys.contains(currKey)){
-							throw new RuntimeException();
-						}
-
-					}else{
-						if(val instanceof RedisCacheValuesList){
-							RedisCacheValuesList  refList = (RedisCacheValuesList) val;
-							return  this.buildChunkedRawMatrix(key, refList);
-						}else{
-							throw new ClassNotFoundException();
-						}
-					}
-				}
-			}
-
-		} catch (RuntimeException | ClassNotFoundException | IOException | ComputingException e) {
-			logger.error("failed to getRawMatrix() on key="+key);
-			throw new RuntimeException("Jedis: getRawMatrix() failed on key="+key, e);
-		} 
-		
-		
 	}
 
 

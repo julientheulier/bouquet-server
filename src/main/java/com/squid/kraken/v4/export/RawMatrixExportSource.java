@@ -38,10 +38,24 @@ public class RawMatrixExportSource implements IRawExportSource {
 
 	private Schema schema;
 	private RawMatrix matrix ;
+	
+	private String[] columnNames;
+	private int[] columnTypes;
+	
 
 	public RawMatrixExportSource(RawMatrix matrix){
 		this.matrix = matrix ;
+		
+		this.columnNames= new String[matrix.getColNames().size()]; 
 
+		for (int i =0; i < matrix.getColNames().size() ; i++){
+			this.columnNames[i] = matrix.getColNames().get(i);
+		};
+		
+		this.columnTypes = new int[matrix.getColTypes().size()] ;
+		for (int i = 0; i < matrix.getColTypes().size(); i++){
+			columnTypes[i] = matrix.getColTypes().get(i).intValue() ;
+		}
 
 	}
 
@@ -103,17 +117,13 @@ public class RawMatrixExportSource implements IRawExportSource {
 	}
 
 	@Override
-	public int[] getColumnTypes() {
-		int[] res = new int[matrix.getColTypes().size()] ;
-		for (int i = 0; i < matrix.getColTypes().size(); i++){
-				res[i] = matrix.getColTypes().get(i).intValue() ;
-		}
-		return res ;
+	public int[] getColumnTypes() {		
+		return this.columnTypes ;
 	}
 
 	@Override
 	public String[] getColumnNames() {
-		return (String[]) matrix.getColNames().toArray();
+		return this.columnNames;
 		
 	} 
 	
