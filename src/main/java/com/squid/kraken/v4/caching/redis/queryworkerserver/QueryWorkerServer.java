@@ -279,7 +279,7 @@ public class QueryWorkerServer implements IQueryWorkerServer {
 				if (error){
 					throw new RedisCacheException("We did not manage to store the result for query " + SQLQuery + "in redis");
 				}else{
-					logger.debug("Result for  " + SQLQuery + "was split into "+ nbBatches +" batches");
+					logger.info("Result for  " + SQLQuery + "was split into "+ nbBatches +" batches");
 				}
 				return true;
 			}finally{

@@ -9,6 +9,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 import org.apache.avro.Schema;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.squid.core.export.IRawExportSource;
 import com.squid.kraken.v4.caching.redis.RedisCacheException;
@@ -35,7 +37,8 @@ public class ChunkedRawMatrixExportSource implements IRawExportSource{
 	Future<RawMatrix>  processingQuery ;
 
 	private ExecutorService executor;
-	
+	static final Logger logger = LoggerFactory.getLogger(ChunkedRawMatrixExportSource.class);
+
 
 	
 	public ChunkedRawMatrixExportSource(RedisCacheValuesList refList ) throws InterruptedException, ExecutionException{
@@ -52,14 +55,18 @@ public class ChunkedRawMatrixExportSource implements IRawExportSource{
 
 		// build metadata in parallel
 		this.colNumbers = currentChunk.getColNames().size();
-		this.columnNames= (String[]) currentChunk.getColNames().toArray();
+		this.columnNames=  new String[this.colNumbers];
+		for(int i = 0 ; i < this.colNumbers ; i++){
+			this.columnNames[i] = currentChunk.getColNames().get(i);
+		}
+		
 		this.columnTypes = new int[currentChunk.getColTypes().size()] ;
 		for (int i = 0; i < currentChunk.getColTypes().size(); i++){
 			columnTypes[i] = currentChunk.getColTypes().get(i).intValue() ;
 		}
 		
 		//construct schema
-		this.schema = SchemaAvro.constructAvroSchema(key, columnTypes, columnNames);
+//		this.schema = SchemaAvro.constructAvroSchema(key, columnTypes, columnNames);
 	
 	}
 	
@@ -139,11 +146,11 @@ public class ChunkedRawMatrixExportSource implements IRawExportSource{
 		}
 
 		public RawMatrix call(){
-			
 			String chunkKey;
 			try {
 				chunkKey = getNextChunkKey();
 				if (chunkKey == null){
+					logger.info("Full matrix retrieve from cache, "+ nbChunksRead + "chunks ");
 					return  null;
 				}else{
 					RawMatrix res= RedisCacheProxy.getInstance().getRawMatrix(chunkKey);
@@ -158,7 +165,6 @@ public class ChunkedRawMatrixExportSource implements IRawExportSource{
 	
 	
 	public class RowInterator implements Iterator<Object[]>{
-
 		
 		int cursor ;
 		
@@ -166,31 +172,34 @@ public class ChunkedRawMatrixExportSource implements IRawExportSource{
 		
 		@Override
 		public boolean hasNext() {
-			return done;
+			return !done;
 		}
 
 		@Override
 		public Object[] next() {			
-			
-			Object[] res = currentChunk.getRows().get(cursor).getData();
+			Object[] res;
+			res = currentChunk.getRows().get(cursor).getData();
 			cursor++;
-			if (cursor>currentChunk.getRows().size()){
+			
+			if (cursor>= currentChunk.getRows().size()){
 				// get next Chunk
 				RawMatrix next;
 				try {
 					next = processingQuery.get();
 				} catch (InterruptedException | ExecutionException e) {
+					logger.info("error");
 					return null;
 				}
 				if (next == null){
 					done = true;
+					return null;
 				}else{
 					currentChunk = next;
 					cursor =0 ;
 					// launch chunk retrieval in parallel ;
 					GetChunk getNextChunk = new GetChunk();
 					processingQuery = (Future<RawMatrix>) executor.submit(getNextChunk);
-				}
+				}				 
 			}
 			return res;
 		}

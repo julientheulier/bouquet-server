@@ -448,11 +448,11 @@ public class RawMatrix extends RedisCacheValue {
 				// count + "items, still running for
 				// "+(intermediate-metter_start)/1000+" s at "+speed+ "
 				// rows/s, compressed size is "+size+" Mbytes");
-				logger.info("task=RawMatrix" + " method=streamExecutionItemToByteArray" + " duration="
+	/*			logger.info("task=RawMatrix" + " method=streamExecutionItemToByteArray" + " duration="
 						+ (intermediate - metter_start) / 1000 + " error=false status=running queyrid="
 						+ item.getID() + " speed=" + speed + "size=" + size + " proceeded " + count
 						+ "items, still running for " + (intermediate - metter_start) / 1000 + " s at " + speed
-						+ " rows/s, compressed size is " + size + " Mbytes");
+						+ " rows/s, compressed size is " + size + " Mbytes"); */
 			}
 			// if max chunk size of 50MB reached, stop 
 			if(count % 100 ==0){	
@@ -464,10 +464,10 @@ public class RawMatrix extends RedisCacheValue {
 			}
 
 			// DEBUG CODE TO CREATE SMALLER CHUNKS
-	/*		if (count == 250){
+			if (count == 250){
 				maxSizeReached= true;
-				logger.info("Max debug size of 250 items reached");
-			} */
+//				logger.info("Max debug size of 250 items reached");
+			} 
 		}
 
 		// WRITE moredata
@@ -507,11 +507,11 @@ public class RawMatrix extends RedisCacheValue {
 		// logger.info("SQLQuery#" + item.getID() + " serialized
 		// "+(count-1)+" row(s) in "+(metter_finish-metter_start)+" ms,
 		// compressed resulset size is "+size+" Mbytes");
-		logger.info("task=RawMatrix" + " method=streamExecutionItemToByteArray" + " duration="
+	/*	logger.info("task=RawMatrix" + " method=streamExecutionItemToByteArray" + " duration="
 				+ (metter_finish - metter_start) / 1000 + " error=false status=done driver="
 				+ item.getDatabase().getName() + " queryid=" + item.getID() + " size= " + size + " SQLQuery#"
 				+ item.getID() + " serialized " + (count - 1) + " row(s) in " + (metter_finish - metter_start)
-				+ " ms, compressed resulset size is " + size + " Mbytes");
+				+ " ms, compressed resulset size is " + size + " Mbytes"); */
 		// TODO Get project
 		SQLStats queryLog = new SQLStats(Integer.toString(item.getID()), "streamExecutionItemToByteArray", "",
 				(metter_finish - metter_start), item.getDatabase().getName());
