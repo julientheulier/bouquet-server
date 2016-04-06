@@ -44,11 +44,12 @@ public class JoinMerger extends Merger {
 	/**
 	 * The JoinMerger will merge 2 DataMatrices to compare the output.
 	 * If the join Axis is defined and exits in the input DM, it will be use to correctly join them.
+	 * @param mergeOrder 
 	 * @param join
 	 * @throws ScopeException 
 	 */
-	public JoinMerger(DataMatrix left, DataMatrix right, Axis join) throws ScopeException {
-		super(left, right);
+	public JoinMerger(DataMatrix left, DataMatrix right, int[] mergeOrder, Axis join) throws ScopeException {
+		super(left, right, mergeOrder);
 		this.join = join;
 		//
 		// check if join is a column
@@ -87,6 +88,15 @@ public class JoinMerger extends Merger {
 	 * @return
 	 */
 	protected Object translateRightToLeft(Object right) {
+		return null;
+	}
+	
+	/**
+	 * compute the past value based on the present value. Default is to return null.
+	 * @param left (== present) value
+	 * @return
+	 */
+	protected Object translateLeftToRight(Object left) {
 		return null;
 	}
 	
@@ -140,7 +150,9 @@ public class JoinMerger extends Merger {
 					rrInd++;
 					if (right!=null) {
 						merged.rawrow[rrInd] = right.getAxisValue(i);
-					} // else keep the null value
+					} else {
+						merged.rawrow[rrInd] = translateLeftToRight(left.getAxisValue(i));
+					}
 					rrInd++;
 				} else {
 					merged.rawrow[rrInd] = left.getAxisValue(i);

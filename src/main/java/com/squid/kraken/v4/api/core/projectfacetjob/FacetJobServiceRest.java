@@ -305,6 +305,7 @@ public class FacetJobServiceRest extends BaseServiceRest {
 
 	@Path("{jobId}/access")
 	@GET
+	@ApiOperation(value = "Gets a FacetJob's access rights")
 	public Set<AccessRight> readAccessRights(
 			@PathParam("projectId") String projectId,
 			@PathParam(PARAM_NAME) String jobId) {
@@ -314,6 +315,7 @@ public class FacetJobServiceRest extends BaseServiceRest {
 
 	@Path("{jobId}/access")
 	@POST
+	@ApiOperation(value = "Sets a FacetJob's access rights")
 	public Set<AccessRight> storeAccessRights(
 			@PathParam("projectId") String projectId,
 			@PathParam(PARAM_NAME) String jobId, Set<AccessRight> accessRights) {

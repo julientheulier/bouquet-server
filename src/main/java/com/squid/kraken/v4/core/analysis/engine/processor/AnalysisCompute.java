@@ -41,6 +41,7 @@ import org.slf4j.LoggerFactory;
 
 import com.squid.core.domain.IDomain;
 import com.squid.core.domain.set.SetDomain;
+import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.core.jdbc.engine.IExecutionItem;
 import com.squid.core.sql.model.SQLScopeException;
@@ -49,7 +50,6 @@ import com.squid.core.sql.render.ISelectPiece;
 import com.squid.core.sql.render.RenderingException;
 import com.squid.kraken.v4.core.analysis.datamatrix.AxisValues;
 import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
-import com.squid.kraken.v4.core.analysis.datamatrix.JoinMerger;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionMember;
 import com.squid.kraken.v4.core.analysis.engine.query.SimpleQuery;
 import com.squid.kraken.v4.core.analysis.model.Dashboard;
@@ -63,6 +63,7 @@ import com.squid.kraken.v4.core.analysis.model.MeasureGroup;
 import com.squid.kraken.v4.core.analysis.model.OrderBy;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
 import com.squid.kraken.v4.core.analysis.universe.Measure;
+import com.squid.kraken.v4.core.analysis.universe.Property.OriginType;
 import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.kraken.v4.export.ExecuteAnalysisResult;
@@ -140,70 +141,12 @@ public class AnalysisCompute {
 		List<MeasureGroup> groups = analysis.getGroups();
 		if (groups.isEmpty()) {
 			SimpleQuery query = this.createOperatorNoKPI(analysis);
-/*			DataMatrix dm = query.run(analysis.isLazy());
-			return dm; */
 			PreviewWriter  qw = new PreviewWriter();
 			query.run(analysis.isLazy(), qw );
 			return qw.getDataMatrix();
-			
-		} else if (analysis.getSelection().hasCompare()) {
-			// handle compare T947
-			//
-			// compute present
-			DashboardSelection presentSelection = analysis.getSelection();
-			DomainSelection compare = presentSelection.getCompareSelection();
-			Axis joinAxis = null;
-			IntervalleObject presentInterval = null;
-			IntervalleObject pastInterval = null;
-			for (Axis filter : compare.getFilters()) {
-				// check if the filter is a join
-				if (analysis.findGrouping(filter)!=null) {
-					if (joinAxis!=null) {
-						throw new ScopeException("only one join axis supported");
-					}
-					joinAxis = filter;
-					// compute the min & max for present
-					Collection<DimensionMember> members = presentSelection.getMembers(filter);
-					presentInterval = computeMinMax(members);
-				}
-			}
-			DataMatrix present = computeAnalysisOpt(analysis, false);
-			//
-			// compute the past version
-			// copy the selection and replace with compare filters
-			DashboardSelection pastSelection = new DashboardSelection(presentSelection);
-			for (Axis filter : compare.getFilters()) {
-				pastSelection.clear(filter);
-				pastSelection.add(filter, compare.getMembers(filter));
-				if (joinAxis.equals(filter)) {
-					pastInterval = computeMinMax(compare.getMembers(filter));
-				}
-			}
-			analysis.setSelection(pastSelection);
-			DataMatrix past = computeAnalysisOpt(analysis, false);
-			//
-			final int offset = computeOffset(present, joinAxis, presentInterval, pastInterval);
-			//
-			JoinMerger join = new JoinMerger(present, past, joinAxis) {
-				@Override
-				protected Object translateRightToLeft(Object right) {
-					if (right instanceof Date) {
-						LocalDate delta = (new LocalDate(((Date)right).getTime())).plusDays(offset);
-						return new java.sql.Date(delta.toDate().getTime());
-					} else {
-						return right;
-					}
-				}
-				@Override
-				protected int compareJoinValue(int pos, Object left, Object right) {
-					if (right instanceof Date) {
-						return ((Date)left).compareTo((new LocalDate(((Date)right).getTime())).plusDays(offset).toDate());
-					} else {
-						return super.compareJoinValue(pos, left, right);
-					}
-				}
-			};
-			return join.merge(false);
+		} else if (analysis.getSelection().hasCompareToSelection()) {
+			return computeCompareToAnalysis(analysis);
+
 		} else {
 			// disable the optimizing when using the limit feature
 			@SuppressWarnings("unused")
@@ -211,6 +154,153 @@ public class AnalysisCompute {
 					&& !analysis.hasRollup();
 			return computeAnalysisOpt(analysis, optimize);
 		}
+	}
+
+	// handle compare T947
+	public DataMatrix computeCompareToAnalysis(DashboardAnalysis currentAnalysis) throws ScopeException, ComputingException, SQLScopeException, InterruptedException {
+		// preparing the selection
+		DashboardSelection presentSelection = currentAnalysis.getSelection();
+		DomainSelection compare = presentSelection.getCompareToSelection();
+		Axis joinAxis = null;
+		IntervalleObject presentInterval = null;
+		IntervalleObject pastInterval = null;
+		for (Axis filter : compare.getFilters()) {
+			// check if the filter is a join
+			GroupByAxis groupBy = findGroupingJoin(filter, currentAnalysis);
+			if (groupBy!=null) {
+				if (joinAxis!=null) {
+					throw new ScopeException("only one join axis supported");
+				}
+				joinAxis = groupBy.getAxis();
+				// compute the min & max for present
+				Collection<DimensionMember> members = presentSelection.getMembers(filter);
+				presentInterval = computeMinMax(members);
+			}
+		}
+		//
+		// handling orderBy in the proper way...
+		List<OrderBy> fixed = new ArrayList<>();
+		List<OrderBy> remaining = new ArrayList<>();
+		int i=0;
+		// list the dimensions
+		ArrayList<ExpressionAST> dimensions = new ArrayList<>();// order matter
+		for (GroupByAxis group : currentAnalysis.getGrouping()) {
+			dimensions.add(group.getAxis().getReference());
+		}
+		int[] mergeOrder = new int[dimensions.size()];// will hold in which order to merge
+		// rebuild the full order specs
+		for (OrderBy order : currentAnalysis.getOrders()) {
+			if (i==0 && joinAxis!=null) {
+				if (order.getExpression().equals(joinAxis.getReference())) {
+					// ok, it's first
+					fixed.add(new OrderBy(i, order.getExpression(), order.getOrdering()));
+					mergeOrder[i++] = dimensions.indexOf(order.getExpression());
+					continue;// done for this order
+				} else {
+					// add it first
+					fixed.add(new OrderBy(i, joinAxis.getReference(), ORDERING.DESCENT));// default to DESC
+					mergeOrder[i++] = dimensions.indexOf(joinAxis.getReference());
+					// now we need to take care of the order
+				}
+			}
+			// not (the first & join)...
+			// check if it is a dimension
+			if (dimensions.contains(order.getExpression())) {
+				// ok, just add it
+				fixed.add(new OrderBy(i, order.getExpression(), order.getOrdering()));
+				mergeOrder[i++] = dimensions.indexOf(order.getExpression());
+				// and remove the dimension from the list
+				dimensions.remove(order.getExpression());
+			} else {
+				// assuming it is a metric or something else, keep it but at the end
+				remaining.add(order);// don't know the position yet
+			}
+		}
+		// add missing dimensions
+		if (!dimensions.isEmpty()) {
+			for (ExpressionAST dim : dimensions) {
+				if (joinAxis==null || !joinAxis.getReference().equals(dim)) {
+					fixed.add(new OrderBy(i, dim, ORDERING.DESCENT));// default to DESC
+					mergeOrder[i++] = dimensions.indexOf(dim);
+				}
+			}
+		}
+		// add non-dimensions
+		if (!remaining.isEmpty()) {
+			for (OrderBy order : remaining) {
+				fixed.add(new OrderBy(i++, order.getExpression(), order.getOrdering()));
+			}
+		}
+		currentAnalysis.setOrders(fixed);
+		//
+		// compute present
+		DataMatrix present = computeAnalysisOpt(currentAnalysis, false);
+		//
+		// compute the past version
+		DashboardAnalysis compareToAnalysis = new DashboardAnalysis(universe);
+		// copy dimensions
+		for (GroupByAxis groupBy : currentAnalysis.getGrouping()) {
+			if (groupBy.getAxis().equals(joinAxis)) {
+				Axis compareToAxis = new Axis(groupBy.getAxis());
+				compareToAxis.setOriginType(OriginType.COMPARETO);
+				compareToAxis.setName(groupBy.getAxis().getName()+" (compare)");
+				GroupByAxis compareToGroupBy = compareToAnalysis.add(compareToAxis, groupBy.isRollup());
+				compareToGroupBy.setRollupPosition(groupBy.getRollupPosition());
+			} else {
+				compareToAnalysis.add(groupBy);
+			}
+		}
+		// copy metrics
+		for (Measure kpi : currentAnalysis.getKpis()) {
+			Measure compareToKpi = new Measure(kpi);
+			compareToKpi.setOriginType(OriginType.COMPARETO);
+			compareToKpi.setName(kpi.getName()+" (compare)");
+			compareToAnalysis.add(compareToKpi);
+		}
+		// copy stuff
+		if (currentAnalysis.hasLimit()) compareToAnalysis.limit(currentAnalysis.getLimit());
+		if (currentAnalysis.hasOffset()) compareToAnalysis.offset(currentAnalysis.getOffset());
+		if (currentAnalysis.isRollupGrandTotal()) compareToAnalysis.setRollupGrandTotal(true);
+		if (currentAnalysis.hasRollup()) compareToAnalysis.setRollup(currentAnalysis.getRollup());
+		compareToAnalysis.setOrders(currentAnalysis.getOrders());
+		// copy the selection and replace with compare filters
+		DashboardSelection pastSelection = new DashboardSelection(presentSelection);
+		for (Axis filter : compare.getFilters()) {
+			pastSelection.clear(filter);
+			pastSelection.add(filter, compare.getMembers(filter));
+			if (joinAxis!=null && filter.equals(joinAxis)) {
+				pastInterval = computeMinMax(compare.getMembers(filter));
+			}
+		}
+		compareToAnalysis.setSelection(pastSelection);
+		DataMatrix past = computeAnalysisOpt(compareToAnalysis, false);
+		//
+		final int offset = computeOffset(present, joinAxis, presentInterval, pastInterval);
+		//
+		CompareMerger merger = new CompareMerger(present, past, mergeOrder, joinAxis, offset);
+		DataMatrix debug = merger.merge(false);
+		return debug;
+	}
+	
+	private GroupByAxis findGroupingJoin(Axis join, DashboardAnalysis from) {
+		DateExpressionAssociativeTransformationExtractor checker = new DateExpressionAssociativeTransformationExtractor();
+		ExpressionAST naked1 = checker.eval(join.getDimension()!=null?join.getReference():join.getDefinitionSafe());
+		IDomain d1 = join.getDefinitionSafe().getImageDomain();
+		for (GroupByAxis groupBy : from.getGrouping()) {
+			IDomain d2 = groupBy.getAxis().getDefinitionSafe().getImageDomain();
+			if (d1.isInstanceOf(IDomain.TEMPORAL) && d2.isInstanceOf(IDomain.TEMPORAL)) {
+				// if 2 dates, try harder...
+				// => the groupBy can be a associative transformation of the filter
+				ExpressionAST naked2 = checker.eval(groupBy.getAxis().getDefinitionSafe());
+				if (naked1.equals(naked2)) {
+					return groupBy;
+				}
+			} else if (join.equals(groupBy.getAxis())) {
+				return groupBy;
+			}
+		}
+		// else
+		return null;
 	}
 
 	private int computeOffset(DataMatrix present, Axis joinAxis, IntervalleObject presentInterval, IntervalleObject pastInterval) {
@@ -227,13 +317,18 @@ public class AnalysisCompute {
 	}
 
 	private int computeOffset(IntervalleObject presentInterval, IntervalleObject pastInterval, ORDERING ordering) {
-		Object present = ordering==ORDERING.ASCENT?presentInterval.getLowerBound():presentInterval.getUpperBound();
-		Object past = ordering==ORDERING.ASCENT?pastInterval.getLowerBound():pastInterval.getUpperBound();
-		if (present instanceof Date) {
-			return Days.daysBetween(new LocalDate(((Date)past).getTime()), new LocalDate(((Date)present).getTime())).getDays();
+		// it is better to compare on the lower bound because alignment on the end of month is not accurate
+		Object present = presentInterval.getLowerBound();
+		Object past = pastInterval.getLowerBound();
+		if (present instanceof Date && past instanceof Date) {
+			return daysBetween((Date)past, (Date)present);
 		} else {
 			return 0;
 		}
+	}
+	
+	private int daysBetween(Date lower, Date upper) {
+		return Days.daysBetween(new LocalDate(((Date)lower).getTime()), new LocalDate(((Date)upper).getTime())).getDays();
 	}
 
 	private IntervalleObject computeMinMax(Collection<DimensionMember> members) throws ScopeException {
@@ -269,8 +364,6 @@ public class AnalysisCompute {
 			SimpleQuery query = this.createOperatorKPIPopulateFilters(analysis,
 					group, optimize, soft_filters, hidden_slice);
 
-/*			DataMatrix dm;
-			dm = query.run(analysis.isLazy()); */
 			PreviewWriter  qw = new PreviewWriter();
 			query.run(analysis.isLazy(), qw );
 			DataMatrix dm =  qw.getDataMatrix();

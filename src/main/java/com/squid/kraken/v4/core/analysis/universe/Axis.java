@@ -57,6 +57,19 @@ public class Axis implements Property {
 	
 	private ExpressionAST def_cache;// cache the axis definition
 	
+	private OriginType originType = OriginType.USER; // default to User type
+	/**
+	 * copy constructor
+	 * @param copy
+	 */
+	public Axis(Axis copy) {
+		this.parent = copy.parent;
+		this.dimension = copy.dimension;
+		this.ID = copy.ID;
+		this.name = copy.name;
+		this.def_cache = copy.def_cache;
+	}
+	
 	protected Axis(Space parent, ExpressionAST expression) {
         this.parent = parent;
 	    this.def_cache = expression;
@@ -75,6 +88,15 @@ public class Axis implements Property {
 	    this.def_cache = copy.def_cache;
 	    this.ID = ID;
     }
+	
+	@Override
+	public OriginType getOriginType() {
+		return originType;
+	}
+	
+	public void setOriginType(OriginType originType) {
+		this.originType = originType;
+	}
 
     public Axis withId(String ID) {
 	    return new Axis(this, ID);

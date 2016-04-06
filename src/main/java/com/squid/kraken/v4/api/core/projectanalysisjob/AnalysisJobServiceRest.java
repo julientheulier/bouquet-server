@@ -577,6 +577,7 @@ public class AnalysisJobServiceRest extends BaseServiceRest {
 
 	@Path("{jobId}/access")
 	@GET
+	@ApiOperation(value = "Get job's access rights")
 	public Set<AccessRight> readAccessRights(
 			@PathParam("projectId") String projectId,
 			@PathParam(PARAM_NAME) String jobId) {
@@ -586,6 +587,7 @@ public class AnalysisJobServiceRest extends BaseServiceRest {
 
 	@Path("{jobId}/access")
 	@POST
+	@ApiOperation(value = "Update job's access rights")
 	public Set<AccessRight> storeAccessRights(
 			@PathParam("projectId") String projectId,
 			@PathParam(PARAM_NAME) String jobId, Set<AccessRight> accessRights) {

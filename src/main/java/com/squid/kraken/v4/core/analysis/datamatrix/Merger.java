@@ -40,6 +40,7 @@ public class Merger {
 	protected DataMatrix right;
 	
 	protected ORDERING[] ordering;
+	private int[] mergeOrder;
 	
 	public Merger(DataMatrix left, DataMatrix right) throws ScopeException {
 		this.left = left;
@@ -54,16 +55,46 @@ public class Merger {
 			ordering[i] = axis.getOrdering();
 		}
 	}
+	
+	public Merger(DataMatrix left, DataMatrix right, int[] mergeOrder) throws ScopeException {
+		this(left, right);
+		this.mergeOrder = mergeOrder;
+	}
 
 	public int compare(IndirectionRow o1, IndirectionRow o2) {
 	 	if (o1==o2) return 0;
- 		for (int i=0;i<o1.getAxesCount();i++) {
- 			if (o2.getAxesCount()<=i) {
- 				return 1;
- 			}
- 			return compareValueOrdering(i, o1.getAxisValue(i), o2.getAxisValue(i));
- 		}
-	 	return 0;	 
+	 	if (mergeOrder==null) {// if no order specified, just use regular
+	 		for (int i=0;i<o1.getAxesCount();i++) {
+	 			if (o2.getAxesCount()<=i) {
+	 				return 1;// in case o2 is shorter...
+	 			} else {
+	 				int c = compareValueOrdering(i, o1.getAxisValue(i), o2.getAxisValue(i));
+	 				if (c!=0) {
+	 					return c;
+	 				}
+	 				// else continue
+	 			}
+	 		}
+	 		// equals !
+	 		return 0;
+	 	} else {
+	 		// compare using the mergeOrder
+	 		for (int i=0;i<mergeOrder.length;i++) {
+	 			int pos = mergeOrder[i];
+	 			if (o1.getAxesCount()<=pos) {
+	 				return -1;
+	 			} else if (o2.getAxesCount()<=pos) {
+	 				return 1;
+	 			} else {
+	 				int c = compareValueOrdering(pos, o1.getAxisValue(pos), o2.getAxisValue(pos));
+	 				if (c!=0) {
+	 					return c;
+	 				}
+	 			}
+	 		}
+	 		// equals !
+	 		return 0;
+	 	}
 	}
 	
 	protected int compareValueOrdering(int pos, Object leftValue, Object rightValue) {
@@ -75,6 +106,7 @@ public class Merger {
 		}
 	}
 	
+	@SuppressWarnings({ "rawtypes", "unchecked" }) // there's no way to enforce the comparable.compareTo() types in a polymorphic way (since we don't know the actual type here, can be String, Number, Date...)
 	protected int compareValue(int pos, Object leftValue, Object rightValue) {
 		if (leftValue == null && rightValue != null)
 			return -1;
@@ -183,10 +215,15 @@ public class Merger {
 				that_row = that_iter.next();
 			}
 			// manage remaining
-			if ( (this_row==null && that_row!=null) ||  (this_row!=null && that_row==null) ) {
+			if ((this_row == null && that_row != null)) {
 				IndirectionRow merged = merge(this_row, that_row, schema);
 				result.add(merged);
-				that_row=null;		
+				that_row = null;
+			}
+			if ((this_row != null && that_row == null)) {
+				IndirectionRow merged = merge(this_row, that_row, schema);
+				result.add(merged);
+				this_row=null;		
 			}
 			// normal case
 			if (this_row!=null && that_row!=null) {

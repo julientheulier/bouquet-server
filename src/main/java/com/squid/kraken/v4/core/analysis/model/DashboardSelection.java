@@ -44,6 +44,9 @@ import com.squid.kraken.v4.model.Domain;
 public class DashboardSelection {
 
 	private Hashtable<Domain, DomainSelection> selections = new Hashtable<Domain, DomainSelection>();
+
+	// T947: support for compareTo feature
+	private DomainSelection compareToSelection = null;
 	
 	public DashboardSelection() {
 	}
@@ -181,34 +184,40 @@ public class DashboardSelection {
 			}
 		}
 	}
-	
-	private DomainSelection compareSelection = null;
 
-	public void compare(Axis axis, Intervalle intervalle) throws ScopeException {
-		if (intervalle!=null) {
-			Domain domain = axis.getParent().getRoot();
-            DimensionMember member = axis.getMemberByID(intervalle);
-			if (compareSelection==null) {
-				compareSelection = new DomainSelection(domain);
-				compareSelection.add(axis, member);
-			} else {
-				if (!compareSelection.getDomain().equals(domain)) {
-					throw new ScopeException("invalid compare, already defined on domain '"+domain.getName()+"'");
-				}
-				if (compareSelection.getMembers(axis).isEmpty()) {
-					throw new ScopeException("invalid compare, only one axis is supported");
-				}
-				compareSelection.add(axis, member);
+	public void addCompareTo(Axis axis, DimensionMember member) throws ScopeException {
+		Domain domain = axis.getParent().getRoot();
+		if (compareToSelection==null) {
+			compareToSelection = new DomainSelection(domain);
+			compareToSelection.add(axis, member);
+		} else {
+			if (!compareToSelection.getDomain().equals(domain)) {
+				throw new ScopeException("invalid compareTo, already defined on domain '"+domain.getName()+"'");
 			}
+			if (compareToSelection.getMembers(axis).isEmpty()) {
+				throw new ScopeException("invalid compareTo, only one axis is supported");
+			}
+			compareToSelection.add(axis, member);
+		}
+	}
+
+	public void add(DomainSelection selection) {
+		this.selections.put(selection.getDomain(), selection);
+	}
+
+	public void addCompareTo(Axis axis, Intervalle intervalle) throws ScopeException {
+		if (intervalle!=null) {
+            DimensionMember member = axis.getMemberByID(intervalle);
+            addCompareTo(axis, member);
 		}
 	}
 	
-	public boolean hasCompare() {
-		return compareSelection!=null;
+	public boolean hasCompareToSelection() {
+		return compareToSelection!=null;
 	}
 	
-	public DomainSelection getCompareSelection() {
-		return compareSelection;
+	public DomainSelection getCompareToSelection() {
+		return compareToSelection;
 	}
 
 	@Deprecated

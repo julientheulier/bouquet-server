@@ -460,6 +460,7 @@ public class CustomerServiceRest {
 
 	@Path("/access")
 	@GET
+	@ApiOperation(value = "Get the Customer's access rights")
 	public Set<AccessRight> readAccessRights(@Context HttpServletRequest request) {
 		AppContext userContext = getUserContext(request);
 		return delegate.readAccessRights(userContext, new CustomerPK(
@@ -468,6 +469,7 @@ public class CustomerServiceRest {
 
 	@Path("/access")
 	@POST
+	@ApiOperation(value = "Update the Customer's access rights")
 	public Set<AccessRight> storeAccessRights(
 			@Context HttpServletRequest request, Set<AccessRight> accessRights) {
 		AppContext userContext = getUserContext(request);

@@ -32,12 +32,22 @@ import com.squid.kraken.v4.api.core.JobResultBaseImpl;
 
 @XmlRootElement
 @SuppressWarnings("serial")
+/**
+ * The FacetSelection class defines a selection that can be use for performing Analysis & Facet jobs.
+ * It is a list of @see Facet objects, where each facet defines the axis to filter on and a list of selected values.
+ * 
+ * Since 4.2.4, FacetSelection also support the definition of a compare selection. If it is set, the Analysis job will perform a compare query.
+ * 
+ * @author sergefantino
+ *
+ */
 public class FacetSelection extends JobResultBaseImpl {
 
     private List<Facet> facets;
+    
+    private List<Facet> compareTo;
 
     public FacetSelection() {
-
     }
 
     public List<Facet> getFacets() {
@@ -50,6 +60,21 @@ public class FacetSelection extends JobResultBaseImpl {
     public void setFacets(List<Facet> facets) {
         this.facets = facets;
     }
+    
+    public List<Facet> getCompareTo() {
+        if (compareTo == null) {
+        	compareTo = new ArrayList<Facet>();
+        }
+		return compareTo;
+	}
+    
+    public void setCompareTo(List<Facet> compareFacets) {
+		this.compareTo = compareFacets;
+	}
+    
+	public boolean hasCompareFacets() {
+		return compareTo!=null && !compareTo.isEmpty();
+	}
 
     @Override
     public long getTotalSize() {
@@ -67,7 +92,11 @@ public class FacetSelection extends JobResultBaseImpl {
     @Override
     public String toString() {
     	if (facets!=null) {
-    		return "FacetSelection"+facets.toString();
+    		StringBuilder dump = new StringBuilder("FacetSelection"+facets.toString());
+    		if (compareTo!=null && !compareTo.isEmpty()) {
+    			dump.append("+CompareSelection"+compareTo);
+    		}
+    		return dump.toString();
     	} else {
     		return "FacetSelection[]";
     	}
