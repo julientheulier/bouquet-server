@@ -142,7 +142,7 @@ public class MetricServiceRest extends BaseServiceRest {
 			@PathParam("projectId") String projectId,
 			@PathParam("domainId") String domainId,
 			@PathParam(PARAM_NAME) String metricId,
-			Set<AccessRight> accessRights) {
+			@ApiParam(required = true) Set<AccessRight> accessRights) {
 		return delegate.storeAccessRights(userContext,
 				new MetricPK(userContext.getCustomerId(), projectId, domainId,
 						metricId), accessRights);
