@@ -11,6 +11,7 @@ import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheReference;
 import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValuesList;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.export.ExportSourceWriter;
+import com.squid.kraken.v4.export.ExportSourceWriterVelocity;
 
 public class ExportQueryWriter extends QueryWriter {
 
@@ -31,6 +32,9 @@ public class ExportQueryWriter extends QueryWriter {
 	@Override
 	public void write() throws ComputingException{
 		long startExport = System.currentTimeMillis();
+		if (writer instanceof ExportSourceWriterVelocity){
+			((ExportSourceWriterVelocity) writer).setQueryMapper(this.mapper);
+		}
 		try{
 		
 			if (val instanceof RawMatrix ){
@@ -42,7 +46,6 @@ public class ExportQueryWriter extends QueryWriter {
 			}			
 			
 			long stopExport = System.currentTimeMillis();
-//			logger.info("task="+this.getClass().getName()+" method=compute.writeData"+" jobid="+ +" SQLQuery=#"+res.getItem().getID()+" lineWritten="+linesWritten+" duration="+ (stopExport-startExport)+" error=false status=done");
 			logger.info("task="+this.getClass().getName()+" method=compute.writeData"+" jobid="+jobID +" lineWritten="+linesWritten+" duration="+ (stopExport-startExport)+" error=false status=done");
 
 		} catch (Throwable e) {
