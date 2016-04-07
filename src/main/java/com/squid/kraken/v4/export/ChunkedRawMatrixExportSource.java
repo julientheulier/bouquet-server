@@ -1,11 +1,7 @@
 package com.squid.kraken.v4.export;
 
-import java.io.IOException;
 import java.util.Iterator;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 import org.apache.avro.Schema;
@@ -13,10 +9,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.squid.core.export.IRawExportSource;
-import com.squid.kraken.v4.caching.redis.RedisCacheException;
-import com.squid.kraken.v4.caching.redis.RedisCacheProxy;
 import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
-import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValue;
 import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValuesList;
 
 public class ChunkedRawMatrixExportSource extends ChunkedRawMatrixBaseSource implements IRawExportSource{
