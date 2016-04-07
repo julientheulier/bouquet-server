@@ -232,8 +232,7 @@ public class ExportSourceWriterKafka implements ExportSourceWriter {
 
 	@Override
 	public long write(RedisCacheValuesList matrix, OutputStream out) {
-		// TODO Auto-generated method stub
-		return 0;
+		throw new NotYetImplementedException();
 	}
 
 }
