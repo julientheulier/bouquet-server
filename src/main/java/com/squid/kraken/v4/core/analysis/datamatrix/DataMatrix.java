@@ -700,16 +700,18 @@ public class DataMatrix {
         List<DataTable.Row> tableRows = table.getRows();
         int axes_count = getAxes().size();
         int kpi_count = getKPIs().size();
-        int rowIndex = 0;
         if (startIndex == null) {
         	startIndex = 0;
         }
+        startIndex = Math.max(startIndex, 0);
         if (maxResults == null) {
         	maxResults = rows.size();
         }
-        int endIndex = startIndex + maxResults;
-        for (IndirectionRow row : rows) {
-            if (rowIndex >= startIndex) {
+        maxResults = Math.max(maxResults, 0);
+        int endIndex = Math.min(rows.size()-1, startIndex + maxResults);
+        if (startIndex<maxResults) {
+	        for (int rowIndex=startIndex;rowIndex<=endIndex;rowIndex++) {
+	        	IndirectionRow row = rows.get(rowIndex);
 	            //String[] values = new String[visible_count + row.getDataCount()];
 	            Object[] values = new Object[visible_count + row.getDataCount()];	           
 	            int colIdx = 0;
@@ -730,11 +732,7 @@ public class DataMatrix {
 	            }
 	            //
 	            tableRows.add(new DataTable.Row(values));
-            }
-            rowIndex++;
-            if (rowIndex == endIndex) {
-            	break;
-            }
+	        }
         }
         table.setStartIndex(startIndex);
         table.setTotalSize(rows.size());
