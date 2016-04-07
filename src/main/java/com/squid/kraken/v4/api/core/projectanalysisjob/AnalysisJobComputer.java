@@ -74,6 +74,7 @@ import com.squid.kraken.v4.model.MetricPK;
 import com.squid.kraken.v4.model.Project;
 import com.squid.kraken.v4.model.ProjectAnalysisJob;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.Direction;
+import com.squid.kraken.v4.model.ProjectAnalysisJob.Index;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.OrderBy;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.RollUp;
 import com.squid.kraken.v4.model.ProjectAnalysisJobPK;
@@ -510,6 +511,19 @@ JobComputer<ProjectAnalysisJob, ProjectAnalysisJobPK, DataTable> {
 			}
 		}
 
+		// handles noLimit (T1026)
+		if (job.getLimit() != null && job.getBeyondLimit()!=null && !job.getBeyondLimit().isEmpty()) {
+			for (Index index : job.getBeyondLimit()) {
+				int col = index.getCol();
+				if (col >= 0 && col < dash.getGrouping().size()) {
+					GroupByAxis axis = dash.getGrouping().get(col);
+					dash.beyondLimit(axis);
+				} else {
+					throw new ScopeException("invalid noLimit column index ("+col+"): it must reference an valid axis");
+				}
+			}
+		}
+		
 		// check
 		if (dash.getGrouping().isEmpty() && dash.getGroups().isEmpty()) {
 			long stop = System.currentTimeMillis();
