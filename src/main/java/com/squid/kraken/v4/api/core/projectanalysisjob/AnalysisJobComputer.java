@@ -148,7 +148,7 @@ JobComputer<ProjectAnalysisJob, ProjectAnalysisJobPK, DataTable> {
 			JobStats queryLog = new JobStats(job.getId().getAnalysisJobId().toString(),"AnalysisJobComputer.compute", (stop - start), job.getId().getProjectId());
 			queryLog.setError(false);
 			PerfDB.INSTANCE.save(queryLog);
-			DataTable res= datamatrix.toDataTable(ctx, maxResults, startIndex);
+			DataTable res= datamatrix.toDataTable(ctx, maxResults, startIndex, false);
 			logger.info("Is result set in REDIS complete? " + res.getFullset()) ;
 			return res;
 		}
@@ -194,7 +194,7 @@ JobComputer<ProjectAnalysisJob, ProjectAnalysisJobPK, DataTable> {
 			logger.info(" Dataset for jobid="+job.getId().getAnalysisJobId().toString()  + " was recovered from cache") ;
 			long linesWritten;
 			if (writer instanceof ExportSourceWriterVelocity){				
-				linesWritten = writer.write(datamatrix.toDataTable(ctx, null, null), outputStream);
+				linesWritten = writer.write(datamatrix.toDataTable(ctx, null, null, true), outputStream);
 			}else{
 				linesWritten = writer.write(datamatrix, outputStream);
 			}
