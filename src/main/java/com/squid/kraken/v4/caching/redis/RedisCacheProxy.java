@@ -52,6 +52,8 @@ public class RedisCacheProxy implements IRedisCacheProxy {
 	private int REDISport =6379 ;
 	private JedisPool pool;
 	
+	private int maxSizeInByte = 524288000 ;  //500Megabytes
+	
 	public static void setMock(){
 		isMock = true;
 	}
@@ -216,6 +218,8 @@ public class RedisCacheProxy implements IRedisCacheProxy {
 			int nbChunks= 0 ;
 			RawMatrix res = null;
 			boolean done = false;
+			long size= 0 ;
+			
 			while (!done){
 				int nbChunksDone = nbChunks;
 				for(int i = nbChunksDone;  i <currRef.getReferenceKeys().size() ; i ++){
@@ -229,8 +233,13 @@ public class RedisCacheProxy implements IRedisCacheProxy {
 					done = true;
 				}else{
 					byte[] serialized = jedis.get(key.getBytes());
+					size+=serialized.length;
 					RedisCacheValue  val = RedisCacheValue.deserialize(serialized);
 					currRef = (RedisCacheValuesList) val;
+				}
+				if (size>= maxSizeInByte ){
+					logger.info("Max size of "+ maxSizeInByte  +" bytes reached, for more data please use export");
+					done = true ;
 				}
 			}
 			res.setRedisKey(key);
