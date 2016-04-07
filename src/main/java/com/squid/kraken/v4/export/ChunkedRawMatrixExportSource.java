@@ -19,12 +19,10 @@ import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
 import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValue;
 import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValuesList;
 
-public class ChunkedRawMatrixExportSource implements IRawExportSource{
+public class ChunkedRawMatrixExportSource extends ChunkedRawMatrixBaseSource implements IRawExportSource{
 
 	private Schema schema;
 
-	
-	RawMatrix currentChunk;
 	
 	int nbChunksRead = 0;
 	
@@ -32,27 +30,12 @@ public class ChunkedRawMatrixExportSource implements IRawExportSource{
 	String[] columnNames;
 	int[] columnTypes;
 	
-	String key;
-	RedisCacheValuesList refList ;
-	Future<RawMatrix>  processingQuery ;
 
-	private ExecutorService executor;
 	static final Logger logger = LoggerFactory.getLogger(ChunkedRawMatrixExportSource.class);
-
-
 	
 	public ChunkedRawMatrixExportSource(RedisCacheValuesList refList ) throws InterruptedException, ExecutionException{
-		this.key = refList.getRedisKey();
-		this.refList = refList;
-		this.executor= Executors.newFixedThreadPool(1);
-		
-		// get first chunk					
-		processingQuery = (Future<RawMatrix>) executor.submit(new GetChunk());
-		this.currentChunk = processingQuery.get();
-		
-		// launch second chunk  
-		processingQuery = (Future<RawMatrix>) executor.submit(new GetChunk());
-
+		super(refList);
+				
 		// build metadata in parallel
 		this.colNumbers = currentChunk.getColNames().size();
 		this.columnNames=  new String[this.colNumbers];
@@ -68,39 +51,6 @@ public class ChunkedRawMatrixExportSource implements IRawExportSource{
 		//construct schema
 //		this.schema = SchemaAvro.constructAvroSchema(key, columnTypes, columnNames);
 	
-	}
-	
-	private String getNextChunkKey() throws ClassNotFoundException, IOException, InterruptedException{
-		if (refList.getReferenceKeys().size() > nbChunksRead){
-			String res =  refList.getReferenceKeys().get(nbChunksRead).referencedKey;
-			return res ;
-		}else{
-			if ( ! refList.isDone()){
-				boolean ok = false ;
-				int waitingCount = 1;
-				while (!ok){
-					RedisCacheValue  val= RedisCacheValue.deserialize(RedisCacheProxy.getInstance().get(key));
-					if (val instanceof RedisCacheValuesList ){					
-						this.refList =(RedisCacheValuesList) val;		
-						
-						if (this.refList.getReferenceKeys().size() > nbChunksRead ){
-							ok= true; 
-						}else{
-							Thread.sleep(waitingCount*10*1000);	
-							waitingCount+=1;
-						}					
-					}else{
-						throw new RedisCacheException("could not retrieve chunk list");
-					}
-				}
-				String res =  refList.getReferenceKeys().get(nbChunksRead).referencedKey;
-				nbChunksRead ++ ;
-				return res ;				
-			}else{
-				return null;
-			}
-		}
-		
 	}
 	
 	@Override
@@ -139,29 +89,7 @@ public class ChunkedRawMatrixExportSource implements IRawExportSource{
 		return this.schema;
 	}
 	
-	
-	public class GetChunk implements Callable<RawMatrix> {
 
-		public GetChunk(){
-		}
-
-		public RawMatrix call(){
-			String chunkKey;
-			try {
-				chunkKey = getNextChunkKey();
-				if (chunkKey == null){
-					logger.info("Full matrix retrieve from cache, "+ nbChunksRead + "chunks ");
-					return  null;
-				}else{
-					RawMatrix res= RedisCacheProxy.getInstance().getRawMatrix(chunkKey);
-					nbChunksRead+=1;
-					return res;
-				}
-			} catch (ClassNotFoundException | IOException |InterruptedException e) {
-				return null;
-			}
-		}			
-	}
 	
 	
 	public class RowInterator implements Iterator<Object[]>{
