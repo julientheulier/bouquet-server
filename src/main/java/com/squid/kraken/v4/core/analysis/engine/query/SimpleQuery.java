@@ -53,7 +53,6 @@ import com.squid.core.sql.render.IPiece;
 import com.squid.core.sql.render.ISelectPiece;
 import com.squid.core.sql.render.IWherePiece;
 import com.squid.core.sql.render.OperatorPiece;
-import com.squid.core.sql.render.RenderingException;
 import com.squid.core.sql.render.SubSelectReferencePiece;
 import com.squid.core.sql.render.WherePiece;
 import com.squid.core.sql.statements.FromSelectStatementPiece;
