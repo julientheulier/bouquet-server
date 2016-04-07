@@ -590,7 +590,7 @@ public class AnalysisJobServiceRest extends BaseServiceRest {
 	@ApiOperation(value = "Update job's access rights")
 	public Set<AccessRight> storeAccessRights(
 			@PathParam("projectId") String projectId,
-			@PathParam(PARAM_NAME) String jobId, Set<AccessRight> accessRights) {
+			@PathParam(PARAM_NAME) String jobId, @ApiParam(required = true) Set<AccessRight> accessRights) {
 		return delegate.storeAccessRights(userContext,
 				new ProjectAnalysisJobPK(userContext.getCustomerId(),
 						projectId, jobId), accessRights);
