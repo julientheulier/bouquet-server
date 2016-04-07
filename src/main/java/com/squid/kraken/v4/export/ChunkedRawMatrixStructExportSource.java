@@ -1,14 +1,10 @@
 package com.squid.kraken.v4.export;
 
-import java.io.IOException;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.NoSuchElementException;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
 import org.slf4j.Logger;
@@ -23,7 +19,6 @@ import com.squid.kraken.v4.core.analysis.engine.query.mapping.AxisMapping;
 import com.squid.kraken.v4.core.analysis.engine.query.mapping.MeasureMapping;
 import com.squid.kraken.v4.core.analysis.engine.query.mapping.QueryMapper;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
-import com.squid.kraken.v4.export.ChunkedRawMatrixBaseSource.GetChunk;
 
 public class ChunkedRawMatrixStructExportSource extends ChunkedRawMatrixBaseSource implements IStructExportSource  {
 
@@ -42,7 +37,8 @@ public class ChunkedRawMatrixStructExportSource extends ChunkedRawMatrixBaseSour
 	public ChunkedRawMatrixStructExportSource(RedisCacheValuesList refList, QueryMapper qm) throws InterruptedException, ExecutionException{		
 		super(refList);		
 		this.mapper = qm;
-
+		this.cols = new ArrayList<ICol>();
+		
 		this.nbColsSource =this.currentChunk.getColTypes().size();
 		this.nbColsResult = mapper.getAxisMapping().size() + mapper.getMeasureMapping().size();
 
