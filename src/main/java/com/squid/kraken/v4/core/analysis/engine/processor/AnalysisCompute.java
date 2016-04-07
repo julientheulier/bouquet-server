@@ -827,11 +827,11 @@ public class AnalysisCompute {
 		// prepare the sub-query that will count the limit
 		DashboardAnalysis subAnalysisWithLimit = new  DashboardAnalysis(analysis.getUniverse());
 		// copy dimensions
-		ArrayList<Axis> join = new ArrayList<>();
+		ArrayList<Axis> joins = new ArrayList<>();
 		for (GroupByAxis groupBy : analysis.getGrouping()) {
 			if (!analysis.getBeyondLimit().contains(groupBy)) {
 				subAnalysisWithLimit.add(groupBy);
-				join.add(groupBy.getAxis());
+				joins.add(groupBy.getAxis());
 			} else {
 				// exclude from the analysis
 			}
@@ -863,9 +863,23 @@ public class AnalysisCompute {
 		// copy selection
 		subAnalysisWithLimit.setSelection(new DashboardSelection(analysis.getSelection()));
 		// use the best strategy
-		//if (false && join.size()==1 && subAnalysisWithLimit.getLimit()<50) {
+		if (joins.size()==1 && subAnalysisWithLimit.getLimit()<50) {
 			// run sub-analysis and add filters by hand (cache hit on the subquery)
-		//} else {
+			DataMatrix selection = computeAnalysisSimple(subAnalysisWithLimit, false);
+			Axis join = joins.get(0);
+			AxisValues values = selection.getAxisColumn(join);
+			if (values != null && !values.getMembers().isEmpty()) {
+				ConcurrentSkipListSet<DimensionMember> filters = new ConcurrentSkipListSet<>();
+				filters.addAll(values.getMembers());
+				analysis.noLimit();
+				SimpleQuery mainquery = genAnalysisQueryWithSoftFiltering(analysis, group, cachable, optimize, soft_filters, hidden_slice);
+				mainquery.where(values.getAxis(), filters);
+				return mainquery;
+			} else {
+				// failed, using original limit
+				return genAnalysisQueryWithSoftFiltering(analysis, group, cachable, optimize, soft_filters, hidden_slice);
+			}
+		} else {
 			// generate a subquery and use EXISTS operator
 			// -- do not optimize, we don't want side effect here
 			SimpleQuery subquery = genAnalysisQueryWithSoftFiltering(subAnalysisWithLimit, group, cachable, false, soft_filters, hidden_slice);
@@ -874,9 +888,9 @@ public class AnalysisCompute {
 			analysis.noLimit();
 			SimpleQuery mainquery = genAnalysisQueryWithSoftFiltering(analysis, group, cachable, optimize, soft_filters, hidden_slice);
 			//
-			mainquery.join(join, subquery);
+			mainquery.join(joins, subquery);
 			return mainquery;
-		//}
+		}
 	}
 
 	private Space computeSinglePath(Dashboard dashboard, Domain root,
