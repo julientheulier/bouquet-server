@@ -49,7 +49,8 @@ public class DashboardAnalysis extends Dashboard {
 	private ArrayList<OrderBy> orders = new ArrayList<OrderBy>();
 	private Long limit = null;
 	private Long offset = null;
-	
+
+	private ArrayList<GroupByAxis> beyondLimit = new ArrayList<>();
 	
 	private boolean lazy = false;
 	
@@ -109,6 +110,18 @@ public class DashboardAnalysis extends Dashboard {
     
     public boolean hasLimit() {
         return limit!=null;
+    }
+    
+    public void beyondLimit(GroupByAxis axis) {
+    	beyondLimit.add(axis);
+    }
+    
+    public List<GroupByAxis> getBeyondLimit() {
+    	return beyondLimit;
+    }
+    
+    public boolean hasBeyondLimit() {
+    	return beyondLimit!=null && !beyondLimit.isEmpty();
     }
     
     public void offset(long offset) {
