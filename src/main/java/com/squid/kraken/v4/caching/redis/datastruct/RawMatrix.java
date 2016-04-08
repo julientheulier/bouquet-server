@@ -464,10 +464,10 @@ public class RawMatrix extends RedisCacheValue {
 			}
 
 			// DEBUG CODE TO CREATE SMALLER CHUNKS
-			if (count == 250){
+	/*		if (count == 250){
 				maxSizeReached= true;
 //				logger.info("Max debug size of 250 items reached");
-			} 
+			}  */
 		}
 
 		// WRITE moredata
