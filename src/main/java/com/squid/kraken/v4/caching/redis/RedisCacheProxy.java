@@ -52,6 +52,8 @@ public class RedisCacheProxy implements IRedisCacheProxy {
 	private int REDISport =6379 ;
 	private JedisPool pool;
 	
+	private int maxSizeInByte = 524288000 ;  //500Megabytes
+	
 	public static void setMock(){
 		isMock = true;
 	}
@@ -139,6 +141,30 @@ public class RedisCacheProxy implements IRedisCacheProxy {
 	//GET
 
 	public RawMatrix getRawMatrix(String key){
+		try {
+			RedisCacheValue rcv = this.getRawOrList(key);
+			if (rcv == null){
+				return null;
+			}else{
+				if (rcv instanceof RawMatrix){
+					return (RawMatrix) rcv;
+				}else{
+					if (rcv instanceof RedisCacheValuesList){
+						return this.buildChunkedRawMatrix(key, (RedisCacheValuesList) rcv) ;
+					}else{
+						throw new ComputingException();
+					}
+				}
+			}
+			
+		} catch (RuntimeException | ClassNotFoundException | IOException | ComputingException e) {
+			logger.error("failed to getRawMatrix() on key="+key);
+			throw new RuntimeException("Jedis: getRawMatrix() failed on key="+key, e);
+		} 
+	}
+
+	
+	public RedisCacheValue getRawOrList(String key ){
 		try (Jedis jedis  = getResourceFromPool()){	
 
 			HashSet<String> pastKeys=  new HashSet<String>(); // do not get trapped in circular references
@@ -168,7 +194,8 @@ public class RedisCacheProxy implements IRedisCacheProxy {
 					}else{
 						if(val instanceof RedisCacheValuesList){
 							RedisCacheValuesList  refList = (RedisCacheValuesList) val;
-							return  this.getChunkedRawMatrix(key, refList);
+							refList.setRedisKey(currKey);
+							return  refList;
 						}else{
 							throw new ClassNotFoundException();
 						}
@@ -176,15 +203,14 @@ public class RedisCacheProxy implements IRedisCacheProxy {
 				}
 			}
 
-		} catch (RuntimeException | ClassNotFoundException | IOException | ComputingException e) {
+		} catch (RuntimeException | ClassNotFoundException | IOException e ) {
 			logger.error("failed to getRawMatrix() on key="+key);
 			throw new RuntimeException("Jedis: getRawMatrix() failed on key="+key, e);
 		} 
 	}
 
 
-
-	private RawMatrix getChunkedRawMatrix (String key, RedisCacheValuesList refList ) throws ComputingException, ClassNotFoundException, IOException{
+	private RawMatrix buildChunkedRawMatrix (String key, RedisCacheValuesList refList ) throws ComputingException, ClassNotFoundException, IOException{
 		try (Jedis jedis  = getResourceFromPool()){	
 			
 			logger.info("Rebuilding chunked matrix from cache");
@@ -192,6 +218,8 @@ public class RedisCacheProxy implements IRedisCacheProxy {
 			int nbChunks= 0 ;
 			RawMatrix res = null;
 			boolean done = false;
+			long size= 0 ;
+			
 			while (!done){
 				int nbChunksDone = nbChunks;
 				for(int i = nbChunksDone;  i <currRef.getReferenceKeys().size() ; i ++){
@@ -205,8 +233,13 @@ public class RedisCacheProxy implements IRedisCacheProxy {
 					done = true;
 				}else{
 					byte[] serialized = jedis.get(key.getBytes());
+					size+=serialized.length;
 					RedisCacheValue  val = RedisCacheValue.deserialize(serialized);
 					currRef = (RedisCacheValuesList) val;
+				}
+				if (size>= maxSizeInByte ){
+					logger.info("Max size of "+ maxSizeInByte  +" bytes reached, for more data please use export");
+					done = true ;
 				}
 			}
 			res.setRedisKey(key);

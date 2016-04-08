@@ -24,7 +24,6 @@
 package com.squid.kraken.v4.api.core.projectanalysisjob;
 
 import java.io.OutputStream;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -57,7 +56,6 @@ import com.squid.kraken.v4.core.analysis.universe.Property;
 import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.kraken.v4.core.expression.visitor.ExtractReferences;
-import com.squid.kraken.v4.export.ExecuteAnalysisResult;
 import com.squid.kraken.v4.export.ExportSourceWriter;
 import com.squid.kraken.v4.export.ExportSourceWriterVelocity;
 import com.squid.kraken.v4.model.AccessRight.Role;
@@ -80,6 +78,7 @@ import com.squid.kraken.v4.model.ProjectAnalysisJob.RollUp;
 import com.squid.kraken.v4.model.ProjectAnalysisJobPK;
 import com.squid.kraken.v4.model.ProjectPK;
 import com.squid.kraken.v4.persistence.AppContext;
+import com.squid.kraken.v4.writers.ExportQueryWriter;
 
 /**
  * Compute a ProjectAnalysisJob using the Engine.<br>
@@ -169,8 +168,6 @@ JobComputer<ProjectAnalysisJob, ProjectAnalysisJobPK, DataTable> {
 	 *  returns a datatable containing the number of lines written
 	 */
 
-
-	@Override
 	public DataTable compute(AppContext ctx, ProjectAnalysisJob job,
 			OutputStream outputStream, ExportSourceWriter writer, boolean lazy)
 					throws ComputingException, InterruptedException {
@@ -182,65 +179,24 @@ JobComputer<ProjectAnalysisJob, ProjectAnalysisJobPK, DataTable> {
 			analysis = buildDashboardAnalysis(ctx, job, true);
 		} catch (ScopeException e1) {
 			throw new ComputingException(e1);
-		}
+		}	
+		ExportQueryWriter eqw = new ExportQueryWriter(writer, outputStream,job.getId().getAnalysisJobId().toString() ); 
+		ComputingService.INSTANCE.executeAnalysis(analysis, eqw, lazy);
 
-		// run lazy glitter analysis to try and retrieve the dataset from Redis		
-		DataMatrix datamatrix = ComputingService.INSTANCE.glitterAnalysis(
-				analysis, null);
-		if (datamatrix !=  null){
+		DataTable results = new DataTable();
+		results.setTotalSize(eqw.getLinesWritten());
 
-			job.setRedisKey(datamatrix.getRedisKey());
+		long stop = System.currentTimeMillis();
+		//logger.info("End of compute for job " + job.getId().getAnalysisJobId().toString()  + " in " +(stop-start)+ "ms" );
+		logger.info("task="+this.getClass().getName()+" method=compute" +" jobid="+job.getId().getAnalysisJobId().toString()+" status=done duration="+(stop-start));
+		JobStats queryLog = new JobStats(job.getId().toString(),"FacetJobComputer", (stop-start), job.getId().getProjectId());
+		PerfDB.INSTANCE.save(queryLog);
 
-			logger.info(" Dataset for jobid="+job.getId().getAnalysisJobId().toString()  + " was recovered from cache") ;
-			long linesWritten;
-			if (writer instanceof ExportSourceWriterVelocity){				
-				linesWritten = writer.write(datamatrix.toDataTable(ctx, null, null, true), outputStream);
-			}else{
-				linesWritten = writer.write(datamatrix, outputStream);
-			}
-			DataTable results = new DataTable();
-			results.setTotalSize(linesWritten);
+		return results;
+	}	
 
-			return results;	
-		}
-		else if (lazy) {
-				throw new NotInCacheException("Lazy export, analysis not in cache");
-		}
-		else{
-			// run the analysis
-			ExecuteAnalysisResult res = ComputingService.INSTANCE
-					.executeAnalysis(analysis);
-			long linesWritten;
-			try {
-				// write to the outputStream
-				long startExport = System.currentTimeMillis();
-				linesWritten = writer.write(res, outputStream);
-				long stopExport = System.currentTimeMillis();
-				logger.info("task="+this.getClass().getName()+" method=compute.writeData"+" jobid="+job.getId().getAnalysisJobId().toString()+" SQLQuery=#"+res.getItem().getID()+" lineWritten="+linesWritten+" duration="+ (stopExport-startExport)+" error=false status=done");
-			} catch (Throwable e) {
-				logger.error("failed to export SQLQuery=#"+res.getItem().getID()+":", e);
-				throw e;
-			} finally {
-				try {
-					res.getItem().close();
-				} catch (SQLException e) {
-					// ignore
-					e.printStackTrace();
-				}
 
-			}
-			DataTable results = new DataTable();
-			results.setTotalSize(linesWritten);
-
-			long stop = System.currentTimeMillis();
-			//logger.info("End of compute for job " + job.getId().getAnalysisJobId().toString()  + " in " +(stop-start)+ "ms" );
-			logger.info("task="+this.getClass().getName()+" method=compute" +" jobid="+job.getId().getAnalysisJobId().toString()+" status=done duration="+(stop-start));
-			JobStats queryLog = new JobStats(job.getId().toString(),"FacetJobComputer", (stop-start), job.getId().getProjectId());
-			PerfDB.INSTANCE.save(queryLog);
-
-			return results;
-		}
-	}
+	
 
 	public static List<Domain> readDomains(AppContext ctx, ProjectAnalysisJob job) throws ScopeException {
 		List<Domain> domains = new ArrayList<Domain>();
