@@ -475,7 +475,7 @@ JobComputer<ProjectAnalysisJob, ProjectAnalysisJobPK, DataTable> {
 					GroupByAxis axis = dash.getGrouping().get(col);
 					dash.beyondLimit(axis);
 				} else {
-					throw new ScopeException("invalid noLimit column index ("+col+"): it must reference an valid axis");
+					//throw new ScopeException("invalid beyondLimit column index ("+col+"): it must reference an valid axis");
 				}
 			}
 		}
