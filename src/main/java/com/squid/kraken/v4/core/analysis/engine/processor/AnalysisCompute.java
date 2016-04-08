@@ -751,13 +751,15 @@ public class AnalysisCompute {
 			InterruptedException {
 		if (analysis.hasBeyondLimit() && analysis.hasLimit() && !analysis.hasRollup()) {
 			// need to take care of the beyond limit axis => compute the limit only on a subset of axes
-			return genAnalysisQueryWithBeyondLimitSupport(analysis, group, true, optimize, soft_filters, hidden_slice);
-		} else {
-			// use the simple method
-			return genAnalysisQueryWithSoftFiltering(analysis, group, 
-					true, // just set the cachable flag to true -- is this really usefull?
-					optimize, soft_filters, hidden_slice);
+			SimpleQuery check = genAnalysisQueryWithBeyondLimitSupport(analysis, group, true, optimize, soft_filters, hidden_slice);
+			// check is null if cannot apply beyondLimit
+			if (check!=null) return check;
 		}
+		// else...
+		// use the simple method
+		return genAnalysisQueryWithSoftFiltering(analysis, group, 
+			true, // just set the cachable flag to true -- is this really usefull?
+			optimize, soft_filters, hidden_slice);
 	}
 
 	/**
@@ -820,7 +822,7 @@ public class AnalysisCompute {
 	 * @param optimize
 	 * @param soft_filters
 	 * @param hidden_slice
-	 * @return
+	 * @return the SimpleQuery or null if not applicable
 	 * @throws ScopeException
 	 * @throws SQLScopeException
 	 * @throws ComputingException
@@ -844,8 +846,10 @@ public class AnalysisCompute {
 				// exclude from the analysis
 			}
 		}
-		if (subAnalysisWithLimit.getGrouping().isEmpty()) {
-			throw new ScopeException("invalid beyondLimit request: there are no remaining axis to apply the limit");
+		if (subAnalysisWithLimit.getGrouping().isEmpty()) {//
+			// just unset the limit
+			analysis.noLimit();
+			return genAnalysisQueryWithSoftFiltering(analysis, group, cachable, optimize, soft_filters, hidden_slice);
 		}
 		// copy metrics
 		for (Measure measure : analysis.getKpis()) {
