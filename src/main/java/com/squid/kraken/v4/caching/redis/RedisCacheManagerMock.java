@@ -33,6 +33,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
+import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValue;
 import com.squid.kraken.v4.caching.redis.generationalkeysserver.GenerationalKeysServerMock;
 import com.squid.kraken.v4.caching.redis.generationalkeysserver.IGenerationalKeysServer;
 import com.squid.kraken.v4.caching.redis.generationalkeysserver.RedisKey;
@@ -173,6 +174,21 @@ public class RedisCacheManagerMock implements IRedisCacheManager  {
 			List<String> dependencies, String referencedKey) {
 		// TODO Auto-generated method stub
 		return false;
+	}
+
+
+	@Override
+	public RedisCacheValue getRedisCacheValueLazy(String SQLQuery, List<String> dependencies, String RSjdbcURL,
+			String username, String pwd, int TTLinSec) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public RedisCacheValue getRedisCacheValue(String SQLQuery, List<String> dependencies, String RSjdbcURL,
+			String username, String pwd, int TTLinSec, long limit) throws InterruptedException {
+		// TODO Auto-generated method stub
+		return null;
 	}
 	
 }

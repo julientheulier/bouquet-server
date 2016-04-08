@@ -27,8 +27,10 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
+import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.concurrent.ExecutionException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,7 +42,9 @@ import com.squid.core.jdbc.formatter.IJDBCDataFormatter;
 import com.squid.core.jdbc.vendor.IVendorSupport;
 import com.squid.core.jdbc.vendor.VendorSupportRegistry;
 import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
+import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValuesList;
 import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
+import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.model.DataTable;
 
 public class ExportSourceWriterCSV implements ExportSourceWriter {
@@ -100,66 +104,19 @@ public class ExportSourceWriterCSV implements ExportSourceWriter {
 		return writer.getLinesWritten();
 	}
 	
+
+	
+	
 	@Override
 	public long write(RawMatrix  matrix, OutputStream out) {
-		Writer output = null;
-		CSVWriter writer;
-		writer = new CSVWriter(settings);
 		IRawExportSource source =  new RawMatrixExportSource(matrix);
-		try {
-			
-			IVendorSupport vendorSpecific = VendorSupportRegistry.INSTANCE.getVendorSupport(null);
-			IJDBCDataFormatter formatter = vendorSpecific.createFormatter(settings, null);
-			
-			output = new OutputStreamWriter(out);
-			writer.writeResultSet(output, SPLIT_SIZE, source	, formatter);
-			output.flush();
-		} catch (SQLException e) {
-			logger.warn(e.getMessage(), e);
-		} catch (IOException e) {
-			logger.warn(e.getMessage(), e);
-		} finally {
-			if (output != null) {
-				try {
-					output.close();
-				} catch (IOException e) {
-					logger.warn(e.getMessage(), e);
-				}
-			}
-		}
-		
-		return writer.getLinesWritten();
+		return this.write(source, out, null);
 	}
 	
 	@Override
 	public long write(DataMatrix  matrix, OutputStream out) {
-		Writer output = null;
-		CSVWriter writer;
-		writer = new CSVWriter(settings);
 		IRawExportSource source =  new DataMatrixExportSource(matrix);
-		try {
-			
-			IVendorSupport vendorSpecific = VendorSupportRegistry.INSTANCE.getVendorSupport(null);
-			IJDBCDataFormatter formatter = vendorSpecific.createFormatter(settings, null);
-			
-			output = new OutputStreamWriter(out);
-			writer.writeResultSet(output, SPLIT_SIZE, source	, formatter);
-			output.flush();
-		} catch (SQLException e) {
-			logger.warn(e.getMessage(), e);
-		} catch (IOException e) {
-			logger.warn(e.getMessage(), e);
-		} finally {
-			if (output != null) {
-				try {
-					output.close();
-				} catch (IOException e) {
-					logger.warn(e.getMessage(), e);
-				}
-			}
-		}
-		
-		return writer.getLinesWritten();
+		return this.write(source, out, null);
 	}
 
 	@Override
@@ -167,5 +124,48 @@ public class ExportSourceWriterCSV implements ExportSourceWriter {
         throw new UnsupportedOperationException();				
 	}
 	
+	@Override
+	public long write(RedisCacheValuesList  matrix, OutputStream out) throws ComputingException {
+		IRawExportSource source;
+		try {
+			source = new ChunkedRawMatrixExportSource(matrix);
+			return this.write(source, out, null);	
+
+		} catch (InterruptedException |ExecutionException e) {
+			throw new ComputingException();
+		}
+
+	}
+	
+	private long  write(IRawExportSource source, OutputStream out, Connection connection  ){
+		Writer output = null;
+		CSVWriter writer;
+		writer = new CSVWriter(settings);
+		try {
+			
+			IVendorSupport vendorSpecific = VendorSupportRegistry.INSTANCE.getVendorSupport(null);
+			IJDBCDataFormatter formatter = vendorSpecific.createFormatter(settings, connection);
+			
+			output = new OutputStreamWriter(out);
+			writer.writeResultSet(output, SPLIT_SIZE, source	, formatter);
+			output.flush();
+		} catch (SQLException e) {
+			logger.warn(e.getMessage(), e);
+		} catch (IOException e) {
+			logger.warn(e.getMessage(), e);
+		} finally {
+			if (output != null) {
+				try {
+					output.close();
+				} catch (IOException e) {
+					logger.warn(e.getMessage(), e);
+				}
+			}
+		}
+		
+		return writer.getLinesWritten();
+		
+	}
+
 
 }

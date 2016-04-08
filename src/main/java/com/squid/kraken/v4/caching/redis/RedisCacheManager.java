@@ -35,6 +35,7 @@ import org.slf4j.LoggerFactory;
 
 import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
 import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheReference;
+import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValue;
 import com.squid.kraken.v4.caching.redis.generationalkeysserver.GenerationalKeysServerFactory;
 import com.squid.kraken.v4.caching.redis.generationalkeysserver.IGenerationalKeysServer;
 import com.squid.kraken.v4.caching.redis.generationalkeysserver.RedisKey;
@@ -118,16 +119,7 @@ public class RedisCacheManager implements IRedisCacheManager  {
 	public RawMatrix  getDataLazy(String SQLQuery, List<String> dependencies, String RSjdbcURL,
 			String username, String pwd, int TTLinSec){
 		String k = buildCacheKey(SQLQuery, dependencies);
-	/*	boolean inCache = this.inCache(k);
-		logger.debug("cache hit = " + inCache + " for key = " + k);
-		if (!inCache){
-			return null;
-		}else{
-			RawMatrix res = getRawMatrix(k);
-			res.setFromCache(inCache);
-			return res;
-		}*/
-		
+
 		RawMatrix res = getRawMatrix(k);
 		if (res != null){
 			logger.debug("cache hit for key = " + k);
@@ -137,6 +129,32 @@ public class RedisCacheManager implements IRedisCacheManager  {
 		}
 		return res;
 	}
+	
+
+	public RedisCacheValue getRedisCacheValueLazy(String SQLQuery, List<String> dependencies, String RSjdbcURL,
+			String username, String pwd, int TTLinSec ) {
+			String k = buildCacheKey(SQLQuery, dependencies);
+			return this.redis.getRawOrList(k);
+			
+	}
+	public RedisCacheValue getRedisCacheValue(String SQLQuery, List<String> dependencies, String RSjdbcURL,
+			String username, String pwd, int TTLinSec, long limit ) throws InterruptedException {
+			String k = buildCacheKey(SQLQuery, dependencies);
+			RedisCacheValue val= this.redis.getRawOrList(k);
+			if (val != null){
+				return val;
+			}else{
+				boolean fetchOK = this.fetch(k, SQLQuery, RSjdbcURL, username, pwd,TTLinSec, limit );
+				if (!fetchOK){
+					logger.info("failed to fetch query:\n" +SQLQuery  +"\nfetch failed") ; 
+					return null;
+				}
+				 val= this.redis.getRawOrList(k);
+				 return val;
+
+			}			
+	}
+
 	
 	public boolean addCacheReference(String sqlNoLimit, List<String> dependencies, String referencedKey ){
 		try{
@@ -148,6 +166,7 @@ public class RedisCacheManager implements IRedisCacheManager  {
 			return false;
 		}
 	}
+	
 	
 	
 	private String buildCacheKey(String SQLQuery, List<String> dependencies){

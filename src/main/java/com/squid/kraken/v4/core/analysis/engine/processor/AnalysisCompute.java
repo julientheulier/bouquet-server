@@ -67,9 +67,12 @@ import com.squid.kraken.v4.core.analysis.universe.Property.OriginType;
 import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.kraken.v4.export.ExecuteAnalysisResult;
+import com.squid.kraken.v4.export.ExportSourceWriter;
 import com.squid.kraken.v4.model.Dimension;
 import com.squid.kraken.v4.model.Dimension.Type;
 import com.squid.kraken.v4.model.Domain;
+import com.squid.kraken.v4.writers.PreviewWriter;
+import com.squid.kraken.v4.writers.QueryWriter;
 
 /**
  * this is where the actual computations take place, in relation with a given
@@ -137,11 +140,14 @@ public class AnalysisCompute {
 		//
 		List<MeasureGroup> groups = analysis.getGroups();
 		if (groups.isEmpty()) {
+
 			SimpleQuery query = this.genSimpleQuery(analysis);
-			DataMatrix dm = query.run(analysis.isLazy());
-			return dm;
+			PreviewWriter  qw = new PreviewWriter();
+			query.run(analysis.isLazy(), qw );
+			return qw.getDataMatrix();
 		} else if (analysis.getSelection().hasCompareToSelection()) {
 			return computeCompareToAnalysis(analysis);
+
 		} else {
 			// disable the optimizing when using the limit feature
 			@SuppressWarnings("unused")
@@ -371,8 +377,11 @@ public class AnalysisCompute {
 			ArrayList<Axis> hidden_slice = new ArrayList<Axis>();// and the corresponding axis to hide
 			SimpleQuery query = this.genAnalysisQueryCachable(analysis,
 					group, optimize, soft_filters, hidden_slice);
-			// compute the data-matrix
-			DataMatrix dm = query.run(analysis.isLazy());
+
+			PreviewWriter  qw = new PreviewWriter();
+			query.run(analysis.isLazy(), qw );
+			DataMatrix dm =  qw.getDataMatrix();
+
 			if (dm != null) {
 				// hide axis in case there are coming from generalized query
 				for (Axis axis : hidden_slice) {
@@ -451,7 +460,7 @@ public class AnalysisCompute {
      * @throws ComputingException
      * @throws InterruptedException
      */
-	public ExecuteAnalysisResult executeAnalysis(DashboardAnalysis analysis) throws ComputingException, InterruptedException {
+    public void executeAnalysis(DashboardAnalysis analysis, QueryWriter writer, boolean lazy) throws ComputingException, InterruptedException {
 	    try {
             long start = System.currentTimeMillis();
     		logger.info("start of sql generation");
@@ -472,24 +481,24 @@ public class AnalysisCompute {
                 } catch (RenderingException e) {
                     e.printStackTrace();
                 }
-
-        		IExecutionItem execute = query.executeQuery();
-        		ExecuteAnalysisResult res = new ExecuteAnalysisResult(execute, query.getMapper());  
-        		return res;
-        	
+                
+                query.run(lazy, writer);
+                        	
             } else {
                 // possible only if there is only one group
                 if (groups.size()!=1) {
                     throw new ComputingException("the analysis cannot be exported in a single query - try removing some metrics");
                 }
                 // select with one or several KPI groups
+                Collection<Domain> domains = analysis.getAllDomains();
+                //
                 MeasureGroup group = groups.get(0);
                 //
                 SimpleQuery query = genAnalysisQueryWithSoftFiltering(analysis, group, false, false, null, null);
         		//
-        		IExecutionItem execute = query.executeQuery();
-        		ExecuteAnalysisResult res = new ExecuteAnalysisResult(execute, query.getMapper());        		
-        		return res;
+                
+                query.run(lazy, writer);
+
             }
 	    } catch (ScopeException e) {
 	        throw new ComputingException(e);
@@ -497,6 +506,7 @@ public class AnalysisCompute {
             throw new ComputingException(e);
         }
 	}
+
 
 
 	/**
@@ -705,9 +715,7 @@ public class AnalysisCompute {
 		//
 		if (analysis.hasLimit()) {
 			query.limit(analysis.getLimit());
-		} else {
-			query.limit(1000);// if you want all, use the export
-		}
+		} 
 		if (analysis.hasOffset()) {
 			query.offset(analysis.getOffset());
 		}

@@ -32,6 +32,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
+import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValue;
 import com.squid.kraken.v4.caching.redis.generationalkeysserver.RedisKey;
 
 public class RedisCacheProxyMock implements IRedisCacheProxy{
@@ -104,6 +105,12 @@ public class RedisCacheProxyMock implements IRedisCacheProxy{
 
 	public void setTTL(String key, int ttl) {
 		// jedis.expire(key.getBytes(), ttl);
+	}
+
+	@Override
+	public RedisCacheValue getRawOrList(String key) {
+		// TODO Auto-generated method stub
+		return null;
 	}
 
 }

@@ -44,6 +44,7 @@ import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.kraken.v4.export.ExecuteAnalysisResult;
 import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.Facet;
+import com.squid.kraken.v4.writers.QueryWriter;
 
 /**
  * This is the main entry point for compute API. It supports performing execution of a analysisJob and a facetJob.
@@ -98,9 +99,14 @@ public class ComputingService {
 	 * @throws ComputingException
 	 * @throws InterruptedException 
 	 */
+ /*
 	public ExecuteAnalysisResult executeAnalysis(final DashboardAnalysis analysis) throws ComputingException, InterruptedException {
 		final AnalysisCompute compute = new AnalysisCompute(analysis.getUniverse());
 		return compute.executeAnalysis(analysis);
+	} */
+	public void executeAnalysis(final DashboardAnalysis analysis, QueryWriter writer, boolean lazy) throws ComputingException, InterruptedException {
+		final AnalysisCompute compute = new AnalysisCompute(analysis.getUniverse());
+		compute.executeAnalysis(analysis, writer, lazy);
 	}
 	
 	public String viewSQL(final DashboardAnalysis analysis) throws ComputingException, InterruptedException {
