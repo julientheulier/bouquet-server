@@ -709,7 +709,7 @@ public class DataMatrix {
         }
         maxResults = Math.max(maxResults, 0);
         int endIndex = Math.min(rows.size()-1, startIndex + maxResults);
-        if (startIndex<endIndex) {
+        if (startIndex<=endIndex) {
 	        for (int rowIndex=startIndex;rowIndex<=endIndex;rowIndex++) {
 	        	IndirectionRow row = rows.get(rowIndex);
 	            Object[] values = new Object[visible_count + row.getDataCount()];	           
