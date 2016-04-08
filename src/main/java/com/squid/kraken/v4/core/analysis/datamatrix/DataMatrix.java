@@ -646,7 +646,7 @@ public class DataMatrix {
 	 * @return
 	 * @throws ComputingException 
 	 */
-    public DataTable toDataTable(AppContext ctx, Integer maxResults, Integer startIndex) throws ComputingException {
+    public DataTable toDataTable(AppContext ctx, Integer maxResults, Integer startIndex, boolean replaceNullValues) throws ComputingException {
         DataTable table = new DataTable();
         
         List<AxisValues> axes = this.getAxes();
@@ -712,23 +712,26 @@ public class DataMatrix {
         if (startIndex<maxResults) {
 	        for (int rowIndex=startIndex;rowIndex<=endIndex;rowIndex++) {
 	        	IndirectionRow row = rows.get(rowIndex);
-	            //String[] values = new String[visible_count + row.getDataCount()];
 	            Object[] values = new Object[visible_count + row.getDataCount()];	           
 	            int colIdx = 0;
 	            for (int i = 0; i < axes_count; i++) {
 	            	AxisValues m = axes.get(i);
 	            	if (m.isVisible()) {
-	                Object value = row.getAxisValue(i);
-		                if (value != null) {
-		                    values[colIdx++] = row.getAxisValue(i);
-		                } else {
-		                    values[colIdx++] =  "";
-		                }
+	            		Object value = row.getAxisValue(i);
+	            		if ((value == null ) && replaceNullValues){	                	
+	            			values[colIdx++] = "";
+	            		}else{
+	            			values[colIdx++] = value;
+	            		}
 	            	}
 	            }
 	            for (int i = 0; i < kpi_count; i++) {
 	                Object value = row.getDataValue(i);
-	                values[colIdx++] = value != null ? value : "";
+	                if ((value == null ) && replaceNullValues){	                	
+	                	values[colIdx++] = "";
+	                }else{
+	                	values[colIdx++] = value;
+	                }
 	            }
 	            //
 	            tableRows.add(new DataTable.Row(values));
