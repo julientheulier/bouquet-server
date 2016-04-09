@@ -57,7 +57,6 @@ import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.kraken.v4.core.expression.visitor.ExtractReferences;
 import com.squid.kraken.v4.export.ExportSourceWriter;
-import com.squid.kraken.v4.export.ExportSourceWriterVelocity;
 import com.squid.kraken.v4.model.AccessRight.Role;
 import com.squid.kraken.v4.model.DataTable;
 import com.squid.kraken.v4.model.Dimension;
