@@ -205,6 +205,12 @@ public class DashboardAnalysis extends Dashboard {
 				buffer.append(" ").append(order.getExpression().prettyPrint()+" "+order.getOrdering().toString());
 			}
 		}
+		if (limit!=null) {
+			buffer.append("\nLimit "+limit);
+		}
+		if (offset!=null) {
+			buffer.append("\nOffset "+offset);
+		}
 		return buffer.toString();
 	}
 
