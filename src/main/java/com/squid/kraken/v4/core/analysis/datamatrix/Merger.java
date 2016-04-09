@@ -26,6 +26,7 @@ package com.squid.kraken.v4.core.analysis.datamatrix;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.Iterator;
+import java.util.List;
 
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.core.sql.render.IOrderByPiece.ORDERING;
@@ -189,8 +190,8 @@ public class Merger {
 
 	public DataMatrix merge(boolean sortInput) {
 		// need to work on sorted data
-		ArrayList<IndirectionRow> this_rows = sortInput?left.sortRows():left.getRows();
-		ArrayList<IndirectionRow> that_rows = sortInput?right.sortRows():right.getRows();
+		List<IndirectionRow> this_rows = sortInput?left.sortRows():left.getRows();
+		List<IndirectionRow> that_rows = sortInput?right.sortRows():right.getRows();
 		if (sortInput) {
 			// reset the ordering
 			for (int i=0;i<ordering.length;i++) {
