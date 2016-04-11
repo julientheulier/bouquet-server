@@ -75,7 +75,6 @@ import com.squid.kraken.v4.core.database.impl.DatabaseServiceImpl;
 import com.squid.kraken.v4.core.database.impl.DatasourceDefinition;
 import com.squid.kraken.v4.core.sql.SelectUniversal;
 import com.squid.kraken.v4.core.sql.script.SQLScript;
-import com.squid.kraken.v4.export.ExportSourceWriter;
 import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.Project;
 import com.squid.kraken.v4.writers.QueryWriter;
@@ -285,8 +284,7 @@ public class BaseQuery implements IQuery {
 		throw new RuntimeException("QUALIFY clause is not supported for that request");
 	}
 
-	public void  run(boolean lazy, QueryWriter writer) throws ComputingException{
-
+	public void run(boolean lazy, QueryWriter writer) throws ComputingException{
 		try {
 
 			Project project = universe.asRootUserContext().getProject();
@@ -299,47 +297,46 @@ public class BaseQuery implements IQuery {
 			String user = project.getDbUser();
 			String pwd = project.getDbPassword();
 			//
-
-			boolean isFromCache = false; 
-			String sql = render();		
-			String sqlNoLimitNoOrder   = renderNoLimitNoOrderBy();
+			String sql = render();
+			String sqlNoLimitNoOrder = null;// Optionally the "full" version
+			boolean checkFullVersion = select.getStatement().hasLimitValue() || select.getStatement().hasOffsetValue() || select.getStatement().hasOrderByPieces();
 			RedisCacheValue result;
-			
-			result = RedisCacheManager.getInstance().getRedisCacheValueLazy(sqlNoLimitNoOrder, deps, url, user, pwd, -2); 			
-			
-			if ((result ==null ) && !(sql.equals(sqlNoLimitNoOrder))){
-				result = RedisCacheManager.getInstance().getRedisCacheValueLazy(sql, deps, url, user, pwd, -2);
+			// first check if the original query is in cache (lazy)
+			result = RedisCacheManager.getInstance().getRedisCacheValueLazy(sql, deps, url, user, pwd, -2);
+			// check full version if different
+			if (result == null && checkFullVersion ) {
+				// else try to use the query with no orderBy/limit
+				sqlNoLimitNoOrder = renderNoLimitNoOrderBy();
+				result = RedisCacheManager.getInstance().getRedisCacheValueLazy(sqlNoLimitNoOrder, deps, url, user, pwd,
+						-2);
+				if (result!=null) {
+					writer.setNeedPostProcessing(true);
+				}
 			}
-
-			if (result != null){
-				isFromCache = true;
-			}
-
-			if (result == null){
-				if (lazy){
-					logger.info("Lazy query, analysis not in cache");
-					throw new NotInCacheException("Lazy query, analysis not in cache");
-				}else{
-				
-					result=  RedisCacheManager.getInstance().getRedisCacheValue(sql, deps, url, user, pwd, -2 , this.getSelectUniversal().getStatement().getLimitValue());
-					
-					if (result == null){
-						throw new ComputingException("Failed to compute or retrieve the matrix");
-					}else{
-						if (!isFromCache && !	sql.equals(sqlNoLimitNoOrder) ){
-							if (result instanceof RawMatrix){
-
-								// create a new reference
-								RawMatrix rm = (RawMatrix) result;
-								if (!rm.isMoreData()){
-									RedisCacheManager.getInstance().addCacheReference(sqlNoLimitNoOrder, deps, rm.getRedisKey());					
-									logger.info("Get - Create new Cache Reference ");
-								}
-							}
-						}						
+			if (result != null) {
+				// all right
+			} else if (lazy) {
+				// do not compute
+				//logger.info("Lazy query, analysis not in cache");
+				throw new NotInCacheException("Lazy query, analysis not in cache");
+			} else {
+				// compute
+				result = RedisCacheManager.getInstance().getRedisCacheValue(sql, deps, url, user, pwd, -2,
+						this.getSelectUniversal().getStatement().getLimitValue());
+				if (result == null) {
+					throw new ComputingException("Failed to compute or retrieve the matrix");
+				} else {
+					if (checkFullVersion && result instanceof RawMatrix) {
+						// create a new reference
+						RawMatrix rm = (RawMatrix) result;
+						if (!rm.isMoreData()) {// only if the result is complete == full version
+							RedisCacheManager.getInstance().addCacheReference(sqlNoLimitNoOrder, deps,
+									rm.getRedisKey());
+							//logger.info("Get - Create new Cache Reference ");
+						}
 					}
 				}
-			}		
+			}
 			writer.setSource(result);
 			writer.setMapper(this.mapper);
 			writer.setDatabase(getDatasource().getDatabase());
