@@ -13,6 +13,8 @@ public class QueryWriter {
 	protected Database db;
 	protected String SQL;
 	
+	private boolean needPostProcessing = false;
+	
 	public void write() throws ScopeException, ComputingException{
 		
 	}; 
@@ -31,6 +33,14 @@ public class QueryWriter {
 	
 	public void setSQL(String sql){
 		this.SQL= sql;
+	}
+	
+	public void setNeedPostProcessing(boolean needPostProcessing) {
+		this.needPostProcessing = needPostProcessing;
+	}
+	
+	public boolean isNeedPostProcessing() {
+		return needPostProcessing;
 	}
 	
 }
