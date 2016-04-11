@@ -26,6 +26,7 @@ package com.squid.kraken.v4.core.analysis.datamatrix;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -40,6 +41,7 @@ import com.squid.core.database.model.Database;
 import com.squid.core.domain.IDomain;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.scope.ScopeException;
+import com.squid.core.sql.render.IOrderByPiece.ORDERING;
 import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
 import com.squid.kraken.v4.caching.redis.datastruct.RawRow;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionMember;
@@ -48,6 +50,7 @@ import com.squid.kraken.v4.core.analysis.engine.query.mapping.AxisMapping;
 import com.squid.kraken.v4.core.analysis.engine.query.mapping.MeasureMapping;
 import com.squid.kraken.v4.core.analysis.model.DashboardSelection;
 import com.squid.kraken.v4.core.analysis.model.DomainSelection;
+import com.squid.kraken.v4.core.analysis.model.OrderBy;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
 import com.squid.kraken.v4.core.analysis.universe.Measure;
 import com.squid.kraken.v4.model.DataTable;
@@ -82,7 +85,7 @@ public class DataMatrix {
 	private Database database = null;// keep an eye on the database to check if results are stale
 	private DataMatrix parent = null;
 	
-	private ArrayList<IndirectionRow> rows = new ArrayList<IndirectionRow>();
+	private List<IndirectionRow> rows = new ArrayList<IndirectionRow>();
 	
 	private boolean fromCache = false;// true if the data come from the cache
 	
@@ -330,6 +333,102 @@ public class DataMatrix {
 		// else
 		return null;
 	}
+
+	public Collection<DimensionMember> getAxisValues(Axis axis) throws ComputingException, InterruptedException {
+		AxisValues ax = getAxisColumn(axis);
+		if (ax==null) {
+			//
+		} else if (ax.hasValues()) {
+			return ax.getMembers();
+		} else {
+			// compute values
+			int pos = axes.indexOf(ax);
+			if (pos>=0) {
+				for (IndirectionRow row : rows) {
+					Object value = row.getAxisValue(pos);
+					if (value!=null) {// null not supported
+						ax.getValues().add(value);
+					}
+				}
+				return ax.getMembers();
+			}
+		}
+		// else
+		return Collections.emptyList();
+	}
+	
+	/**
+	 * orderBy this matrix
+	 * @param orderBy
+	 */
+	public void orderBy(List<OrderBy> orderBy) {
+		final List<Integer> ordering = new ArrayList<>();
+		final List<ORDERING> direction = new ArrayList<>();
+		for (OrderBy item : orderBy) {
+			int pos = 0;
+			boolean check = false;
+			for (AxisValues axis : this.axes) {
+				if (axis.getAxis().getReference().equals(item.getExpression())) {
+					ordering.add(pos);
+					direction.add(item.getOrdering());
+					check = true;
+					pos++;
+					break;
+				}
+				pos++;
+			}
+			if (!check) {
+				// try the kpis
+				for (Measure kpi : getKPIs()) {
+					if (kpi.getReference().equals(item.getExpression())) {
+						ordering.add(pos);
+						direction.add(item.getOrdering());
+						check = true;
+						break;
+					}
+				}
+				pos++;
+			}
+		}
+		final int size = ordering.size();
+		Collections.sort(rows, new Comparator<IndirectionRow>() {
+			@Override
+			public int compare(IndirectionRow o1, IndirectionRow o2) {
+				for (int i=0;i<size;i++) {
+					Object v1 = o1.getValue(ordering.get(i));
+					Object v2 = o2.getValue(ordering.get(i));
+					int cc = compareValues(v1, v2);
+					if (direction.get(i)==ORDERING.DESCENT) cc = -cc;//reverse
+					if (cc!=0) return cc;
+				}
+				// equal !
+				return 0;
+			}
+		});
+	}
+	
+	private int compareValues(Object v1, Object v2) {
+		if (v1 == null && v2 != null)
+			return -1;
+		if (v1 != null && v2 == null)
+			return 1;
+		if (v1 == null && v2 == null)
+			return 0;
+		if ((v1 instanceof Comparable) && (v2 instanceof Comparable)) {
+			@SuppressWarnings({ "rawtypes", "unchecked" })
+			int cc = ((Comparable) v1).compareTo(((Comparable) v2));
+			return cc;
+		} else {
+			int cc = v1.toString().compareTo(v2.toString());
+			return cc;
+		}
+	}
+
+	public void truncate(long limitValue, long offsetValue) {
+		int from = (int) Math.max(0, offsetValue);
+		int to = (int) Math.min(rows.size(), from+limitValue);
+		this.rows = this.rows.subList(from, to);// this is not a copy, just a view
+	}
 	
 	/**
 	 * merge two matrix with different KPIs but must be on the same space
@@ -399,49 +498,6 @@ public class DataMatrix {
 			return result;
 		}
 	}
-
-	/*
-	public DataMatrix filter(List<Filter> filters, boolean nullIsValid) {
-		if (getRows().isEmpty()) {
-			return this;// nothing left to filter
-		}
-		Collection<ApplyFilterCondition> automaton = new ArrayList<ApplyFilterCondition>();
-		for (Filter filter : filters) {
-			Axis axis = filter.getAxis();
-			// check if the axis is defined
-			AxisValues axisData = getAxisColumn(axis);
-			if (axisData!=null) {
-				// check the axis index
-				int index = getAxes().indexOf(axisData);
-				ApplyFilterCondition item = null;
-				// ok, populate the automaton with filter values
-				for (FilterItem fitem : filter.getValues()) {
-					if (fitem instanceof DimensionMember) {
-						if (item==null) {
-							item = new ApplyFilterCondition(index,nullIsValid);
-							automaton.add(item);
-						}
-						item.add((DimensionMember)fitem);
-					}
-				}
-			}
-		}
-		// ok, we are ready to iter through the matrix now...
-		if (automaton.isEmpty()) {
-			return this;
-		} else {
-			DataMatrix result = new DataMatrix(this);
-			for (IndirectionRow row : getRows()) {
-				boolean filter = checkRowAND(row,automaton);
-				if (filter) {
-					result.pushRow(row);
-					result.pushAxes(row);
-				}
-			}
-			return result;
-		}
-	}
-	*/
 	
 	public DataMatrix filter(FilterFunction func) {
 		DataMatrix result = new DataMatrix(this);
@@ -546,7 +602,7 @@ public class DataMatrix {
 	 * return the data sorted; if the matrix is not sorted, it actually modify the rows internally once.
 	 * @return
 	 */
-	public ArrayList<IndirectionRow> sortRows() {
+	public List<IndirectionRow> sortRows() {
 		if (rows!=null) {
 			if (!isSorted) {
 				synchronized (this) {
@@ -636,7 +692,7 @@ public class DataMatrix {
 		}
 	}
 
-    public ArrayList<IndirectionRow> getRows() {
+    public List<IndirectionRow> getRows() {
     	return rows;
     }
     
@@ -651,7 +707,7 @@ public class DataMatrix {
         
         List<AxisValues> axes = this.getAxes();
         
-        ArrayList<IndirectionRow> rows = this.getRows();
+        List<IndirectionRow> rows = this.getRows();
         List<Measure> kpis = this.getKPIs();
 
         // export header
