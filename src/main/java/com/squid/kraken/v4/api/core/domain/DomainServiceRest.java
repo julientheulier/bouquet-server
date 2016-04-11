@@ -134,7 +134,7 @@ public class DomainServiceRest extends BaseServiceRest {
 	public Set<AccessRight> storeAccessRights(
 			@PathParam("projectId") String projectId,
 			@PathParam(PARAM_NAME) String domainId,
-			Set<AccessRight> accessRights) {
+			@ApiParam(required = true) Set<AccessRight> accessRights) {
 		return delegate.storeAccessRights(userContext,
 				new DomainPK(userContext.getCustomerId(), projectId, domainId),
 				accessRights);
