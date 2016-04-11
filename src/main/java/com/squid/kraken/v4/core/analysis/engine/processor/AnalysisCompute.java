@@ -43,7 +43,6 @@ import com.squid.core.domain.IDomain;
 import com.squid.core.domain.set.SetDomain;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.scope.ScopeException;
-import com.squid.core.jdbc.engine.IExecutionItem;
 import com.squid.core.sql.model.SQLScopeException;
 import com.squid.core.sql.render.IOrderByPiece.ORDERING;
 import com.squid.core.sql.render.ISelectPiece;
@@ -66,8 +65,6 @@ import com.squid.kraken.v4.core.analysis.universe.Measure;
 import com.squid.kraken.v4.core.analysis.universe.Property.OriginType;
 import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
-import com.squid.kraken.v4.export.ExecuteAnalysisResult;
-import com.squid.kraken.v4.export.ExportSourceWriter;
 import com.squid.kraken.v4.model.Dimension;
 import com.squid.kraken.v4.model.Dimension.Type;
 import com.squid.kraken.v4.model.Domain;
@@ -135,19 +132,21 @@ public class AnalysisCompute {
 	}
 
 	public DataMatrix computeAnalysis(DashboardAnalysis analysis)
-			throws ScopeException, SQLScopeException, ComputingException,
-			InterruptedException {
+			throws ScopeException, SQLScopeException, ComputingException, InterruptedException {
 		//
 		List<MeasureGroup> groups = analysis.getGroups();
 		if (groups.isEmpty()) {
-
 			SimpleQuery query = this.genSimpleQuery(analysis);
-			PreviewWriter  qw = new PreviewWriter();
-			query.run(analysis.isLazy(), qw );
-			return qw.getDataMatrix();
+			PreviewWriter qw = new PreviewWriter();
+			query.run(analysis.isLazy(), qw);
+			DataMatrix dm = qw.getDataMatrix();
+			// apply postProcessing if needed
+			if (qw.isNeedPostProcessing()) {
+				applyPostProcessing(query, dm);
+			}
+			return dm;
 		} else if (analysis.getSelection().hasCompareToSelection()) {
 			return computeCompareToAnalysis(analysis);
-
 		} else {
 			// disable the optimizing when using the limit feature
 			@SuppressWarnings("unused")
@@ -190,6 +189,7 @@ public class AnalysisCompute {
 		}
 		int[] mergeOrder = new int[dimensions.size()];// will hold in which order to merge
 		// rebuild the full order specs
+		List<OrderBy> originalOrders = currentAnalysis.getOrders();
 		for (OrderBy order : currentAnalysis.getOrders()) {
 			if (i==0 && joinAxis!=null) {
 				if (order.getExpression().equals(joinAxis.getReference())) {
@@ -269,7 +269,7 @@ public class AnalysisCompute {
 		for (Axis filter : compare.getFilters()) {
 			pastSelection.clear(filter);
 			pastSelection.add(filter, compare.getMembers(filter));
-			if (joinAxis!=null && filter.equals(joinAxis)) {
+			if (joinAxis!=null && compareAxis(filter,joinAxis)) {
 				pastInterval = computeMinMax(compare.getMembers(filter));
 			}
 		}
@@ -280,7 +280,16 @@ public class AnalysisCompute {
 		//
 		CompareMerger merger = new CompareMerger(present, past, mergeOrder, joinAxis, offset);
 		DataMatrix debug = merger.merge(false);
+		// apply the original order by directive (T1039)
+		debug.orderBy(originalOrders);
 		return debug;
+	}
+	
+	private boolean compareAxis(Axis x1, Axis x2) {
+		DateExpressionAssociativeTransformationExtractor checker = new DateExpressionAssociativeTransformationExtractor();
+		ExpressionAST naked1 = checker.eval(x1.getDimension()!=null?x1.getReference():x1.getDefinitionSafe());
+		ExpressionAST naked2 = checker.eval(x2.getDimension()!=null?x2.getReference():x2.getDefinitionSafe());
+		return naked1.equals(naked2);
 	}
 	
 	private GroupByAxis findGroupingJoin(Axis join, DashboardAnalysis from) {
@@ -379,7 +388,7 @@ public class AnalysisCompute {
 					group, optimize, soft_filters, hidden_slice);
 
 			PreviewWriter  qw = new PreviewWriter();
-			query.run(analysis.isLazy(), qw );
+			query.run(analysis.isLazy(), qw);
 			DataMatrix dm =  qw.getDataMatrix();
 
 			if (dm != null) {
@@ -391,65 +400,33 @@ public class AnalysisCompute {
 				if (!soft_filters.isEmpty()) {
 					dm = dm.filter(soft_filters, false);//ticket:2923 Null values must not be retained.
 				}
+				// apply postProcessing if needed
+				if (qw.isNeedPostProcessing()) {
+					applyPostProcessing(query, dm);
+				}
 				// merge if needed
 				if (result==null) {
 					result = dm;
 				} else {
 					result = result.merge(dm);
 				}
-			} else {
-				result = null;
 			}
         }
         return result;
     }
-
-    protected DashboardAnalysis subQueryLimit(DashboardAnalysis analysis, MeasureGroup group) throws ScopeException {
-        if (analysis.hasLimit() && analysis.hasOrderBy()) {
-            // ok, let's check if it is a n-variate time-series
-            if (analysis.getGrouping().size()==2) {
-                // first checked there are 2 axes
-                GroupByAxis groupBy1 = analysis.getGrouping().get(0);
-                GroupByAxis groupBy2 = analysis.getGrouping().get(1);
-                Type type1 = groupBy1.getAxis().getDimensionType();
-                Type type2 = groupBy2.getAxis().getDimensionType();
-                if (type1==Type.CONTINUOUS 
-                		&& groupBy1.getAxis().getDefinition().getImageDomain().isInstanceOf(IDomain.TEMPORAL)
-                		&& type2!=Type.CONTINUOUS) {// works for CAT & INDEX
-                    DashboardAnalysis copy = new DashboardAnalysis(analysis.getUniverse());
-                    copy.add(group.getKPIs());
-                    copy.add(groupBy2.getAxis(),groupBy2.isRollup());
-                    copy.setSelection(analysis.getSelection());
-                    for (OrderBy orderBy : analysis.getOrders()) {
-                    	if (orderBy.getExpression().equals(groupBy1.getAxis().getReference())) {
-                    		// do not use
-                    		return null;
-                    	}
-                        copy.orderBy(orderBy);
-                    }
-                    copy.limit(analysis.getLimit());
-                    return copy;
-                } else if (type2==Type.CONTINUOUS 
-                		&& groupBy2.getAxis().getDefinition().getImageDomain().isInstanceOf(IDomain.TEMPORAL)
-                		&& type1!=Type.CONTINUOUS) {
-                    DashboardAnalysis copy = new DashboardAnalysis(analysis.getUniverse());
-                    copy.add(group.getKPIs());
-                    copy.add(groupBy1.getAxis(),groupBy1.isRollup());
-                    copy.setSelection(analysis.getSelection());
-                    for (OrderBy orderBy : analysis.getOrders()) {
-                    	if (orderBy.getExpression().equals(groupBy2.getAxis().getReference())) {
-                    		// do not use
-                    		return null;
-                    	}
-                        copy.orderBy(orderBy);
-                    }
-                    copy.limit(analysis.getLimit());
-                    return copy;
-                }
-            }
-        }
-        // else
-        return null;
+	
+	/**
+	 * enforce the SimpleQuery orderBy, Limit & Offset directives
+	 * @param query
+	 * @param dm
+	 */
+	private void applyPostProcessing(SimpleQuery query, DataMatrix dm) {
+		if (!query.getOrderBy().isEmpty()) {
+			dm.orderBy(query.getOrderBy());
+		}
+		if (query.getSelect().getStatement().hasLimitValue() || query.getSelect().getStatement().hasOffsetValue()) {
+			dm.truncate(query.getSelect().getStatement().getLimitValue(), query.getSelect().getStatement().getOffsetValue());
+		}
 	}
 	
     /**
@@ -761,57 +738,6 @@ public class AnalysisCompute {
 			true, // just set the cachable flag to true -- is this really usefull?
 			optimize, soft_filters, hidden_slice);
 	}
-
-	/**
-	 * this is the magic version that tries to not apply the limit for n-variate time-series.
-	 * But the way it works is too magical (i.e. you can't predict the output) so it is disable for now.
-	 * We will look for a explicit way to achieve that magic, for instance by providing a way to define the LIMIT scope.
-	 * 
-	 * @param analysis
-	 * @param group
-	 * @param optimize
-	 * @param soft_filters
-	 * @param hidden_slice
-	 * @return
-	 * @throws ScopeException
-	 * @throws SQLScopeException
-	 * @throws ComputingException
-	 * @throws InterruptedException
-	 */
-	protected SimpleQuery createOperatorKPIPopulateFiltersWithMagic(
-			DashboardAnalysis analysis, MeasureGroup group, boolean optimize,
-			DashboardSelection soft_filters, List<Axis> hidden_slice)
-			throws ScopeException, SQLScopeException, ComputingException,
-			InterruptedException {
-		//
-		DashboardAnalysis subQueryLimit = subQueryLimit(analysis, group);
-		if (subQueryLimit != null) {
-			analysis.noLimit();
-		}
-		SimpleQuery query = genAnalysisQueryWithSoftFiltering(analysis, group, true,
-				optimize, soft_filters, hidden_slice);
-		//
-		// handle the subquery if any
-		if (subQueryLimit != null) {
-			// if we have a subquery, apply the limit to it and read the first
-			// values in order to filter the actual query
-			// note: if the database does support limit, we could use a subquery
-			// in place... or a temporary table?
-			DataMatrix temp = computeAnalysis(subQueryLimit);
-			AxisValues values = temp.getAxes().get(0);// we should have only one
-														// value
-			if (values != null) {
-				ConcurrentSkipListSet<DimensionMember> filters = new ConcurrentSkipListSet<>();
-				filters.addAll(values.getMembers());
-				query.where(values.getAxis(), filters);// need to pass the query
-														// axis
-			} else {
-				// failed, restoring limit
-				analysis.limit(subQueryLimit.getLimit());
-			}
-		}
-		return query;
-	}
 	
 	/**
 	 * handling the BeyondLimit parameter
@@ -879,13 +805,11 @@ public class AnalysisCompute {
 			// run sub-analysis and add filters by hand (cache hit on the subquery)
 			DataMatrix selection = computeAnalysisSimple(subAnalysisWithLimit, false);
 			Axis join = joins.get(0);
-			AxisValues values = selection.getAxisColumn(join);
-			if (values != null && !values.getMembers().isEmpty()) {
-				ConcurrentSkipListSet<DimensionMember> filters = new ConcurrentSkipListSet<>();
-				filters.addAll(values.getMembers());
+			Collection<DimensionMember> values = selection.getAxisValues(join);
+			if (!values.isEmpty()) {
 				analysis.noLimit();
 				SimpleQuery mainquery = genAnalysisQueryWithSoftFiltering(analysis, group, cachable, optimize, soft_filters, hidden_slice);
-				mainquery.where(values.getAxis(), filters);
+				mainquery.where(join, values);
 				return mainquery;
 			} else {
 				// failed, using original limit
