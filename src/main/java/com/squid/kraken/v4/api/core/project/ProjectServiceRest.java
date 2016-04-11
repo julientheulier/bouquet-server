@@ -229,7 +229,7 @@ public class ProjectServiceRest extends BaseServiceRest {
 	@ApiOperation(value = "Sets a Project's access rights")
 	public Set<AccessRight> storeAccessRights(
 			@PathParam(PARAM_NAME) String objectId,
-			Set<AccessRight> accessRights) {
+			@ApiParam(required = true) Set<AccessRight> accessRights) {
 		return delegate.storeAccessRights(userContext, new ProjectPK(
 				userContext.getCustomerId(), objectId), accessRights);
 	}

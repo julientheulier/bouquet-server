@@ -145,7 +145,7 @@ public class DimensionServiceRest extends BaseServiceRest {
 			@PathParam("projectId") String projectId,
 			@PathParam("domainId") String domainId,
 			@PathParam(PARAM_NAME) String dimensionId,
-			Set<AccessRight> accessRights) {
+			@ApiParam(required = true) Set<AccessRight> accessRights) {
 		return delegate.storeAccessRights(userContext, new DimensionPK(
 				userContext.getCustomerId(), projectId, domainId, dimensionId),
 				accessRights);

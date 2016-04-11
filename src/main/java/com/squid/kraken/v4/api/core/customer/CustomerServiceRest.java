@@ -471,7 +471,8 @@ public class CustomerServiceRest {
 	@POST
 	@ApiOperation(value = "Update the Customer's access rights")
 	public Set<AccessRight> storeAccessRights(
-			@Context HttpServletRequest request, Set<AccessRight> accessRights) {
+			@Context HttpServletRequest request,
+                        @ApiParam(required = true) Set<AccessRight> accessRights) {
 		AppContext userContext = getUserContext(request);
 		return delegate.storeAccessRights(userContext,
 				userContext.getCustomerPk(), accessRights);
