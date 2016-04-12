@@ -29,7 +29,6 @@ import java.util.Date;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.concurrent.ConcurrentSkipListSet;
 
 import com.squid.kraken.v4.api.core.PerfDB;
 import com.squid.kraken.v4.api.core.SQLStats;
@@ -240,6 +239,7 @@ public class AnalysisCompute {
 		// compute the past version
 		DashboardAnalysis compareToAnalysis = new DashboardAnalysis(universe);
 		// copy dimensions
+		ArrayList<GroupByAxis> compareBeyondLimit = currentAnalysis.hasBeyondLimit()?new ArrayList<GroupByAxis>():null;
 		for (GroupByAxis groupBy : currentAnalysis.getGrouping()) {
 			if (groupBy.getAxis().equals(joinAxis)) {
 				Axis compareToAxis = new Axis(groupBy.getAxis());
@@ -247,8 +247,16 @@ public class AnalysisCompute {
 				compareToAxis.setName(groupBy.getAxis().getName()+" (compare)");
 				GroupByAxis compareToGroupBy = compareToAnalysis.add(compareToAxis, groupBy.isRollup());
 				compareToGroupBy.setRollupPosition(groupBy.getRollupPosition());
+				// update the beyondLimit
+				if (compareBeyondLimit!=null && currentAnalysis.getBeyondLimit().contains(groupBy)) {
+					compareBeyondLimit.add(compareToGroupBy);
+				}
 			} else {
 				compareToAnalysis.add(groupBy);
+				// update the beyondLimit
+				if (compareBeyondLimit!=null && currentAnalysis.getBeyondLimit().contains(groupBy)) {
+					compareBeyondLimit.add(groupBy);
+				}
 			}
 		}
 		// copy metrics
@@ -274,6 +282,10 @@ public class AnalysisCompute {
 			}
 		}
 		compareToAnalysis.setSelection(pastSelection);
+		if (currentAnalysis.hasBeyondLimit()) {// T1042: handling beyondLimit
+			compareToAnalysis.setBeyondLimit(compareBeyondLimit);
+			compareToAnalysis.setBeyodLimitSelection(presentSelection);// use the present selection to compute
+		}
 		DataMatrix past = computeAnalysisSimple(compareToAnalysis, false);
 		//
 		final int offset = computeOffset(present, joinAxis, presentInterval, pastInterval);
@@ -467,15 +479,12 @@ public class AnalysisCompute {
                     throw new ComputingException("the analysis cannot be exported in a single query - try removing some metrics");
                 }
                 // select with one or several KPI groups
-                Collection<Domain> domains = analysis.getAllDomains();
                 //
                 MeasureGroup group = groups.get(0);
                 //
                 SimpleQuery query = genAnalysisQueryWithSoftFiltering(analysis, group, false, false, null, null);
         		//
-                
                 query.run(lazy, writer);
-
             }
 	    } catch (ScopeException e) {
 	        throw new ComputingException(e);
@@ -799,7 +808,11 @@ public class AnalysisCompute {
 		if (analysis.isRollupGrandTotal()) subAnalysisWithLimit.setRollupGrandTotal(true);
 		if (analysis.hasRollup()) subAnalysisWithLimit.setRollup(analysis.getRollup());
 		// copy selection
-		subAnalysisWithLimit.setSelection(new DashboardSelection(analysis.getSelection()));
+		if (analysis.getBeyodLimitSelection()!=null) {
+			subAnalysisWithLimit.setSelection(new DashboardSelection(analysis.getBeyodLimitSelection()));
+		} else {
+			subAnalysisWithLimit.setSelection(new DashboardSelection(analysis.getSelection()));
+		}
 		// use the best strategy
 		if (joins.size()==1 && subAnalysisWithLimit.getLimit()<50) {
 			// run sub-analysis and add filters by hand (cache hit on the subquery)
@@ -807,8 +820,10 @@ public class AnalysisCompute {
 			Axis join = joins.get(0);
 			Collection<DimensionMember> values = selection.getAxisValues(join);
 			if (!values.isEmpty()) {
+				Long limit = analysis.getLimit();
 				analysis.noLimit();
 				SimpleQuery mainquery = genAnalysisQueryWithSoftFiltering(analysis, group, cachable, optimize, soft_filters, hidden_slice);
+				analysis.limit(limit);// restore the limit in case we need it again (compare for example)
 				mainquery.where(join, values);
 				return mainquery;
 			} else {
