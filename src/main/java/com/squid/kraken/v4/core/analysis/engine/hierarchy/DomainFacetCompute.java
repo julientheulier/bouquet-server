@@ -113,10 +113,18 @@ public class DomainFacetCompute extends FacetBuilder {
 				boolean p1 = o1.isProxy();
 				boolean p2 = o2.isProxy();
 				if (p1==p2) {
-					return o1.getName().compareTo(o2.getName());
-				} else if (p1) {
+					boolean s1 = SegmentManager.isSegmentFacet(o1);
+					boolean s2 = SegmentManager.isSegmentFacet(o2);
+					if (s1==s2) {
+						return o1.getName().compareTo(o2.getName());
+					} else if (s1) {
+						return 1;// segment last
+					} else {// if (s2)
+						return -1;
+					}
+				} else if (p1) {// proxy last
 					return 1;
-				} else {// p2
+				} else {// if (p2)
 					return -1;
 				}
 			} else if (d1) {
@@ -159,10 +167,10 @@ public class DomainFacetCompute extends FacetBuilder {
             	}
             }
         }
-        Collections.sort(facets,facetsComparator);
     	// handle segments
         Facet goalFacet = SegmentManager.createSegmentFacet(universe, hierarchy, domain, sel);
         if (goalFacet!=null && !goalFacet.getItems().isEmpty()) facets.add(goalFacet);
+        Collections.sort(facets,facetsComparator);
         return facets;
     }
     
