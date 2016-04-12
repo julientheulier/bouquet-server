@@ -50,7 +50,9 @@ public class DashboardAnalysis extends Dashboard {
 	private Long limit = null;
 	private Long offset = null;
 
-	private ArrayList<GroupByAxis> beyondLimit = new ArrayList<>();
+	private List<GroupByAxis> beyondLimit = new ArrayList<>();
+	// T0126 & T1042: in case of beyondLimit + compareTo we need to use a different selection for computing the limit subquery
+	private DashboardSelection beyodLimitSelection = null;
 	
 	private boolean lazy = false;
 	
@@ -120,9 +122,21 @@ public class DashboardAnalysis extends Dashboard {
     	return beyondLimit;
     }
     
+    public void setBeyondLimit(List<GroupByAxis> beyondLimit) {
+		this.beyondLimit = beyondLimit;
+	}
+    
     public boolean hasBeyondLimit() {
     	return beyondLimit!=null && !beyondLimit.isEmpty();
     }
+    
+    public void setBeyodLimitSelection(DashboardSelection beyodLimitSelection) {
+		this.beyodLimitSelection = beyodLimitSelection;
+	}
+    
+    public DashboardSelection getBeyodLimitSelection() {
+		return beyodLimitSelection;
+	}
     
     public void offset(long offset) {
         this.offset = offset;

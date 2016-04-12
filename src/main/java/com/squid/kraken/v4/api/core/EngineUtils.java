@@ -45,15 +45,18 @@ import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionOptionUtils;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainFacetCompute;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainHierarchy;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.SegmentManager;
+import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex.Status;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.core.analysis.model.DashboardSelection;
 import com.squid.kraken.v4.core.analysis.model.DomainSelection;
+import com.squid.kraken.v4.core.analysis.model.Intervalle;
 import com.squid.kraken.v4.core.analysis.model.IntervalleObject;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.kraken.v4.core.expression.scope.DimensionDefaultValueScope;
 import com.squid.kraken.v4.core.expression.scope.ExpressionEvaluator;
 import com.squid.kraken.v4.model.AccessRight.Role;
+import com.squid.kraken.v4.model.Dimension.Type;
 import com.squid.kraken.v4.model.DimensionOption;
 import com.squid.kraken.v4.model.DimensionPK;
 import com.squid.kraken.v4.model.Domain;
@@ -181,15 +184,16 @@ public class EngineUtils {
 			throws ParseException, ScopeException {
 		if (value.startsWith("__")) {
 			//
-			// support hardcoded shortcuts
+			// support hard-coded shortcuts
 			if (compareFromInterval!=null) {
+				// for compareTo
 				if (value.equalsIgnoreCase("__COMPARE_TO_PREVIOUS_PERIOD")) {
 					LocalDate localLower = new LocalDate(((Date)compareFromInterval.getLowerBound()).getTime());
 					if (bound==Bound.UPPER) {
 						LocalDate date = localLower.minusDays(1);
 						return date.toDate();
 					} else {
-						LocalDate localUpper = new LocalDate(((Date)(Date)compareFromInterval.getUpperBound()).getTime());
+						LocalDate localUpper = new LocalDate(((Date)compareFromInterval.getUpperBound()).getTime());
 						Days days = Days.daysBetween(localLower, localUpper);
 						LocalDate date = localLower.minusDays(1+days.getDays());
 						return date.toDate();
@@ -201,7 +205,7 @@ public class EngineUtils {
 					if (bound==Bound.LOWER) {
 						return compareLower.toDate();
 					} else {
-						LocalDate localUpper = new LocalDate(((Date)(Date)compareFromInterval.getUpperBound()).getTime());
+						LocalDate localUpper = new LocalDate(((Date)compareFromInterval.getUpperBound()).getTime());
 						Days days = Days.daysBetween(localLower, localUpper);
 						LocalDate compareUpper = compareLower.plusDays(days.getDays());
 						return compareUpper.toDate();
@@ -213,10 +217,87 @@ public class EngineUtils {
 					if (bound==Bound.LOWER) {
 						return compareLower.toDate();
 					} else {
-						LocalDate localUpper = new LocalDate(((Date)(Date)compareFromInterval.getUpperBound()).getTime());
+						LocalDate localUpper = new LocalDate(((Date)compareFromInterval.getUpperBound()).getTime());
 						Days days = Days.daysBetween(localLower, localUpper);
 						LocalDate compareUpper = compareLower.plusDays(days.getDays());
 						return compareUpper.toDate();
+					}
+				}
+			} else {
+				// for regular
+				// get MIN, MAX first
+				Intervalle range = null;
+				if (index.getDimension().getType() == Type.CONTINUOUS) {
+					if (index.getStatus()==Status.DONE) {
+						List<DimensionMember> members = index.getMembers();
+						if (!members.isEmpty()) {
+							DimensionMember member = members.get(0);
+							Object object = member.getID();
+							if (object instanceof Intervalle) {
+								range = (Intervalle)object;
+							}
+						}
+					}
+				}
+				if (range==null) {
+					range = IntervalleObject.createInterval(new Date(), new Date());
+				}
+				if (value.equalsIgnoreCase("__LAST_DAY")) {
+					if (bound==Bound.UPPER) {
+						return (Date)range.getUpperBound();
+					} else {
+						LocalDate localUpper = new LocalDate(((Date)range.getUpperBound()).getTime());
+						LocalDate date = localUpper.minusDays(1);
+						return date.toDate();
+					}
+				}
+				if (value.equalsIgnoreCase("__LAST_7_DAYS")) {
+					if (bound==Bound.UPPER) {
+						return (Date)range.getUpperBound();
+					} else {
+						LocalDate localUpper = new LocalDate(((Date)range.getUpperBound()).getTime());
+						LocalDate date = localUpper.minusDays(7);
+						return date.toDate();
+					}
+				}
+				if (value.equalsIgnoreCase("__CURRENT_MONTH")) {
+					if (bound==Bound.UPPER) {
+						return (Date)range.getUpperBound();
+					} else {
+						LocalDate localUpper = new LocalDate(((Date)range.getUpperBound()).getTime());
+						LocalDate date = localUpper.withDayOfMonth(1);
+						return date.toDate();
+					}
+				}
+				if (value.equalsIgnoreCase("__CURRENT_YEAR")) {
+					if (bound==Bound.UPPER) {
+						return (Date)range.getUpperBound();
+					} else {
+						LocalDate localUpper = new LocalDate(((Date)range.getUpperBound()).getTime());
+						LocalDate date = localUpper.withMonthOfYear(1).withDayOfMonth(1);
+						return date.toDate();
+					}
+				}
+				if (value.equalsIgnoreCase("__PREVIOUS_MONTH")) {// the previous complete month
+					if (bound==Bound.UPPER) {
+						LocalDate localUpper = new LocalDate(((Date)range.getUpperBound()).getTime());
+						LocalDate date = localUpper.withDayOfMonth(1).minusDays(1);
+						return date.toDate();
+					} else {
+						LocalDate localUpper = new LocalDate(((Date)range.getUpperBound()).getTime());
+						LocalDate date = localUpper.withDayOfMonth(1).minusMonths(1);
+						return date.toDate();
+					}
+				}
+				if (value.equalsIgnoreCase("__PREVIOUS_YEAR")) {// the previous complete month
+					if (bound==Bound.UPPER) {
+						LocalDate localUpper = new LocalDate(((Date)range.getUpperBound()).getTime());
+						LocalDate date = localUpper.withMonthOfYear(1).withDayOfMonth(1).minusDays(1);
+						return date.toDate();
+					} else {
+						LocalDate localUpper = new LocalDate(((Date)range.getUpperBound()).getTime());
+						LocalDate date = localUpper.withMonthOfYear(1).withDayOfMonth(1).minusYears(1);
+						return date.toDate();
 					}
 				}
 			}
