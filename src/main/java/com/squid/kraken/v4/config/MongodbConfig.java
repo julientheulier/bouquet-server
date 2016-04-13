@@ -30,7 +30,7 @@ public class MongodbConfig{
 				+ user + ", password=" + password + ", port=" + port + "]";
 	}
 	public MongodbConfig(String host, String dbname, String user,
-			String password, int port) {
+			String password, String port) {
 		super();
 		this.host = host;
 		this.dbname = dbname;
@@ -65,17 +65,17 @@ public class MongodbConfig{
 	public void setPassword(String password) {
 		this.password = password;
 	}
-	public int getPort() {
+	public String getPort() {
 		return port;
 	}
-	public void setPort(int port) {
+	public void setPort(String port) {
 		this.port = port;
 	}
 	String host;
 	String dbname;
 	String user;
 	String password;
-	int port;
+	String port;
 }
 
 

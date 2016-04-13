@@ -53,7 +53,6 @@ import com.squid.core.sql.render.IPiece;
 import com.squid.core.sql.render.ISelectPiece;
 import com.squid.core.sql.render.IWherePiece;
 import com.squid.core.sql.render.OperatorPiece;
-import com.squid.core.sql.render.RenderingException;
 import com.squid.core.sql.render.SubSelectReferencePiece;
 import com.squid.core.sql.render.WherePiece;
 import com.squid.core.sql.statements.FromSelectStatementPiece;
@@ -331,6 +330,39 @@ public class SimpleQuery extends BaseQuery {
 		} else {
 			throw new SQLScopeException("cannot join the measure using that axis");
 		}
+	}
+    
+    /**
+     * join this query with the inner SimpleQuery based on the axes equi-
+     * join
+     * @param axes
+     * @param inner
+     * @return
+     * @throws SQLScopeException
+     * @throws ScopeException
+     */
+    public FromSelectStatementPiece join(List<Axis> axes, SimpleQuery inner) throws SQLScopeException, ScopeException {
+		FromSelectStatementPiece from = select.from(inner.select);
+		//
+		for (Axis axis : axes) {
+			AxisMapping m = inner.getMapper().find(axis);
+			if (m!=null) {
+				ISelectPiece source = m.getPiece();
+				ExpressionAST expr = axis.getDefinition();//ExpressionResolver.resolve(select.getMainSubject(),x);
+				IPiece target = select.createPiece(Context.WHERE, expr);
+				//
+				// compute the join
+				IPiece[] p = new IPiece[2];
+				p[0] = new SubSelectReferencePiece(from,source);
+				p[1] = target;
+				IPiece where = new OperatorPiece(OperatorScope.getDefault().lookupByID(IntrinsicOperators.EQUAL),p);
+				select.getStatement().getConditionalPieces().add(new WherePiece(where));
+			} else {
+				throw new SQLScopeException("cannot join the queries using that axis");
+			}
+		}
+		//
+		return from;
 	}
 
 	public void select(Measure measure) throws ScopeException, SQLScopeException {

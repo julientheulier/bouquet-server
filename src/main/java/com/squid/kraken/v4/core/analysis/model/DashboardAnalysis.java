@@ -49,7 +49,10 @@ public class DashboardAnalysis extends Dashboard {
 	private ArrayList<OrderBy> orders = new ArrayList<OrderBy>();
 	private Long limit = null;
 	private Long offset = null;
-	
+
+	private List<GroupByAxis> beyondLimit = new ArrayList<>();
+	// T0126 & T1042: in case of beyondLimit + compareTo we need to use a different selection for computing the limit subquery
+	private DashboardSelection beyodLimitSelection = null;
 	
 	private boolean lazy = false;
 	
@@ -110,6 +113,30 @@ public class DashboardAnalysis extends Dashboard {
     public boolean hasLimit() {
         return limit!=null;
     }
+    
+    public void beyondLimit(GroupByAxis axis) {
+    	beyondLimit.add(axis);
+    }
+    
+    public List<GroupByAxis> getBeyondLimit() {
+    	return beyondLimit;
+    }
+    
+    public void setBeyondLimit(List<GroupByAxis> beyondLimit) {
+		this.beyondLimit = beyondLimit;
+	}
+    
+    public boolean hasBeyondLimit() {
+    	return beyondLimit!=null && !beyondLimit.isEmpty();
+    }
+    
+    public void setBeyodLimitSelection(DashboardSelection beyodLimitSelection) {
+		this.beyodLimitSelection = beyodLimitSelection;
+	}
+    
+    public DashboardSelection getBeyodLimitSelection() {
+		return beyodLimitSelection;
+	}
     
     public void offset(long offset) {
         this.offset = offset;
@@ -191,6 +218,12 @@ public class DashboardAnalysis extends Dashboard {
 			for (OrderBy order : orders) {
 				buffer.append(" ").append(order.getExpression().prettyPrint()+" "+order.getOrdering().toString());
 			}
+		}
+		if (limit!=null) {
+			buffer.append("\nLimit "+limit);
+		}
+		if (offset!=null) {
+			buffer.append("\nOffset "+offset);
 		}
 		return buffer.toString();
 	}

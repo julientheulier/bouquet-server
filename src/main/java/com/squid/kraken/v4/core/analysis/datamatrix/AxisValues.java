@@ -23,8 +23,8 @@
  *******************************************************************************/
 package com.squid.kraken.v4.core.analysis.datamatrix;
 
+import java.util.ArrayList;
 import java.util.Collection;
-import java.util.LinkedList;
 import java.util.concurrent.ConcurrentSkipListSet;
 
 import com.squid.core.sql.render.IOrderByPiece.ORDERING;
@@ -41,7 +41,7 @@ import com.squid.kraken.v4.core.analysis.universe.Axis;
 public class AxisValues {
 	
 	private Axis axis;
-	private ConcurrentSkipListSet<Object> values = new ConcurrentSkipListSet<Object>();
+	private ConcurrentSkipListSet<Object> values = null;
 	private boolean isVisible = true;
 	private ORDERING ordering;
 
@@ -60,8 +60,15 @@ public class AxisValues {
 	public Axis getAxis() {
 		return axis;
 	}
+	
+	public boolean hasValues() {
+		return values!=null;
+	}
 
 	public Collection<Object> getValues() {
+		if (values==null) {
+			values = new ConcurrentSkipListSet<Object>();
+		}
 		return values;
 	}
 	
@@ -87,7 +94,7 @@ public class AxisValues {
 	}
 
 	public Collection<DimensionMember> getMembers() throws ComputingException, InterruptedException {
-		LinkedList<DimensionMember> members = new LinkedList<DimensionMember>();
+		ArrayList<DimensionMember> members = new ArrayList<DimensionMember>(values.size());
 		DimensionIndex dimIndex = axis.getIndex();
 		for (Object value : values) {
 			DimensionMember member = dimIndex.getMemberByID(value);

@@ -79,6 +79,7 @@ public class IndirectionRow implements Comparable<IndirectionRow>  {
  			if (this.getAxisValue(i)!=null && irthat.getAxisValue(i)==null) return 1;
  			if (this.getAxisValue(i)==null && irthat.getAxisValue(i)==null) return 0;
  			if ((this.getAxisValue(i) instanceof Comparable) && (irthat.getAxisValue(i) instanceof Comparable)) {
+ 				@SuppressWarnings({ "unchecked", "rawtypes" })
  				int cc = ((Comparable)this.getAxisValue(i)).compareTo(((Comparable)irthat.getAxisValue(i)));
  				if (cc!=0) 
  					return cc;
@@ -112,6 +113,14 @@ public class IndirectionRow implements Comparable<IndirectionRow>  {
     
     public Object getDataValue(int i) {
         return rawrow[dataIndirection[i]];
+    }
+    
+    public Object getValue(int i) {
+    	if (i<axesIndirection.length) {
+    		return rawrow[axesIndirection[i]];
+    	} else {
+            return rawrow[dataIndirection[i-axesIndirection.length]];
+    	}
     }
     
     public int getDataCount() {

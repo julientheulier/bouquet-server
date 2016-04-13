@@ -81,6 +81,8 @@ public class ProjectAnalysisJob extends JobBaseImpl<ProjectAnalysisJobPK, DataTa
 	private Long offset;
 
 	private Long limit;
+	
+	private List<Index> beyondLimit;
 
 	private String redisKey;
 	
@@ -221,6 +223,14 @@ public class ProjectAnalysisJob extends JobBaseImpl<ProjectAnalysisJobPK, DataTa
 	public void setLimit(Long limit) {
 		this.limit = limit;
 	}
+	
+	public List<Index> getBeyondLimit() {
+		return beyondLimit;
+	}
+	
+	public void setBeyondLimit(List<Index> noLimit) {
+		this.beyondLimit = noLimit;
+	}
 
 	@XmlTransient
 	@JsonIgnore
@@ -272,6 +282,31 @@ public class ProjectAnalysisJob extends JobBaseImpl<ProjectAnalysisJobPK, DataTa
 		return "ProjectAnalysisJob [id=" + id.getAnalysisJobId() + "]";
 	}
 	
+	@ApiModel(description="a Index allows to identify a dimension by its position in the Analysis. The dimension is defined by its indice in the analysis job, starting at 0.")
+    public static class Index implements Serializable {
+
+    	private Integer col;
+        
+        public Index() {
+            super();
+        }
+        
+        public Index(int col) {
+            super();
+            this.col = col;
+        }
+
+        @ApiModelProperty(value="the indice of the dimension.",example="0")
+        public Integer getCol() {
+            return col;
+        }
+
+        public void setCol(Integer col) {
+            this.col = col;
+        }
+        
+    }
+	
     static public enum Direction {
         ASC, DESC
     };
@@ -291,9 +326,7 @@ public class ProjectAnalysisJob extends JobBaseImpl<ProjectAnalysisJobPK, DataTa
      *
      */
     @ApiModel(description="a Rollup allows to specify which dimension to use for the sub-total level. The dimension is defined by its indice in the analysis job, starting at 0. In order to compute a grand-total, use indice -1. It is also possible to define how to sort sub-total using the position, default to FIRST.")
-    public static class RollUp implements Serializable {
-
-    	private Integer col;
+    public static class RollUp extends Index {
     	
     	private Position position = Position.FIRST;
         
@@ -303,11 +336,7 @@ public class ProjectAnalysisJob extends JobBaseImpl<ProjectAnalysisJobPK, DataTa
 
         @ApiModelProperty(value="the indice of the dimension to rollup on, or -1 to compute a grand-total.",example="0")
         public Integer getCol() {
-            return col;
-        }
-
-        public void setCol(Integer col) {
-            this.col = col;
+            return super.getCol();
         }
         
         @ApiModelProperty(value="define how to sort the sub-total, either before the detailled data (FIRST) or after (LAST)",example="FIRST",allowableValues="FIRST,LAST")
@@ -326,9 +355,8 @@ public class ProjectAnalysisJob extends JobBaseImpl<ProjectAnalysisJobPK, DataTa
      * @author sergefantino
      *
      */
-	public static class OrderBy implements Serializable {
+	public static class OrderBy extends Index {
 	    
-		private Integer col;
 		private Expression expression;
 		private Direction direction;
 		
@@ -337,11 +365,12 @@ public class ProjectAnalysisJob extends JobBaseImpl<ProjectAnalysisJobPK, DataTa
 		}
 		
 		public OrderBy(int col, Direction direction) {
-			this.col = col;
+			super(col);
 			this.direction = direction;
 		}
 		
 		public OrderBy(Expression expression, Direction direction) {
+			super();
 			this.expression = expression;
 			this.direction = direction;
 		}
@@ -352,11 +381,7 @@ public class ProjectAnalysisJob extends JobBaseImpl<ProjectAnalysisJobPK, DataTa
 		 */
 		@ApiModelProperty(value="the indice of the expression to order-by, or null if it is defined by a expression.")
 		public Integer getCol() {
-			return col;
-		}
-
-		public void setCol(Integer col) {
-			this.col = col;
+			return super.getCol();
 		}
 
 		@ApiModelProperty(value="the direction to order-by",example="ASC",allowableValues="ASC,DESC")

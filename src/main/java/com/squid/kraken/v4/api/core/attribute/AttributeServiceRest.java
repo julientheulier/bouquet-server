@@ -149,7 +149,7 @@ public class AttributeServiceRest extends BaseServiceRest {
 			@PathParam("domainId") String domainId,
 			@PathParam("dimensionId") String dimensionId,
 			@PathParam(PARAM_NAME) String attributeId,
-			Set<AccessRight> accessRights) {
+			@ApiParam(required = true) Set<AccessRight> accessRights) {
 		return delegate.storeAccessRights(userContext, new AttributePK(
 				userContext.getCustomerId(), projectId, domainId, dimensionId,
 				attributeId), accessRights);

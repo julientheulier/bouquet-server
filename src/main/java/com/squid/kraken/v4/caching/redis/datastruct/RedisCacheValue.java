@@ -38,7 +38,19 @@ public class RedisCacheValue {
 	
 	public static final int VERSION = 3;
 	
+	private transient String redisKey = null;
+
+	
 	public RedisCacheValue(){
+	}
+	
+
+	public String getRedisKey() {
+		return redisKey;
+	}
+
+	public void setRedisKey(String redisKey) {
+		this.redisKey = redisKey;
 	}
 	
     public static RedisCacheValue deserialize(byte[] serializedVal) throws IOException, ClassNotFoundException{

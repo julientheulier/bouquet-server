@@ -37,9 +37,9 @@ import com.squid.kraken.v4.core.analysis.universe.Axis;
 public class JoinMerger extends Merger {
 	
 	private Axis join = null;
-	private boolean joinIsAColumn = false;
 	private int joinIndex = -1;
 	private AxisValues joinRight = null;
+	private boolean hasJoinColumn;
 	
 	/**
 	 * The JoinMerger will merge 2 DataMatrices to compare the output.
@@ -57,14 +57,13 @@ public class JoinMerger extends Merger {
 			int i = 0;
 			for (AxisValues av : left.getAxes()) {
 				if (av.getAxis().equals(join)) {
-					joinIsAColumn = true;
+					hasJoinColumn = true;
 					joinIndex = i;
+					joinRight = new AxisValues(right.getAxes().get(joinIndex));
+					joinRight.setVisible(false);
 					break;
 				}
 				i++;
-			}
-			if (joinIsAColumn) {
-				joinRight = right.getAxes().get(joinIndex);
 			}
 		}
 	}
@@ -102,7 +101,7 @@ public class JoinMerger extends Merger {
 	
 	@Override
 	protected IndirectionRow createDefaultIndirectionRow() {
-		if (joinIsAColumn) {
+		if (joinRight!=null) {
 			// add the join copy for comparison
 			return createDefaultIndirectionRow(left.getAxes().size()+1,left.getDataSize()+right.getDataSize());
 		} else {
@@ -125,11 +124,13 @@ public class JoinMerger extends Merger {
 			// copy axes
 			int rrInd = 0;
 			for (int i = 0; i < right.getAxesCount(); i++) {
-				if (joinIsAColumn && i==joinIndex) {
+				if (hasJoinColumn && i==joinIndex) {
 					merged.rawrow[rrInd] = translateRightToLeft(right.getAxisValue(i));
 					rrInd++;
-					merged.rawrow[rrInd] = right.getAxisValue(i);
-					rrInd++;
+					if (joinRight!=null) {// if the join (compare) column is present
+						merged.rawrow[rrInd] = right.getAxisValue(i);
+						rrInd++;
+					}
 				} else {
 					merged.rawrow[rrInd] = right.getAxisValue(i);
 					rrInd++;
@@ -145,17 +146,14 @@ public class JoinMerger extends Merger {
 			// copy axes
 			int rrInd = 0;
 			for (int i = 0; i < left.getAxesCount(); i++) {
-				if (joinIsAColumn && i==joinIndex) {
-					merged.rawrow[rrInd] = left.getAxisValue(i);
-					rrInd++;
+				merged.rawrow[rrInd] = left.getAxisValue(i);
+				rrInd++;
+				if (joinRight!=null && i==joinIndex) {
 					if (right!=null) {
 						merged.rawrow[rrInd] = right.getAxisValue(i);
 					} else {
 						merged.rawrow[rrInd] = translateLeftToRight(left.getAxisValue(i));
 					}
-					rrInd++;
-				} else {
-					merged.rawrow[rrInd] = left.getAxisValue(i);
 					rrInd++;
 				}
 			}
@@ -184,7 +182,7 @@ public class JoinMerger extends Merger {
 		for (AxisValues ax : left.getAxes()) {
 			merge.add(ax);
 			// add the compare
-			if (joinIsAColumn && ax.getAxis().equals(join)) {
+			if (joinRight!=null && ax.getAxis().equals(join)) {
 				merge.add(joinRight);
 			}
 		}
