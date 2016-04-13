@@ -145,7 +145,7 @@ public class AnalysisCompute {
 			}
 			return dm;
 		} else if (analysis.getSelection().hasCompareToSelection()) {
-			return computeCompareToAnalysis(analysis);
+			return computeAnalysisCompareTo(analysis);
 		} else {
 			// disable the optimizing when using the limit feature
 			@SuppressWarnings("unused")
@@ -156,7 +156,7 @@ public class AnalysisCompute {
 	}
 
 	// handle compare T947
-	public DataMatrix computeCompareToAnalysis(DashboardAnalysis currentAnalysis) throws ScopeException, ComputingException, SQLScopeException, InterruptedException {
+	public DataMatrix computeAnalysisCompareTo(DashboardAnalysis currentAnalysis) throws ScopeException, ComputingException, SQLScopeException, InterruptedException {
 		// preparing the selection
 		DashboardSelection presentSelection = currentAnalysis.getSelection();
 		DomainSelection compare = presentSelection.getCompareToSelection();

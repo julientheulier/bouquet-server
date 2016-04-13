@@ -365,10 +365,11 @@ public class DataMatrix {
 		final List<Integer> ordering = new ArrayList<>();
 		final List<ORDERING> direction = new ArrayList<>();
 		for (OrderBy item : orderBy) {
+			ExpressionAST itemExpr = item.getExpression();
 			int pos = 0;
 			boolean check = false;
 			for (AxisValues axis : this.axes) {
-				if (axis.getAxis().getReference().equals(item.getExpression())) {
+				if (axis.getAxis().getReference().equals(itemExpr)) {
 					ordering.add(pos);
 					direction.add(item.getOrdering());
 					check = true;
@@ -380,14 +381,14 @@ public class DataMatrix {
 			if (!check) {
 				// try the kpis
 				for (Measure kpi : getKPIs()) {
-					if (kpi.getReference().equals(item.getExpression())) {
+					if (kpi.getReference().equals(itemExpr)) {
 						ordering.add(pos);
 						direction.add(item.getOrdering());
 						check = true;
 						break;
 					}
+					pos++;
 				}
-				pos++;
 			}
 		}
 		final int size = ordering.size();
