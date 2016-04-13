@@ -246,9 +246,7 @@ public class EngineUtils {
 					if (bound==Bound.UPPER) {
 						return (Date)range.getUpperBound();
 					} else {
-						LocalDate localUpper = new LocalDate(((Date)range.getUpperBound()).getTime());
-						LocalDate date = localUpper.minusDays(1);
-						return date.toDate();
+						return (Date)range.getUpperBound();
 					}
 				}
 				if (value.equalsIgnoreCase("__LAST_7_DAYS")) {
@@ -256,7 +254,7 @@ public class EngineUtils {
 						return (Date)range.getUpperBound();
 					} else {
 						LocalDate localUpper = new LocalDate(((Date)range.getUpperBound()).getTime());
-						LocalDate date = localUpper.minusDays(7);
+						LocalDate date = localUpper.minusDays(6);// 6+1
 						return date.toDate();
 					}
 				}
