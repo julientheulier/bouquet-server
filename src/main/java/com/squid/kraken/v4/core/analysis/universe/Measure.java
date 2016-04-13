@@ -25,9 +25,11 @@ package com.squid.kraken.v4.core.analysis.universe;
 
 import com.squid.core.database.domain.TableDomain;
 import com.squid.core.domain.IDomain;
+import com.squid.core.domain.aggregate.AggregateDomain;
 import com.squid.core.domain.associative.AssociativeDomainInformation;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.UndefinedExpression;
+import com.squid.core.expression.scope.ExpressionMaker;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.core.analysis.scope.AnalysisScope;
 import com.squid.kraken.v4.core.analysis.scope.MeasureExpression;
@@ -68,21 +70,34 @@ public class Measure implements Property {
 		if (source.isInstanceOf(DomainDomain.DOMAIN)) {
 		    DomainDomain domain = (DomainDomain)source;
 		    if (!this.parent.getDomain().equals(domain.getDomain())) {
-                throw new ScopeException("Invalid expression: incompatible domain");
+                throw new ScopeException("Invalid expression: incompatible domain for "+definition.prettyPrint());
 		    }
 		} else if (source.isInstanceOf(TableDomain.DOMAIN)) {
 		    TableDomain domain = (TableDomain)source;
 		    if (!this.parent.getTable().equals(domain.getTable())) {
-                throw new ScopeException("Invalid expression: incompatible domain");
+                throw new ScopeException("Invalid expression: incompatible domain for "+definition.prettyPrint());
 		    }
 		} else {
-            throw new ScopeException("Invalid expression: incompatible domain");
+            throw new ScopeException("Invalid expression: incompatible domain for "+definition.prettyPrint());
         }
-		// TODO: check the image domain too ???
 		//
 		this.metric = null;
-		this.definition = definition;
 		this.ID = (parent!=null?parent.getID()+"/":"")+definition.prettyPrint();
+		setDefinition(definition);
+	}
+	
+	private void setDefinition(ExpressionAST definition) throws ScopeException {
+		// check the image domain
+		IDomain image = definition.getImageDomain();
+		if (!image.isInstanceOf(AggregateDomain.AGGREGATE)) {
+			// if it's numeric domain, SUM it
+			if (image.isInstanceOf(IDomain.NUMERIC)) {
+				definition = ExpressionMaker.SUM(definition);
+			} else {
+				throw new ScopeException("Invalid expression: incompatible type for "+definition.prettyPrint());
+			}
+		}
+		this.definition = definition;
 	}
 	
 	protected Measure(Space parent, Metric metric) {
@@ -153,11 +168,9 @@ public class Measure implements Property {
 	public ExpressionAST getDefinition() throws ScopeException {
 		if (this.definition==null) {
 			ExpressionAST measure = getParent().getUniverse().getParser().parse(getParent().getDomain(), metric);
-			this.definition = parent.compose(measure);
-			return this.definition;
-		} else {
-			return this.definition;
+			setDefinition(parent.compose(measure));
 		}
+		return this.definition;
 	}
 	
 	/**
