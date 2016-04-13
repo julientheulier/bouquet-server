@@ -34,6 +34,7 @@ import java.util.Date;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
 import java.util.StringTokenizer;
 import java.util.TimeZone;
 import java.util.regex.Matcher;
@@ -45,6 +46,7 @@ import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.xml.bind.DatatypeConverter;
 
+import com.squid.kraken.v4.api.core.user.UserServiceBaseImpl;
 import org.apache.commons.lang3.StringUtils;
 import org.bson.types.ObjectId;
 import org.slf4j.Logger;
@@ -135,6 +137,19 @@ public class ServiceUtils {
 			}
 		}
 		return match;
+	}
+
+	public Boolean checkforSuperUserRootUserContext() {
+		for (AppContext ctx : rootUsers.values()){
+			List<User> users = UserServiceBaseImpl.getInstance().readAll(ctx);
+			for(User user : users){
+				if(user.isSuperUser()){
+					return true;
+				}
+			}
+		}
+
+		return false;
 	}
 
 	public AppContext getRootUserContext(String customerId) {
