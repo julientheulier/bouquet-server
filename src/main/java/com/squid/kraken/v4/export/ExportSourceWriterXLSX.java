@@ -39,7 +39,6 @@ import com.squid.core.jdbc.vendor.IVendorSupport;
 import com.squid.core.jdbc.vendor.VendorSupportRegistry;
 import com.squid.core.poi.ExcelSettingsBean;
 import com.squid.core.poi.ExcelWriter;
-import com.squid.core.poi.TooManyRowsException;
 import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
 import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValuesList;
 import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
@@ -88,8 +87,6 @@ public class ExportSourceWriterXLSX implements ExportSourceWriter {
       logger.warn(e.getMessage(), e);
     } catch (IOException e) {
       logger.warn(e.getMessage(), e);
-    } catch (TooManyRowsException e) {
-      logger.error(e.getMessage(), e);
     } finally {
       if (writer != null) {
         try {
@@ -148,9 +145,6 @@ public class ExportSourceWriterXLSX implements ExportSourceWriter {
       logger.warn(e.getMessage(), e);
     } catch (IOException e) {
       logger.warn(e.getMessage(), e);
-    } catch (TooManyRowsException e) {
-      logger.error(e.getMessage(), e);
-      e.printStackTrace();
     } finally {
       if (writer != null) {
         try {
