@@ -346,21 +346,7 @@ public class HierarchyQuery extends BaseQuery {
 		}
 		
 		if(logger.isDebugEnabled()){logger.debug(("# axes " + dx_map.size() + " #columns in raw " + rawMatrix.getRows().size()));}
-		
-		//created indirection row
-/*		int[] axesIndirection = new int[rawMatrix.getRows().size()];
-		for (int i = 0; i <dx_map.size() ; i++)
-			for(DimensionMapping m : this.dx_map){
-				if(m instanceof ContinuousDimensionMapping){
-					axesIndirection[i] = ((ContinuousDimensionMapping) m).getKmin().getIndex();
-					i++;				
-					axesIndirection[i] = ((ContinuousDimensionMapping) m).getKmax().getIndex();
-					i++;
-				}else{
-					axesIndirection[i] = m.getIndex();
-					i++;
-				}
-			} */
+
 		int[] axesIndirection = new int[dx_map.size()];
 			
 		for (RawRow row : rawMatrix.getRows() ) {
@@ -377,7 +363,7 @@ public class HierarchyQuery extends BaseQuery {
 					if (min==null && max==null) {
 						unbox= null;
 					} else if (min instanceof Comparable && max instanceof Comparable) {
-						unbox = new IntervalleObject((Comparable<?>)min, (Comparable)max);
+						unbox = new IntervalleObject((Comparable<?>)min, (Comparable<?>)max);
 					} else {
 						unbox= new IntervalleExpression(min, max);
 					}
@@ -388,17 +374,13 @@ public class HierarchyQuery extends BaseQuery {
 				}
 				if (unbox!=null) {
 					DimensionMember member = m.getDimensionIndex().getMemberByID(unbox);
-					int k=0;
 					if (!m.getDimensionIndex().getAttributes().isEmpty()) {
-						for (Attribute attr : m.getDimensionIndex().getAttributes()) {
-//							SimpleMapping s = m.getMapping(attr.getId().getAttributeId());
+						for (int k=0; k<m.getDimensionIndex().getAttributes().size();k++) {
 							Object aunbox = row.getData()[indexSrcRow];
-							member.setAttribute(k++,aunbox);
+							member.setAttribute(k,aunbox);
 							indexSrcRow++;
 						}
 					}
-					//m.getDimensionIndex().index(member);// disabling search service
-					m.getAxisData().getValues().add(member.getID());	
 					row_axis[indexDstRow] = member.getID();
 				}
 				axesIndirection[indexDstRow] = indexDstRow;
