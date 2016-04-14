@@ -65,6 +65,7 @@ public class RawMatrix extends RedisCacheValue {
 	private transient int version = VERSION;
 	private transient HashMap<String, Integer> registration;
 
+	private transient static int maxChunkSizeInMB = 50;
 
 	static final Logger logger = LoggerFactory.getLogger(RawMatrix.class);
 
@@ -159,6 +160,10 @@ public class RawMatrix extends RedisCacheValue {
 
 	public void setColNames(ArrayList<String> colNames) {
 		this.colNames = colNames;
+	}
+	
+	public static void setMaxChunkSizeInMB(int size){
+		maxChunkSizeInMB = size;
 	}
 
 	@Override
@@ -457,8 +462,8 @@ public class RawMatrix extends RedisCacheValue {
 			// if max chunk size of 50MB reached, stop 
 			if(count % 100 ==0){	
 				float size = Math.round(baout.size() / 1048576);
-				if (size >= 50) {
-					logger.info("Max size of 50MB for one chunk reached");
+				if (size >= maxChunkSizeInMB) {
+					logger.info("Max size of " + maxChunkSizeInMB+ "MB for one chunk reached");
 					maxSizeReached = true;
 				}
 			}

@@ -24,7 +24,6 @@
 package com.squid.kraken.v4.caching.redis;
 
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
 
 import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
@@ -33,7 +32,7 @@ import com.squid.kraken.v4.caching.redis.generationalkeysserver.RedisKey;
 
 public interface IRedisCacheManager {
 
-	public void setConfig(AWSRedisCacheConfig confCache);
+	public void setConfig(RedisCacheConfig confCache);
 
 	public void startCacheManager();
 

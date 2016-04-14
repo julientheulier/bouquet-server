@@ -26,7 +26,7 @@ package com.squid.kraken.v4.caching.redis.queryworkerserver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.squid.kraken.v4.caching.redis.AWSRedisCacheConfig;
+import com.squid.kraken.v4.caching.redis.RedisCacheConfig;
 import com.squid.kraken.v4.caching.redis.ServerID;
 
 
@@ -42,7 +42,7 @@ public class QueryWorkerFactory {
     	logger.info("getting query worker");
     	return instServ;
     }
-    public IQueryWorkerServer getNewQueryWorkerServer(AWSRedisCacheConfig conf, ServerID id, boolean onLocalhost){
+    public IQueryWorkerServer getNewQueryWorkerServer(RedisCacheConfig conf, ServerID id, boolean onLocalhost){
     	if(instServ == null){
 	    	if (conf.getDebug()){
 	    		if (onLocalhost || id.port==-1 ){

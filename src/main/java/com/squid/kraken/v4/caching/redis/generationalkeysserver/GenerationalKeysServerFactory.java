@@ -26,7 +26,7 @@ package com.squid.kraken.v4.caching.redis.generationalkeysserver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.squid.kraken.v4.caching.redis.AWSRedisCacheConfig;
+import com.squid.kraken.v4.caching.redis.RedisCacheConfig;
 
 
 public class GenerationalKeysServerFactory {
@@ -41,7 +41,7 @@ public class GenerationalKeysServerFactory {
         	 return GenerationalKeysServerFactory.instServ;
     }
      
-    public IGenerationalKeysServer getNewGenerationalKeysServer(AWSRedisCacheConfig conf, boolean onLocalhost){
+    public IGenerationalKeysServer getNewGenerationalKeysServer(RedisCacheConfig conf, boolean onLocalhost){
     	if (instServ== null){
     		if (onLocalhost ||  conf.getGenerationalKeysServerID().port ==-1){
     			instServ=  new GenerationalKeysServer(conf.getRedisID());

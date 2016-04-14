@@ -27,7 +27,6 @@ import org.apache.cxf.jaxrs.client.WebClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.squid.kraken.v4.caching.redis.ServerID;
 
 public class QueryWorkerServerStub implements IQueryWorkerServer {

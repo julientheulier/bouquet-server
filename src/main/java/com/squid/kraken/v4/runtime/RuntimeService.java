@@ -33,7 +33,7 @@ import org.slf4j.LoggerFactory;
 import com.squid.kraken.v4.KrakenConfig;
 import com.squid.kraken.v4.ESIndexFacade.ESIndexFacadeConfiguration;
 import com.squid.kraken.v4.api.core.ServiceUtils;
-import com.squid.kraken.v4.caching.redis.AWSRedisCacheConfig;
+import com.squid.kraken.v4.caching.redis.RedisCacheConfig;
 import com.squid.kraken.v4.caching.redis.CacheInitPoint;
 import com.squid.kraken.v4.caching.redis.RedisCacheManager;
 import com.squid.kraken.v4.core.analysis.engine.index.DimensionStoreManagerFactory;
@@ -62,21 +62,21 @@ public class RuntimeService {
         }
         facets.addAll(Arrays.asList(facetsStr.split(",")));
         
-        AWSRedisCacheConfig conf;
+        RedisCacheConfig conf;
 
         try {
             String configFile = System.getProperty("kraken.cache.config.json");
             if (configFile != null) {
                 logger.info(configFile);
-                conf = AWSRedisCacheConfig.loadFromjson(System
+                conf = RedisCacheConfig.loadFromjson(System
                         .getProperty("kraken.cache.config.json"));
                 logger.info(conf.getAppName());
             } else {
-                conf = AWSRedisCacheConfig.getDefault();
+                conf = RedisCacheConfig.getDefault();
             }
         } catch (IOException e) {
             e.printStackTrace();
-            conf = AWSRedisCacheConfig.getDefault();
+            conf = RedisCacheConfig.getDefault();
         }
 
         if (facets.contains("front")) {

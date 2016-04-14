@@ -60,7 +60,7 @@ public class CacheInitPoint {
 	private static boolean isWorker = false;
 	private static boolean isManager = false;
 	
-	public void start(AWSRedisCacheConfig conf, HashSet<String> facets) {
+	public void start(RedisCacheConfig conf, HashSet<String> facets) {
 		logger.info("CACHE INITALIZATION 15-01-2015");
         try{
 	        if (facets.contains("queries")){        		

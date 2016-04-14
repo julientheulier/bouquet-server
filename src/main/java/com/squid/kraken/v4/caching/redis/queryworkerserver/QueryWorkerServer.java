@@ -39,20 +39,18 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.squid.kraken.v4.core.database.impl.DatabaseServiceImpl;
 import com.squid.core.jdbc.engine.IExecutionItem;
-import com.squid.kraken.v4.KrakenConfig;
-import com.squid.kraken.v4.caching.redis.RedisCacheManager;
-import com.squid.kraken.v4.caching.redis.datastruct.RawMatrixStreamExecRes;
-import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValuesList;
-import com.squid.kraken.v4.caching.redis.AWSRedisCacheConfig;
 import com.squid.kraken.v4.caching.redis.IRedisCacheProxy;
+import com.squid.kraken.v4.caching.redis.RedisCacheConfig;
 import com.squid.kraken.v4.caching.redis.RedisCacheException;
 import com.squid.kraken.v4.caching.redis.RedisCacheProxy;
 import com.squid.kraken.v4.caching.redis.ServerID;
 import com.squid.kraken.v4.caching.redis.SimpleDatabaseManager;
 import com.squid.kraken.v4.caching.redis.datastruct.ChunkRef;
 import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
+import com.squid.kraken.v4.caching.redis.datastruct.RawMatrixStreamExecRes;
+import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValuesList;
+import com.squid.kraken.v4.core.database.impl.DatabaseServiceImpl;
 
 public class QueryWorkerServer implements IQueryWorkerServer {
 
@@ -84,7 +82,7 @@ public class QueryWorkerServer implements IQueryWorkerServer {
 
 
 
-	public QueryWorkerServer(AWSRedisCacheConfig conf) {
+	public QueryWorkerServer(RedisCacheConfig conf) {
 		this.load = new AtomicInteger(0);
 		this.executor = Executors.newFixedThreadPool(threadPoolSize);
 
@@ -95,7 +93,11 @@ public class QueryWorkerServer implements IQueryWorkerServer {
 		this.managers = new HashMap<String, SimpleDatabaseManager>();
 		this.maxRecords = conf.getMaxRecord();
 		this.defaultTTLinSec = conf.getTtlInSecond();
+	
+		RawMatrix.setMaxChunkSizeInMB(conf.getMaxChunkSizeInMByte());
+
 		logger.info("New Query Worker "+ this.host + " "+ this.port) ;
+	
 	}
 
 	public void start(){

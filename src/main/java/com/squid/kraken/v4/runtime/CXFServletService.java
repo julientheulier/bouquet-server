@@ -47,7 +47,7 @@ import com.squid.kraken.v4.ESIndexFacade.ESIndexFacadeConfiguration;
 import com.squid.kraken.v4.api.core.ServiceUtils;
 import com.squid.kraken.v4.api.core.customer.AdminServiceRest;
 import com.squid.kraken.v4.api.core.customer.CustomerServiceRest;
-import com.squid.kraken.v4.caching.redis.AWSRedisCacheConfig;
+import com.squid.kraken.v4.caching.redis.RedisCacheConfig;
 import com.squid.kraken.v4.caching.redis.CacheInitPoint;
 import com.squid.kraken.v4.caching.redis.RedisCacheManager;
 import com.squid.kraken.v4.config.KrakenConfigV2;
@@ -149,14 +149,14 @@ public class CXFServletService extends CXFNonSpringJaxrsServlet {
 			}
 		}
 
-		AWSRedisCacheConfig conf;
+		RedisCacheConfig conf;
 
 		try {
 			String configFile = System.getProperty("kraken.cache.config.json");
 			String krakenConfigV2file = System.getProperty("bouquet.config.file");
 			
 			if(configFile== null && krakenConfigV2file == null){
-				conf = AWSRedisCacheConfig.getDefault();
+				conf = RedisCacheConfig.getDefault();
 				
 			} else{
 				if (krakenConfigV2file != null){
@@ -164,19 +164,19 @@ public class CXFServletService extends CXFNonSpringJaxrsServlet {
 					if (krakenConf.getCache() != null){ 
 						conf = krakenConf.getCache();
 					}else{
-						conf = AWSRedisCacheConfig.getDefault();
+						conf = RedisCacheConfig.getDefault();
 					}
 			
 				}else {
 					logger.info(configFile);
-					conf = AWSRedisCacheConfig.loadFromjson(System
+					conf = RedisCacheConfig.loadFromjson(System
 							.getProperty("kraken.cache.config.json"));
 					logger.info(conf.getAppName());
 				}
 			}	
 		} catch (IOException e) {
 			e.printStackTrace();
-			conf = AWSRedisCacheConfig.getDefault();
+			conf = RedisCacheConfig.getDefault();
 		}
 
 		if (facets.contains("front")) {

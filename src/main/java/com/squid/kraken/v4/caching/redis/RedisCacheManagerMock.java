@@ -45,7 +45,7 @@ public class RedisCacheManagerMock implements IRedisCacheManager  {
     static final Logger logger = LoggerFactory.getLogger(RedisCacheManagerMock.class);
 
     private IRedisCacheProxy redis;
-	private AWSRedisCacheConfig conf;
+	private RedisCacheConfig conf;
 	private IQueriesServer queriesServ;
 	private IGenerationalKeysServer genkeysServ ;
 		
@@ -54,7 +54,7 @@ public class RedisCacheManagerMock implements IRedisCacheManager  {
 	public RedisCacheManagerMock(){	
 	}
 	
-	public void setConfig(AWSRedisCacheConfig confCache){
+	public void setConfig(RedisCacheConfig confCache){
 		this.conf=confCache;
 	}
 		

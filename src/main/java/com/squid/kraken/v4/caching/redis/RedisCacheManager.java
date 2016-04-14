@@ -51,7 +51,7 @@ public class RedisCacheManager implements IRedisCacheManager  {
     private static boolean isMock = false;
 
     private IRedisCacheProxy redis;
-	private AWSRedisCacheConfig conf;
+	private RedisCacheConfig conf;
 	private IQueriesServer queriesServ;
 	private IGenerationalKeysServer genkeysServ ;
 	
@@ -75,7 +75,7 @@ public class RedisCacheManager implements IRedisCacheManager  {
 		return INSTANCE;
 	}
 	
-	public void setConfig(AWSRedisCacheConfig confCache){
+	public void setConfig(RedisCacheConfig confCache){
 		this.conf=confCache;
 	}
 		
