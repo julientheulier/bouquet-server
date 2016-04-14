@@ -493,9 +493,9 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 			IDomain image = getDimensionIndex().getAxis().getDefinitionSafe().getImageDomain();
 			boolean isDate = image.isInstanceOf(IDomain.TEMPORAL);
 			for (Map<String, Object> element : elements) {
-				Comparable lower_bound = (Comparable) element
+				Comparable<?> lower_bound = (Comparable<?>) element
 						.get(idName + "_l");
-				Comparable upper_bound = (Comparable) element
+				Comparable<?> upper_bound = (Comparable<?>) element
 						.get(idName + "_u");
 				if (lower_bound != null && upper_bound != null) {
 					if (isDate) {
@@ -547,9 +547,9 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 			IDomain image = getDimensionIndex().getAxis().getDefinitionSafe().getImageDomain();
 			boolean isDate = image.isInstanceOf(IDomain.TEMPORAL);
 			for (Map<String, Object> element : elements) {
-				Comparable lower_bound = (Comparable) element
+				Comparable<?> lower_bound = (Comparable<?>) element
 						.get(idName + "_l");
-				Comparable upper_bound = (Comparable) element
+				Comparable<?> upper_bound = (Comparable<?>) element
 						.get(idName + "_u");
 				if (lower_bound != null && upper_bound != null) {
 					if (isDate) {
@@ -670,27 +670,6 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 		}
 	}
 
-	private List<DimensionMember> createDimensionMembers(
-			List<Map<String, Object>> items) {
-		ArrayList<DimensionMember> members = new ArrayList<>();
-		for (Map<String, Object> item : items) {
-			Object ID = item.get(idName_mapping);
-			if (ID != null) {
-				DimensionMember member = new DimensionMember(-1, ID.toString(),
-						getAttributeCount());
-				members.add(member);
-				for (int i = 0; i < getAttributeCount(); i++) {
-					Attribute attr = getAttributes().get(i);
-					Object value = item.get(attr.getId().getAttributeId());
-					if (value != null) {
-						member.setAttribute(i, value);
-					}
-				}
-			}
-		}
-		return members;
-	}
-
 	private List<DimensionMember> createDimensionMembers(Collection<String> IDs) {
 		ArrayList<DimensionMember> members = new ArrayList<>();
 		for (String ID : IDs) {
@@ -746,6 +725,10 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 
 	@Override
 	public DimensionMember getMemberByID(Object iD) {
+		if (iD==null) {
+			// handling NULL value
+			return new DimensionMember(-1, iD, getAttributeCount());
+		}
 		DimensionMember member = getMemberByKey(iD.toString());
 		if (member != null) {
 			return member;
