@@ -47,8 +47,17 @@ public interface Property {
      */
     public Space getParent();
     
+    /**
+     * return the definition of the object - this is done by de-referencing it
+     * @return
+     * @throws ScopeException if cannot parse the object definition
+     */
 	public ExpressionAST getDefinition() throws ScopeException;
 
+	/**
+	 * same as getDefinition() but return UndefinedExpression if cannot parse the definition instead of throwing an error
+	 * @return
+	 */
 	public ExpressionAST getDefinitionSafe();
 
 	/**
