@@ -265,6 +265,8 @@ public class DomainHierarchyManager {
 
 				DomainHierarchy check = hierarchies.remove(hierarchy.getRoot().getDomain().getId());// T595: better check if we are removing the good one
 				if (check!=null) {
+					
+					logger.info("Invalidation hierarchy for domain " +  hierarchy.getRoot().getDomain().getName());
 					check.cancel();// kill me please (but make sure it's me)
 					return null;
 				} else {
