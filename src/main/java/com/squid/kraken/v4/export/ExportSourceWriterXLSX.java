@@ -25,8 +25,6 @@ package com.squid.kraken.v4.export;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.io.OutputStreamWriter;
-import java.io.Writer;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -35,63 +33,65 @@ import java.util.concurrent.ExecutionException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.squid.core.csv.CSVSettingsBean;
-import com.squid.core.csv.CSVWriter;
 import com.squid.core.export.IRawExportSource;
 import com.squid.core.jdbc.formatter.IJDBCDataFormatter;
 import com.squid.core.jdbc.vendor.IVendorSupport;
 import com.squid.core.jdbc.vendor.VendorSupportRegistry;
+import com.squid.core.poi.ExcelSettingsBean;
+import com.squid.core.poi.ExcelWriter;
 import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
 import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValuesList;
 import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.model.DataTable;
 
-public class ExportSourceWriterCSV implements ExportSourceWriter {
+public class ExportSourceWriterXLSX implements ExportSourceWriter {
 
-  private static final Logger logger = LoggerFactory.getLogger(ExportSourceWriterCSV.class);
+  private static final Logger logger = LoggerFactory.getLogger(ExportSourceWriterXLSX.class);
 
   private static final int SPLIT_SIZE = 0;
 
-  private CSVSettingsBean settings = null;
+  private ExcelSettingsBean settings = null;
 
-  public ExportSourceWriterCSV() {
-    settings = new CSVSettingsBean();
-    settings.setSeparator(',');
+  public ExportSourceWriterXLSX() {
+    settings = new ExcelSettingsBean();
   }
 
-  public CSVSettingsBean getSettings() {
+  public ExportSourceWriterXLSX(ExcelSettingsBean settings) {
+    this.settings = settings;
+  }
+
+  public ExcelSettingsBean getSettings() {
     return settings;
   }
 
-  public void setSettings(CSVSettingsBean settings) {
+  public void setSettings(ExcelSettingsBean settings) {
     this.settings = settings;
   }
 
   @Override
   public long write(ExecuteAnalysisResult item, OutputStream out) {
-    Writer output = null;
-    CSVWriter writer;
+    ExcelWriter writer;
     IVendorSupport vendorSpecific;
     vendorSpecific = VendorSupportRegistry.INSTANCE.getVendorSupport(item.getItem().getDatabase());
-    writer = new CSVWriter(settings);
+    writer = new ExcelWriter(out, settings);
 
     ResultSet rs = item.getItem().getResultSet();
     try {
       IRawExportSource source = new ExecutionItemExportSource(item);
 
       IJDBCDataFormatter formatter = vendorSpecific.createFormatter(settings, rs.getStatement().getConnection());
-      output = new OutputStreamWriter(out);
-      writer.writeResultSet(output, SPLIT_SIZE, source, formatter);
-      output.flush();
+      writer.writeResultSet(source, formatter);
+      writer.flush();
     } catch (SQLException e) {
       logger.warn(e.getMessage(), e);
     } catch (IOException e) {
       logger.warn(e.getMessage(), e);
     } finally {
-      if (output != null) {
+      if (writer != null) {
         try {
-          output.close();
+          writer.close();
+          writer.dispose();
         } catch (IOException e) {
           logger.warn(e.getMessage(), e);
         }
@@ -132,25 +132,24 @@ public class ExportSourceWriterCSV implements ExportSourceWriter {
   }
 
   private long write(IRawExportSource source, OutputStream out, Connection connection) {
-    Writer output = null;
-    CSVWriter writer;
-    writer = new CSVWriter(settings);
+    ExcelWriter writer = new ExcelWriter(out, settings);
+    ;
     try {
 
       IVendorSupport vendorSpecific = VendorSupportRegistry.INSTANCE.getVendorSupport(null);
       IJDBCDataFormatter formatter = vendorSpecific.createFormatter(settings, connection);
 
-      output = new OutputStreamWriter(out);
-      writer.writeResultSet(output, SPLIT_SIZE, source, formatter);
-      output.flush();
+      writer.writeResultSet(source, formatter);
+      writer.flush();
     } catch (SQLException e) {
       logger.warn(e.getMessage(), e);
     } catch (IOException e) {
       logger.warn(e.getMessage(), e);
     } finally {
-      if (output != null) {
+      if (writer != null) {
         try {
-          output.close();
+          writer.close();
+          writer.dispose();
         } catch (IOException e) {
           logger.warn(e.getMessage(), e);
         }
