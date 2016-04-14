@@ -29,6 +29,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 
@@ -44,6 +45,7 @@ import com.squid.core.expression.scope.ScopeException;
 import com.squid.core.sql.render.IOrderByPiece.ORDERING;
 import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
 import com.squid.kraken.v4.caching.redis.datastruct.RawRow;
+import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionMember;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.core.analysis.engine.query.mapping.AxisMapping;
@@ -111,15 +113,6 @@ public class DataMatrix {
 		this.propertyToType = new HashMap<Property, Integer>();
 
 	}
-
-	/*
-	public DataMatrix(Database db, RowCacheValue rows) {
-		this.database = db;
-		this.rows = rows.getData();
-		this.size = rows.getData().size();
-		this.fullset = true;
-	} */
-	
 	
 	public DataMatrix(Database db, ArrayList<IndirectionRow> rows) {
 		this.database = db;
@@ -148,7 +141,9 @@ public class DataMatrix {
 		this.propertyToType = parent.propertyToType;
 	}
 	
-	
+	public DataMatrix getParent() {
+		return parent;
+	}
 	
 	public DataMatrix(Database database, RawMatrix rawMatrix, List<MeasureMapping> kx_map, List<AxisMapping> ax_map) throws ScopeException {
 //		logger.info( rawMatrix.toString());
@@ -187,6 +182,8 @@ public class DataMatrix {
 		for (IndirectionRow r : this.convertRows(rawMatrix, kx_map, ax_map))
 			this.pushRow(r); 	
 		
+		// (T1057) disabling
+		/*
 		// index possible values for a dimension
 		for (IndirectionRow row : this.getRows()) {
 			int index = 0;
@@ -197,6 +194,7 @@ public class DataMatrix {
 				index++;
 			}
 		}
+		*/
 	}
 	
 	private ArrayList<IndirectionRow> convertRows(RawMatrix matrix, List<MeasureMapping> kx_map, List<AxisMapping> ax_map ){
@@ -250,26 +248,6 @@ public class DataMatrix {
 	public void setExecutionDate(Date executionDate) {
         this.executionDate = executionDate;
     }
-	
-	/**
-	 * if the matrix is a sub-matrix, return true if the axis value is strictly a sub-set of the parent axis values
-	 * else always return false;
-	 * @param axis
-	 * @return
-	 */
-	public boolean isStrictSubSet(Axis axis) {
-		if (parent==null) {
-			// if not a sub-matrix, that's always true
-			return true;
-		}
-		AxisValues parentData = parent.getAxisColumn(axis);
-		AxisValues thisData = this.getAxisColumn(axis);
-		if (parentData==null || thisData==null) {
-			return false;
-		}
-		// else
-		return parentData.getValues().size()>thisData.getValues().size() && parentData.getValues().containsAll(thisData.getValues());
-	}
 
 	public boolean isFullset() {
 		return fullset;
@@ -289,17 +267,6 @@ public class DataMatrix {
 	
 	public void pushRow( IndirectionRow r) {
 		rows.add(r);
-	}	
-	
-	
-	private void pushAxes(IndirectionRow row) { 
-		int i=0;
-		for (AxisValues a : this.axes) {
-			if (row.getAxisValue(i)!=null) {
-				a.getValues().add(row.getAxisValue(i));
-			}
-			i++;
-		}
 	}
 
 	public List<Measure> getKPIs() {
@@ -336,21 +303,22 @@ public class DataMatrix {
 
 	public Collection<DimensionMember> getAxisValues(Axis axis) throws ComputingException, InterruptedException {
 		AxisValues ax = getAxisColumn(axis);
-		if (ax==null) {
-			//
-		} else if (ax.hasValues()) {
-			return ax.getMembers();
-		} else {
+		if (ax!=null) {
 			// compute values
 			int pos = axes.indexOf(ax);
 			if (pos>=0) {
+				HashSet<Object> objects = new HashSet<>();
+				ArrayList<DimensionMember> members = new ArrayList<>();
+				DimensionIndex index = axis.getIndex();
 				for (IndirectionRow row : rows) {
 					Object value = row.getAxisValue(pos);
-					if (value!=null) {// null not supported
-						ax.getValues().add(value);
+					if (!objects.contains(value)) {
+						objects.add(value);
+						DimensionMember member = index.getMemberByID(value);
+						members.add(member);
 					}
 				}
-				return ax.getMembers();
+				return members;
 			}
 		}
 		// else
@@ -493,7 +461,6 @@ public class DataMatrix {
 				boolean filter = checkRowAND(row,automaton);
 				if (filter) {
 					result.pushRow(row);
-					result.pushAxes(row);
 				}
 			}
 			return result;
@@ -506,7 +473,6 @@ public class DataMatrix {
 			boolean filter = func.check(row);
 			if (filter) {
 				result.pushRow(row);
-				result.pushAxes(row);
 			}
 		}
 		return result;
@@ -569,7 +535,6 @@ public class DataMatrix {
 				boolean filter = checkRowOR(row,automaton);
 				if (filter) {
 					result.pushRow(row);
-					result.pushAxes(row);
 				}
 			}
 			return result;
