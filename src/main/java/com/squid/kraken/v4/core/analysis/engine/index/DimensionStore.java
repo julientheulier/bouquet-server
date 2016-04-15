@@ -51,7 +51,8 @@ public class DimensionStore extends DimensionStoreAbstract {
     
     private static final Logger logger = LoggerFactory.getLogger(DimensionStore.class);
     
-    private String generation;
+    @SuppressWarnings("unused")
+	private String generation;
     private List<DimensionMember> members = new ArrayList<DimensionMember>();
     private int size = 0;
     // index the members by their IDs
@@ -124,6 +125,10 @@ public class DimensionStore extends DimensionStoreAbstract {
      * @return the DimensionMember, or a new one
      */
     public DimensionMember getMemberByID(Object ID) {
+		if (ID==null) {
+			// handling NULL value
+			return new DimensionMember(-1, ID, getAttributeCount());
+		}
         DimensionMember member = IDs.get(ID);
         if (member==null) {
             // create a member with that ID
@@ -265,7 +270,8 @@ public class DimensionStore extends DimensionStoreAbstract {
             types++;
         }
         for (DimensionMember member : members) {
-            Collection<DimensionMember> check = CollectionUtils.intersection(getCorrelations(member),flatsel);
+            @SuppressWarnings("unchecked")
+			Collection<DimensionMember> check = CollectionUtils.intersection(getCorrelations(member),flatsel);
             if (!check.isEmpty() && check.size()>=types) {
                 // ok, in some special cases, the test is not enough - we should check that we have a hit for each type
                 result.add(member);
@@ -287,7 +293,8 @@ public class DimensionStore extends DimensionStoreAbstract {
         }
         String filterLowerCase = filter.toLowerCase();
         for (DimensionMember member : members) {
-            Collection<DimensionMember> check = CollectionUtils.intersection(getCorrelations(member),flatsel);
+            @SuppressWarnings("unchecked")
+			Collection<DimensionMember> check = CollectionUtils.intersection(getCorrelations(member),flatsel);
             if (!check.isEmpty() && check.size()>=types && member.match(filterLowerCase)) {
                 // ok, in some special cases, the test is not enough - we should check that we have a hit for each type
                 result.add(member);

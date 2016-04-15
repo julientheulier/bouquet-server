@@ -231,10 +231,11 @@ public class AnalysisCompute {
 				fixed.add(new OrderBy(i++, order.getExpression(), order.getOrdering()));
 			}
 		}
-		currentAnalysis.setOrders(fixed);
+		//currentAnalysis.setOrders(fixed);
 		//
 		// compute present
 		DataMatrix present = computeAnalysisSimple(currentAnalysis, false);
+		present.orderBy(fixed);
 		//
 		// compute the past version
 		DashboardAnalysis compareToAnalysis = new DashboardAnalysis(universe);
@@ -287,6 +288,7 @@ public class AnalysisCompute {
 			compareToAnalysis.setBeyodLimitSelection(presentSelection);// use the present selection to compute
 		}
 		DataMatrix past = computeAnalysisSimple(compareToAnalysis, false);
+		past.orderBy(fixed);
 		//
 		final int offset = computeOffset(present, joinAxis, presentInterval, pastInterval);
 		//
