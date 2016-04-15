@@ -334,13 +334,12 @@ public class DomainHierarchy {
      */
    protected void cancel() {
 	   if (compute != null) {
-		   if (this.state== State.STARTED) {// working on
-			   compute.cancel();
-			   try {
-				   isDone(10000);// wait 10s
-			   } catch (TimeoutException | InterruptedException | ExecutionException e) {
-				   logger.warn("failed to cancel computing the hierarchy for domain '"+root+"' in less than 10s...");
-			   }
+		   logger.info("Cancelling computing hierarchy for domain "+root  );
+		   compute.cancel();
+		   try {
+			   isDone(10000);// wait 10s
+		   } catch (TimeoutException | InterruptedException | ExecutionException e) {
+			   logger.warn("failed to cancel computing the hierarchy for domain '"+root+"' in less than 10s...");
 		   }
 	   }
     }
