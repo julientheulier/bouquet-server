@@ -79,6 +79,7 @@ extends AnalysisExpression
 			}
 			return id;
 		} else {
+			// if there is no way to reference the expression by ID, just return null
 			return null;
 		}
 	}

@@ -27,6 +27,7 @@ import com.squid.core.database.domain.TableDomain;
 import com.squid.core.domain.IDomain;
 import com.squid.core.domain.aggregate.AggregateDomain;
 import com.squid.core.domain.associative.AssociativeDomainInformation;
+import com.squid.core.domain.operators.OperatorScope;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.UndefinedExpression;
 import com.squid.core.expression.scope.ExpressionMaker;
@@ -206,7 +207,11 @@ public class Measure implements Property {
             if (pp!="") {
                 pp += ".";
             }
-            return pp+"["+AnalysisScope.MEASURE.getToken()+":'"+getName()+"']";
+            if (originType==OriginType.COMPARETO) {
+            	return "compareTo("+pp+"["+AnalysisScope.MEASURE.getToken()+":'"+(metric!=null?metric.getName():getName())+"'])";
+            } else {
+            	return pp+"["+AnalysisScope.MEASURE.getToken()+":'"+getName()+"']";
+            }
         } else {
             return definition.prettyPrint();
         }
@@ -242,7 +247,11 @@ public class Measure implements Property {
 	
 	@Override
 	public ExpressionAST getReference() {
-		return new MeasureExpression(this);
+		if (originType==OriginType.COMPARETO) {
+			return ExpressionMaker.op(OperatorScope.getDefault().lookupByExtendedID("ext.compareTo.apply"), new MeasureExpression(this));
+		} else {
+			return new MeasureExpression(this);
+		}
 	}
 	
 }
