@@ -175,12 +175,9 @@ public class DomainFacetCompute extends FacetBuilder {
     }
     
     private boolean checkHasRole(Universe universe, Dimension dimension) {
-    	// T15 - hide dynamic dimension if not super/admin user
-    	if (dimension.isDynamic()) {
-    		return universe.hasRole(dimension, Role.WRITE);
-    	} else {
-    		return universe.hasRole(dimension, Role.READ);
-    	}
+    	// T1076: guest can access dynamic objects
+    	Role role = Role.READ;
+    	return universe.hasRole(dimension, role);
     }
     
     private Facet computeDimensionFacets(Domain domain, DimensionIndex index,
