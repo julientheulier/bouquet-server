@@ -255,29 +255,20 @@ public class DomainHierarchy {
     }
     
     private boolean hasRole(AppContext ctx, DynamicObject<?> dynamic) {
-    	// T15 rules
-    	Role role;
-    	if (dynamic.isDynamic()) {
-    		role = Role.WRITE;
-    	} else {
-    		role = Role.READ;
-    	}
+    	// T1076: guest can access dynamic objects
+    	Role role = Role.READ;
     	return AccessRightsUtils.getInstance().hasRole(ctx, dynamic, role);
     }
     
     private void checkRole(AppContext ctx, DynamicObject<?> dynamic) {
-    	// T15 rules
-    	Role role;
-    	if (dynamic.isDynamic()) {
-    		role = Role.WRITE;
-    	} else {
-    		role = Role.READ;
-    	}
+    	// T1076: guest can access dynamic objects
+    	Role role = Role.READ;
     	AccessRightsUtils.getInstance().checkRole(ctx, dynamic, role);
     }
 
 	private <TYPE extends LzPersistentBaseImpl<? extends GenericPK>> TYPE cloneWithRole(AppContext ctx, TYPE obj) {
 		try {
+			@SuppressWarnings("unchecked")
 			TYPE copy = (TYPE)obj.clone();
 			AccessRightsUtils.getInstance().setRole(ctx, copy);
 			return copy;
