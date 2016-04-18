@@ -168,7 +168,8 @@ public class BaseQuery implements IQuery {
 					IPiece piece = select.createPiece(Context.ORDERBY, order.getExpression());
 					select.orderBy(piece).setOrdering(order.getOrdering());
 				} else {
-					throw new ScopeException("invalid orderBy expression "+order.getExpression().prettyPrint() + ": you must select it (or a child dimension) as a facet");
+					//throw new ScopeException("invalid orderBy expression "+order.getExpression().prettyPrint() + ": you must select it (or a child dimension) as a facet");
+					logger.warn("invalid orderBy expression "+order.getExpression().prettyPrint() + ": you must select it (or a child dimension) as a facet");
 				}
 			}
 		}
@@ -575,7 +576,7 @@ public class BaseQuery implements IQuery {
 				where(select, getAxis(), getFilters());
 				break;
 			case EXISTS:
-				SelectUniversal subselect = select.exists(getAxis().getParent().getDefinition());
+				SelectUniversal subselect = select.exists(getAxis());
 				where(subselect, getAxis(), getFilters());
 				break;
 			}
@@ -601,7 +602,7 @@ public class BaseQuery implements IQuery {
 	}
 
 	public void exists(Axis axis, Collection<DimensionMember> filters) throws ScopeException, SQLScopeException {
-		SelectUniversal subselect = select.exists(axis.getParent().getDefinition());
+		SelectUniversal subselect = select.exists(axis);
 		if (where(subselect, axis, filters)) {
 			addFilter(new Filter(FilterType.EXISTS, axis, filters));
 		}
