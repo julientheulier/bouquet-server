@@ -70,8 +70,12 @@ public class SimpleDatabaseManager extends DatabaseManager {
 	public SimpleDatabaseManager(String jdbcURL, String username, String password)
 			throws ExecutionException {
 		super();
-		this.config = new JDBCConfig(jdbcURL, username, password);
+		this.setupConfig(jdbcURL, username, password);
 		setup();
+	}
+	
+	public JDBCConfig getConf(){
+		return this.config;
 	}
 
 	protected HikariDataSourceReliable createDatasourceWithConfig(JDBCConfig config) {
@@ -118,13 +122,18 @@ public class SimpleDatabaseManager extends DatabaseManager {
 		}
 	}
 
-	protected void setup() throws ExecutionException {
+	public void setup() throws ExecutionException {
 		HikariDataSourceReliable hikari = setupDataSource();
 		this.ds = hikari;
-		this.db = setupDatabase();
+		setupDatabase();
 		setupFinalize(hikari, db);
 	}
 
+	public void setupConfig(String jdbcURL, String username, String password){
+		this.config= new JDBCConfig(jdbcURL, username, password);
+	}
+	
+	
 	protected HikariDataSourceReliable setupDataSource() throws DatabaseServiceException {
 		HikariDataSourceReliable ds = createDatasourceWithConfig(config);
 		chooseDriver(ds);
@@ -149,17 +158,22 @@ public class SimpleDatabaseManager extends DatabaseManager {
 		return ds;
 	}
 
-	protected Database setupDatabase() throws ExecutionException {
+	public Database setupDatabase() throws ExecutionException {
 		DatabaseFactory df = new LazyDatabaseFactory(this);
-		Database db = df.createDatabase();
-		db.setName(databaseName);
-		db.setUrl(config.getJdbcUrl());
+		Database newDb = df.createDatabase();
+		newDb.setName(databaseName);
+		newDb.setUrl(config.getJdbcUrl());
 		//
 		// setup vendor support
-		this.vendor = VendorSupportRegistry.INSTANCE.getVendorSupport(db);
+		this.vendor = VendorSupportRegistry.INSTANCE.getVendorSupport(newDb);
 		this.stats = this.vendor.createDatabaseStatistics(ds);
 		//
-		return db;
+		this.db = newDb;
+		return newDb;
+	}
+	
+	public void setDatabaseName(String dbName){
+		this.databaseName = dbName;		
 	}
 	
 	protected void setupFinalize(HikariDataSourceReliable hikari, Database db) {

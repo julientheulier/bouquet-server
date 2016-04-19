@@ -340,7 +340,7 @@ public class BaseQuery implements IQuery {
 			}
 			writer.setSource(result);
 			writer.setMapper(this.mapper);
-			writer.setDatabase(getDatasource().getDatabase());
+			writer.setDatabase(getDatasource().getDBManager().getDatabase());
 			writer.write() ;
 
 		} catch (InterruptedException| RenderingException |ScopeException e) {
@@ -404,7 +404,7 @@ public class BaseQuery implements IQuery {
 				throw new ComputingException("Failed to compute or retrieve the matrix");
 			}
 		}else{
-			DataMatrix res = computeDataMatrix(getDatasource().getDatabase(), m);
+			DataMatrix res = computeDataMatrix(getDatasource().getDBManager().getDatabase(), m);
 			return res;
 		}
 	}
@@ -483,7 +483,7 @@ public class BaseQuery implements IQuery {
 	}
 
 	protected Boolean runSQLNoResult(String SQL) throws ExecutionException, RenderingException {
-		Boolean noresult = DatabaseServiceImpl.INSTANCE.execute(getDatasource(), SQL);
+		Boolean noresult = DatabaseServiceImpl.INSTANCE.execute(getDatasource().getDBManager(), SQL);
 		return noresult;
 	}
 
@@ -498,7 +498,7 @@ public class BaseQuery implements IQuery {
 
 	protected IExecutionItem runSQL(String SQL) throws ExecutionException {
 		//
-		IExecutionItem item = DatabaseServiceImpl.INSTANCE.executeQuery(getDatasource(), SQL);
+		IExecutionItem item = DatabaseServiceImpl.INSTANCE.executeQuery(getDatasource().getDBManager(), SQL);
 		//
 		return item;
 	}

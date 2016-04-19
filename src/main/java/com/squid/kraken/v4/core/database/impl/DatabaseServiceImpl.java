@@ -301,7 +301,7 @@ public class DatabaseServiceImpl implements DatabaseService {
 	@Override
 	public Database getDatabase(Project project)
 			throws DatabaseServiceException {
-		return getDatasourceDefinition(project).getDatabase();
+		return getDatasourceDefinition(project).getDBManager().getDatabase();
 	}
 	
 	private ExecutorService openDatabaseService = Executors.newCachedThreadPool();
@@ -350,7 +350,7 @@ public class DatabaseServiceImpl implements DatabaseService {
     		for (Future<DatasourceDefinition> future : customerAccess.values()) {
     			if (future.isDone()) {
     				try {
-						future.get().close();
+						future.get().getDBManager().close();
 					} catch (InterruptedException | ExecutionException e) {
 						//
 					}
@@ -389,7 +389,7 @@ public class DatabaseServiceImpl implements DatabaseService {
 	public List<Schema> getSchemas(Project project)
 			throws DatabaseServiceException {
 		DatasourceDefinition ds = getDatasourceDefinition(project);
-		return ds.getDatabase().getSchemas();
+		return ds.getDBManager().getDatabase().getSchemas();
 	}
 
 	/**
@@ -639,7 +639,7 @@ public class DatabaseServiceImpl implements DatabaseService {
 			} catch (Exception e) {
 				// if the init failed, create a new one
 			}
-			if (old == null || force || !old.checkValide(project)) {
+			if (old == null || force || !old.checkValid(project)) {
 				// create a new datasourceDefinition
 				future = ExecutionManager.INSTANCE.submit(
 						projectID.getCustomerId(),
@@ -662,8 +662,8 @@ public class DatabaseServiceImpl implements DatabaseService {
 														// new future
 														// definition
 				if (old!=null) {
-					old.getDatabase().setStale();// now we can invalidate the database
-					old.close();
+					old.getDBManager().getDatabase().setStale();// now we can invalidate the database
+					old.getDBManager().close();
 				}
 				return true;
 			} else {
@@ -685,7 +685,7 @@ public class DatabaseServiceImpl implements DatabaseService {
 	 */
 	public float computeStatistics(Project project, ExpressionAST expr) throws ScopeException, ExecutionException {
 		DatasourceDefinition ds = getDatasourceDefinition(project);
-		IDatabaseStatistics stats = ds.getStatistics();
+		IDatabaseStatistics stats = ds.getDBManager().getStatistics();
 		if (stats!=null) {
 			ExtractColumns visitor = new ExtractColumns();
 			List<Column> columns = visitor.apply(expr);

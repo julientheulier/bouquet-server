@@ -279,7 +279,7 @@ public class InternalAnalysisJobServiceRest extends BaseServiceRest {
 
                 if (run) {                    
                     // execute the Script directly
-                    Boolean noresult = DatabaseServiceImpl.INSTANCE.execute(query.getDatasource(), insertScript.render());
+                    Boolean noresult = DatabaseServiceImpl.INSTANCE.execute(query.getDatasource().getDBManager(), insertScript.render());
                     if (!noresult) {
                     	newTable.refresh();
                         DomainServiceBaseImpl.getInstance().store(userContext, domain);
