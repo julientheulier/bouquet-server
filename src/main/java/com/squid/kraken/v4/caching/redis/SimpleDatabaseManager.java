@@ -240,12 +240,12 @@ public class SimpleDatabaseManager extends DatabaseManager {
 			logger.error("error SQLQuery#" + queryNum
 					+ " method=executeQuery" + " duration="
 					+ duration
-					+ " error=true status=done queryid=" + queryNum
-					+ "task=" + this.getClass().getName());
+					+ " status=error queryid=" + queryNum
+					+ " task=" + this.getClass().getName()
+					+ " error=" + e.toString());
 			SQLStats queryLog = new SQLStats(Integer.toString(queryNum), "executeQuery", sql, duration, config.getJdbcUrl());
 			queryLog.setError(true);
 			PerfDB.INSTANCE.save(queryLog);
-			logger.error("SQLQuery#" + queryNum + " failed: "+e.getLocalizedMessage() + "\nwhile executing the following SQL query:\n" + sql);
 			throw new ExecutionException("SQLQuery#" + queryNum + " failed: "+e.getLocalizedMessage() + "\nwhile executing the following SQL query:\n" + sql, e);
 		}
 	}
