@@ -189,8 +189,14 @@ public class SimpleDatabaseManager extends DatabaseManager {
 			Statement statement = connection.createStatement();
 			try {
 				statement.setFetchSize(getDataFormatter(connection).getFetchSize());
-				logger.info("running SQLQuery#" + queryNum + " on " + config.getJdbcUrl()
-						+ ":\n" + sql +"\nHashcode="+sql.hashCode());
+				logger.info("starting SQLQuery#" + queryNum 
+						+ " jdbc=" + config.getJdbcUrl()
+						+ " sql=\n" + sql +"\n hashcode="+sql.hashCode()
+						+ " method=executeQuery" + " duration="
+						+ " error=false status=done driver="
+						+ connection.getMetaData().getDatabaseProductName()
+						+ " queryid=" + queryNum
+						+ "task=" + this.getClass().getName());
 				Date start = new Date();
 				boolean isResultset = statement.execute(sql);
 				while (!isResultset && statement.getUpdateCount() >= -1) {
@@ -201,12 +207,13 @@ public class SimpleDatabaseManager extends DatabaseManager {
 				 * logger.info("SQLQuery#" + queryNum + " executed in " +
 				 * (System.currentTimeMillis() - now) + " ms.");
 				 */
-				double duration = (System.currentTimeMillis() - now);
-				logger.info("task=" + this.getClass().getName()
+				long duration = (System.currentTimeMillis() - now);
+				logger.info("finished SQLQuery#" + queryNum
 						+ " method=executeQuery" + " duration=" + duration
 						+ " error=false status=done driver="
 						+ connection.getMetaData().getDatabaseProductName()
-						+ " queryid=" + queryNum);
+						+ " queryid=" + queryNum
+						+ "task=" + this.getClass().getName());
 				SQLStats queryLog = new SQLStats(Integer.toString(queryNum), "executeQuery", sql, duration, connection.getMetaData().getDatabaseProductName());
 				queryLog.setError(false);
 				PerfDB.INSTANCE.save(queryLog);
@@ -230,10 +237,11 @@ public class SimpleDatabaseManager extends DatabaseManager {
 			}
 		} catch (Exception e) {
 			long duration = (System.currentTimeMillis() - now);
-			logger.error("task=" + this.getClass().getName()
+			logger.error("error SQLQuery#" + queryNum
 					+ " method=executeQuery" + " duration="
 					+ duration
-					+ " error=true status=done queryid=" + queryNum);
+					+ " error=true status=done queryid=" + queryNum
+					+ "task=" + this.getClass().getName());
 			SQLStats queryLog = new SQLStats(Integer.toString(queryNum), "executeQuery", sql, duration, config.getJdbcUrl());
 			queryLog.setError(true);
 			PerfDB.INSTANCE.save(queryLog);
