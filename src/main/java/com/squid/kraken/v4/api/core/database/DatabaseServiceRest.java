@@ -45,7 +45,9 @@ import com.squid.core.database.model.Schema;
 import com.squid.core.database.model.Table;
 import com.squid.core.sql.model.SQLScopeException;
 import com.squid.kraken.v4.api.core.BaseServiceRest;
+import com.squid.kraken.v4.api.core.ObjectNotFoundAPIException;
 import com.squid.kraken.v4.api.core.project.ProjectServiceBaseImpl;
+import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
 import com.squid.kraken.v4.core.database.impl.DatabaseServiceImpl;
 import com.squid.kraken.v4.core.database.impl.DatasourceDefinition;
 import com.squid.kraken.v4.model.Project;
@@ -67,7 +69,7 @@ public class DatabaseServiceRest extends BaseServiceRest {
 	
 	@GET
 	@Path("")
-	@ApiOperation(value = "Get Database Status")
+	@ApiOperation(value = "Get Database Status and vendor information")
 	public DatabaseInfo getDatabaseStatus(@PathParam("projectId") String projectId) throws ExecutionException {
 		ProjectPK projectPK = new ProjectPK(userContext.getCustomerId(), projectId);
 		Project project = ProjectServiceBaseImpl.getInstance().read(userContext, projectPK);
@@ -93,6 +95,7 @@ public class DatabaseServiceRest extends BaseServiceRest {
 	
 	@GET
 	@Path("schemas/")
+	@ApiOperation(value = "list the database schemas")
 	public List<?> readSchemas(@PathParam("projectId") String projectId) throws DatabaseServiceException, SQLScopeException {
 		ProjectPK projectPK = new ProjectPK(userContext.getCustomerId(), projectId);
 		Project project = ProjectServiceBaseImpl.getInstance().read(userContext, projectPK);
@@ -106,13 +109,14 @@ public class DatabaseServiceRest extends BaseServiceRest {
 	
 	@GET
 	@Path("schemas/{"+SCHEMA_NAME+"}")
+	@ApiOperation(value = "list the schema's tables")
 	public List<?> readSchema(@PathParam("projectId") String projectId, @PathParam(SCHEMA_NAME) String schemaName) throws ExecutionException, SQLScopeException {
 		ProjectPK projectPK = new ProjectPK(userContext.getCustomerId(), projectId);
 		Project project = ProjectServiceBaseImpl.getInstance().read(userContext, projectPK);
 		Database database = DatabaseServiceImpl.INSTANCE.getDatabase(project);
 		Schema schema = database.findSchema(schemaName);
 		if (schema==null) {
-			throw new SQLScopeException("cannot lookup schema '"+schemaName+"'");
+			throw new ObjectNotFoundAPIException("cannot lookup schema '"+schemaName+"'", true);
 		} else {
 			List<String> result = new ArrayList<String>();
 			for (Table table : schema.getTables()) {
@@ -124,6 +128,7 @@ public class DatabaseServiceRest extends BaseServiceRest {
 	
 	@GET
 	@Path("schemas/{"+SCHEMA_NAME+"}/tables/{"+TABLE_NAME+"}")
+	@ApiOperation(value = "get the table definition")
 	public Object readTable(
 			@PathParam("projectId") String projectId,
 			@PathParam(SCHEMA_NAME) String schemaName,
@@ -134,14 +139,44 @@ public class DatabaseServiceRest extends BaseServiceRest {
 		Database database = DatabaseServiceImpl.INSTANCE.getDatabase(project);
 		Schema schema = database.findSchema(schemaName);
 		if (schema==null) {
-			throw new SQLScopeException("cannot lookup schema '"+schemaName+"'");
+			throw new ObjectNotFoundAPIException("cannot lookup Schema '"+schemaName+"'", true);
 		} else {
 			Table table = schema.findTable(tableName);
 			if (table==null) {
-				throw new SQLScopeException("cannot lookup table '"+tableName+"'");
+				throw new ObjectNotFoundAPIException("cannot lookup Table '"+tableName+"'", true);
 			} else {
 				return table;
 			}
+		}
+	}
+	
+	@GET
+	@Path("schemas/{"+SCHEMA_NAME+"}/tables/{"+TABLE_NAME+"}/refresh")
+	@ApiOperation(value = "refresh the table definition. If it is a new table, makes it available. Note that this won't clear the cache.")
+	public Object refreshTable(
+			@PathParam("projectId") String projectId,
+			@PathParam(SCHEMA_NAME) String schemaName,
+			@PathParam(TABLE_NAME) String tableName
+		) throws ExecutionException, SQLScopeException {
+		ProjectPK projectPk = new ProjectPK(userContext.getCustomerId(), projectId);
+		Project project = ProjectServiceBaseImpl.getInstance().read(userContext, projectPk);
+		Database database = DatabaseServiceImpl.INSTANCE.getDatabase(project);
+		Schema schema = database.findSchema(schemaName);
+		if (schema==null) {
+			throw new ObjectNotFoundAPIException("cannot lookup Schema '"+schemaName+"'", true);
+		} else {
+			Table before = schema.findTable(tableName);
+			// refresh can work either if the table is already known or not
+			Table after = database.getEngine().refreshTable(schema, tableName);
+			if (before==null && after==null) {
+				throw new ObjectNotFoundAPIException("Table '"+tableName+"' does not exist or is not visible", true);
+			}
+			// refresh the project
+			ProjectManager.INSTANCE.refreshContent(projectPk);
+			if (before!=null && after==null) {
+				throw new ObjectNotFoundAPIException("Table '"+tableName+"' vanished, or it's no more visible", true);
+			}
+			return after;
 		}
 	}
 
