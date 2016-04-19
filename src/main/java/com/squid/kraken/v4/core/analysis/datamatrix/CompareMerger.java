@@ -21,15 +21,13 @@
  * you and Squid Solutions (above licenses and LICENSE.txt included).
  * See http://www.squidsolutions.com/EnterpriseBouquet/
  *******************************************************************************/
-package com.squid.kraken.v4.core.analysis.engine.processor;
+package com.squid.kraken.v4.core.analysis.datamatrix;
 
 import java.util.Date;
 
 import org.joda.time.LocalDate;
 
 import com.squid.core.expression.scope.ScopeException;
-import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
-import com.squid.kraken.v4.core.analysis.datamatrix.JoinMerger;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
 
 /**
@@ -44,6 +42,10 @@ public class CompareMerger extends JoinMerger {
 	public CompareMerger(DataMatrix left, DataMatrix right, int[] mergeOrder, Axis join, int offset) throws ScopeException {
 		super(left, right, mergeOrder, join);
 		this.offset = offset;
+		// check measures
+		if (left.getKPIs().size()!=right.getKPIs().size()) {
+			throw new ScopeException("matrices kpis do not match");
+		}
 	}
 	
 	@Override
@@ -72,6 +74,33 @@ public class CompareMerger extends JoinMerger {
 			return ((Date)left).compareTo((new LocalDate(((Date)right).getTime())).plusDays(offset).toDate());
 		} else {
 			return super.compareJoinValue(pos, left, right);
+		}
+	}
+	
+	/**
+	 * override to interleave present/past values
+	 */
+	@Override
+	protected void mergeMeasures(IndirectionRow left, IndirectionRow right, IndirectionRow merged) {
+		int pos = merged.getAxesCount();// start after axes
+		for (int i = 0; i < merged.getDataCount()/2; i++) {
+			if (left!=null) {
+				merged.rawrow[pos] = left.getDataValue(i);
+			}
+			pos++;// always advance
+			if (right!=null) {
+				merged.rawrow[pos] = right.getDataValue(i);
+			}
+			pos++;// always advance
+		}
+	}
+	
+	@Override
+	protected void createMatrixMeasures(DataMatrix merge) {
+		// interleave KPIs
+		for (int i=0; i<left.getKPIs().size(); i++) {
+			merge.getKPIs().add(left.getKPIs().get(i));
+			merge.getKPIs().add(right.getKPIs().get(i));
 		}
 	}
 

@@ -132,40 +132,41 @@ public class Merger {
 		// we have to reorder
 		if (left == null && right == null)
 			return merged;
-		else if (left == null) {
-			// copy axes
-			int rrInd = 0;
-			for (int i = 0; i < right.getAxesCount(); i++) {
-				merged.rawrow[rrInd] = right.getAxisValue(i);
-				rrInd++;
-			}
-			// go directly to right part
-			rrInd = nbColumns - right.getDataCount();
-			for (int i = 0; i < right.getDataCount(); i++) {
-				merged.rawrow[rrInd] = right.getDataValue(i);
-				rrInd++;
-			}
-		} else {
-			// copy axes
-			int rrInd = 0;
-			for (int i = 0; i < left.getAxesCount(); i++) {
-				merged.rawrow[rrInd] = left.getAxisValue(i);
-				rrInd++;
-			}
-			// copy left part
-			for (int i = 0; i < left.getDataCount(); i++) {
-				merged.rawrow[rrInd] = left.getDataValue(i);
-				rrInd++;
-			}
-			if (right != null) {
-				// copy right part
-				for (int i = 0; i < right.getDataCount(); i++) {
-					merged.rawrow[rrInd] = right.getDataValue(i);
-					rrInd++;
-				}
-			}
+		else {
+			mergeAxes(left, right, merged);
+			mergeMeasures(left, right, merged);
 		}
 		return merged;
+	}
+	
+	protected void mergeAxes(IndirectionRow left, IndirectionRow right, IndirectionRow merged) {
+		IndirectionRow source = (left!=null)?left:right;
+		// copy axes
+		int pos = 0;
+		for (int i = 0; i < source.getAxesCount(); i++) {
+			merged.rawrow[pos] = source.getAxisValue(i);
+			pos++;
+		}
+	}
+	
+	protected void mergeMeasures(IndirectionRow left, IndirectionRow right, IndirectionRow merged) {
+		int pos = merged.getAxesCount();// start after axes
+		if (left != null) {
+			// copy left part
+			for (int i = 0; i < left.getDataCount(); i++) {
+				merged.rawrow[pos] = left.getDataValue(i);
+				pos++;
+			}
+		} else {
+			pos = merged.size() - right.getDataCount();
+		}
+		if (right != null) {
+			// copy right part
+			for (int i = 0; i < right.getDataCount(); i++) {
+				merged.rawrow[pos] = right.getDataValue(i);
+				pos++;
+			}
+		}
 	}
 	
 	protected IndirectionRow createDefaultIndirectionRow() {
@@ -253,15 +254,24 @@ public class Merger {
 		DataMatrix merge = new DataMatrix(left.getDatabase(), result);
 		merge.setFromCache(left.isFromCache() && right.isFromCache());
 		merge.setExecutionDate(new Date(Math.max(left.getExecutionDate().getTime(), right.getExecutionDate().getTime())));
+		//
+		createMatrixAxes(merge);
+		createMatrixMeasures(merge);
+		merge.setFullset(left.isFullset() && right.isFullset());
+		return merge;
+	}
+	
+	protected void createMatrixAxes(DataMatrix merge) {
 		// list the new axis
 		for (AxisValues ax : left.getAxes()) {
 			merge.add(ax);
 		}
+	}
+	
+	protected void createMatrixMeasures(DataMatrix merge) {
 		// list the new kpis
 		merge.getKPIs().addAll(left.getKPIs());
 		merge.getKPIs().addAll(right.getKPIs());
-		merge.setFullset(left.isFullset() && right.isFullset());
-		return merge;
 	}
 
 }
