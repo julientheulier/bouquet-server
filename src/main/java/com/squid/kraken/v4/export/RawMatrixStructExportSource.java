@@ -1,11 +1,34 @@
+
+/*******************************************************************************
+ * Copyright © Squid Solutions, 2016
+ *
+ * This file is part of Open Bouquet software.
+ *  
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation (version 3 of the License).
+ *
+ * There is a special FOSS exception to the terms and conditions of the 
+ * licenses as they are applied to this program. See LICENSE.txt in
+ * the directory of this program distribution.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ *
+ * Squid Solutions also offers commercial licenses with additional warranties,
+ * professional functionalities or services. If you purchase a commercial
+ * license, then it supersedes and replaces any other agreement between
+ * you and Squid Solutions (above licenses and LICENSE.txt included).
+ * See http://www.squidsolutions.com/EnterpriseBouquet/
+ *******************************************************************************/
+
 package com.squid.kraken.v4.export;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,38 +37,38 @@ import com.squid.core.export.ICol;
 import com.squid.core.export.IRow;
 import com.squid.core.export.IStructExportSource;
 import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
-import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValuesList;
 import com.squid.kraken.v4.core.analysis.engine.query.mapping.AxisMapping;
 import com.squid.kraken.v4.core.analysis.engine.query.mapping.MeasureMapping;
 import com.squid.kraken.v4.core.analysis.engine.query.mapping.QueryMapper;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
 
-public class ChunkedRawMatrixStructExportSource extends ChunkedRawMatrixBaseSource implements IStructExportSource  {
+public class RawMatrixStructExportSource implements IStructExportSource{
 
 	private int[] indirectionRow;
 	int nbColsSource ;
 	int nbColsResult;
 
+	RawMatrix rm ;
 
 	private QueryMapper mapper;
 
-	static final Logger logger = LoggerFactory.getLogger(ChunkedRawMatrixStructExportSource.class);
+	static final Logger logger = LoggerFactory.getLogger(RawMatrixStructExportSource.class);
 
 	private ArrayList<ICol> cols;
 
 
-	public ChunkedRawMatrixStructExportSource(RedisCacheValuesList refList, QueryMapper qm) throws InterruptedException, ExecutionException{		
-		super(refList);		
+	public RawMatrixStructExportSource(RawMatrix rm, QueryMapper qm){		
+		this.rm = rm;
 		this.mapper = qm;
 		this.cols = new ArrayList<ICol>();
 		
-		this.nbColsSource =this.currentChunk.getColTypes().size();
+		this.nbColsSource =this.rm.getColTypes().size();
 		this.nbColsResult = mapper.getAxisMapping().size() + mapper.getMeasureMapping().size();
 
 		this.indirectionRow = new int[this.nbColsSource];
 		ArrayList<String> columnNames= new ArrayList<String>();
 		for (int i =0; i<nbColsSource; i++){
-			columnNames.add(this.currentChunk.getColNames().get(i));
+			columnNames.add(this.rm.getColNames().get(i));
 			this.indirectionRow[i] = -1;
 		}
 
@@ -86,10 +109,7 @@ public class ChunkedRawMatrixStructExportSource extends ChunkedRawMatrixBaseSour
 		}
 		logger.debug(indirStr);
 
-
 	}
-
-
 
 
 	@Override
@@ -188,9 +208,11 @@ public class ChunkedRawMatrixStructExportSource extends ChunkedRawMatrixBaseSour
 
 			boolean done  = false ;
 			int count = 0;
-			int cursor = 0;
 
 			public RowIterator() throws SQLException{
+				if (rm.getRows().size() ==0 ){
+					done = true;
+				}
 			}
 
 			@Override
@@ -201,28 +223,11 @@ public class ChunkedRawMatrixStructExportSource extends ChunkedRawMatrixBaseSour
 
 			@Override
 			public IRow next() {
-				count+=1;
-				Object[] rr = currentChunk.getRows().get(cursor).getData();
-				cursor++;
+				Object[] rr = rm.getRows().get(count).getData();
+				count++;
 
-				if (cursor>= currentChunk.getRows().size()){
-					// get next Chunk
-					RawMatrix next;
-					try {
-						next = processingQuery.get();
-					} catch (InterruptedException | ExecutionException e) {
-						logger.info("Error retrieving new chunk " + e.toString());
-						next= null;
-					}
-					if (next == null){
-						done = true;
-					}else{
-						currentChunk = next;
-						cursor =0 ;
-						// launch chunk retrieval in parallel ;
-						GetChunk getNextChunk = new GetChunk();
-						processingQuery = (Future<RawMatrix>) executor.submit(getNextChunk);
-					}				 
+				if (count>= rm.getRows().size()){
+					done = true;					
 				}
 				if (count%10000 == 0) {
 					logger.info(count +" lines processed");
@@ -239,6 +244,4 @@ public class ChunkedRawMatrixStructExportSource extends ChunkedRawMatrixBaseSour
 
 		}
 	}
-
-
 }

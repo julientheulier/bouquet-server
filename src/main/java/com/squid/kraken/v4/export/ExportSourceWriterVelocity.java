@@ -51,7 +51,14 @@ public class ExportSourceWriterVelocity implements ExportSourceWriter {
 
 	@Override
 	public long write(RawMatrix matrix, OutputStream out) {
-        throw new UnsupportedOperationException();			
+		if (qm == null){
+			return -1;
+		}else{
+			RawMatrixStructExportSource src = new RawMatrixStructExportSource(matrix, qm) ;
+			return this.writeStructExportSource(src, out);	
+		}
+		
+		
 	}
 
 	@Override
@@ -132,8 +139,7 @@ public class ExportSourceWriterVelocity implements ExportSourceWriter {
 			if (qm == null){
 				return -1;
 			}else{
-				ChunkedRawMatrixStructExportSource src;
-				src = new ChunkedRawMatrixStructExportSource(matrix, qm);
+				ChunkedRawMatrixStructExportSource src  = new ChunkedRawMatrixStructExportSource(matrix, qm);
 				return this.writeStructExportSource(src, out);	
 			}
 		} catch (InterruptedException | ExecutionException e) {
