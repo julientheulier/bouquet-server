@@ -52,7 +52,7 @@ public class RedisCacheProxy implements IRedisCacheProxy {
 	private int REDISport =6379 ;
 	private JedisPool pool;
 	
-	private int maxSizeInByte = 524288000 ;  //500Megabytes
+	private int maxSizeInByte = 52428800 ;  //50Megabytes
 	
 	public static void setMock(){
 		isMock = true;

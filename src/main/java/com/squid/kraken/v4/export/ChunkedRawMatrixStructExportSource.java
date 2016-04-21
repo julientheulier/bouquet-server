@@ -214,12 +214,11 @@ public class ChunkedRawMatrixStructExportSource extends ChunkedRawMatrixBaseSour
 					try {
 						next = processingQuery.get();
 					} catch (InterruptedException | ExecutionException e) {
-						logger.info("error");
-						return null;
+						logger.info("Error retrieving new chunk " + e.toString());
+						next= null;
 					}
 					if (next == null){
 						done = true;
-						return null;
 					}else{
 						currentChunk = next;
 						cursor =0 ;
