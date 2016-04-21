@@ -74,6 +74,7 @@ public class DatasourceDefinition {
 	}
 	
 	public DatasourceDefinition(Project project) throws ExecutionException {
+		this();
 		this.projectId = project.getId();
 		initialize(projectId);
 		sdbm.setup();
