@@ -457,8 +457,8 @@ public class RawMatrix extends RedisCacheValue {
 			// if max chunk size of 50MB reached, stop 
 			if(count % 100 ==0){	
 				float size = Math.round(baout.size() / 1048576);
-				if (size >= 50) {
-					logger.info("Max size of 50MB for one chunk reached");
+				if (size >= 10) {
+					logger.info("Max size of 10MB for one chunk reached");
 					maxSizeReached = true;
 				}
 			}
