@@ -65,7 +65,7 @@ public class RawMatrix extends RedisCacheValue {
 	private transient int version = VERSION;
 	private transient HashMap<String, Integer> registration;
 
-	private transient static int maxChunkSizeInMB = 50;
+	private transient static int maxChunkSizeInMB = 10;
 		
 	static final Logger logger = LoggerFactory.getLogger(RawMatrix.class);
 
