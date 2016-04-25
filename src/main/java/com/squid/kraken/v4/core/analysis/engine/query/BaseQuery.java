@@ -59,6 +59,7 @@ import com.squid.kraken.v4.caching.NotInCacheException;
 import com.squid.kraken.v4.caching.redis.RedisCacheManager;
 import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
 import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValue;
+import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValuesList;
 import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionMember;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
@@ -310,6 +311,10 @@ public class BaseQuery implements IQuery {
 				sqlNoLimitNoOrder = renderNoLimitNoOrderBy();
 				result = RedisCacheManager.getInstance().getRedisCacheValueLazy(sqlNoLimitNoOrder, deps, url, user, pwd,
 						-2);
+				if (result instanceof RedisCacheValuesList){
+					// we'd rather recompute the data than rebuild a big result set in memory
+					result= null;
+					}
 				if (result!=null) {
 					writer.setNeedPostProcessing(true);
 				}

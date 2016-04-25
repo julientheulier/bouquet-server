@@ -40,6 +40,7 @@ import org.slf4j.LoggerFactory;
 import com.squid.core.database.impl.DataSourceReliable;
 import com.squid.core.database.impl.DatabaseServiceException;
 import com.squid.core.database.impl.DriverLoader;
+import com.squid.core.database.impl.DataSourceReliable.FeatureSupport;
 import com.squid.core.database.lazy.LazyDatabaseFactory;
 import com.squid.core.database.model.Database;
 import com.squid.core.database.model.DatabaseFactory;
@@ -48,6 +49,7 @@ import com.squid.core.database.model.impl.JDBCConfig;
 import com.squid.core.jdbc.engine.ExecutionItem;
 import com.squid.core.jdbc.engine.IExecutionItem;
 import com.squid.core.jdbc.vendor.VendorSupportRegistry;
+import com.squid.core.sql.render.ISkinFeatureSupport;
 import com.squid.kraken.v4.core.database.impl.HikariDataSourceReliable;
 import com.zaxxer.hikari.HikariDataSource;
 import com.squid.core.database.metadata.IMetadataEngine;
@@ -181,6 +183,7 @@ public class SimpleDatabaseManager extends DatabaseManager {
 		int queryNum = queryCnt.incrementAndGet();
 		long now = System.currentTimeMillis();
 		try {
+			boolean needCommit = false;
 			Connection connection = this.ds.getConnectionBlocking();
 			if (logger.isDebugEnabled()) {
 				logger.debug("Driver used for the connection", connection
@@ -188,6 +191,12 @@ public class SimpleDatabaseManager extends DatabaseManager {
 			}
 			Statement statement = connection.createStatement();
 			try {
+				if(getSkin().getFeatureSupport(FeatureSupport.AUTOCOMMIT) == ISkinFeatureSupport.IS_NOT_SUPPORTED){
+					connection.setAutoCommit(false);
+					needCommit = true;
+				}else{
+					connection.setAutoCommit(true);
+				}
 				statement.setFetchSize(getDataFormatter(connection).getFetchSize());
 				logger.info("starting SQLQuery#" + queryNum 
 						+ " jdbc=" + config.getJdbcUrl()
@@ -224,6 +233,9 @@ public class SimpleDatabaseManager extends DatabaseManager {
 			} catch (Exception e) {
 				// ticket:2972
 				// it is our responsibility to dispose connection and statement
+				if (needCommit) {
+					connection.rollback();
+				}
 				if (statement != null)
 					statement.close();
 				if (!connection.getMetaData().getDatabaseProductName()

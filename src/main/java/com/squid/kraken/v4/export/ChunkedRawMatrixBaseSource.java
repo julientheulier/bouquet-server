@@ -54,7 +54,7 @@ public class ChunkedRawMatrixBaseSource {
 			String res = refList.getReferenceKeys().get(nbChunksRead).referencedKey;
 			return res;
 		} else {
-			if (!refList.isDone()) {
+			if (!refList.isDone() && !refList.isError()) {
 				boolean ok = false;
 				int waitingCount = 1;
 				while (!ok) {
@@ -73,7 +73,6 @@ public class ChunkedRawMatrixBaseSource {
 					}
 				}
 				String res = refList.getReferenceKeys().get(nbChunksRead).referencedKey;
-				nbChunksRead++;
 				return res;
 			} else {
 				return null;
