@@ -143,6 +143,26 @@ public class ProjectServiceRest extends BaseServiceRest {
 		}
 	}
 
+	@GET
+	@Path("{"+PARAM_NAME+"}"+"/features")
+	@ApiOperation(value = "Give the functions supported by the project")
+	public List<String> features(@PathParam(PARAM_NAME) String objectId) {
+		ProjectPK projectPK = new ProjectPK(userContext.getCustomerId(),
+				objectId);
+		Optional<Project> project = ((ProjectDAO) DAOFactory.getDAOFactory().getDAO(Project.class)).read(
+				userContext, projectPK);
+		if (project.isPresent()) {
+			try {
+				Database db = DatabaseServiceImpl.INSTANCE.getDatabase(project.get());
+				return db.getSkin().canRender();
+			} catch (DatabaseServiceException e) {
+				throw new APIException(e.getMessage(), e, false);
+			}
+		} else {
+			throw new APIException("cannot find project with PK = "+projectPK.toString(),false);
+		}
+	}
+
 	@POST
 	@Path("")
 	@ApiOperation(value = "Creates a Project")

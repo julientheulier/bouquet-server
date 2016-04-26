@@ -133,6 +133,7 @@ public class ExecuteHierarchyQuery implements CancellableCallable<Boolean> {
 			int maxRecords = -1;
 			DimensionMember[] dedup = new DimensionMember[dx_map.size()];
 			ArrayList<DimensionMember[]> rowBuffer = new ArrayList<>(bufferCommitSize);
+			@SuppressWarnings("unchecked")
 			ArrayList<DimensionMember>[] indexBuffer = new ArrayList[dx_map.size()];
 
 			// to detected proper end of indexation;
@@ -145,14 +146,14 @@ public class ExecuteHierarchyQuery implements CancellableCallable<Boolean> {
 			while ((result.next()) && (count++<maxRecords || maxRecords<0)) {
 				if (Thread.interrupted() || executeQueryTask.isInterrupted()) {
 					// handling interruption
-					logger.info("cancel task="+this.getClass().getName()+" method=executeQuery"+" duration= "+ " error=false status=running queryid="+item.getID()+" SQLQuery#" + item.getID() + " is interrupted");
+					logger.info("cancelled SQLQuery#" + item.getID() + " method=executeQuery"+" duration= "+ " error=false status=cancelled queryid="+item.getID()+" task="+this.getClass().getName());
 					throw new InterruptedException("cancelled while reading query results");
 				}
 				if (count%100000==0) {
 					long intermediate = new Date().getTime();
-					float speed = Math.round(1000*((double)count)/(intermediate-metter_start));// in K/s
+					long speed = Math.round((double)count/((intermediate-metter_start)/1000));// in row/s
 					//logger.info("SQLQuery#" + item.getID() + " proceeded " + count + "items, still running at "+speed+ "row/s");
-					logger.info("task="+this.getClass().getName()+" method=executeQuery"+" duration= "+ " error=false status=running queryid="+item.getID()+" SQLQuery#" + item.getID() + " proceeded " + count + "items, still running at "+speed+ "row/s");
+					logger.info("reading SQLQuery#" + item.getID() + " proceeded " + count + "items, still running at "+speed+ "row/s"+" method=executeQuery"+" duration= "+ " speed="+speed+ " error=false status=reading queryid="+item.getID()+" task="+this.getClass().getName());
 
 				}
 				DimensionMember[] row_axis = new DimensionMember[dx_map.size()];
@@ -226,7 +227,7 @@ public class ExecuteHierarchyQuery implements CancellableCallable<Boolean> {
 
 			long metter_finish = new Date().getTime();
 			//logger.info("SQLQuery#" + item.getID() + " read "+count+" row(s) in "+(metter_finish-metter_start)+" ms.");
-			logger.info("task="+this.getClass().getName()+" method=executeQuery"+" duration="+(metter_finish-metter_start)+ " error=false status=running queryid="+item.getID()+" SQLQuery#" + item.getID() + " read "+count+" row(s) in "+(metter_finish-metter_start)+" ms.");
+			logger.info("complete SQLQuery#" + item.getID() + " reads "+count+" row(s) in "+(metter_finish-metter_start)+" ms."+" method=executeQuery"+" duration="+(metter_finish-metter_start)+ " error=false status=complete queryid="+item.getID()+"task="+this.getClass().getName());
 
 			//
 			return true;
@@ -235,8 +236,7 @@ public class ExecuteHierarchyQuery implements CancellableCallable<Boolean> {
 				m.getDimensionIndex().setPermanentError(e.getMessage());
 			}
 			//logger.error("SQLQuery#" + (item!=null?item.getID():"?") + " failed with error: " + e.toString());
-			logger.info("task="+this.getClass().getName()+" method=executeQuery"+" duration="+ " error=false status=running queryid="+(item!=null?item.getID():"?")+" "+e.getLocalizedMessage());
-
+			logger.info("failed SQLQuery#" + item.getID()+" method=executeQuery"+" duration="+ " error=true status=failed queryid="+(item!=null?item.getID():"?")+" "+e.getLocalizedMessage()+"task="+this.getClass().getName());
 			throw e;
 		} finally {
 			if (item!=null) try {

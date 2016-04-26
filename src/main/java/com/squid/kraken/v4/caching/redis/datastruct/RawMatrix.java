@@ -24,7 +24,6 @@
 package com.squid.kraken.v4.caching.redis.datastruct;
 
 import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
@@ -37,6 +36,7 @@ import java.util.HashMap;
 import com.squid.kraken.v4.api.core.PerfDB;
 import com.squid.kraken.v4.api.core.SQLStats;
 
+import org.apache.commons.io.output.ByteArrayOutputStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -65,11 +65,9 @@ public class RawMatrix extends RedisCacheValue {
 	private transient int version = VERSION;
 	private transient HashMap<String, Integer> registration;
 
-	private transient static int maxChunkSizeInMB = 50;
-
+	private transient static int maxChunkSizeInMB = 10;
+		
 	static final Logger logger = LoggerFactory.getLogger(RawMatrix.class);
-
-
 
 	public RawMatrix() {
 		this.rows = new ArrayList<RawRow>();
@@ -237,7 +235,6 @@ public class RawMatrix extends RedisCacheValue {
 			}
 
 			int count = 0;
-			int index = 0;
 			matrix.moreData = false;
 			//
 			while ((count++ < maxRecords || maxRecords < 0) && (matrix.moreData = result.next())) {
@@ -443,22 +440,6 @@ public class RawMatrix extends RedisCacheValue {
 						+ ((intermediate - metter_start)) + " error=false status=running queryid=" + item.getID());
 
 			}
-			// stats: for long running queries, display evolution
-			if (count % 100000 == 0) {
-				long intermediate = new Date().getTime();
-				float speed = Math.round(1000 * ((double) count) / (intermediate - metter_start));// in
-				// K/s
-				float size = Math.round(baout.size() / 1048576);
-				// logger.info("SQLQuery#" + item.getID() + " proceeded " +
-				// count + "items, still running for
-				// "+(intermediate-metter_start)/1000+" s at "+speed+ "
-				// rows/s, compressed size is "+size+" Mbytes");
-	/*			logger.info("task=RawMatrix" + " method=streamExecutionItemToByteArray" + " duration="
-						+ (intermediate - metter_start) / 1000 + " error=false status=running queyrid="
-						+ item.getID() + " speed=" + speed + "size=" + size + " proceeded " + count
-						+ "items, still running for " + (intermediate - metter_start) / 1000 + " s at " + speed
-						+ " rows/s, compressed size is " + size + " Mbytes"); */
-			}
 			// if max chunk size of 50MB reached, stop 
 			if(count % 100 ==0){	
 				float size = Math.round(baout.size() / 1048576);
@@ -507,7 +488,6 @@ public class RawMatrix extends RedisCacheValue {
 		}
 
 		// stats: display total
-		float size = Math.round(baout.size() / 1048576);
 		long metter_finish = new Date().getTime();
 		// logger.info("SQLQuery#" + item.getID() + " serialized
 		// "+(count-1)+" row(s) in "+(metter_finish-metter_start)+" ms,
@@ -726,48 +706,50 @@ public class RawMatrix extends RedisCacheValue {
 
 	public static RawMatrix deserialize(byte[] serializedMatrix) throws IOException, ClassNotFoundException {
 		Input in = new Input(new ByteArrayInputStream(serializedMatrix));
-
-		HashMap<String, Integer> registration = new HashMap<String, Integer>();
-
-		// read header first
-
-		// classes registration for kryo
-		int nbClasses = in.readInt();
-		for (int i = 0; i < nbClasses; i++) {
-			String className = in.readString();
-			int id = in.readInt();
-			registration.put(className, id);
-		}
-
-		// get version
-		int position = in.position(); // in case there is no version available;
-
-		int version;
-		int type;
-		int check_version = in.readInt();
-
-		if (check_version == -1) {
-			// version>=1, read the version in the stream
-			version = in.readInt();// read the version
-			if (version < 2) {
-				type = RedisCacheType.RAW_MATRIX.ordinal();
-			} else {
-				type = in.readInt();
+		try {
+			HashMap<String, Integer> registration = new HashMap<String, Integer>();
+	
+			// read header first
+	
+			// classes registration for kryo
+			int nbClasses = in.readInt();
+			for (int i = 0; i < nbClasses; i++) {
+				String className = in.readString();
+				int id = in.readInt();
+				registration.put(className, id);
 			}
-		} else {
-			// version=0, no information in stream
-			version = 0;
-			type = RedisCacheType.RAW_MATRIX.ordinal();
-			in.setPosition(position);
-		}
-
-		if (type == RedisCacheType.RAW_MATRIX.ordinal()) {
-			RawMatrix res = new RawMatrix(version, registration);
-			res.readObject(in);
+	
+			// get version
+			int position = in.position(); // in case there is no version available;
+	
+			int version;
+			int type;
+			int check_version = in.readInt();
+	
+			if (check_version == -1) {
+				// version>=1, read the version in the stream
+				version = in.readInt();// read the version
+				if (version < 2) {
+					type = RedisCacheType.RAW_MATRIX.ordinal();
+				} else {
+					type = in.readInt();
+				}
+			} else {
+				// version=0, no information in stream
+				version = 0;
+				type = RedisCacheType.RAW_MATRIX.ordinal();
+				in.setPosition(position);
+			}
+	
+			if (type == RedisCacheType.RAW_MATRIX.ordinal()) {
+				RawMatrix res = new RawMatrix(version, registration);
+				res.readObject(in);
+				return res;
+			} else {
+				throw new ClassNotFoundException("Could not deserialize");
+			}
+		} finally {
 			in.close();
-			return res;
-		} else {
-			throw new ClassNotFoundException("Could not deserialize");
 		}
 	}
 

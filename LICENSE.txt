@@ -62,4 +62,6 @@ ASM Core (BSD 3-Clause)
 SLF4J (MIT)
 Postgresql (BSD 3-Clause)
 Jedis(MIT)
+CSVWriter (Apache 2.0)
+Apache POI (Apache 2.0)
 
