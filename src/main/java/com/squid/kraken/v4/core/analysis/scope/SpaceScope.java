@@ -85,10 +85,12 @@ public class SpaceScope extends AnalysisScope {
 	            	DimensionIndex index = axis.getIndex();
 	            	if (index!=null) {
 	            		Dimension dimension = index.getDimension();
-		                if (dimension!=null && dimension.getName().equals(name)) {
+		                if (dimension!=null && index.getDimensionName().equals(name)) {
 		                	// KRKN-107 : if it's a sub-domain, don't link through the dimension
 		                    if (!axis.getDefinitionSafe().getImageDomain().isInstanceOf(IDomain.OBJECT)) {
 		                    	return axis;
+		                    } else {
+		                    	return axis;// give me the good stuff !
 		                    }
 		                }
 	            	}

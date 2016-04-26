@@ -255,29 +255,20 @@ public class DomainHierarchy {
     }
     
     private boolean hasRole(AppContext ctx, DynamicObject<?> dynamic) {
-    	// T15 rules
-    	Role role;
-    	if (dynamic.isDynamic()) {
-    		role = Role.WRITE;
-    	} else {
-    		role = Role.READ;
-    	}
+    	// T1076: guest can access dynamic objects
+    	Role role = Role.READ;
     	return AccessRightsUtils.getInstance().hasRole(ctx, dynamic, role);
     }
     
     private void checkRole(AppContext ctx, DynamicObject<?> dynamic) {
-    	// T15 rules
-    	Role role;
-    	if (dynamic.isDynamic()) {
-    		role = Role.WRITE;
-    	} else {
-    		role = Role.READ;
-    	}
+    	// T1076: guest can access dynamic objects
+    	Role role = Role.READ;
     	AccessRightsUtils.getInstance().checkRole(ctx, dynamic, role);
     }
 
 	private <TYPE extends LzPersistentBaseImpl<? extends GenericPK>> TYPE cloneWithRole(AppContext ctx, TYPE obj) {
 		try {
+			@SuppressWarnings("unchecked")
 			TYPE copy = (TYPE)obj.clone();
 			AccessRightsUtils.getInstance().setRole(ctx, copy);
 			return copy;
@@ -334,13 +325,12 @@ public class DomainHierarchy {
      */
    protected void cancel() {
 	   if (compute != null) {
-		   if (this.state== State.STARTED) {// working on
-			   compute.cancel();
-			   try {
-				   isDone(10000);// wait 10s
-			   } catch (TimeoutException | InterruptedException | ExecutionException e) {
-				   logger.warn("failed to cancel computing the hierarchy for domain '"+root+"' in less than 10s...");
-			   }
+		   logger.info("Cancelling computing hierarchy for domain "+root  );
+		   compute.cancel();
+		   try {
+			   isDone(10000);// wait 10s
+		   } catch (TimeoutException | InterruptedException | ExecutionException e) {
+			   logger.warn("failed to cancel computing the hierarchy for domain '"+root+"' in less than 10s...");
 		   }
 	   }
     }
@@ -446,7 +436,7 @@ public class DomainHierarchy {
     public DimensionIndex getDimensionIndex(Axis axis) {
         DimensionIndex check = lookup.get(axis);
         if (check==null) {
-        	logger.error("cannot lookup DimensionIndex for Axis "+axis);
+        	//logger.error("cannot lookup DimensionIndex for Axis "+axis);
         }
         return check;
     }

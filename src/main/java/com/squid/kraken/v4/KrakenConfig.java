@@ -138,7 +138,7 @@ public class KrakenConfig {
 						props.setProperty("kraken.ws.host",confV2.getWsHost());
 						
 						props.setProperty("kraken.mongodb.host",confV2.getMongodb().getHost());
-						props.setProperty("kraken.mongodb.port", new Integer(confV2.getMongodb().getPort()).toString());
+						props.setProperty("kraken.mongodb.port", confV2.getMongodb().getPort());
 						props.setProperty("kraken.mongodb.dbname",confV2.getMongodb().getDbname());
 						if (confV2.getMongodb().getUser() !=null){
 							props.setProperty("kraken.mongodb.user",confV2.getMongodb().getUser());
@@ -158,6 +158,8 @@ public class KrakenConfig {
 						props.setProperty("kraken.ws.api",confV2.getKrakenWSAPI());
 						props.setProperty("elastic.local",Boolean.toString(confV2.getElasticLocal()) );
 						props.setProperty("feature.dynamic",Boolean.toString(confV2.getFeatureDynamic()));
+						
+						props.setProperty("ehcache.path",confV2.getEHCachePath());
 						
 					} catch (IOException e) {
 						logger.error("Could not load config file : " + filePathV2);

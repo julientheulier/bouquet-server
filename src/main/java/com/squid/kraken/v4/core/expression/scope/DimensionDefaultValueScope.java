@@ -23,6 +23,7 @@
  *******************************************************************************/
 package com.squid.kraken.v4.core.expression.scope;
 
+import java.util.HashMap;
 import java.util.List;
 
 import com.squid.core.domain.IDomain;
@@ -46,10 +47,21 @@ public class DimensionDefaultValueScope extends DefaultScope {
 	private AppContext ctx;
 	private DimensionIndex index;
 
+	private HashMap<String, IDomain> params = new HashMap<>();
+
 	public DimensionDefaultValueScope(AppContext ctx, DimensionIndex index) {
 		super();
 		this.ctx = ctx;
 		this.index = index;
+	}
+	
+	/**
+	 * allow this param to be use in the expression (note that some params are always available)
+	 * @param param
+	 * @param type == the param type
+	 */
+	public void addParam(String param, IDomain type) {
+		params.put(param.toUpperCase(), type);
 	}
 	
 	@Override
@@ -115,6 +127,8 @@ public class DimensionDefaultValueScope extends DefaultScope {
 					// else - cannot evaluate but it's OK to try
 					return new ParameterReference("MIN",index.getAxis().getDefinitionSafe().getImageDomain());
 				}
+			} else if (params.containsKey(name.toUpperCase())) {
+				return new ParameterReference(name.toUpperCase(), params.get(name.toUpperCase()));
 			}
 		}
 		// else

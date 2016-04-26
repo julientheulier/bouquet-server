@@ -23,13 +23,7 @@
  *******************************************************************************/
 package com.squid.kraken.v4.core.analysis.datamatrix;
 
-import java.util.Collection;
-import java.util.LinkedList;
-import java.util.concurrent.ConcurrentSkipListSet;
-
-import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex;
-import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionMember;
-import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
+import com.squid.core.sql.render.IOrderByPiece.ORDERING;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
 
 /**
@@ -39,13 +33,14 @@ import com.squid.kraken.v4.core.analysis.universe.Axis;
  */
 public class AxisValues {
 	
-	private boolean isVisible = true;
 	private Axis axis;
-	private ConcurrentSkipListSet<Object> values = new ConcurrentSkipListSet<Object>();
+	private boolean isVisible = true;
+	private ORDERING ordering;
 
 	public AxisValues(AxisValues copy) {
 		this.axis = copy.axis;
 		this.isVisible = copy.isVisible;
+		this.ordering = copy.ordering;
 		// don't set values
 	}
 	
@@ -57,13 +52,17 @@ public class AxisValues {
 	public Axis getAxis() {
 		return axis;
 	}
-
-	public Collection<Object> getValues() {
-		return values;
-	}
 	
 	public boolean isVisible() {
 		return isVisible;
+	}
+
+	public void setOrdering(ORDERING ordering) {
+		this.ordering = ordering;
+	}
+	
+	public ORDERING getOrdering() {
+		return ordering;
 	}
 
 	public void setVisible(boolean isVisible) {
@@ -72,19 +71,7 @@ public class AxisValues {
 
 	@Override
 	public String toString() {
-		return "AxisData:{axis="+axis.toString()+" =>["+values.size()+"]"+values.toString()+"}";
-	}
-
-	public Collection<DimensionMember> getMembers() throws ComputingException, InterruptedException {
-		LinkedList<DimensionMember> members = new LinkedList<DimensionMember>();
-		DimensionIndex dimIndex = axis.getIndex();
-		for (Object value : values) {
-			DimensionMember member = dimIndex.getMemberByID(value);
-			if (member!=null) {
-				members.add(member);
-			}
-		}
-		return members;
+		return "AxisValues:{axis="+axis.toString()+";"+ordering+";visible="+isVisible;
 	}
 	
 }

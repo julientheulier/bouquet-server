@@ -24,14 +24,19 @@
 package com.squid.kraken.v4.api.core;
 
 import java.text.ParseException;
+import java.util.Calendar;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
 
+import org.joda.time.Days;
+import org.joda.time.LocalDate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.squid.core.domain.IDomain;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex;
@@ -40,14 +45,18 @@ import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionOptionUtils;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainFacetCompute;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainHierarchy;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.SegmentManager;
+import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex.Status;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.core.analysis.model.DashboardSelection;
+import com.squid.kraken.v4.core.analysis.model.DomainSelection;
+import com.squid.kraken.v4.core.analysis.model.Intervalle;
 import com.squid.kraken.v4.core.analysis.model.IntervalleObject;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.kraken.v4.core.expression.scope.DimensionDefaultValueScope;
 import com.squid.kraken.v4.core.expression.scope.ExpressionEvaluator;
 import com.squid.kraken.v4.model.AccessRight.Role;
+import com.squid.kraken.v4.model.Dimension.Type;
 import com.squid.kraken.v4.model.DimensionOption;
 import com.squid.kraken.v4.model.DimensionPK;
 import com.squid.kraken.v4.model.Domain;
@@ -65,6 +74,10 @@ import com.squid.kraken.v4.persistence.AppContext;
  *
  */
 public class EngineUtils {
+
+    enum Bound {
+    	LOWER, UPPER
+    }
     
     static final Logger logger = LoggerFactory.getLogger(EngineUtils.class);
 
@@ -160,30 +173,186 @@ public class EngineUtils {
      * If the value start with '=', it is expected to be a Expression, in which case we'll try to resolve it to a Date constant.
      * @param ctx
      * @param index
+     * @param lower 
      * @param value
+     * @param compareFromInterval 
      * @return
      * @throws ParseException
      * @throws ScopeException
      */
-    public Date convertToDate(AppContext ctx, DimensionIndex index, String value) throws ParseException, ScopeException {
-    	if (value.startsWith("=")) {
-    		String expr = value.substring(1);
-    		DimensionDefaultValueScope scope = new DimensionDefaultValueScope(ctx, index);
+	public Date convertToDate(Universe universe, DimensionIndex index, Bound bound, String value, IntervalleObject compareFromInterval)
+			throws ParseException, ScopeException {
+		if (value.startsWith("__")) {
+			//
+			// support hard-coded shortcuts
+			if (compareFromInterval!=null) {
+				// for compareTo
+				if (value.equalsIgnoreCase("__COMPARE_TO_PREVIOUS_PERIOD")) {
+					LocalDate localLower = new LocalDate(((Date)compareFromInterval.getLowerBound()).getTime());
+					if (bound==Bound.UPPER) {
+						LocalDate date = localLower.minusDays(1);
+						return date.toDate();
+					} else {
+						LocalDate localUpper = new LocalDate(((Date)compareFromInterval.getUpperBound()).getTime());
+						Days days = Days.daysBetween(localLower, localUpper);
+						LocalDate date = localLower.minusDays(1+days.getDays());
+						return date.toDate();
+					}
+				}
+				if (value.equalsIgnoreCase("__COMPARE_TO_PREVIOUS_MONTH")) {
+					LocalDate localLower = new LocalDate(((Date)compareFromInterval.getLowerBound()).getTime());
+					LocalDate compareLower = localLower.minusMonths(1);
+					if (bound==Bound.LOWER) {
+						return compareLower.toDate();
+					} else {
+						LocalDate localUpper = new LocalDate(((Date)compareFromInterval.getUpperBound()).getTime());
+						Days days = Days.daysBetween(localLower, localUpper);
+						LocalDate compareUpper = compareLower.plusDays(days.getDays());
+						return compareUpper.toDate();
+					}
+				}
+				if (value.equalsIgnoreCase("__COMPARE_TO_PREVIOUS_YEAR")) {
+					LocalDate localLower = new LocalDate(((Date)compareFromInterval.getLowerBound()).getTime());
+					LocalDate compareLower = localLower.minusYears(1);
+					if (bound==Bound.LOWER) {
+						return compareLower.toDate();
+					} else {
+						LocalDate localUpper = new LocalDate(((Date)compareFromInterval.getUpperBound()).getTime());
+						Days days = Days.daysBetween(localLower, localUpper);
+						LocalDate compareUpper = compareLower.plusDays(days.getDays());
+						return compareUpper.toDate();
+					}
+				}
+			} else {
+				// for regular
+				// get MIN, MAX first
+				Intervalle range = null;
+				if (index.getDimension().getType() == Type.CONTINUOUS) {
+					if (index.getStatus()==Status.DONE) {
+						List<DimensionMember> members = index.getMembers();
+						if (!members.isEmpty()) {
+							DimensionMember member = members.get(0);
+							Object object = member.getID();
+							if (object instanceof Intervalle) {
+								range = (Intervalle)object;
+							}
+						}
+					}
+				}
+				if (range==null) {
+					range = IntervalleObject.createInterval(new Date(), new Date());
+				}
+				if (value.equalsIgnoreCase("__LAST_DAY")) {
+					if (bound==Bound.UPPER) {
+						return (Date)range.getUpperBound();
+					} else {
+						return (Date)range.getUpperBound();
+					}
+				}
+				if (value.equalsIgnoreCase("__LAST_7_DAYS")) {
+					if (bound==Bound.UPPER) {
+						return (Date)range.getUpperBound();
+					} else {
+						LocalDate localUpper = new LocalDate(((Date)range.getUpperBound()).getTime());
+						LocalDate date = localUpper.minusDays(6);// 6+1
+						return date.toDate();
+					}
+				}
+				if (value.equalsIgnoreCase("__CURRENT_MONTH")) {
+					if (bound==Bound.UPPER) {
+						return (Date)range.getUpperBound();
+					} else {
+						LocalDate localUpper = new LocalDate(((Date)range.getUpperBound()).getTime());
+						LocalDate date = localUpper.withDayOfMonth(1);
+						return date.toDate();
+					}
+				}
+				if (value.equalsIgnoreCase("__CURRENT_YEAR")) {
+					if (bound==Bound.UPPER) {
+						return (Date)range.getUpperBound();
+					} else {
+						LocalDate localUpper = new LocalDate(((Date)range.getUpperBound()).getTime());
+						LocalDate date = localUpper.withMonthOfYear(1).withDayOfMonth(1);
+						return date.toDate();
+					}
+				}
+				if (value.equalsIgnoreCase("__PREVIOUS_MONTH")) {// the previous complete month
+					if (bound==Bound.UPPER) {
+						LocalDate localUpper = new LocalDate(((Date)range.getUpperBound()).getTime());
+						LocalDate date = localUpper.withDayOfMonth(1).minusDays(1);
+						return date.toDate();
+					} else {
+						LocalDate localUpper = new LocalDate(((Date)range.getUpperBound()).getTime());
+						LocalDate date = localUpper.withDayOfMonth(1).minusMonths(1);
+						return date.toDate();
+					}
+				}
+				if (value.equalsIgnoreCase("__PREVIOUS_YEAR")) {// the previous complete month
+					if (bound==Bound.UPPER) {
+						LocalDate localUpper = new LocalDate(((Date)range.getUpperBound()).getTime());
+						LocalDate date = localUpper.withMonthOfYear(1).withDayOfMonth(1).minusDays(1);
+						return date.toDate();
+					} else {
+						LocalDate localUpper = new LocalDate(((Date)range.getUpperBound()).getTime());
+						LocalDate date = localUpper.withMonthOfYear(1).withDayOfMonth(1).minusYears(1);
+						return date.toDate();
+					}
+				}
+			}
+			throw new ScopeException("undefined facet expression alias: " + value);
+		} else if (value.startsWith("=")) {
+			// if the value starts by equal token, this is a formula that can be
+			// evaluated
+			try {
+				String expr = value.substring(1);
+				// check if the index content is available and give some extra time to wait before using a default value
+				DomainHierarchy hierarchy = universe.getDomainHierarchy(index.getAxis().getParent().getDomain());
+				hierarchy.isDone(index, 10000);
+				// evaluate the expression
+				Object defaultValue = evaluateExpression(universe, index, expr, compareFromInterval);
+				// check we can use it
+				if (defaultValue == null) {
+					throw new ScopeException("unable to parse the facet expression as a constant: " + expr);
+				}
+				if (!(defaultValue instanceof Date)) {
+					throw new ScopeException("unable to parse the facet expression as a date: " + expr);
+				}
+				// ok, it's a date
+				return (Date) defaultValue;
+			} catch (ComputingException | InterruptedException | ExecutionException
+					| TimeoutException e) {
+				logger.error("unable to parse computed selection for " + index.getAxis());
+				return null;
+			}
+		} else {
+			return ServiceUtils.getInstance().toDate(value);
+		}
+	}
+	
+	private Object evaluateExpression(Universe universe, DimensionIndex index, String expr, IntervalleObject compareFromInterval) throws ScopeException {
+		try {
+			DimensionDefaultValueScope scope = new DimensionDefaultValueScope(universe.getContext(), index);
+			if (compareFromInterval!=null) {
+				scope.addParam("UPPER",IDomain.DATE);
+				scope.addParam("LOWER", IDomain.DATE);
+			}
 			ExpressionAST defaultExpression = scope.parseExpression(expr);
-			ExpressionEvaluator evaluator = new ExpressionEvaluator(ctx);
-			Object defaultValue = evaluator.evalSingle(defaultExpression);
-			if (defaultValue==null) {
-				throw new ScopeException("unable to parse the facet expression as a constant: "+value);
+			ExpressionEvaluator evaluator = new ExpressionEvaluator(universe.getContext());
+			// provide sensible default for MIN & MAX -- we don't want the parser to fail is not set
+			Calendar calendar = Calendar.getInstance();
+			evaluator.setParameterValue("MAX", calendar.getTime());
+			calendar.add(Calendar.MONTH, -1);
+			evaluator.setParameterValue("MIN", calendar.getTime());
+			// handle compareFrom interval values if available
+			if (compareFromInterval!=null) {
+				evaluator.setParameterValue("LOWER", compareFromInterval.getLowerBound());
+				evaluator.setParameterValue("UPPER", compareFromInterval.getUpperBound());
 			}
-			if (!(defaultValue instanceof Date)) {
-				throw new ScopeException("unable to parse the facet expression as a date: "+value);
-			}
-			// ok, it's a date
-			return (Date)defaultValue;
-    	} else {
-    		return ServiceUtils.getInstance().toDate(value);
-    	}
-    }
+			return evaluator.evalSingle(defaultExpression);
+		} catch (ScopeException e) {
+			throw new ScopeException("unable to parse the facet expression: " + expr + "\n" + e.getLocalizedMessage(), e);
+		}
+	}
 
     /**
      * Apply a facet selection to a dashboard.
@@ -199,72 +368,22 @@ public class EngineUtils {
         //
     	DashboardSelection ds = new DashboardSelection();
     	//
-    	List<Facet> facetsSel = selection!=null?selection.getFacets():Collections.<Facet> emptyList();
-        for (Facet facetSel : facetsSel) {
-            if (SegmentManager.isSegmentFacet(facetSel)) {
-                SegmentManager.addSegmentSelection(ctx, universe, facetSel, ds);
-            } else {
-                Axis axis = getFacetAxis(ctx, universe, facetSel);
-                if (axis!=null) {
-                    Domain domain = axis.getParent().getRoot();
-                    DimensionIndex index = universe.
-                            getDomainHierarchy(domain).
-                            getDimensionIndex(axis);
-                    AccessRightsUtils.getInstance().checkRole(ctx, index.getDimension(), Role.READ);
-                    for (FacetMember selectedItem : facetSel.getSelectedItems()) {
-                        if (selectedItem instanceof FacetMemberInterval) {
-                            FacetMemberInterval fmi = (FacetMemberInterval) selectedItem;
-                            try {
-                                Date lowerDate = convertToDate(ctx, index, fmi.getLowerBound());
-                                Date upperDate = convertToDate(ctx, index, fmi.getUpperBound());
-                                // add as a Date Interval
-                                ds.add(axis, IntervalleObject.createInterval(lowerDate, upperDate));
-                            } catch (java.text.ParseException e) {
-                                throw new ComputingException(e);
-                            }
-                        } else if (selectedItem instanceof FacetMemberString) {
-                        	FacetMemberString fmember = (FacetMemberString) selectedItem;
-                        	if (fmember.getId()!=null && !fmember.getId().equals("") 
-                        	        //&& !fmember.getId().equals("-1") // support legacy drill-down // end of legacy support !
-                        	        && facetSel.getId()!=null) {// to support legacy
-                        		// if we provide the ID, it's safe to use it...
-                        		DimensionMember member = index.getMemberByKey(fmember.getId());
-                        		if (member!=null) {
-                        			ds.add(axis, member);
-                        		} else if (fmember.getValue()!=null) {
-                                    // ticket:2992
-                                    // if the value is defined, try to get a member
-                                    member = index.getMemberByID(fmember.getValue());
-                                    if (member!=null) {
-                                        fmember.setId(member.getKey());// update the facet Id
-                                        ds.add(axis, member);
-                                    } else {
-                                        throw new ComputingException("invalid selection, unkonwn index value");
-                                    }
-                        		} else {
-                        			throw new ComputingException("invalid selection, unkonwn index reference");
-                        		}
-                        	} else if (fmember.getValue()!=null) {
-                        		// ticket:2992
-                        		// if the value is defined, try to get a member
-                        		DimensionMember member = index.getMemberByID(fmember.getValue());
-                        		if (member!=null) {
-                        		    fmember.setId(member.getKey());// update the facet Id
-                        			ds.add(axis, member);
-                        		} else {
-                        			throw new ComputingException("invalid selection, unkonwn index value");
-                        		}
-                        	} else {
-                    			throw new ComputingException("invalid selection, undefine index");
-                        	}
-                        }
-                    }
-                } else {
-                    logger.info("ignoring invalid facet selection");
-                }
-            }
-        }
-        
+    	if (selection!=null) {
+	        addFacetSelection(ctx, universe, selection.getFacets(), ds, null);
+	        // T994 support the compareFacets
+	        if (selection.hasCompareFacets()) {
+	        	DashboardSelection compare = new DashboardSelection();
+		        addFacetSelection(ctx, universe, selection.getCompareTo(), compare, ds);
+		        // we let the ds.compare chack that the selection is valid
+		        for (DomainSelection s : compare.get()) {
+		        	for (Axis filter : s.getFilters()) {
+		        		for (DimensionMember member : s.getMembers(filter)) {
+		        			ds.addCompareTo(filter, member);
+		        		}
+		        	}
+		        }
+	        }
+    	}
         //
         // krkn-61: handling dimension options
         for (Domain domain : domains) {
@@ -318,5 +437,93 @@ public class EngineUtils {
         //
         return ds;
     }
+
+    /**
+     * initialise the DashboardSelection
+     * @param ctx
+     * @param universe
+     * @param facetsSel
+     * @param ds : the output selection
+     * @param compareFrom : if the output selection is a compareTo, you can provide the current selection in order to resolve $LOWER and $UPPER parameters
+     * @throws ScopeException
+     * @throws ComputingException
+     * @throws InterruptedException
+     */
+	private void addFacetSelection(AppContext ctx, Universe universe, List<Facet> facetsSel, DashboardSelection ds, DashboardSelection compareFrom) throws ScopeException, ComputingException, InterruptedException {
+		for (Facet facetSel : facetsSel) {
+            if (SegmentManager.isSegmentFacet(facetSel)) {
+                SegmentManager.addSegmentSelection(ctx, universe, facetSel, ds);
+            } else {
+                Axis axis = getFacetAxis(ctx, universe, facetSel);
+                if (axis!=null) {
+                    Domain domain = axis.getParent().getRoot();
+                    DimensionIndex index = universe.
+                            getDomainHierarchy(domain).
+                            getDimensionIndex(axis);
+                    AccessRightsUtils.getInstance().checkRole(ctx, index.getDimension(), Role.READ);
+                    for (FacetMember selectedItem : facetSel.getSelectedItems()) {
+                        if (selectedItem instanceof FacetMemberInterval) {
+                        	IntervalleObject compareFromInterval = null;
+                        	if (compareFrom!=null) {
+                        		Collection<DimensionMember> members = compareFrom.getMembers(axis);
+                        		if (members.size()==1) {
+                        			DimensionMember member = members.iterator().next();
+                        			if (member.getID() instanceof IntervalleObject) {
+                        				compareFromInterval = (IntervalleObject)member.getID();
+                        			}
+                        		}
+                        	}
+                            FacetMemberInterval fmi = (FacetMemberInterval) selectedItem;
+                            try {
+                                Date lowerDate = convertToDate(universe, index, Bound.LOWER, fmi.getLowerBound(), compareFromInterval);
+                                Date upperDate = convertToDate(universe, index, Bound.UPPER, fmi.getUpperBound(), compareFromInterval);
+                                // add as a Date Interval
+                                ds.add(axis, IntervalleObject.createInterval(lowerDate, upperDate));
+                            } catch (java.text.ParseException e) {
+                                throw new ComputingException(e);
+                            }
+                        } else if (selectedItem instanceof FacetMemberString) {
+                        	FacetMemberString fmember = (FacetMemberString) selectedItem;
+                        	if (fmember.getId()!=null && !fmember.getId().equals("") 
+                        	        //&& !fmember.getId().equals("-1") // support legacy drill-down // end of legacy support !
+                        	        && facetSel.getId()!=null) {// to support legacy
+                        		// if we provide the ID, it's safe to use it...
+                        		DimensionMember member = index.getMemberByKey(fmember.getId());
+                        		if (member!=null) {
+                        			ds.add(axis, member);
+                        		} else if (fmember.getValue()!=null) {
+                                    // ticket:2992
+                                    // if the value is defined, try to get a member
+                                    member = index.getMemberByID(fmember.getValue());
+                                    if (member!=null) {
+                                        fmember.setId(member.getKey());// update the facet Id
+                                        ds.add(axis, member);
+                                    } else {
+                                        throw new ComputingException("invalid selection, unkonwn index value");
+                                    }
+                        		} else {
+                        			throw new ComputingException("invalid selection, unkonwn index reference");
+                        		}
+                        	} else if (fmember.getValue()!=null) {
+                        		// ticket:2992
+                        		// if the value is defined, try to get a member
+                        		DimensionMember member = index.getMemberByID(fmember.getValue());
+                        		if (member!=null) {
+                        		    fmember.setId(member.getKey());// update the facet Id
+                        			ds.add(axis, member);
+                        		} else {
+                        			throw new ComputingException("invalid selection, unkonwn index value");
+                        		}
+                        	} else {
+                    			throw new ComputingException("invalid selection, undefine index");
+                        	}
+                        }
+                    }
+                } else {
+                    logger.info("ignoring invalid facet selection");
+                }
+            }
+        }
+	}
     
 }

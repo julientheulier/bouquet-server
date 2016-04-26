@@ -49,7 +49,10 @@ public class DashboardAnalysis extends Dashboard {
 	private ArrayList<OrderBy> orders = new ArrayList<OrderBy>();
 	private Long limit = null;
 	private Long offset = null;
-	
+
+	private List<GroupByAxis> beyondLimit = new ArrayList<>();
+	// T0126 & T1042: in case of beyondLimit + compareTo we need to use a different selection for computing the limit subquery
+	private DashboardSelection beyodLimitSelection = null;
 	
 	private boolean lazy = false;
 	
@@ -59,6 +62,16 @@ public class DashboardAnalysis extends Dashboard {
 
 	public List<GroupByAxis> getGrouping() {
 		return grouping;
+	}
+	
+	public GroupByAxis findGrouping(Axis axis) {
+		for (GroupByAxis groupBy : grouping) {
+			if (groupBy.getAxis().equals(axis)) {
+				return groupBy;
+			}
+		}
+		// else
+		return null;
 	}
 	
 	public void orderBy(OrderBy order) {
@@ -76,6 +89,10 @@ public class DashboardAnalysis extends Dashboard {
 	public List<OrderBy> getOrders() {
         return orders;
     }
+	
+	public void setOrders(List<OrderBy> orders) {
+		this.orders = new ArrayList<>(orders);
+	}
 	
 	public boolean hasOrderBy() {
 	    return !orders.isEmpty();
@@ -97,6 +114,30 @@ public class DashboardAnalysis extends Dashboard {
         return limit!=null;
     }
     
+    public void beyondLimit(GroupByAxis axis) {
+    	beyondLimit.add(axis);
+    }
+    
+    public List<GroupByAxis> getBeyondLimit() {
+    	return beyondLimit;
+    }
+    
+    public void setBeyondLimit(List<GroupByAxis> beyondLimit) {
+		this.beyondLimit = beyondLimit;
+	}
+    
+    public boolean hasBeyondLimit() {
+    	return beyondLimit!=null && !beyondLimit.isEmpty();
+    }
+    
+    public void setBeyodLimitSelection(DashboardSelection beyodLimitSelection) {
+		this.beyodLimitSelection = beyodLimitSelection;
+	}
+    
+    public DashboardSelection getBeyodLimitSelection() {
+		return beyodLimitSelection;
+	}
+    
     public void offset(long offset) {
         this.offset = offset;
     }
@@ -116,6 +157,11 @@ public class DashboardAnalysis extends Dashboard {
     public boolean isLazy(){
     	return this.lazy;
     }
+
+	public GroupByAxis add(GroupByAxis slice) {
+		grouping.add(slice);
+		return slice;
+	}
 
 	public GroupByAxis add(Axis axis) {
 		GroupByAxis slice = new GroupByAxis(axis);
@@ -140,6 +186,10 @@ public class DashboardAnalysis extends Dashboard {
         axis.setRollup(true);
         axis.setRollupPosition(position);
         rollup.add(axis);
+    }
+    
+    public void setRollup(List<GroupByAxis> rollup) {
+    	this.rollup = new ArrayList<>(rollup);
     }
     
     public List<GroupByAxis> getRollup() {
@@ -168,6 +218,12 @@ public class DashboardAnalysis extends Dashboard {
 			for (OrderBy order : orders) {
 				buffer.append(" ").append(order.getExpression().prettyPrint()+" "+order.getOrdering().toString());
 			}
+		}
+		if (limit!=null) {
+			buffer.append("\nLimit "+limit);
+		}
+		if (offset!=null) {
+			buffer.append("\nOffset "+offset);
 		}
 		return buffer.toString();
 	}

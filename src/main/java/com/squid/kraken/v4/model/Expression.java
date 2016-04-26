@@ -29,6 +29,7 @@ import java.util.Collection;
 import org.mongodb.morphia.annotations.Embedded;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.wordnik.swagger.annotations.ApiModelProperty;
 
 @SuppressWarnings("serial")
 @Embedded
@@ -37,11 +38,14 @@ public class Expression implements Serializable {
     private String value;
     
     // T450
+    @ApiModelProperty(hidden=true)
     private String internal = null;// store the identifier only reference expression
     
     // T446
+    @ApiModelProperty(hidden=true)
     private int level = 0;// level of references (0=no model references, 1=at least one indirect reference, ...)
     
+    @ApiModelProperty(hidden=true)
     private Collection<ReferencePK> references2 = null;
     
     public Expression() {

@@ -26,10 +26,13 @@ package com.squid.kraken.v4.core.expression.scope;
 import java.util.ArrayList; 
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 
 import com.squid.core.domain.extensions.AddMonthsOperatorDefinition;
 import com.squid.core.domain.extensions.DateOperatorDefinition;
+import com.squid.core.domain.extensions.DateTruncateOperatorDefinition;
+import com.squid.core.domain.extensions.DateTruncateShortcutsOperatorDefinition;
 import com.squid.core.domain.extensions.ExtractOperatorDefinition;
 import com.squid.core.domain.operators.IntrinsicOperators;
 import com.squid.core.domain.operators.OperatorScope;
@@ -38,6 +41,7 @@ import com.squid.core.expression.ConstantValue;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.Operator;
 import com.squid.core.expression.scope.ScopeException;
+import com.squid.kraken.v4.core.expression.reference.ParameterReference;
 import com.squid.kraken.v4.persistence.AppContext;
 
 /**
@@ -46,11 +50,15 @@ import com.squid.kraken.v4.persistence.AppContext;
  *
  */
 public class ExpressionEvaluator {
-	
-	//private AppContext ctx;
+
+	private HashMap<String, Object> paramValues = new HashMap<>();
 
 	public ExpressionEvaluator(AppContext ctx) {
 		//this.ctx = ctx;
+	}
+	
+	public void setParameterValue(String param, Object value) {
+		paramValues.put(param.toUpperCase(), value);
 	}
 	
 	/**
@@ -90,8 +98,19 @@ public class ExpressionEvaluator {
 		} else if (e instanceof Operator) {
 			Operator op = (Operator)e;
 			return eval_operator(op);
+		} else if (e instanceof ParameterReference) {
+			return eval_parameter((ParameterReference)e);
 		} else {
 			return null;// this is a kind of error
+		}
+	}
+
+	private Object eval_parameter(ParameterReference e) {
+		// check if there is a value associated with the parameter
+		if (paramValues.containsKey(e.getReferenceName().toUpperCase())) {
+			return paramValues.get(e.getReferenceName().toUpperCase());
+		} else {
+			return null;// not set
 		}
 	}
 
@@ -183,6 +202,77 @@ public class ExpressionEvaluator {
 				}
 			}
 		}
+		// DATE TRUNCATE
+		else if (extendedID.equals(DateTruncateOperatorDefinition.DATE_TRUNCATE) && op.getArguments().size()==2) {
+			return eval_date_truncate(eval_single(op.getArguments().get(0)), eval(op.getArguments().get(1)));
+		}
+		// DATE TRUNCATE shortcuts
+		else if (extendedID.toUpperCase().startsWith(DateTruncateShortcutsOperatorDefinition.SHORTCUT_BASE.toUpperCase()) && op.getArguments().size()==1) {
+			String mode = extendedID.substring(DateTruncateShortcutsOperatorDefinition.SHORTCUT_BASE.length());
+			return eval_date_truncate(eval_single(op.getArguments().get(0)), mode);
+		}
+		return null;
+	}
+
+	private Object eval_date_truncate(Object odate, Object omode) {
+		if (odate!=null && omode!=null && odate instanceof Date) {
+			Date date = (Date)odate;
+			String mode = omode.toString();
+			if (mode.equalsIgnoreCase(DateTruncateOperatorDefinition.YEAR)) {
+				// return the first day of year
+				Calendar cal = Calendar.getInstance();
+				cal.setTime(date);
+				cal.set(Calendar.MONTH, 0);
+				cal.set(Calendar.DAY_OF_MONTH, 1);
+				cal.set(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH), 0, 0, 0);// reset hours
+				return cal.getTime();
+			}
+			if (mode.equalsIgnoreCase(DateTruncateOperatorDefinition.MONTH)) {
+				// return the first day of month
+				Calendar cal = Calendar.getInstance();
+				cal.setTime(date);
+				cal.set(Calendar.DAY_OF_MONTH, 1);
+				cal.set(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH), 0, 0, 0);// reset hours
+				return cal.getTime();
+			}
+			if (mode.equalsIgnoreCase(DateTruncateOperatorDefinition.WEEK)) {
+				// return the first day of week
+				Calendar cal = Calendar.getInstance();
+				cal.setTime(date);
+				cal.add(Calendar.DAY_OF_MONTH, 1-cal.get(Calendar.DAY_OF_WEEK));
+				cal.set(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH), 0, 0, 0);// reset hours
+				return cal.getTime();
+			}
+			if (mode.equalsIgnoreCase(DateTruncateOperatorDefinition.DAY)) {
+				// return the day with no time info
+				Calendar cal = Calendar.getInstance();
+				cal.setTime(date);
+				cal.set(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH), 0, 0, 0);// reset hours
+				return cal.getTime();
+			}
+			if (mode.equalsIgnoreCase(DateTruncateOperatorDefinition.HOUR)) {
+				// return the day with only hour
+				Calendar cal = Calendar.getInstance();
+				cal.setTime(date);
+				cal.set(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH), cal.get(Calendar.HOUR_OF_DAY), 0, 0);
+				return cal.getTime();
+			}
+			if (mode.equalsIgnoreCase(DateTruncateOperatorDefinition.MINUTE)) {
+				// return the day with only minute
+				Calendar cal = Calendar.getInstance();
+				cal.setTime(date);
+				cal.set(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH), cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE), 0);
+				return cal.getTime();
+			}
+			if (mode.equalsIgnoreCase(DateTruncateOperatorDefinition.SECOND)) {
+				// return the day with only second
+				Calendar cal = Calendar.getInstance();
+				cal.setTime(date);
+				cal.set(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH), cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE), cal.get(Calendar.SECOND));
+				return cal.getTime();
+			}
+		}
+		// else
 		return null;
 	}
 

@@ -59,9 +59,10 @@ import com.wordnik.swagger.annotations.Api;
 import com.wordnik.swagger.annotations.ApiOperation;
 import com.wordnik.swagger.annotations.ApiParam;
 import com.wordnik.swagger.annotations.Authorization;
+import com.wordnik.swagger.annotations.AuthorizationScope;
 
 @Produces({ MediaType.APPLICATION_JSON })
-@Api(value = "facetjobs", hidden = true, authorizations = { @Authorization(value = "kraken_auth", type = "oauth2") })
+@Api(value = "facetjobs", hidden = true, authorizations = { @Authorization(value = "kraken_auth", type = "oauth2", scopes = { @AuthorizationScope(scope = "access", description = "Access")}) })
 public class FacetJobServiceRest extends BaseServiceRest {
 
 	private static final Logger logger = LoggerFactory
@@ -304,6 +305,7 @@ public class FacetJobServiceRest extends BaseServiceRest {
 
 	@Path("{jobId}/access")
 	@GET
+	@ApiOperation(value = "Gets a FacetJob's access rights")
 	public Set<AccessRight> readAccessRights(
 			@PathParam("projectId") String projectId,
 			@PathParam(PARAM_NAME) String jobId) {
@@ -313,9 +315,10 @@ public class FacetJobServiceRest extends BaseServiceRest {
 
 	@Path("{jobId}/access")
 	@POST
+	@ApiOperation(value = "Sets a FacetJob's access rights")
 	public Set<AccessRight> storeAccessRights(
 			@PathParam("projectId") String projectId,
-			@PathParam(PARAM_NAME) String jobId, Set<AccessRight> accessRights) {
+			@PathParam(PARAM_NAME) String jobId, @ApiParam(required = true) Set<AccessRight> accessRights) {
 		return delegate.storeAccessRights(userContext, new ProjectFacetJobPK(
 				userContext.getCustomerId(), projectId, jobId), accessRights);
 	}

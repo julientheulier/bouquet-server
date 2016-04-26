@@ -23,11 +23,7 @@
  *******************************************************************************/
 package com.squid.kraken.v4.core.analysis.datamatrix;
 
-import java.io.Serializable;
-
 public class IndirectionRow implements Comparable<IndirectionRow>  {
-
-	private static final long serialVersionUID = 1L;
 
 	protected static final Object[] EMPTY_ARRAY = new Object[0];
 	
@@ -60,6 +56,9 @@ public class IndirectionRow implements Comparable<IndirectionRow>  {
 
 	}
 	
+	public int size() {
+		return this.rawrow!=null?this.rawrow.length:0;
+	}
 	
 	public Object[] getRawRow(){
 		return this.rawrow;
@@ -72,53 +71,6 @@ public class IndirectionRow implements Comparable<IndirectionRow>  {
 	public int[] getDataIndirection(){
 		return this.dataIndirection;
 	}
-	
-
-	public void mergeRows(IndirectionRow left, IndirectionRow right, int[] indirAxes, int[] indirData){
-		int nbColumns = indirAxes.length + indirData.length;
-		this.axesIndirection = indirAxes;
-		this.dataIndirection = indirData;
-		this.rawrow = new Object[nbColumns];
-
-		// we have to reorder
-		if(left == null  && right == null)
-			return;
-		else {
-			if (left == null){
-				// copy axes
-				int rrInd=0;
-				for(int i = 0; i < right.getAxesCount() ; i++){
-					this.rawrow[rrInd] = right.getAxisValue(i);
-					rrInd++ ;
-				}
-				// go directly to right part
-				rrInd = nbColumns - right.getDataCount();
-				for(int i = 0; i < right.getDataCount() ; i++){
-					this.rawrow[rrInd] = right.getDataValue(i);
-					rrInd++ ;
-				}
-			}else{
-				// copy axes
-				int rrInd=0;
-				for(int i = 0; i < left.getAxesCount() ; i++){
-					this.rawrow[rrInd] = left.getAxisValue(i);
-					rrInd++ ;
-				}
-				// copy left part
-				for(int i = 0; i < left.getDataCount() ; i++){
-					this.rawrow[rrInd] = left.getDataValue(i);
-					rrInd++ ;
-				}
-				if (right != null){
-					// copy right part
-					for(int i = 0; i < right.getDataCount() ; i++){
-						this.rawrow[rrInd] = right.getDataValue(i);
-						rrInd++ ;
-					}
-				}
-			}
-		}		
-	}
 
 	public int compareTo(IndirectionRow irthat) {
 	 	if (this==irthat) return 0;
@@ -130,6 +82,7 @@ public class IndirectionRow implements Comparable<IndirectionRow>  {
  			if (this.getAxisValue(i)!=null && irthat.getAxisValue(i)==null) return 1;
  			if (this.getAxisValue(i)==null && irthat.getAxisValue(i)==null) return 0;
  			if ((this.getAxisValue(i) instanceof Comparable) && (irthat.getAxisValue(i) instanceof Comparable)) {
+ 				@SuppressWarnings({ "unchecked", "rawtypes" })
  				int cc = ((Comparable)this.getAxisValue(i)).compareTo(((Comparable)irthat.getAxisValue(i)));
  				if (cc!=0) 
  					return cc;
@@ -165,6 +118,14 @@ public class IndirectionRow implements Comparable<IndirectionRow>  {
         return rawrow[dataIndirection[i]];
     }
     
+    public Object getValue(int i) {
+    	if (i<axesIndirection.length) {
+    		return rawrow[axesIndirection[i]];
+    	} else {
+            return rawrow[dataIndirection[i-axesIndirection.length]];
+    	}
+    }
+    
     public int getDataCount() {
     	if (dataIndirection != null)
     		return dataIndirection.length;
@@ -172,7 +133,15 @@ public class IndirectionRow implements Comparable<IndirectionRow>  {
     		return 0;
     }
 
-
-
+	@Override
+	public String toString() {
+		StringBuilder dump = new StringBuilder("[");
+		for (int i=0;i<rawrow.length;i++) {
+			if (i>0) dump.append(",");
+			dump.append(rawrow[i]==null?"(null)":rawrow[i].toString());
+		}
+		dump.append("]");
+		return dump.toString();
+	}
 	
 }

@@ -21,56 +21,42 @@
  * you and Squid Solutions (above licenses and LICENSE.txt included).
  * See http://www.squidsolutions.com/EnterpriseBouquet/
  *******************************************************************************/
-package com.squid.kraken.v4.caching.redis.datastruct;
+package com.squid.kraken.v4.model;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
+/**
+ * extend the Expression to allow adding a name (label)
+ * note: this is done that way to be backward compatible with the ProjectAnalysisJob API
+ * @author sergefantino
+ *
+ */
+public class FacetExpression extends Expression {
 
-public class Invalidation {
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = -91190929258335779L;
+	
+	private String name = null;// allow to name the facet - this will be use in the analysis output to reference the facet
 
-	
-	HashMap<String, ArrayList<String>> Model2Query ;
-	HashMap<String, ArrayList<String>> DB2Model ;
-	
-	KeysTree QueryTree ;
-	
-	public Invalidation(){
-		
+	public FacetExpression() {
+		super();
+	}
+
+	public FacetExpression(String value) {
+		super(value);
+	}
+
+	public FacetExpression(String value, String name) {
+		super(value);
+		this.name = name;
 	}
 	
-	public void addConnection(TripletMapping t)
-	{
-		ArrayList<String> DBdeps =  DB2Model.get(t.DBRef);
-		if ( DBdeps!=null){
-			if (! DBdeps.contains (t.ModelRef))
-				DBdeps.add(t.ModelRef);
-		}else{
-			DBdeps = new ArrayList<String>();
-			DBdeps.add(t.ModelRef);
-			this.DB2Model.put(t.DBRef, DBdeps);
-		}
-
-		ArrayList<String> Modeldeps =  Model2Query.get(t.ModelRef);
-		if ( Modeldeps!=null){
-			if (! Modeldeps.contains (t.QueryRef))
-				Modeldeps.add(t.QueryRef);
-		}else{
-			Modeldeps = new ArrayList<String>();
-			Modeldeps.add(t.QueryRef);
-			this.Model2Query.put(t.ModelRef, Modeldeps);
-		}
+	public String getName() {
+		return name;
 	}
 	
-	public void invalidate(String DBRef){
-		ArrayList<String> modelRefs  = this.DB2Model.get(DBRef);
-		
-		HashSet<String> queryRefs = new HashSet<String>();
-		for(String modelRef : modelRefs){
-			queryRefs.addAll(this.Model2Query.get(modelRef));
-		}
-		this.QueryTree.invalidate(queryRefs);
+	public void setName(String name) {
+		this.name = name;
 	}
-	
 	
 }

@@ -628,47 +628,32 @@ public class ProjectManager {
 	}
 
 	public boolean hasRole(AppContext ctx, Domain object) {
-    	Role role;
-    	if (object.isDynamic()) {
-    		role = Role.WRITE;
-    	} else {
-    		role = Role.READ;
-    	}
+    	// T1076: guest can access dynamic objects
+    	Role role = Role.READ;
 		return AccessRightsUtils.getInstance().hasRole(ctx,object,role);
 	}
 	
 	public void checkRole(AppContext ctx, Domain object) {
-    	Role role;
-    	if (object.isDynamic()) {
-    		role = Role.WRITE;
-    	} else {
-    		role = Role.READ;
-    	}
+    	// T1076: guest can access dynamic objects
+    	Role role = Role.READ;
 		AccessRightsUtils.getInstance().checkRole(ctx, object, role);
 	}
 
 	public boolean hasRole(AppContext ctx, Relation object) {
-    	Role role;
-    	if (object.isDynamic()) {
-    		role = Role.WRITE;
-    	} else {
-    		role = Role.READ;
-    	}
+    	// T1076: guest can access dynamic objects
+    	Role role = Role.READ;
 		return AccessRightsUtils.getInstance().hasRole(ctx,object,role);
 	}
 	
 	public void checkRole(AppContext ctx, Relation object) {
-    	Role role;
-    	if (object.isDynamic()) {
-    		role = Role.WRITE;
-    	} else {
-    		role = Role.READ;
-    	}
+    	// T1076: guest can access dynamic objects
+    	Role role = Role.READ;
 		AccessRightsUtils.getInstance().checkRole(ctx, object, role);
 	}
 
 	private <TYPE extends LzPersistentBaseImpl<? extends GenericPK>> TYPE cloneWithRole(AppContext ctx, TYPE obj) {
 		try {
+			@SuppressWarnings("unchecked")
 			TYPE copy = (TYPE)obj.clone();
 			AccessRightsUtils.getInstance().setRole(ctx, copy);
 			return copy;

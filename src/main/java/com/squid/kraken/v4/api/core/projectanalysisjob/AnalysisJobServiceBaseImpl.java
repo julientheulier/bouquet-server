@@ -26,8 +26,6 @@ package com.squid.kraken.v4.api.core.projectanalysisjob;
 import java.util.List;
 
 import org.apache.commons.lang3.StringEscapeUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.core.sql.model.SQLScopeException;
@@ -42,9 +40,6 @@ import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.dao.ProjectAnalysisJobDAO;
 
 public class AnalysisJobServiceBaseImpl extends JobServiceBaseImpl<ProjectAnalysisJob, ProjectAnalysisJobPK, DataTable> {
-
-	private static final Logger logger = LoggerFactory
-			.getLogger(AnalysisJobServiceBaseImpl.class);
 
     private static AnalysisJobServiceBaseImpl instance;
 
@@ -71,12 +66,9 @@ public class AnalysisJobServiceBaseImpl extends JobServiceBaseImpl<ProjectAnalys
         return jobResults;
     }
 
-    
-
 	@Override
 	public ProjectAnalysisJob store(AppContext ctx, ProjectAnalysisJob job,
 			Integer timeout, Integer maxResults, Integer startIndex, boolean lazy) {
-		logger.info("store " + lazy);
 		if (timeout == null) {
 			// just here to support old timeout=null behavior for export app
 			// should be using job's autoRun property instead
@@ -87,9 +79,6 @@ public class AnalysisJobServiceBaseImpl extends JobServiceBaseImpl<ProjectAnalys
 		return job;
 		
 	}
-
-
-
 
 	public String viewSQL(AppContext ctx, ProjectAnalysisJobPK jobId, boolean prettyfier) throws ComputingException, InterruptedException, ScopeException, SQLScopeException, RenderingException {
 		final ProjectAnalysisJob job = read(ctx, jobId);

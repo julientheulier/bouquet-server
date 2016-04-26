@@ -32,7 +32,7 @@ import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.squid.kraken.v4.caching.redis.AWSRedisCacheConfig;
+import com.squid.kraken.v4.caching.redis.RedisCacheConfig;
 
 public class KrakenConfigV2 {
 
@@ -40,7 +40,7 @@ public class KrakenConfigV2 {
 	static final Logger logger = LoggerFactory
 			.getLogger(KrakenConfigV2.class);
 	
-	private AWSRedisCacheConfig cache ;
+	private RedisCacheConfig cache ;
 	
 	
 	private String  serverMode ;
@@ -61,15 +61,17 @@ public class KrakenConfigV2 {
 	public String krakenWSAPI;
 	public String krakenOAuthEndpoint;
 	
+	public String EHCachePath;
+	
 	public KrakenConfigV2(){
 		
 	}
 	
-	public AWSRedisCacheConfig getCache() {
+	public RedisCacheConfig getCache() {
 		return cache;
 	}
 
-	public void setCache(AWSRedisCacheConfig redisCacheConfig) {
+	public void setCache(RedisCacheConfig redisCacheConfig) {
 		this.cache = redisCacheConfig;
 	}
 
@@ -127,7 +129,7 @@ public class KrakenConfigV2 {
 				+ ", featureDynamic=" + featureDynamic + ", elasticLocal="
 				+ elasticLocal + ", defaultClientURL=" + defaultClientURL
 				+ ", krakenWSAPI=" + krakenWSAPI + ", krakenOAuthEndpoint="
-				+ krakenOAuthEndpoint + "]";
+				+ krakenOAuthEndpoint + "EHCawche path"+ EHCachePath + "]";
 	}
 
 	public boolean getFeatureDynamic() {
@@ -168,6 +170,14 @@ public class KrakenConfigV2 {
 
 	public void setKrakenOAuthEndpoint(String krakenOAuthEndpoint) {
 		this.krakenOAuthEndpoint = krakenOAuthEndpoint;
+	}
+
+	public String getEHCachePath() {
+		return EHCachePath;
+	}
+
+	public void setEHCachePath(String eHCachePath) {
+		EHCachePath = eHCachePath;
 	}
 
 	public static KrakenConfigV2 loadFromjson(String filename) throws IOException{

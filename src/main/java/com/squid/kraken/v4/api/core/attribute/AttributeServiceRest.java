@@ -45,9 +45,10 @@ import com.wordnik.swagger.annotations.Api;
 import com.wordnik.swagger.annotations.ApiOperation;
 import com.wordnik.swagger.annotations.ApiParam;
 import com.wordnik.swagger.annotations.Authorization;
+import com.wordnik.swagger.annotations.AuthorizationScope;
 
 @Produces({ MediaType.APPLICATION_JSON })
-@Api(value = "attributes", hidden = true, authorizations = { @Authorization(value = "kraken_auth", type = "oauth2") })
+@Api(value = "attributes", hidden = true, authorizations = { @Authorization(value = "kraken_auth", type = "oauth2", scopes = { @AuthorizationScope(scope = "access", description = "Access")}) })
 public class AttributeServiceRest extends BaseServiceRest {
 
 	private final static String PARAM_NAME = "attributeId";
@@ -129,6 +130,7 @@ public class AttributeServiceRest extends BaseServiceRest {
 
 	@Path("{" + PARAM_NAME + "}"+"/access")
 	@GET
+	@ApiOperation(value = "Gets an Attribute's access rights")
 	public Set<AccessRight> readAccessRights(
 			@PathParam("projectId") String projectId,
 			@PathParam("domainId") String domainId,
@@ -141,12 +143,13 @@ public class AttributeServiceRest extends BaseServiceRest {
 
 	@Path("{" + PARAM_NAME + "}"+"/access")
 	@POST
+	@ApiOperation(value = "Sets an Attribute's access rights")
 	public Set<AccessRight> storeAccessRights(
 			@PathParam("projectId") String projectId,
 			@PathParam("domainId") String domainId,
 			@PathParam("dimensionId") String dimensionId,
 			@PathParam(PARAM_NAME) String attributeId,
-			Set<AccessRight> accessRights) {
+			@ApiParam(required = true) Set<AccessRight> accessRights) {
 		return delegate.storeAccessRights(userContext, new AttributePK(
 				userContext.getCustomerId(), projectId, domainId, dimensionId,
 				attributeId), accessRights);

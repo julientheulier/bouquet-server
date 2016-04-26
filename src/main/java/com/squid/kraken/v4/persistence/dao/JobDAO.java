@@ -87,7 +87,6 @@ public abstract class JobDAO<T extends Persistent<PK>, PK extends GenericPK> ext
     	if (selection == null) {
     		return null;
     	} else {
-	    	FacetSelection newSelection = new FacetSelection();
 	    	List<Facet> facets = new ArrayList<Facet>();
 	    	for (Facet facet : selection.getFacets()) {
 	    		if (!facet.getSelectedItems().isEmpty()) {
@@ -95,8 +94,8 @@ public abstract class JobDAO<T extends Persistent<PK>, PK extends GenericPK> ext
 	    			facets.add(f);
 	    		}
 	    	}
-	    	newSelection.setFacets(facets);
-	    	return newSelection;
+	    	selection.setFacets(facets);
+	    	return selection;
     	}
     }
 

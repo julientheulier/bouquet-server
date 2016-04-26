@@ -53,7 +53,22 @@ public class Axis implements Property {
 	private Dimension dimension;
 	private String ID = "";
 	
+	private String name = null;// this can be used to force the axis name
+	
 	private ExpressionAST def_cache;// cache the axis definition
+	
+	private OriginType originType = OriginType.USER; // default to User type
+	/**
+	 * copy constructor
+	 * @param copy
+	 */
+	public Axis(Axis copy) {
+		this.parent = copy.parent;
+		this.dimension = copy.dimension;
+		this.ID = copy.ID;
+		this.name = copy.name;
+		this.def_cache = copy.def_cache;
+	}
 	
 	protected Axis(Space parent, ExpressionAST expression) {
         this.parent = parent;
@@ -73,12 +88,57 @@ public class Axis implements Property {
 	    this.def_cache = copy.def_cache;
 	    this.ID = ID;
     }
+	
+	@Override
+	public OriginType getOriginType() {
+		return originType;
+	}
+	
+	public void setOriginType(OriginType originType) {
+		this.originType = originType;
+	}
 
     public Axis withId(String ID) {
 	    return new Axis(this, ID);
 	}
     
+    /**
+     * override the standard name
+     * @param name
+     */
+    public void setName(String name) {
+		this.name = name;
+	}
+	
+	/**
+	 * set this axis name
+	 * @param name
+	 * @return
+	 */
+	public Axis withName(String name) {
+	    this.name = name;
+	    return this;
+	}
+	
+	public Axis withNickname(Axis axis) {
+		if (axis.name!=null) {
+			this.name = axis.name;
+		}
+		return this;
+	}
+	
+	/**
+	 * check if the Axis has a name
+	 * @return
+	 */
+	public boolean hasName() {
+		return name!=null;
+	}
+    
     public String getName() {
+    	if (name!=null) {
+    		return name;// use the provided one
+    	}
         if (dimension!=null) {
             DimensionIndex index;
             try {
@@ -135,6 +195,21 @@ public class Axis implements Property {
 		}
 		// else
 		return false;
+	}
+	
+	public DimensionMember getMemberByID(Object ID) {
+		DimensionIndex index = null;
+		try {
+			index = getIndex(true);
+		} catch (ComputingException | InterruptedException e) {
+			// ignore, assume that index is null
+		}
+		if (index!=null) {
+			return index.getMemberByID(ID);
+		} else {
+			// create a new one
+			return new DimensionMember(-1, ID, 0);
+		}
 	}
 	
 	public DimensionIndex getIndex() throws ComputingException, InterruptedException {
@@ -306,7 +381,7 @@ public class Axis implements Property {
 	        return this;
 	    } else {
 	        Space root = new Space(this.parent.getUniverse(), this.getParent().getDomain());
-	        return root.A(this.dimension);
+	        return root.A(this.dimension).withName(name);
 	    }
 	}
 	

@@ -54,9 +54,21 @@ import com.squid.kraken.v4.api.core.domain.DomainServiceRest;
 import com.squid.kraken.v4.api.core.projectanalysisjob.AnalysisJobServiceRest;
 import com.squid.kraken.v4.api.core.projectfacetjob.FacetJobServiceRest;
 import com.squid.kraken.v4.api.core.relation.RelationServiceRest;
+import com.squid.kraken.v4.api.core.simpleanalysisjob.SimpleAnalysisJobServiceRest;
 import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
 import com.squid.kraken.v4.core.database.impl.DatabaseServiceImpl;
-import com.squid.kraken.v4.model.*;
+import com.squid.kraken.v4.model.AccessRight;
+import com.squid.kraken.v4.model.Annotation;
+import com.squid.kraken.v4.model.AnnotationList;
+import com.squid.kraken.v4.model.AnnotationPK;
+import com.squid.kraken.v4.model.Domain;
+import com.squid.kraken.v4.model.DomainOption;
+import com.squid.kraken.v4.model.DomainPK;
+import com.squid.kraken.v4.model.ExpressionSuggestion;
+import com.squid.kraken.v4.model.GenericPK;
+import com.squid.kraken.v4.model.Persistent;
+import com.squid.kraken.v4.model.Project;
+import com.squid.kraken.v4.model.ProjectPK;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DAOFactory;
 import com.squid.kraken.v4.persistence.dao.ProjectDAO;
@@ -64,8 +76,9 @@ import com.wordnik.swagger.annotations.Api;
 import com.wordnik.swagger.annotations.ApiOperation;
 import com.wordnik.swagger.annotations.ApiParam;
 import com.wordnik.swagger.annotations.Authorization;
+import com.wordnik.swagger.annotations.AuthorizationScope;
 
-@Api(value = "projects", hidden = true, authorizations = { @Authorization(value = "kraken_auth", type = "oauth2") })
+@Api(value = "projects", hidden = true, authorizations = { @Authorization(value = "kraken_auth", type = "oauth2", scopes = { @AuthorizationScope(scope = "access", description = "Access")}) })
 @Produces({ MediaType.APPLICATION_JSON })
 public class ProjectServiceRest extends BaseServiceRest {
 
@@ -122,6 +135,26 @@ public class ProjectServiceRest extends BaseServiceRest {
 			try {
 				DatabaseServiceImpl.INSTANCE.getDatabase(project.get());
 				return true;
+			} catch (DatabaseServiceException e) {
+				throw new APIException(e.getMessage(), e, false);
+			}
+		} else {
+			throw new APIException("cannot find project with PK = "+projectPK.toString(),false);
+		}
+	}
+
+	@GET
+	@Path("{"+PARAM_NAME+"}"+"/features")
+	@ApiOperation(value = "Give the functions supported by the project")
+	public List<String> features(@PathParam(PARAM_NAME) String objectId) {
+		ProjectPK projectPK = new ProjectPK(userContext.getCustomerId(),
+				objectId);
+		Optional<Project> project = ((ProjectDAO) DAOFactory.getDAOFactory().getDAO(Project.class)).read(
+				userContext, projectPK);
+		if (project.isPresent()) {
+			try {
+				Database db = DatabaseServiceImpl.INSTANCE.getDatabase(project.get());
+				return db.getSkin().canRender();
 			} catch (DatabaseServiceException e) {
 				throw new APIException(e.getMessage(), e, false);
 			}
@@ -204,6 +237,7 @@ public class ProjectServiceRest extends BaseServiceRest {
 
 	@Path("{"+PARAM_NAME+"}"+"/access")
 	@GET
+	@ApiOperation(value = "Gets a Project's access rights")
 	public Set<AccessRight> readAccessRights(
 			@PathParam(PARAM_NAME) String objectId) {
 		return delegate.readAccessRights(userContext,
@@ -212,9 +246,10 @@ public class ProjectServiceRest extends BaseServiceRest {
 
 	@Path("{"+PARAM_NAME+"}"+"/access")
 	@POST
+	@ApiOperation(value = "Sets a Project's access rights")
 	public Set<AccessRight> storeAccessRights(
 			@PathParam(PARAM_NAME) String objectId,
-			Set<AccessRight> accessRights) {
+			@ApiParam(required = true) Set<AccessRight> accessRights) {
 		return delegate.storeAccessRights(userContext, new ProjectPK(
 				userContext.getCustomerId(), objectId), accessRights);
 	}
@@ -331,7 +366,7 @@ public class ProjectServiceRest extends BaseServiceRest {
 
 	@Path("{"+PARAM_NAME+"}"+"/schemas-suggestion")
 	@GET
-	@ApiOperation(value = "Gets suggestions for DB Schemas")
+	@ApiOperation(value = "DEPRECATED: Gets suggestions for DB Schemas")
 	public ExpressionSuggestion getSchemaSuggestion(
 			@PathParam("projectId") String projectId) {
 		return delegate.getSchemaSuggestion(userContext, projectId);
@@ -422,13 +457,23 @@ public class ProjectServiceRest extends BaseServiceRest {
 
 	// database service
 	@Path("{"+PARAM_NAME+"}"+"/database")
+	@ApiOperation(value = "Database API: provide access to the database catalog (read-only)")
 	public DatabaseServiceRest getDatabaseService() {
 		return new DatabaseServiceRest(userContext);
 	}
 
 	@Path("{"+PARAM_NAME+"}"+"/bookmarks")
+	@ApiOperation(value = "Get the Bookmarks")
 	public BookmarkServiceRest getBookmarkService(
 			@Context HttpServletRequest request) {
 		return new BookmarkServiceRest(userContext);
 	}
+	
+	// simple analysisjobs
+	@Path("{"+PARAM_NAME+"}"+"/analyses")
+	@ApiOperation(value = "Simple Analysis Service")
+	public SimpleAnalysisJobServiceRest getSimpleAnalysisJobService() {
+		return new SimpleAnalysisJobServiceRest(userContext);
+	}
+	
 }

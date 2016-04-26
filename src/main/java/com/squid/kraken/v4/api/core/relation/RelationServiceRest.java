@@ -44,9 +44,10 @@ import com.wordnik.swagger.annotations.Api;
 import com.wordnik.swagger.annotations.ApiOperation;
 import com.wordnik.swagger.annotations.ApiParam;
 import com.wordnik.swagger.annotations.Authorization;
+import com.wordnik.swagger.annotations.AuthorizationScope;
 
 @Produces({ MediaType.APPLICATION_JSON })
-@Api(value = "relations", hidden = true, authorizations = { @Authorization(value = "kraken_auth", type = "oauth2") })
+@Api(value = "relations", hidden = true, authorizations = { @Authorization(value = "kraken_auth", type = "oauth2", scopes = { @AuthorizationScope(scope = "access", description = "Access")}) })
 public class RelationServiceRest extends BaseServiceRest {
 
 	private final static String PARAM_NAME = "relationId";
@@ -113,6 +114,7 @@ public class RelationServiceRest extends BaseServiceRest {
 
 	@Path("{" + PARAM_NAME + "}" + "/access")
 	@GET
+	@ApiOperation(value = "Gets a Relation's access rights")
 	public Set<AccessRight> readAccessRights(
 			@PathParam("projectId") String projectId,
 			@PathParam(PARAM_NAME) String relationId) {
@@ -122,10 +124,11 @@ public class RelationServiceRest extends BaseServiceRest {
 
 	@Path("{" + PARAM_NAME + "}" + "/access")
 	@POST
+	@ApiOperation(value = "Sets a Relation's access rights")
 	public Set<AccessRight> storeAccessRights(
 			@PathParam("projectId") String projectId,
 			@PathParam(PARAM_NAME) String relationId,
-			Set<AccessRight> accessRights) {
+			@ApiParam(required = true) Set<AccessRight> accessRights) {
 		return delegate.storeAccessRights(userContext, new RelationPK(
 				userContext.getCustomerId(), projectId, relationId),
 				accessRights);

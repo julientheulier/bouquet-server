@@ -50,8 +50,9 @@ import com.wordnik.swagger.annotations.Api;
 import com.wordnik.swagger.annotations.ApiOperation;
 import com.wordnik.swagger.annotations.ApiParam;
 import com.wordnik.swagger.annotations.Authorization;
+import com.wordnik.swagger.annotations.AuthorizationScope;
 
-@Api(value = "domains", hidden = true, authorizations = { @Authorization(value = "kraken_auth", type = "oauth2") })
+@Api(value = "domains", hidden = true, authorizations = { @Authorization(value = "kraken_auth", type = "oauth2", scopes = { @AuthorizationScope(scope = "access", description = "Access")}) })
 @Produces({ MediaType.APPLICATION_JSON })
 public class DomainServiceRest extends BaseServiceRest {
 
@@ -119,6 +120,7 @@ public class DomainServiceRest extends BaseServiceRest {
 
 	@Path("{" + PARAM_NAME + "}" + "/access")
 	@GET
+	@ApiOperation(value = "Gets a domain's access rights")
 	public Set<AccessRight> readAccessRights(
 			@PathParam("projectId") String projectId,
 			@PathParam(PARAM_NAME) String domainId) {
@@ -128,10 +130,11 @@ public class DomainServiceRest extends BaseServiceRest {
 
 	@Path("{" + PARAM_NAME + "}" + "/access")
 	@POST
+	@ApiOperation(value = "Sets a domain's access rights")
 	public Set<AccessRight> storeAccessRights(
 			@PathParam("projectId") String projectId,
 			@PathParam(PARAM_NAME) String domainId,
-			Set<AccessRight> accessRights) {
+			@ApiParam(required = true) Set<AccessRight> accessRights) {
 		return delegate.storeAccessRights(userContext,
 				new DomainPK(userContext.getCustomerId(), projectId, domainId),
 				accessRights);
@@ -139,6 +142,7 @@ public class DomainServiceRest extends BaseServiceRest {
 
 	@Path("{" + PARAM_NAME + "}" + "/dimensions-suggestion")
 	@GET
+	@ApiOperation(value = "Gets suggestions for a dimension definition")
 	public ExpressionSuggestion getDimensionSuggestion(
 			@PathParam("projectId") String projectId,
 			@PathParam("domainId") String domainId,
@@ -163,6 +167,7 @@ public class DomainServiceRest extends BaseServiceRest {
 
 	@Path("{" + PARAM_NAME + "}" + "/metrics-suggestion")
 	@GET
+	@ApiOperation(value = "Gets suggestions for a metric definition")
 	public ExpressionSuggestion getMetricSuggestion(
 			@PathParam("projectId") String projectId,
 			@PathParam("domainId") String domainId,
@@ -206,6 +211,7 @@ public class DomainServiceRest extends BaseServiceRest {
 
 	@Path("{" + PARAM_NAME + "}" + "/segment-suggestion")
 	@GET
+	@ApiOperation(value = "Gets suggestions for a segment definition")
 	public ExpressionSuggestion getSegmentSuggestion(
 			@PathParam("projectId") String projectId,
 			@PathParam("domainId") String domainId,

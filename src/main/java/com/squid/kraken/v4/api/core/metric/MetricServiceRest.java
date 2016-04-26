@@ -23,7 +23,7 @@
  *******************************************************************************/
 package com.squid.kraken.v4.api.core.metric;
 
-import java.util.List; 
+import java.util.List;
 import java.util.Set;
 
 import javax.ws.rs.DELETE;
@@ -48,9 +48,10 @@ import com.wordnik.swagger.annotations.Api;
 import com.wordnik.swagger.annotations.ApiOperation;
 import com.wordnik.swagger.annotations.ApiParam;
 import com.wordnik.swagger.annotations.Authorization;
+import com.wordnik.swagger.annotations.AuthorizationScope;
 
 @Produces({ MediaType.APPLICATION_JSON })
-@Api(value = "metrics", hidden = true, authorizations = { @Authorization(value = "kraken_auth", type = "oauth2") })
+@Api(value = "metrics", hidden = true, authorizations = { @Authorization(value = "kraken_auth", type = "oauth2", scopes = { @AuthorizationScope(scope = "access", description = "Access")}) })
 public class MetricServiceRest extends BaseServiceRest {
 
 	private final static String PARAM_NAME = "metricId";
@@ -124,6 +125,7 @@ public class MetricServiceRest extends BaseServiceRest {
 
 	@Path("{" + PARAM_NAME + "}"+"/access")
 	@GET
+	@ApiOperation(value = "Gets a Metric's access rights")
 	public Set<AccessRight> readAccessRights(
 			@PathParam("projectId") String projectId,
 			@PathParam("domainId") String domainId,
@@ -135,11 +137,12 @@ public class MetricServiceRest extends BaseServiceRest {
 
 	@Path("{" + PARAM_NAME + "}"+"/access")
 	@POST
+	@ApiOperation(value = "Sets a Metric's access rights")
 	public Set<AccessRight> storeAccessRights(
 			@PathParam("projectId") String projectId,
 			@PathParam("domainId") String domainId,
 			@PathParam(PARAM_NAME) String metricId,
-			Set<AccessRight> accessRights) {
+			@ApiParam(required = true) Set<AccessRight> accessRights) {
 		return delegate.storeAccessRights(userContext,
 				new MetricPK(userContext.getCustomerId(), projectId, domainId,
 						metricId), accessRights);

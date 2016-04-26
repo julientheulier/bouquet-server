@@ -27,7 +27,6 @@ import org.apache.cxf.jaxrs.client.WebClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.squid.kraken.v4.caching.redis.ServerID;
 
 public class MockQueryWorkerStub implements IQueryWorkerServer {
@@ -74,6 +73,11 @@ public class MockQueryWorkerStub implements IQueryWorkerServer {
 	@Override
 	public String hello(){
 		return "Hello Mock Query Worker Stub server";
+	}
+
+	@Override
+	public int getLoad() {
+		return 0;
 	}
 	
 

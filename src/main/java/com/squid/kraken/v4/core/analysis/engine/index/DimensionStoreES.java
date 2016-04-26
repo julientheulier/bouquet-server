@@ -284,9 +284,21 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 		HashMap<String, ESMapping> mapping = new HashMap<>();
 		IDomain idDomainType = this.getAxisDomain(index);
 		ESTypeMapping idType = computeIDTypeMapping(index, idDomainType);
-		this.idName_mapping = idName + "_" + idType.toString();
-		mapping.put(idName_mapping, new ESMapping(idName_mapping,
+//		this.idName_mapping = idName + "_" + idType.toString();
+		this.idName_mapping = idName ;
+		
+		if (idType.equals(ESTypeMapping.STRING)){	
+			mapping.put(idName_mapping, new ESMapping(idName_mapping,
 				ESIndexMapping.BOTH, idType));// ESTypeMapping.STRING));
+		}else{
+			//we store a version with the original type and an indexable version
+			mapping.put(idName_mapping+"_raw", new ESMapping(idName_mapping+"_raw",
+					ESIndexMapping.NOT_ANALYZED, idType ));
+			mapping.put(idName_mapping, new ESMapping(idName_mapping,
+					ESIndexMapping.BOTH, ESTypeMapping.STRING ));
+			
+		}
+		
 		if (getAttributeCount() > 0) {
 			for (Attribute attr : getAttributes()) {
 				try {
@@ -382,7 +394,10 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 					attributes.put(idName + "_u", x.getUpperBound());
 					attributes.put(idName_mapping, ID);
 				} else {
-					attributes.put(idName_mapping, ID);
+					attributes.put(idName_mapping, ID.toString());
+					if (mapping.containsKey(idName_mapping+"_raw")){
+						attributes.put(idName_mapping+"_raw", ID);
+					}
 				}
 				for (int k = 0; k < getAttributeCount(); k++) {
 					attributes.put(getAttributes().get(k).getId()
@@ -413,7 +428,10 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 			attributes.put(idName + "_u", x.getUpperBound());
 			attributes.put(idName_mapping, raw[0]);
 		} else {
-			attributes.put(idName_mapping, raw[0]);
+			attributes.put(idName_mapping, raw[0].toString());
+			if (mapping.containsKey(idName_mapping+"_raw")){
+				attributes.put(idName_mapping+"_raw", raw[0]);
+			}
 		}
 		for (int k = 1; k < raw.length; k++) {
 			attributes.put(getAttributes().get(k - 1).getId().getAttributeId(),
@@ -475,9 +493,9 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 			IDomain image = getDimensionIndex().getAxis().getDefinitionSafe().getImageDomain();
 			boolean isDate = image.isInstanceOf(IDomain.TEMPORAL);
 			for (Map<String, Object> element : elements) {
-				Comparable lower_bound = (Comparable) element
+				Comparable<?> lower_bound = (Comparable<?>) element
 						.get(idName + "_l");
-				Comparable upper_bound = (Comparable) element
+				Comparable<?> upper_bound = (Comparable<?>) element
 						.get(idName + "_u");
 				if (lower_bound != null && upper_bound != null) {
 					if (isDate) {
@@ -501,7 +519,14 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 			}
 		} else {
 			for (Map<String, Object> element : elements) {
-				Object ID = element.get(idName_mapping);
+				Object ID;
+				if(mapping.containsKey(idName_mapping+"_raw")){
+					ID = element.get(idName_mapping+"_raw");
+				}else{
+					ID = element.get(idName_mapping);					
+				}
+					
+				
 				if (ID != null) {
 					members.add(new DimensionMember(-1, ID, 0));
 				} else {
@@ -522,9 +547,9 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 			IDomain image = getDimensionIndex().getAxis().getDefinitionSafe().getImageDomain();
 			boolean isDate = image.isInstanceOf(IDomain.TEMPORAL);
 			for (Map<String, Object> element : elements) {
-				Comparable lower_bound = (Comparable) element
+				Comparable<?> lower_bound = (Comparable<?>) element
 						.get(idName + "_l");
-				Comparable upper_bound = (Comparable) element
+				Comparable<?> upper_bound = (Comparable<?>) element
 						.get(idName + "_u");
 				if (lower_bound != null && upper_bound != null) {
 					if (isDate) {
@@ -645,27 +670,6 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 		}
 	}
 
-	private List<DimensionMember> createDimensionMembers(
-			List<Map<String, Object>> items) {
-		ArrayList<DimensionMember> members = new ArrayList<>();
-		for (Map<String, Object> item : items) {
-			Object ID = item.get(idName_mapping);
-			if (ID != null) {
-				DimensionMember member = new DimensionMember(-1, ID,
-						getAttributeCount());
-				members.add(member);
-				for (int i = 0; i < getAttributeCount(); i++) {
-					Attribute attr = getAttributes().get(i);
-					Object value = item.get(attr.getId().getAttributeId());
-					if (value != null) {
-						member.setAttribute(i, value);
-					}
-				}
-			}
-		}
-		return members;
-	}
-
 	private List<DimensionMember> createDimensionMembers(Collection<String> IDs) {
 		ArrayList<DimensionMember> members = new ArrayList<>();
 		for (String ID : IDs) {
@@ -721,6 +725,10 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 
 	@Override
 	public DimensionMember getMemberByID(Object iD) {
+		if (iD==null) {
+			// handling NULL value
+			return new DimensionMember(-1, iD, getAttributeCount());
+		}
 		DimensionMember member = getMemberByKey(iD.toString());
 		if (member != null) {
 			return member;

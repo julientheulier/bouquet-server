@@ -30,7 +30,6 @@ import java.util.Hashtable;
 import com.squid.core.domain.IDomain;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionMember;
-import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
 import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.model.Dimension.Type;
@@ -45,8 +44,22 @@ import com.squid.kraken.v4.model.Domain;
 public class DashboardSelection {
 
 	private Hashtable<Domain, DomainSelection> selections = new Hashtable<Domain, DomainSelection>();
+
+	// T947: support for compareTo feature
+	private DomainSelection compareToSelection = null;
 	
 	public DashboardSelection() {
+	}
+	
+	/**
+	 * make a swallow copy
+	 * @param shallowCopy
+	 */
+	public DashboardSelection(DashboardSelection shallowCopy) {
+		for (DomainSelection copy : shallowCopy.get()) {
+			DomainSelection selection = new DomainSelection(copy);
+			selections.put(selection.getDomain(), selection);
+		}
 	}
 
 	/**
@@ -166,15 +179,45 @@ public class DashboardSelection {
 		if (intervalle!=null) {
 		    DomainSelection sel = getDomainSelection(axis);
 			if (sel!=null) {
-                try {
-                    DimensionMember member = axis.getIndex().getMemberByID(intervalle);
-                    sel.add(axis, member);
-                } catch (ComputingException | InterruptedException e) {
-                    // TODO Auto-generated catch block
-                    e.printStackTrace();
-                }
+				DimensionMember member = axis.getMemberByID(intervalle);
+				sel.add(axis, member);
 			}
 		}
+	}
+
+	public void addCompareTo(Axis axis, DimensionMember member) throws ScopeException {
+		Domain domain = axis.getParent().getRoot();
+		if (compareToSelection==null) {
+			compareToSelection = new DomainSelection(domain);
+			compareToSelection.add(axis, member);
+		} else {
+			if (!compareToSelection.getDomain().equals(domain)) {
+				throw new ScopeException("invalid compareTo, already defined on domain '"+domain.getName()+"'");
+			}
+			if (compareToSelection.getMembers(axis).isEmpty()) {
+				throw new ScopeException("invalid compareTo, only one axis is supported");
+			}
+			compareToSelection.add(axis, member);
+		}
+	}
+
+	public void add(DomainSelection selection) {
+		this.selections.put(selection.getDomain(), selection);
+	}
+
+	public void addCompareTo(Axis axis, Intervalle intervalle) throws ScopeException {
+		if (intervalle!=null) {
+            DimensionMember member = axis.getMemberByID(intervalle);
+            addCompareTo(axis, member);
+		}
+	}
+	
+	public boolean hasCompareToSelection() {
+		return compareToSelection!=null;
+	}
+	
+	public DomainSelection getCompareToSelection() {
+		return compareToSelection;
 	}
 
 	@Deprecated

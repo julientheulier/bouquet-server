@@ -36,6 +36,7 @@ import javax.xml.bind.annotation.XmlType;
 
 import com.squid.core.domain.operators.ExtendedType;
 import com.squid.kraken.v4.api.core.JobResultBaseImpl;
+import com.squid.kraken.v4.core.analysis.universe.Property.OriginType;
 
 /**
  * Result matrix.
@@ -102,25 +103,10 @@ public class DataTable extends JobResultBaseImpl {
 		private String definition;
         private ExtendedType extendedType;
         private Role role;
+        
+        private OriginType originType;
 
         public Col() {
-        }
-
-        @Deprecated
-        public Col(GenericPK pk, String name, DataType dataType, Role role) {
-            super();
-            this.pk = pk;
-            this.name = name;
-            this.role = role;
-        }
-
-        @Deprecated
-        public Col(GenericPK pk, String name, DataType dataType, ExtendedType extendedType, Role role) {
-            super();
-            this.pk = pk;
-            this.name = name;
-            this.extendedType = extendedType;
-            this.role = role;
         }
 
         public Col(GenericPK pk, String name, ExtendedType extendedType, Role role) {
@@ -130,6 +116,14 @@ public class DataTable extends JobResultBaseImpl {
             this.extendedType = extendedType;
             this.role = role;
         }
+        
+        public OriginType getOriginType() {
+			return originType;
+		}
+        
+        public void setOriginType(OriginType originType) {
+			this.originType = originType;
+		}
 
         public String getId() {
             return pk!=null?pk.getObjectId():null;

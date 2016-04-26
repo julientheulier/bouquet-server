@@ -24,25 +24,33 @@
 package com.squid.kraken.v4.caching.redis.datastruct;
 
 import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.Serializable;
 import java.util.HashMap;
 
 import com.esotericsoftware.kryo.io.Input;
-import com.esotericsoftware.kryo.io.Output;
-import com.squid.kraken.v4.caching.redis.RedisCacheException;
 
 public class RedisCacheValue {
 
 	
 	public enum RedisCacheType{
-		RAW_MATRIX, CACHE_REFERENCE
+		RAW_MATRIX, CACHE_REFERENCE, CACHE_REFERENCE_LIST
 	}
 	
-	public static final int VERSION = 2;
+	public static final int VERSION = 3;
+	
+	private transient String redisKey = null;
+
 	
 	public RedisCacheValue(){
+	}
+	
+
+	public String getRedisKey() {
+		return redisKey;
+	}
+
+	public void setRedisKey(String redisKey) {
+		this.redisKey = redisKey;
 	}
 	
     public static RedisCacheValue deserialize(byte[] serializedVal) throws IOException, ClassNotFoundException{
@@ -95,9 +103,16 @@ public class RedisCacheValue {
         		res.readObject(in);
         		in.close();
         		return res;
-        	
         	}else{
-        		throw new ClassNotFoundException("Could not deserialize Redis Cache Value");
+        		if (type == RedisCacheType.CACHE_REFERENCE_LIST.ordinal()){
+        			RedisCacheValuesList  res = new RedisCacheValuesList();
+            		res.readObject(in);
+            		in.close();
+            		return res;
+        			
+        		}else{
+        			throw new ClassNotFoundException("Could not deserialize Redis Cache Value");
+        		}
         	}
     	}        
     }

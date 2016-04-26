@@ -62,11 +62,26 @@ public interface ComputationJob<PK extends GenericPK, R extends JobResult> exten
     public static class Error implements Serializable {
         private String reason;
         private String message;
+        
+        /**
+         * Indicates if the error is not fatal and the job can be rerun .
+         * Used for exemple if the job failed because of a lazy evaluation when the data was not in cache.
+         */        
+        private boolean enableRerun = false; 
 
+        
         public Error() {
         }
 
-        public Error(String reason, String message) {
+        public boolean isEnableRerun() {
+			return enableRerun;
+		}
+
+		public void setEnableRerun(boolean enableRerun) {
+			this.enableRerun = enableRerun;
+		}
+
+		public Error(String reason, String message) {
             super();
             this.reason = reason;
             this.message = message;

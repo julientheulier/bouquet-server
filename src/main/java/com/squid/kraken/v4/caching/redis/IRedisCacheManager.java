@@ -24,16 +24,15 @@
 package com.squid.kraken.v4.caching.redis;
 
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
 
 import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
-import com.squid.kraken.v4.caching.redis.datastruct.TripletMapping;
+import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValue;
 import com.squid.kraken.v4.caching.redis.generationalkeysserver.RedisKey;
 
 public interface IRedisCacheManager {
 
-	public void setConfig(AWSRedisCacheConfig confCache);
+	public void setConfig(RedisCacheConfig confCache);
 
 	public void startCacheManager();
 
@@ -55,6 +54,12 @@ public interface IRedisCacheManager {
 
 	public RedisKey getKey(String key);
 
+	public RedisCacheValue getRedisCacheValueLazy(String SQLQuery, List<String> dependencies, String RSjdbcURL,
+			String username, String pwd, int TTLinSec ) ;
+	
+	public RedisCacheValue getRedisCacheValue(String SQLQuery, List<String> dependencies, String RSjdbcURL,
+			String username, String pwd, int TTLinSec, long limit ) throws InterruptedException ;
+	
 	public RedisKey getKey(String key, Collection<String> dependencies);
 
 	public RedisKey getKey(String key, String... dependencies);
@@ -69,9 +74,6 @@ public interface IRedisCacheManager {
 
 	public RawMatrix getRawMatrix(String k);
 
-	public boolean addTripletMapping(TripletMapping t);
-
-	public HashSet<TripletMapping> getMappings();
 	
 	public boolean addCacheReference(String sqlNoLimit, List<String> dependencies, String referencedKey );
 

@@ -27,11 +27,9 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 
-import com.squid.core.jdbc.formatter.IJDBCDataFormatter;
 import com.squid.core.sql.render.ISelectPiece;
 import com.squid.kraken.v4.core.analysis.datamatrix.AxisValues;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex;
-import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionMember;
 import com.squid.kraken.v4.model.Attribute;
 import com.squid.kraken.v4.model.Domain;
 
@@ -84,26 +82,6 @@ public class DimensionMapping extends MultiMapping {
 		for (Attribute attr : getDimensionIndex().getAttributes()) {
 			SimpleMapping s = getMapping(attr.getId().getAttributeId());
             s.setMetadata(result, metadata);
-		}
-	}
-	
-	public DimensionMember readMember(IJDBCDataFormatter formatter, ResultSet result) throws SQLException {
-		Object unbox = readData(formatter, result);
-		//String label = formatter.formatJDBCObject(value, m.getType());
-		//
-		if (unbox==null) {
-			return null;
-		} else {
-			DimensionMember member = getDimensionIndex().getMemberByID(unbox);
-			int k=0;
-			for (Attribute attr : getDimensionIndex().getAttributes()) {
-				SimpleMapping s = getMapping(attr.getId().getAttributeId());
-				Object aunbox = s.readData(formatter, result);
-				member.setAttribute(k++,aunbox);
-			}
-			getDimensionIndex().index(member);
-			getAxisData().getValues().add(member.getIndex());
-			return member;
 		}
 	}
 

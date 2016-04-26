@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.sql.SQLException;
+import java.util.concurrent.ExecutionException;
 
 import org.apache.commons.lang3.StringEscapeUtils;
 import org.apache.velocity.VelocityContext;
@@ -17,8 +18,10 @@ import org.slf4j.LoggerFactory;
 
 import com.squid.core.export.IStructExportSource;
 import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
+import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValuesList;
 import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
+import com.squid.kraken.v4.core.analysis.engine.query.mapping.QueryMapper;
 import com.squid.kraken.v4.model.DataTable;
 
 public class ExportSourceWriterVelocity implements ExportSourceWriter {
@@ -27,7 +30,9 @@ public class ExportSourceWriterVelocity implements ExportSourceWriter {
 			.getLogger(ExportSourceWriterVelocity.class);
 
 	private String templateDecoded;
-
+	QueryMapper qm ;
+	
+	
 	public ExportSourceWriterVelocity(String templateDecoded) {
 		this.templateDecoded = templateDecoded;
 	}
@@ -46,7 +51,14 @@ public class ExportSourceWriterVelocity implements ExportSourceWriter {
 
 	@Override
 	public long write(RawMatrix matrix, OutputStream out) {
-        throw new UnsupportedOperationException();			
+		if (qm == null){
+			return -1;
+		}else{
+			RawMatrixStructExportSource src = new RawMatrixStructExportSource(matrix, qm) ;
+			return this.writeStructExportSource(src, out);	
+		}
+		
+		
 	}
 
 	@Override
@@ -119,6 +131,25 @@ public class ExportSourceWriterVelocity implements ExportSourceWriter {
 		} catch (Exception e) {
 			// to bad
 		}
+	}
+
+	@Override
+	public long write(RedisCacheValuesList matrix, OutputStream out) {
+		try {
+			if (qm == null){
+				return -1;
+			}else{
+				ChunkedRawMatrixStructExportSource src  = new ChunkedRawMatrixStructExportSource(matrix, qm);
+				return this.writeStructExportSource(src, out);	
+			}
+		} catch (InterruptedException | ExecutionException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			return -1;
+		}
+	}
+	public void setQueryMapper(QueryMapper qm){
+		this.qm = qm;
 	}
 	
 }

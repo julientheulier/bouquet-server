@@ -94,17 +94,17 @@ public class DomainServiceBaseImpl extends GenericServiceImpl<Domain, DomainPK> 
 			List<Domain> domains = ProjectManager.INSTANCE.getDomains(ctx,id);
 			ArrayList<Domain> visibles = new ArrayList<Domain>();
 			for (Domain domain : domains) {
-				if (domain.isDynamic()) {
-					// if it is dynamic and already visible, don't change it
-					visibles.add(domain);
-				} else if (AccessRightsUtils.getInstance().hasRole(ctx, domain, Role.WRITE)) {
-					// write access
+		    	// T1076: explicitly hide dynamic domains for guests
+				 if (AccessRightsUtils.getInstance().hasRole(ctx, domain, Role.WRITE)) {
+					// if write access, always add it
 					visibles.add(domain);
 				} else {
-					// not dynamic and not write, check if has metrics
-					List<Metric> metrics = metricDAO.findByDomain(ctx, domain.getId());
-					if (!metrics.isEmpty()) {
-						visibles.add(domain);
+					if (!domain.isDynamic()) {
+						// not dynamic and not write, check if has metrics
+						List<Metric> metrics = metricDAO.findByDomain(ctx, domain.getId());
+						if (!metrics.isEmpty()) {
+							visibles.add(domain);
+						}
 					}
 				}
 			}

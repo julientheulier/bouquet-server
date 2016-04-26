@@ -44,12 +44,13 @@ import com.wordnik.swagger.annotations.Api;
 import com.wordnik.swagger.annotations.ApiOperation;
 import com.wordnik.swagger.annotations.ApiParam;
 import com.wordnik.swagger.annotations.Authorization;
+import com.wordnik.swagger.annotations.AuthorizationScope;
 
 /**
  * {@link Client} management service.
  */
 @Produces({ MediaType.APPLICATION_JSON })
-@Api(value = "clients", hidden = true, authorizations = { @Authorization(value = "kraken_auth", type = "oauth2") })
+@Api(value = "clients", hidden = true, authorizations = { @Authorization(value = "kraken_auth", type = "oauth2", scopes = { @AuthorizationScope(scope = "access", description = "Access")}) })
 public class ClientServiceRest extends BaseServiceRest {
 
 	private final static String PARAM_NAME = "clientId";
@@ -128,6 +129,7 @@ public class ClientServiceRest extends BaseServiceRest {
 
 	@Path("{" + PARAM_NAME + "}"+"/access")
 	@GET
+	@ApiOperation(value = "Gets a Client's access rights")
 	public Set<AccessRight> readAccessRights(
 			@PathParam(PARAM_NAME) String objectId) {
 		return delegate.readAccessRights(userContext,

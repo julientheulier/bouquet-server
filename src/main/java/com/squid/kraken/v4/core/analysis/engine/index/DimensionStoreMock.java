@@ -70,8 +70,7 @@ public class DimensionStoreMock implements IDimensionStore {
 
 	@Override
 	public DimensionMember getMemberByID(Object iD) {
-		// TODO Auto-generated method stub
-		return null;
+		return new DimensionMember(-1, iD, 0);
 	}
 
 	@Override

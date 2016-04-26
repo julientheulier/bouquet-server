@@ -32,36 +32,62 @@ import org.slf4j.LoggerFactory;
 import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
 import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheReference;
 import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValue;
+import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValuesList;
 import com.squid.kraken.v4.caching.redis.generationalkeysserver.RedisKey;
+import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.JedisPoolConfig;
 
 public class RedisCacheProxy implements IRedisCacheProxy {
-	
-    static final Logger logger = LoggerFactory.getLogger(RedisCacheProxy.class);
 
-   private static  RedisCacheProxy INSTANCE;
-	
+	static final Logger logger = LoggerFactory.getLogger(RedisCacheProxy.class);
+
+	private static  IRedisCacheProxy INSTANCE;
+    
+    private static boolean isMock = false;
+
 	private String REDIShost ="localhost" ;
 	private int REDISport =6379 ;
 	private JedisPool pool;
 	
+	private int maxSizeInByte = 52428800 ;  //50Megabytes
+	
+	public static void setMock(){
+		isMock = true;
+	}
+
 	public static IRedisCacheProxy getInstance(ServerID redisID){
 		if (INSTANCE == null){
-			INSTANCE = new RedisCacheProxy(redisID);
+			if (isMock) {
+				INSTANCE = new RedisCacheProxyMock(redisID);
+			} else {
+				INSTANCE = new RedisCacheProxy(redisID);
+			}
 		}
 		return INSTANCE;
-		
+
 	}
 	public static IRedisCacheProxy getInstance(){
 		if (INSTANCE == null){
-			INSTANCE = new RedisCacheProxy();
+			if (isMock) {
+				INSTANCE = new RedisCacheProxyMock();
+			} else {
+				INSTANCE = new RedisCacheProxy();
+			}
 		}
 		return INSTANCE;
 	}
 	
+	/**
+	 * internal method to support the mock proxy - we should have a clean factory here
+	 * @param instance
+	 */
+	protected static void initInstance(IRedisCacheProxy instance) {
+		INSTANCE = instance;
+	}
+
 	public RedisCacheProxy(){
 		logger.info("connecting to REDIS on "+ this.REDIShost + " " + this.REDISport);
 		JedisPoolConfig config = new JedisPoolConfig();
@@ -77,12 +103,12 @@ public class RedisCacheProxy implements IRedisCacheProxy {
 		config.setTestOnBorrow(true);
 		this.pool = new JedisPool(config, this.REDIShost, this.REDISport);
 	}
-	
-/*	public void start(){
+
+	/*	public void start(){
 	}
-	*/
+	 */
 	//PUT
-	
+
 	public boolean put(String k, String v){
 		return this.put( k.getBytes(), v.getBytes());
 	}
@@ -90,8 +116,8 @@ public class RedisCacheProxy implements IRedisCacheProxy {
 	public boolean put(String k, byte[] v){
 		return this.put( k.getBytes(), v);
 	}
-	
-	
+
+
 
 	public boolean put(String k, RawMatrix v){
 		try {
@@ -100,9 +126,9 @@ public class RedisCacheProxy implements IRedisCacheProxy {
 			return false;
 		}
 	}
-	
+
 	public boolean put(byte[] k, byte[] v){
-		
+
 		try(Jedis jedis  = getResourceFromPool()) {
 			String res = jedis.set(k, v);
 			if (res == null)
@@ -111,18 +137,45 @@ public class RedisCacheProxy implements IRedisCacheProxy {
 				return true;
 		} 
 	}
-	
+
 	//GET
-	
+
 	public RawMatrix getRawMatrix(String key){
-		try (Jedis jedis  = getResourceFromPool()){	
+		try {
+			RedisCacheValue rcv = this.getRawOrList(key);
+			if (rcv == null){
+				return null;
+			}else{
+				if (rcv instanceof RawMatrix){
+					return (RawMatrix) rcv;
+				}else{
+					if (rcv instanceof RedisCacheValuesList){
+						return this.buildChunkedRawMatrix(key, (RedisCacheValuesList) rcv) ;
+					}else{
+						throw new ComputingException();
+					}
+				}
+			}
 			
+		} catch (RuntimeException | ClassNotFoundException | IOException | ComputingException e) {
+			logger.error("failed to getRawMatrix() on key="+key);
+			throw new RuntimeException("Jedis: getRawMatrix() failed on key="+key, e);
+		} 
+	}
+
+	
+	public RedisCacheValue getRawOrList(String key ){
+		try (Jedis jedis  = getResourceFromPool()){	
+
 			HashSet<String> pastKeys=  new HashSet<String>(); // do not get trapped in circular references
 			String currKey = key;
 			while(true){
 
 				byte[] serialized = jedis.get(currKey.getBytes());
-			
+				if (serialized == null){
+					return null;
+				}
+
 				RedisCacheValue  val = RedisCacheValue.deserialize(serialized);
 				if (val instanceof RawMatrix){
 					RawMatrix res= (RawMatrix) val;
@@ -137,21 +190,65 @@ public class RedisCacheProxy implements IRedisCacheProxy {
 						if (pastKeys.contains(currKey)){
 							throw new RuntimeException();
 						}
-						
+
 					}else{
-						throw new ClassNotFoundException();
+						if(val instanceof RedisCacheValuesList){
+							RedisCacheValuesList  refList = (RedisCacheValuesList) val;
+							refList.setRedisKey(currKey);
+							return  refList;
+						}else{
+							throw new ClassNotFoundException();
+						}
 					}
 				}
 			}
-			
-		} catch (RuntimeException | ClassNotFoundException | IOException e) {
+
+		} catch (RuntimeException | ClassNotFoundException | IOException e ) {
 			logger.error("failed to getRawMatrix() on key="+key);
 			throw new RuntimeException("Jedis: getRawMatrix() failed on key="+key, e);
 		} 
 	}
-	
+
+
+	private RawMatrix buildChunkedRawMatrix (String key, RedisCacheValuesList refList ) throws ComputingException, ClassNotFoundException, IOException{
+		try (Jedis jedis  = getResourceFromPool()){	
+			
+			logger.info("Rebuilding chunked matrix from cache");
+			RedisCacheValuesList  currRef = refList;
+			int nbChunks= 0 ;
+			RawMatrix res = null;
+			boolean done = false;
+			long size= 0 ;
+			
+			while (!done){
+				int nbChunksDone = nbChunks;
+				for(int i = nbChunksDone;  i <currRef.getReferenceKeys().size() ; i ++){
+					String chunkKey  = currRef.getReferenceKeys().get(nbChunks).referencedKey;
+					logger.info("chunk key " + chunkKey);
+					RawMatrix chunk = this.getRawMatrix(chunkKey) ;
+					res = RawMatrix.mergeMatrices(res, chunk);				
+					nbChunks ++ ;
+				}
+				if (currRef.isDone()){
+					done = true;
+				}else{
+					byte[] serialized = jedis.get(key.getBytes());
+					size+=serialized.length;
+					RedisCacheValue  val = RedisCacheValue.deserialize(serialized);
+					currRef = (RedisCacheValuesList) val;
+				}
+				if (size>= maxSizeInByte ){
+					logger.info("Max size of "+ maxSizeInByte  +" bytes reached, for more data please use export");
+					done = true ;
+				}
+			}
+			res.setRedisKey(key);
+			return res; 
+		}
+	}
+
 	public byte[] get(String key){	
-		
+
 		try(Jedis jedis  = getResourceFromPool()) {
 			byte[] res =jedis.get(key.getBytes());
 			return res;
@@ -160,15 +257,15 @@ public class RedisCacheProxy implements IRedisCacheProxy {
 			throw new RuntimeException("Jedis: get() failed on key="+key, e);
 		} 
 	}
-	
+
 	// in cache
-	
+
 	public boolean inCache(RedisKey k){
 		return this.inCache(k.toString());
 	}	
 
 	public boolean inCache(String key){
-		
+
 		try(Jedis jedis  = getResourceFromPool()) {
 			boolean res =jedis.exists(key.getBytes());
 			return res;
@@ -178,11 +275,11 @@ public class RedisCacheProxy implements IRedisCacheProxy {
 		}
 	}
 
-	
+
 	//clear
 
 	public String clear(){
-		
+
 		try(Jedis jedis  = getResourceFromPool()) {
 			String res = jedis.flushAll();
 			return res;
@@ -192,11 +289,11 @@ public class RedisCacheProxy implements IRedisCacheProxy {
 	public void quit(){
 		this.pool.close();
 	} 
-	
+
 	//TTL
-	
+
 	public void setTTL(String key, int ttl){
-	
+
 		try(Jedis jedis  = getResourceFromPool()) {
 			jedis.expire(key.getBytes(), ttl);
 		} catch (RuntimeException e) {
@@ -204,7 +301,7 @@ public class RedisCacheProxy implements IRedisCacheProxy {
 			throw new RuntimeException("Jedis: setTTL() failed on key="+key, e);
 		} 
 	}
-	
+
 	private Jedis getResourceFromPool() {
 		try {
 			return pool.getResource();

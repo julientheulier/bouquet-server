@@ -4,7 +4,7 @@
 	<parent>
 		<groupId>io.openbouquet</groupId>
 		<artifactId>bouquet-parent</artifactId>
-		<version>4.2.1-SNAPSHOT-T821</version>
+		<version>4.2.7-SNAPSHOT</version>
 		<relativePath>../bouquet-parent/pom.xml</relativePath>
 	</parent>
 
@@ -224,8 +224,11 @@
 			<artifactId>commons-math3</artifactId>
 			<version>3.6</version>
 		</dependency>
-
-
+		<dependency>
+			<groupId>commons-io</groupId>
+			<artifactId>commons-io</artifactId>
+			<version>2.5</version>
+		</dependency>
 	</dependencies>
 	<build>
 		<finalName>bouquet-server</finalName>
@@ -425,7 +428,7 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-gpg-plugin</artifactId>
-				<version>1.6</version>
+				<version>1.6</version><!--$NO-MVN-MAN-VER$-->
 				<executions>
 					<execution>
 						<id>sign-artifacts</id>
