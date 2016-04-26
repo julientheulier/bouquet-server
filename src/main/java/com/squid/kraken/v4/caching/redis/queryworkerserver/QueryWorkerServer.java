@@ -197,4 +197,10 @@ public class QueryWorkerServer implements IQueryWorkerServer {
 		load.decrementAndGet();
 	}
 
+	@Override
+	public boolean isQueryOngoing(String k, String SQLQuery) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
 }
