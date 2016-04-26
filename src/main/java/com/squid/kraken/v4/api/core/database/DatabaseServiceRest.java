@@ -44,6 +44,7 @@ import com.squid.core.database.model.Database;
 import com.squid.core.database.model.Schema;
 import com.squid.core.database.model.Table;
 import com.squid.core.sql.model.SQLScopeException;
+import com.squid.kraken.v4.api.core.AccessRightsUtils;
 import com.squid.kraken.v4.api.core.BaseServiceRest;
 import com.squid.kraken.v4.api.core.ObjectNotFoundAPIException;
 import com.squid.kraken.v4.api.core.project.ProjectServiceBaseImpl;
@@ -52,9 +53,14 @@ import com.squid.kraken.v4.core.database.impl.DatabaseServiceImpl;
 import com.squid.kraken.v4.core.database.impl.DatasourceDefinition;
 import com.squid.kraken.v4.model.Project;
 import com.squid.kraken.v4.model.ProjectPK;
+import com.squid.kraken.v4.model.AccessRight.Role;
 import com.squid.kraken.v4.persistence.AppContext;
+import com.wordnik.swagger.annotations.Api;
 import com.wordnik.swagger.annotations.ApiOperation;
+import com.wordnik.swagger.annotations.Authorization;
+import com.wordnik.swagger.annotations.AuthorizationScope;
 
+@Api(value = "database", hidden = true, authorizations = { @Authorization(value = "kraken_auth", type = "oauth2", scopes = { @AuthorizationScope(scope = "access", description = "Access")}) })
 @Produces({ MediaType.APPLICATION_JSON })
 public class DatabaseServiceRest extends BaseServiceRest {
 	
@@ -73,6 +79,7 @@ public class DatabaseServiceRest extends BaseServiceRest {
 	public DatabaseInfo getDatabaseStatus(@PathParam("projectId") String projectId) throws ExecutionException {
 		ProjectPK projectPK = new ProjectPK(userContext.getCustomerId(), projectId);
 		Project project = ProjectServiceBaseImpl.getInstance().read(userContext, projectPK);
+		AccessRightsUtils.getInstance().checkRole(userContext, project, Role.WRITE);
 		DatasourceDefinition dd = DatabaseServiceImpl.INSTANCE.getDatasourceDefinition(project);
 		DataSourceReliable ds = dd.getDatasource(); //Appropriate driver should be set already.
 		Connection conn = null;
@@ -99,6 +106,7 @@ public class DatabaseServiceRest extends BaseServiceRest {
 	public List<?> readSchemas(@PathParam("projectId") String projectId) throws DatabaseServiceException, SQLScopeException {
 		ProjectPK projectPK = new ProjectPK(userContext.getCustomerId(), projectId);
 		Project project = ProjectServiceBaseImpl.getInstance().read(userContext, projectPK);
+		AccessRightsUtils.getInstance().checkRole(userContext, project, Role.WRITE);
 		Database database = DatabaseServiceImpl.INSTANCE.getDatabase(project);
 		List<String> result = new ArrayList<String>();
 		for (Schema schema : database.getSchemas()) {
@@ -113,6 +121,7 @@ public class DatabaseServiceRest extends BaseServiceRest {
 	public List<?> readSchema(@PathParam("projectId") String projectId, @PathParam(SCHEMA_NAME) String schemaName) throws ExecutionException, SQLScopeException {
 		ProjectPK projectPK = new ProjectPK(userContext.getCustomerId(), projectId);
 		Project project = ProjectServiceBaseImpl.getInstance().read(userContext, projectPK);
+		AccessRightsUtils.getInstance().checkRole(userContext, project, Role.WRITE);
 		Database database = DatabaseServiceImpl.INSTANCE.getDatabase(project);
 		Schema schema = database.findSchema(schemaName);
 		if (schema==null) {
@@ -136,6 +145,7 @@ public class DatabaseServiceRest extends BaseServiceRest {
 		) throws ExecutionException, SQLScopeException {
 		ProjectPK projectPK = new ProjectPK(userContext.getCustomerId(), projectId);
 		Project project = ProjectServiceBaseImpl.getInstance().read(userContext, projectPK);
+		AccessRightsUtils.getInstance().checkRole(userContext, project, Role.WRITE);
 		Database database = DatabaseServiceImpl.INSTANCE.getDatabase(project);
 		Schema schema = database.findSchema(schemaName);
 		if (schema==null) {
@@ -160,6 +170,7 @@ public class DatabaseServiceRest extends BaseServiceRest {
 		) throws ExecutionException, SQLScopeException {
 		ProjectPK projectPk = new ProjectPK(userContext.getCustomerId(), projectId);
 		Project project = ProjectServiceBaseImpl.getInstance().read(userContext, projectPk);
+		AccessRightsUtils.getInstance().checkRole(userContext, project, Role.WRITE);
 		Database database = DatabaseServiceImpl.INSTANCE.getDatabase(project);
 		Schema schema = database.findSchema(schemaName);
 		if (schema==null) {
