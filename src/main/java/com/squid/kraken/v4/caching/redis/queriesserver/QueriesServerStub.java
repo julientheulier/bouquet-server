@@ -72,4 +72,15 @@ public class QueriesServerStub implements IQueriesServer {
 		logger.info("base URL " +this.baseURL);
 	}
 
+
+	@Override
+	public boolean isQueryOngoing(String key, String SQLQuery) {
+		WebClient client = WebClient.create(baseURL);
+		client.path("ongoing");
+		client.query("sqlquery", SQLQuery);
+		client.query("key", key);
+		boolean res  = client.get(Boolean.class);
+		return res;
+	}
+
 }

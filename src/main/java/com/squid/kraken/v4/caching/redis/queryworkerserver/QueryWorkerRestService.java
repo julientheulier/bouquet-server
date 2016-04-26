@@ -67,4 +67,12 @@ public class QueryWorkerRestService {
 		return this.serv.getLoad();
 	}
 	
+	@GET
+	@Path("/ongoing")
+	public boolean fetch(@QueryParam("key") String key, 
+			@QueryParam("sqlquery") String SQLQuery
+			) throws InterruptedException{
+		return this.serv.isQueryOngoing(key,SQLQuery) ;
+	}
+	
 }

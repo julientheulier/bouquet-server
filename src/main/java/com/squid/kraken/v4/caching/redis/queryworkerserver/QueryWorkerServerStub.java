@@ -84,5 +84,15 @@ public class QueryWorkerServerStub implements IQueryWorkerServer {
 		int res  = client.get(Integer.class);
 		return res;
 	}
+
+	@Override
+	public boolean isQueryOngoing(String k, String SQLQuery) {
+		WebClient client = WebClient.create(baseURL);
+		client.path("ongoing");
+		client.query("sqlquery", SQLQuery);
+		client.query("key", k);
+		boolean res  = client.get(Boolean.class);
+		return res;
+	}
 	
 }

@@ -180,6 +180,12 @@ public class QueriesServer implements IQueriesServer {
 			}
 		}
 	}
+
+	@Override
+	public boolean isQueryOngoing(String key, String SQLQuery) {
+		// TODO Auto-generated method stub
+		return false;
+	}
 	
 
 

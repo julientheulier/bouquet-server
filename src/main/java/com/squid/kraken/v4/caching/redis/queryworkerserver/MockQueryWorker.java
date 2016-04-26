@@ -109,5 +109,11 @@ public class MockQueryWorker implements IQueryWorkerServer{
 	public int getLoad() {
 		return 0;
 	}
+
+	@Override
+	public boolean isQueryOngoing(String k, String SQLQuery) {
+		// TODO Auto-generated method stub
+		return false;
+	}
 	
 }
