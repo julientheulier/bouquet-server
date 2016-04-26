@@ -49,8 +49,6 @@ public class ExportSourceWriterXLSX implements ExportSourceWriter {
 
   private static final Logger logger = LoggerFactory.getLogger(ExportSourceWriterXLSX.class);
 
-  private static final int SPLIT_SIZE = 0;
-
   private ExcelSettingsBean settings = null;
 
   public ExportSourceWriterXLSX() {
