@@ -180,6 +180,17 @@ public class QueriesServer implements IQueriesServer {
 			}
 		}
 	}
+
+	@Override
+	public boolean isQueryOngoing(String key) {
+		for (IQueryWorkerServer worker : this.workers){
+				boolean res = worker.isQueryOngoing(key);
+				if (res){
+					return true;
+				}
+		}	
+		return false;		
+	}
 	
 
 

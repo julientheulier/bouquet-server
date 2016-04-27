@@ -26,6 +26,7 @@ package com.squid.kraken.v4.caching.redis.queryworkerserver;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -73,6 +74,8 @@ public class QueryWorkerServer implements IQueryWorkerServer {
 	private String REDIS_SERVER_HOST;
 	private int REDIS_SERVER_PORT;
 	private IRedisCacheProxy redis;
+	
+	private ConcurrentHashMap<String, CallableChunkedMatrixFetch> ongoingLongQueries ;
 
 	public QueryWorkerServer(RedisCacheConfig conf) {
 		this.load = new AtomicInteger(0);
@@ -87,7 +90,9 @@ public class QueryWorkerServer implements IQueryWorkerServer {
 		this.defaultTTLinSec = conf.getTtlInSecond();
 
 		RawMatrix.setMaxChunkSizeInMB(conf.getMaxChunkSizeInMByte());
-
+		
+		this.ongoingLongQueries = new ConcurrentHashMap<String, CallableChunkedMatrixFetch>();
+		
 		logger.info("New Query Worker " + this.host + " " + this.port);
 	}
 
@@ -159,6 +164,7 @@ public class QueryWorkerServer implements IQueryWorkerServer {
 				CallableChunkedMatrixFetch chunkedMatrixFetch = new CallableChunkedMatrixFetch(this, k, valuesList,
 						item, ttl, serializedRes.getNbLines(), limit);
 				this.executor.submit(chunkedMatrixFetch);
+				this.ongoingLongQueries.put(k, chunkedMatrixFetch);
 			}
 			return true;
 		} catch (ExecutionException e) {
@@ -195,6 +201,15 @@ public class QueryWorkerServer implements IQueryWorkerServer {
 
 	public void decrementLoad() {
 		load.decrementAndGet();
+	}
+	public void removeOngoingQuery(String k){
+		this.ongoingLongQueries.remove(k);
+	}
+
+	@Override
+	public boolean isQueryOngoing(String k) {
+		return (this.ongoingLongQueries.containsKey(k)) ;
+
 	}
 
 }
