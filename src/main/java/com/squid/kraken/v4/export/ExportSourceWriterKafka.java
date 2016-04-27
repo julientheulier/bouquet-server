@@ -23,43 +23,31 @@
  *******************************************************************************/
 package com.squid.kraken.v4.export;
 
-import com.squid.core.csv.CSVSettingsBean;
-import com.squid.core.csv.CSVWriter;
-import com.squid.core.export.IRawExportSource;
-import com.squid.core.jdbc.engine.IExecutionItem;
-import com.squid.core.jdbc.formatter.DataFormatter;
-import com.squid.core.jdbc.formatter.IJDBCDataFormatter;
-import com.squid.core.jdbc.vendor.IVendorSupport;
-import com.squid.core.jdbc.vendor.VendorSupportRegistry;
-import com.squid.kraken.v4.KrakenConfig;
-import com.squid.kraken.v4.api.core.NotYetImplementedException;
-import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
-import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValuesList;
-import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
-import com.squid.kraken.v4.model.DataTable;
+import java.io.OutputStream;
+import java.nio.ByteBuffer;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.sql.Types;
+import java.util.Iterator;
+import java.util.Properties;
 
 import org.apache.avro.Schema;
-import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.GenericData.Record;
+import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.io.OutputStream;
-import java.io.OutputStreamWriter;
-import java.io.Writer;
-import java.nio.ByteBuffer;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
-import java.sql.SQLException;
-import java.sql.Types;
-import java.util.Iterator;
-import java.util.Properties;
+import com.squid.core.export.IRawExportSource;
+import com.squid.core.jdbc.engine.IExecutionItem;
+import com.squid.kraken.v4.KrakenConfig;
+import com.squid.kraken.v4.api.core.NotYetImplementedException;
+import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
+import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValuesList;
+import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
+import com.squid.kraken.v4.model.DataTable;
 
 public class ExportSourceWriterKafka implements ExportSourceWriter {
 

@@ -7,7 +7,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
-import org.apache.avro.Schema;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,9 +28,6 @@ public class ChunkedRawMatrixBaseSource {
 	protected Future<RawMatrix> processingQuery;
 
 	protected ExecutorService executor;
-
-	private Schema schema;
-
 
 	static final Logger logger = LoggerFactory.getLogger(ChunkedRawMatrixBaseSource.class);
 

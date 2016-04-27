@@ -30,4 +30,6 @@ public interface IQueriesServer {
 
 	public void start();
 	
+	public boolean isQueryOngoing(String key);
+	
 }

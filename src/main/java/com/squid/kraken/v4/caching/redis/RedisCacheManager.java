@@ -36,6 +36,7 @@ import org.slf4j.LoggerFactory;
 import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
 import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheReference;
 import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValue;
+import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValuesList;
 import com.squid.kraken.v4.caching.redis.generationalkeysserver.GenerationalKeysServerFactory;
 import com.squid.kraken.v4.caching.redis.generationalkeysserver.IGenerationalKeysServer;
 import com.squid.kraken.v4.caching.redis.generationalkeysserver.RedisKey;
@@ -124,13 +125,21 @@ public class RedisCacheManager implements IRedisCacheManager {
 		} else {
 			res = null;
 		}
+		
+		
 		return res;
 	}
 
 	public RedisCacheValue getRedisCacheValueLazy(String SQLQuery, List<String> dependencies, String RSjdbcURL,
 			String username, String pwd, int TTLinSec) {
 		String k = buildCacheKey(SQLQuery, dependencies);
-		return this.redis.getRawOrList(k);
+		RedisCacheValue val  = this.redis.getRawOrList(k);
+		if(val instanceof RedisCacheValuesList){
+			return validateCacheList( (RedisCacheValuesList) val ); 
+		}else{			
+			return val;
+		}
+
 	}
 
 	public RedisCacheValue getRedisCacheValue(String SQLQuery, List<String> dependencies, String RSjdbcURL,
@@ -138,18 +147,74 @@ public class RedisCacheManager implements IRedisCacheManager {
 		String k = buildCacheKey(SQLQuery, dependencies);
 		RedisCacheValue val = this.redis.getRawOrList(k);
 		if (val != null) {
-			return val;
-		} else {
-			boolean fetchOK = this.fetch(k, SQLQuery, RSjdbcURL, username, pwd, TTLinSec, limit);
-			if (!fetchOK) {
-				logger.info("failed to fetch query:\n" + SQLQuery + "\nfetch failed");
-				return null;
+			if(val instanceof RedisCacheValuesList){
+				RedisCacheValuesList validated = validateCacheList( (RedisCacheValuesList) val ); 
+				if (validated!=null){
+					return validated;
+				}else{
+					logger.info(" The analysis did not end properly, recomputing "+ SQLQuery );
+				}
+			}else{			
+				return val;
 			}
-			val = this.redis.getRawOrList(k);
+		}		
+		boolean fetchOK = this.fetch(k, SQLQuery, RSjdbcURL, username, pwd, TTLinSec, limit);
+		if (!fetchOK) {
+			logger.info("failed to fetch query:\n" + SQLQuery + "\nfetch failed");
+			return null;
+		}
+		val = this.redis.getRawOrList(k);
+		if(val instanceof RedisCacheValuesList){
+			return validateCacheList( (RedisCacheValuesList) val ); 
+		}else{			
 			return val;
-
 		}
 	}
+	
+	private RedisCacheValuesList validateCacheList(RedisCacheValuesList list){
+		if (list.isDone()){
+			logger.debug("done");
+			return list;
+		}
+		if (list.isError()){
+			logger.debug("error");
+			return null;
+		}
+		if (list.isOngoing()){
+			boolean isOngoing = this.queriesServ.isQueryOngoing(list.getRedisKey());
+			if (isOngoing){
+				logger.debug("really ongoing");
+				return list;
+			}else{
+				// check if the state has changed to DONE
+				RedisCacheValue val = this.redis.getRawOrList(list.getRedisKey());
+				if (val instanceof RedisCacheValuesList){
+					RedisCacheValuesList newList = (RedisCacheValuesList) val;
+					if (newList.isDone()){
+						logger.debug("was ongoing, done now");
+						return newList;
+					}
+					if (newList.isError()){
+						logger.debug("was ongoing, error now");
+						return null;
+					}
+					if(newList.isOngoing()){
+						logger.debug("still ongoing status, although not being computed, setting to ERROR");
+
+						newList.setError();
+						this.redis.put(list.getRedisKey(), newList.serialize());
+						return null;
+					}
+				}else{
+					return null;
+				}
+			}
+		}
+		return null;
+	}
+
+	
+	
 
 	public boolean addCacheReference(String sqlNoLimit, List<String> dependencies, String referencedKey) {
 		try {

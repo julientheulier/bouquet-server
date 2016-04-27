@@ -79,6 +79,17 @@ public class MockQueryWorkerStub implements IQueryWorkerServer {
 	public int getLoad() {
 		return 0;
 	}
+
+	@Override
+	public boolean isQueryOngoing(String k) {
+		if(logger.isDebugEnabled()){logger.debug((k));}
+		
+		WebClient client = WebClient.create(baseURL);
+		client.path("ongoing");
+		client.query("key", k);
+		boolean res  = client.get(Boolean.class);
+		return res;
+	}
 	
 
 }
