@@ -141,12 +141,14 @@ public class AnalysisCompute {
 		List<MeasureGroup> groups = analysis.getGroups();
 		if (groups.isEmpty()) {
 			SimpleQuery query = this.genSimpleQuery(analysis);
-			PreviewWriter qw = new PreviewWriter();
+			List<DataMatrixTransform> postprocessing = new ArrayList<>();
+			PreviewWriter qw = new PreviewWriter(postprocessing);
 			query.run(analysis.isLazy(), qw);
 			DataMatrix dm = qw.getDataMatrix();
-			// apply postProcessing if needed
-			if (qw.isNeedPostProcessing()) {
-				applyPostProcessing(query, dm);
+			if (dm != null) {
+				for (DataMatrixTransform transform : postprocessing) {
+					dm = transform.apply(dm);
+				}
 			}
 			return dm;
 		} else if (analysis.getSelection().hasCompareToSelection()) {
@@ -264,7 +266,7 @@ public class AnalysisCompute {
 		for (Measure kpi : currentAnalysis.getKpis()) {
 			Measure compareToKpi = new Measure(kpi);
 			compareToKpi.setOriginType(OriginType.COMPARETO);
-			compareToKpi.setName(kpi.getName());//+" (past)");
+			compareToKpi.setName(kpi.getName());
 			compareToAnalysis.add(compareToKpi);
 		}
 		// copy stuff
@@ -394,8 +396,8 @@ public class AnalysisCompute {
 	}
 
 	/**
-	 * This method expect to compute a "simple" analysis, that is not requiring a merge/compare operation
-	 * It supports the NoLimit parameter.
+	 * This method expect to compute a "simple" analysis, that is not requiring a compareTo operation
+	 * It supports the BeyondLimit parameter.
 	 * @param analysis
 	 * @param optimize
 	 * @return
@@ -411,30 +413,8 @@ public class AnalysisCompute {
 		DataMatrix result = null;
 		for (MeasureGroup group : analysis.getGroups()) {
 			//
-			// generate the query
-			// -- note that some optimization can take place here: soft-filters, noLimit...
-			DashboardSelection soft_filters = new DashboardSelection();// will list the soft-filters
-			ArrayList<Axis> hidden_slice = new ArrayList<Axis>();// and the corresponding axis to hide
-			SimpleQuery query = this.genAnalysisQueryCachable(analysis,
-					group, optimize, soft_filters, hidden_slice);
-
-			PreviewWriter  qw = new PreviewWriter();
-			query.run(analysis.isLazy(), qw);
-			DataMatrix dm =  qw.getDataMatrix();
-
+			DataMatrix dm =  computeAnalysisSimpleForGroup(analysis, group, optimize);
 			if (dm != null) {
-				// hide axis in case there are coming from generalized query
-				for (Axis axis : hidden_slice) {
-					dm.getAxisColumn(axis).setVisible(false);
-				}
-				// apply the soft filters if any left
-				if (!soft_filters.isEmpty()) {
-					dm = dm.filter(soft_filters, false);//ticket:2923 Null values must not be retained.
-				}
-				// apply postProcessing if needed
-				if (qw.isNeedPostProcessing()) {
-					applyPostProcessing(query, dm);
-				}
 				// merge if needed
 				if (result==null) {
 					result = dm;
@@ -446,18 +426,22 @@ public class AnalysisCompute {
         return result;
     }
 	
-	/**
-	 * enforce the SimpleQuery orderBy, Limit & Offset directives
-	 * @param query
-	 * @param dm
-	 */
-	private void applyPostProcessing(SimpleQuery query, DataMatrix dm) {
-		if (!query.getOrderBy().isEmpty()) {
-			dm.orderBy(query.getOrderBy());
+	protected DataMatrix computeAnalysisSimpleForGroup(DashboardAnalysis analysis, MeasureGroup group,
+			boolean optimize) throws ScopeException, SQLScopeException, ComputingException, InterruptedException {
+		//
+		// generate the query
+		List<DataMatrixTransform> postprocessing = new ArrayList<>();
+		PreviewWriter  qw = new PreviewWriter(postprocessing);
+		SimpleQuery query = this.genAnalysisQueryCachable(analysis,
+				group, optimize, postprocessing);
+		query.run(analysis.isLazy(), qw);
+		DataMatrix dm =  qw.getDataMatrix();
+		if (dm != null) {
+			for (DataMatrixTransform transform : postprocessing) {
+				dm = transform.apply(dm);
+			}
 		}
-		if (query.getSelect().getStatement().hasLimitValue() || query.getSelect().getStatement().hasOffsetValue()) {
-			dm.truncate(query.getSelect().getStatement().getLimitValue(), query.getSelect().getStatement().getOffsetValue());
-		}
+		return dm;
 	}
 	
     /**
@@ -501,7 +485,7 @@ public class AnalysisCompute {
                 //
                 MeasureGroup group = groups.get(0);
                 //
-                SimpleQuery query = genAnalysisQueryWithSoftFiltering(analysis, group, false, false, null, null);
+                SimpleQuery query = genAnalysisQueryWithSoftFiltering(analysis, group, false, false, null);
         		//
                 query.run(lazy, writer);
             }
@@ -526,9 +510,11 @@ public class AnalysisCompute {
 	 */
 	protected SimpleQuery genAnalysisQueryWithSoftFiltering(DashboardAnalysis analysis,
 			MeasureGroup group, boolean cachable,
-			boolean optimize, DashboardSelection soft_filters,
-			List<Axis> hidden_slice) throws ScopeException, SQLScopeException,
+			boolean optimize, List<DataMatrixTransform> postprocessing) throws ScopeException, SQLScopeException,
 			ComputingException, InterruptedException {
+		//
+		DashboardSelection soft_filters = postprocessing!=null?new DashboardSelection():null;
+		List<Axis> hidden_slice = postprocessing!=null?new ArrayList<Axis>():null;
 		//
 		Collection<Domain> domains = analysis.getAllDomains();
 		//
@@ -746,17 +732,17 @@ public class AnalysisCompute {
 			MeasureGroup group, boolean optimize) throws ScopeException,
 			SQLScopeException, ComputingException, InterruptedException {
 		return this.genAnalysisQueryCachable(analysis, group, optimize,
-				null, null);
+				null);
 	}
 
 	protected SimpleQuery genAnalysisQueryCachable(
 			DashboardAnalysis analysis, MeasureGroup group, boolean optimize,
-			DashboardSelection soft_filters, List<Axis> hidden_slice)
+			List<DataMatrixTransform> postprocessing)
 			throws ScopeException, SQLScopeException, ComputingException,
 			InterruptedException {
 		if (analysis.hasBeyondLimit() && analysis.hasLimit() && !analysis.hasRollup()) {
 			// need to take care of the beyond limit axis => compute the limit only on a subset of axes
-			SimpleQuery check = genAnalysisQueryWithBeyondLimitSupport(analysis, group, true, optimize, soft_filters, hidden_slice);
+			SimpleQuery check = genAnalysisQueryWithBeyondLimitSupport(analysis, group, true, optimize, postprocessing);
 			// check is null if cannot apply beyondLimit
 			if (check!=null) return check;
 		}
@@ -764,7 +750,7 @@ public class AnalysisCompute {
 		// use the simple method
 		return genAnalysisQueryWithSoftFiltering(analysis, group, 
 			true, // just set the cachable flag to true -- is this really usefull?
-			optimize, soft_filters, hidden_slice);
+			optimize, postprocessing);
 	}
 	
 	/**
@@ -784,8 +770,7 @@ public class AnalysisCompute {
 	 */
 	protected SimpleQuery genAnalysisQueryWithBeyondLimitSupport(DashboardAnalysis analysis,
 			MeasureGroup group, boolean cachable,
-			boolean optimize, DashboardSelection soft_filters,
-			List<Axis> hidden_slice) throws ScopeException, SQLScopeException,
+			boolean optimize, List<DataMatrixTransform> postprocessing) throws ScopeException, SQLScopeException,
 			ComputingException, InterruptedException {
 		//
 		// prepare the sub-query that will count the limit
@@ -803,7 +788,7 @@ public class AnalysisCompute {
 		if (subAnalysisWithLimit.getGrouping().isEmpty()) {//
 			// just unset the limit
 			analysis.noLimit();
-			return genAnalysisQueryWithSoftFiltering(analysis, group, cachable, optimize, soft_filters, hidden_slice);
+			return genAnalysisQueryWithSoftFiltering(analysis, group, cachable, optimize, postprocessing);
 		}
 		// copy metrics
 		for (Measure measure : analysis.getKpis()) {
@@ -841,22 +826,22 @@ public class AnalysisCompute {
 			if (!values.isEmpty()) {
 				Long limit = analysis.getLimit();
 				analysis.noLimit();
-				SimpleQuery mainquery = genAnalysisQueryWithSoftFiltering(analysis, group, cachable, optimize, soft_filters, hidden_slice);
+				SimpleQuery mainquery = genAnalysisQueryWithSoftFiltering(analysis, group, cachable, optimize, postprocessing);
 				analysis.limit(limit);// restore the limit in case we need it again (compare for example)
 				mainquery.where(join, values);
 				return mainquery;
 			} else {
 				// failed, using original limit
-				return genAnalysisQueryWithSoftFiltering(analysis, group, cachable, optimize, soft_filters, hidden_slice);
+				return genAnalysisQueryWithSoftFiltering(analysis, group, cachable, optimize, postprocessing);
 			}
 		} else {
 			// generate a subquery and use EXISTS operator
 			// -- do not optimize, we don't want side effect here
-			SimpleQuery subquery = genAnalysisQueryWithSoftFiltering(subAnalysisWithLimit, group, cachable, false, soft_filters, hidden_slice);
+			SimpleQuery subquery = genAnalysisQueryWithSoftFiltering(subAnalysisWithLimit, group, cachable, false, postprocessing);
 			//
 			// get the original query without limit
 			analysis.noLimit();
-			SimpleQuery mainquery = genAnalysisQueryWithSoftFiltering(analysis, group, cachable, optimize, soft_filters, hidden_slice);
+			SimpleQuery mainquery = genAnalysisQueryWithSoftFiltering(analysis, group, cachable, optimize, postprocessing);
 			//
 			mainquery.join(joins, subquery);
 			return mainquery;
