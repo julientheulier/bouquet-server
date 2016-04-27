@@ -1,19 +1,26 @@
 package com.squid.kraken.v4.writers;
 
+import java.util.List;
+
 import com.squid.core.database.model.Database;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValue;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
+import com.squid.kraken.v4.core.analysis.engine.processor.DataMatrixTransform;
 import com.squid.kraken.v4.core.analysis.engine.query.mapping.QueryMapper;
 
 public class QueryWriter {
 
+	private List<DataMatrixTransform> postprocessing;
+	
 	protected RedisCacheValue val;
 	protected QueryMapper mapper;
 	protected Database db;
 	protected String SQL;
 	
-	private boolean needPostProcessing = false;
+	public QueryWriter(List<DataMatrixTransform> postprocessing) {
+		this.postprocessing = postprocessing;
+	}
 	
 	public void write() throws ScopeException, ComputingException{
 		
@@ -35,12 +42,10 @@ public class QueryWriter {
 		this.SQL= sql;
 	}
 	
-	public void setNeedPostProcessing(boolean needPostProcessing) {
-		this.needPostProcessing = needPostProcessing;
-	}
-	
-	public boolean isNeedPostProcessing() {
-		return needPostProcessing;
+	public void addPostProcessing(DataMatrixTransform transform) {
+		if (postprocessing!=null) {
+			postprocessing.add(transform);
+		}
 	}
 	
 }
