@@ -30,7 +30,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 
 import com.squid.core.expression.scope.ScopeException;
-import com.squid.core.jdbc.engine.IExecutionItem;
 import com.squid.core.sql.model.SQLScopeException;
 import com.squid.core.sql.render.RenderingException;
 import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
@@ -41,7 +40,6 @@ import com.squid.kraken.v4.core.analysis.model.DashboardAnalysis;
 import com.squid.kraken.v4.core.analysis.model.DashboardSelection;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
-import com.squid.kraken.v4.export.ExecuteAnalysisResult;
 import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.Facet;
 import com.squid.kraken.v4.writers.QueryWriter;
