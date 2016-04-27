@@ -63,6 +63,8 @@ import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValuesList;
 import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionMember;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
+import com.squid.kraken.v4.core.analysis.engine.processor.DataMatrixTransformOrderBy;
+import com.squid.kraken.v4.core.analysis.engine.processor.DataMatrixTransformTruncate;
 import com.squid.kraken.v4.core.analysis.engine.processor.DateExpressionAssociativeTransformationExtractor;
 import com.squid.kraken.v4.core.analysis.engine.query.mapping.AxisMapping;
 import com.squid.kraken.v4.core.analysis.engine.query.mapping.MeasureMapping;
@@ -316,7 +318,12 @@ public class BaseQuery implements IQuery {
 					result= null;
 					}
 				if (result!=null) {
-					writer.setNeedPostProcessing(true);
+					if (!getOrderBy().isEmpty()) {
+						writer.addPostProcessing(new DataMatrixTransformOrderBy(getOrderBy()));
+					}
+					if (getSelect().getStatement().hasLimitValue() || getSelect().getStatement().hasOffsetValue()) {
+						writer.addPostProcessing(new DataMatrixTransformTruncate(getSelect().getStatement().getLimitValue(), getSelect().getStatement().getOffsetValue()));
+					}
 				}
 			}
 			if (result != null) {
