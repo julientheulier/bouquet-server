@@ -117,6 +117,7 @@ class CallableChunkedMatrixFetch implements Callable<Boolean> {
 			return true;
 		} finally {
 			server.decrementLoad();
+			server.removeOngoingQuery(key);
 			if (item != null)
 				item.close();
 

@@ -81,13 +81,11 @@ public class MockQueryWorkerStub implements IQueryWorkerServer {
 	}
 
 	@Override
-	public boolean isQueryOngoing(String k, String SQLQuery) {
+	public boolean isQueryOngoing(String k) {
 		if(logger.isDebugEnabled()){logger.debug((k));}
-		if(logger.isDebugEnabled()){logger.debug((SQLQuery));}
 		
 		WebClient client = WebClient.create(baseURL);
 		client.path("ongoing");
-		client.query("sqlquery", SQLQuery);
 		client.query("key", k);
 		boolean res  = client.get(Boolean.class);
 		return res;

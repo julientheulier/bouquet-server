@@ -52,9 +52,8 @@ public class QueriesServerRestService {
 	
 	@GET
 	@Path("/ongoing")
-	public boolean ongoing(@QueryParam("key") String key,
-			@QueryParam("sqlquery") String SQLQuery){
-		return this.delegate.isQueryOngoing(key, SQLQuery);		
+	public boolean ongoing(@QueryParam("key") String key){
+		return this.delegate.isQueryOngoing(key);		
 	}
 
 	@GET

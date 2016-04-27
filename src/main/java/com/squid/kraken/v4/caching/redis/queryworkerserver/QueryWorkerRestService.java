@@ -72,7 +72,7 @@ public class QueryWorkerRestService {
 	public boolean fetch(@QueryParam("key") String key, 
 			@QueryParam("sqlquery") String SQLQuery
 			) throws InterruptedException{
-		return this.serv.isQueryOngoing(key,SQLQuery) ;
+		return this.serv.isQueryOngoing(key) ;
 	}
 	
 }

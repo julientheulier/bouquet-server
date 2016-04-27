@@ -111,7 +111,7 @@ public class MockQueryWorker implements IQueryWorkerServer{
 	}
 
 	@Override
-	public boolean isQueryOngoing(String k, String SQLQuery) {
+	public boolean isQueryOngoing(String k) {
 		// TODO Auto-generated method stub
 		return false;
 	}

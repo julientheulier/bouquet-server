@@ -33,5 +33,5 @@ public interface IQueryWorkerServer {
 	
 	public String hello();
 	
-	public boolean isQueryOngoing(String k, String SQLQuery);
+	public boolean isQueryOngoing(String k);
 }

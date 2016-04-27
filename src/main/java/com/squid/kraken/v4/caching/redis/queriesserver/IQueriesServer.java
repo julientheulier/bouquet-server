@@ -30,6 +30,6 @@ public interface IQueriesServer {
 
 	public void start();
 	
-	public boolean isQueryOngoing(String key, String SQLQuery);
+	public boolean isQueryOngoing(String key);
 	
 }
