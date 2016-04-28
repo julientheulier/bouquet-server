@@ -264,7 +264,7 @@ public class AnalysisCompute {
 		for (Measure kpi : currentAnalysis.getKpis()) {
 			Measure compareToKpi = new Measure(kpi);
 			compareToKpi.setOriginType(OriginType.COMPARETO);
-			compareToKpi.setName(kpi.getName());//+" (past)");
+			compareToKpi.setName(kpi.getName()+" [compare]");
 			compareToAnalysis.add(compareToKpi);
 		}
 		// copy stuff
