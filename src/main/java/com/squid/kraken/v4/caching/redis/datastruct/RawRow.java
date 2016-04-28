@@ -39,12 +39,24 @@ public class RawRow implements Serializable {
 	private static final long serialVersionUID = 5298105092629830699L;
 	protected Object[] data;
 
+	public RawRow(int size) {
+		this.data = new Object[size];
+	}
+
 	public RawRow(Object[] objs) {
 		this.data = objs;
 	}
 
 	public Object[] getData() {
 		return this.data;
+	}
+	
+	public Object getData(int i) {
+		return this.data[i];
+	}
+	
+	public void setData(int i, Object value) {
+		this.data[i] = value;
 	}
 
 	public int size() {

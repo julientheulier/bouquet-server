@@ -28,6 +28,7 @@ import java.util.Date;
 import org.joda.time.LocalDate;
 
 import com.squid.core.expression.scope.ScopeException;
+import com.squid.kraken.v4.caching.redis.datastruct.RawRow;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
 
 /**
@@ -81,15 +82,15 @@ public class CompareMerger extends JoinMerger {
 	 * override to interleave present/past values
 	 */
 	@Override
-	protected void mergeMeasures(DataMatrix merge, IndirectionRow leftrow, IndirectionRow rightrow, IndirectionRow merged) {
+	protected void mergeMeasures(DataMatrix merge, RawRow leftrow, RawRow rightrow, RawRow merged) {
 		int pos = merge.getAxesSize();// start after axes
 		for (int i = 0; i < left.getDataSize(); i++) {// left.size==right.size
-			if (left!=null) {
-				merged.rawrow[pos] = left.getDataValue(i, leftrow);
+			if (leftrow!=null) {
+				merged.setData(pos, left.getDataValue(i, leftrow));
 			}
 			pos++;// always advance
-			if (right!=null) {
-				merged.rawrow[pos] = right.getDataValue(i, rightrow);
+			if (rightrow!=null) {
+				merged.setData(pos, right.getDataValue(i, rightrow));
 			}
 			pos++;// always advance
 		}

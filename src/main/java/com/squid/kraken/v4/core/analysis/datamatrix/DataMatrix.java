@@ -85,7 +85,7 @@ public class DataMatrix {
 										// results are stale
 	private DataMatrix parent = null;
 
-	private List<IndirectionRow> rows = new ArrayList<IndirectionRow>();
+	private List<RawRow> rows = new ArrayList<RawRow>();
 
 	private boolean fromCache = false;// true if the data come from the cache
 
@@ -122,7 +122,7 @@ public class DataMatrix {
 	 * @param db
 	 * @param rows
 	 */
-	public DataMatrix(Database db, List<IndirectionRow> rows) {
+	public DataMatrix(Database db, List<RawRow> rows) {
 		this.database = db;
 		this.rows = rows;
 		this.fullset = true;
@@ -201,13 +201,11 @@ public class DataMatrix {
 			j++;
 		}
 		// set rows
-		for (RawRow r : rawMatrix.getRows()) {
-			rows.add(new IndirectionRow(r.getData(), axesIndirection, dataIndirection));
-		}
+		rows = rawMatrix.getRows();
 
 		// (T1057) disabling
 		/*
-		 * // index possible values for a dimension for (IndirectionRow row :
+		 * // index possible values for a dimension for (RawRow row :
 		 * this.getRows()) { int index = 0; for (AxisMapping m : ax_map) {
 		 * Object value =row.getAxisValue(index); if (value!=null)
 		 * m.getData().getValues().add(value); index++; } }
@@ -236,11 +234,11 @@ public class DataMatrix {
 	 * @param i
 	 * @return
 	 */
-	public Object getAxisValue(int i, IndirectionRow row) {
+	public Object getAxisValue(int i, RawRow row) {
 		if (this.dataIndirection!=null) {
-			return row.rawrow[axesIndirection[i]];
+			return row.getData(axesIndirection[i]);
 		} else {
-			return row.rawrow[i];// identity
+			return row.getData(i);// identity
 		}
 	}
 
@@ -252,15 +250,15 @@ public class DataMatrix {
 		return this.axes.size();
 	}
 
-	public Object getDataValue(int i, IndirectionRow row) {
+	public Object getDataValue(int i, RawRow row) {
 		if (this.dataIndirection!=null) {
-			return row.rawrow[dataIndirection[i]];
+			return row.getData(dataIndirection[i]);
 		} else {
-			return row.rawrow[axes.size()+i];//identity
+			return row.getData(axes.size()+i);//identity
 		}
 	}
 
-	public Object getValue(int i, IndirectionRow row) {
+	public Object getValue(int i, RawRow row) {
 		if (i < axes.size()) {
 			return getAxisValue(i, row);
 		} else {
@@ -308,7 +306,7 @@ public class DataMatrix {
 		return axes.add(data);
 	}
 
-	public void pushRow(IndirectionRow r) {
+	public void pushRow(RawRow r) {
 		rows.add(r);
 	}
 
@@ -359,7 +357,7 @@ public class DataMatrix {
 				HashSet<Object> objects = new HashSet<>();
 				ArrayList<DimensionMember> members = new ArrayList<>();
 				DimensionIndex index = axis.getIndex();
-				for (IndirectionRow row : rows) {
+				for (RawRow row : rows) {
 					Object value = getAxisValue(pos, row);
 					if (!objects.contains(value)) {
 						objects.add(value);
@@ -410,9 +408,9 @@ public class DataMatrix {
 			}
 		}
 		final int size = ordering.size();
-		Collections.sort(rows, new Comparator<IndirectionRow>() {
+		Collections.sort(rows, new Comparator<RawRow>() {
 			@Override
-			public int compare(IndirectionRow o1, IndirectionRow o2) {
+			public int compare(RawRow o1, RawRow o2) {
 				for (int i = 0; i < size; i++) {
 					Object v1 = getValue(ordering.get(i), o1);
 					Object v2 = getValue(ordering.get(i), o2);
@@ -513,7 +511,7 @@ public class DataMatrix {
 		} else {
 			DataMatrix result = new DataMatrix(this);
 
-			for (IndirectionRow row : getRows()) {
+			for (RawRow row : getRows()) {
 				boolean filter = checkRowAND(row, automaton);
 				if (filter) {
 					result.pushRow(row);
@@ -540,7 +538,7 @@ public class DataMatrix {
 			this.nullIsValid = nullIsValid;
 		}
 
-		public boolean filter(IndirectionRow row) {
+		public boolean filter(RawRow row) {
 			// DimensionMember m = DataMatrix.this.getDimensionMember(row,
 			// index);//row.getAxisValue(DataMatrix.this,index);
 			Object m = getAxisValue(index, row);
@@ -559,7 +557,7 @@ public class DataMatrix {
 
 	public DataMatrix filter(FilterFunction func) {
 		DataMatrix result = new DataMatrix(this);
-		for (IndirectionRow row : getRows()) {
+		for (RawRow row : getRows()) {
 			boolean filter = func.check(row);
 			if (filter) {
 				result.pushRow(row);
@@ -576,7 +574,7 @@ public class DataMatrix {
 	 */
 	public interface FilterFunction {
 
-		public boolean check(IndirectionRow row);
+		public boolean check(RawRow row);
 
 	}
 
@@ -623,7 +621,7 @@ public class DataMatrix {
 			return this;
 		} else {
 			DataMatrix result = new DataMatrix(this);
-			for (IndirectionRow row : getRows()) {
+			for (RawRow row : getRows()) {
 				boolean filter = checkRowOR(row, automaton);
 				if (filter) {
 					result.pushRow(row);
@@ -633,7 +631,7 @@ public class DataMatrix {
 		}
 	}
 
-	private boolean checkRowOR(IndirectionRow row, Collection<ApplyFilterCondition> automaton) {
+	private boolean checkRowOR(RawRow row, Collection<ApplyFilterCondition> automaton) {
 		int failed = 0;
 		for (ApplyFilterCondition item : automaton) {
 			if (!item.filter(row)) {
@@ -645,7 +643,7 @@ public class DataMatrix {
 		return true;
 	}
 
-	private boolean checkRowAND(IndirectionRow row, Collection<ApplyFilterCondition> automaton) {
+	private boolean checkRowAND(RawRow row, Collection<ApplyFilterCondition> automaton) {
 		boolean filter = true;// challenge it
 		for (ApplyFilterCondition item : automaton) {
 			if (!item.filter(row)) {
@@ -662,14 +660,14 @@ public class DataMatrix {
 	 * 
 	 * @return
 	 */
-	public List<IndirectionRow> sortRows() {
+	public List<RawRow> sortRows() {
 		if (rows != null) {
 			if (!isSorted) {
 				synchronized (this) {
 					if (!isSorted) {
-						Collections.sort(rows, new Comparator<IndirectionRow>() {
+						Collections.sort(rows, new Comparator<RawRow>() {
 							@Override
-							public int compare(IndirectionRow left, IndirectionRow right) {
+							public int compare(RawRow left, RawRow right) {
 								return compareTo(left, right);
 							}
 						});
@@ -690,7 +688,7 @@ public class DataMatrix {
 	 * @param right
 	 * @return
 	 */
-	private int compareTo(IndirectionRow left, IndirectionRow right) {
+	private int compareTo(RawRow left, RawRow right) {
 		if (left == right)
 			return 0;
 		for (int i = 0; i < getAxesSize(); i++) {
@@ -727,7 +725,7 @@ public class DataMatrix {
 	public void dump(int sizeLimit) throws ComputingException, InterruptedException {
 		// dump
 		int count = 0;
-		for (IndirectionRow row : this.getRows()) {
+		for (RawRow row : this.getRows()) {
 			StringBuilder output = new StringBuilder();
 			//
 			for (int i = 0; i < getAxesSize(); i++) {
@@ -771,7 +769,7 @@ public class DataMatrix {
 		}
 		logger.info(header.toString());
 		// expot data
-		for (IndirectionRow row : this.getRows()) {
+		for (RawRow row : this.getRows()) {
 			StringBuilder output = new StringBuilder();
 			//
 			for (int i = 0; i < getRowSize(); i++) {
@@ -783,7 +781,7 @@ public class DataMatrix {
 		}
 	}
 
-	public List<IndirectionRow> getRows() {
+	public List<RawRow> getRows() {
 		return rows;
 	}
 
@@ -801,7 +799,7 @@ public class DataMatrix {
 
 		List<AxisValues> axes = this.getAxes();
 
-		List<IndirectionRow> rows = this.getRows();
+		List<RawRow> rows = this.getRows();
 		List<Measure> kpis = this.getKPIs();
 
 		// export header
@@ -862,7 +860,7 @@ public class DataMatrix {
 		int endIndex = Math.min(rows.size() - 1, startIndex + maxResults);
 		if (startIndex <= endIndex) {
 			for (int rowIndex = startIndex; rowIndex <= endIndex; rowIndex++) {
-				IndirectionRow row = rows.get(rowIndex);
+				RawRow row = rows.get(rowIndex);
 				Object[] values = new Object[visible_count + getDataSize()];
 				int colIdx = 0;
 				for (int i = 0; i < axes_count; i++) {
@@ -917,55 +915,6 @@ public class DataMatrix {
 		return expr.computeType(this.database.getSkin());
 	}
 
-	/**
-	 * concatenate matrices
-	 * 
-	 * @param results
-	 * @throws ScopeException
-	 */
-	public void concat(ArrayList<DataMatrix> matrices) throws ScopeException {
-		//
-		int[] axis_indices = new int[matrices.size()];
-		int i = 0;
-		for (DataMatrix dm : matrices) {
-			axis_indices[i++] = this.getAxes().size();// register first indice
-														// for the dm
-			for (AxisValues data : dm.getAxes()) {
-				AxisValues checkUnique = this.getAxisColumn(data.getAxis());
-				if (checkUnique != null) {
-					throw new ScopeException("unable to concat matrices with intersecting axis: '"
-							+ data.getAxis().getDimension().getName() + "'");
-				}
-				this.add(data);
-			}
-			if (!dm.getKPIs().isEmpty()) {
-				throw new ScopeException("unable to concat matrices with kpis");
-			}
-		}
-
-		int size = getAxes().size();
-		// created indirection tables
-		int[] indirAxes = new int[size];
-		for (i = 0; i < size; i++)
-			indirAxes[i] = i;
-
-		int nextMatIndex = 0;
-		for (DataMatrix dm : matrices) {
-			int length = dm.getAxes().size();
-			for (IndirectionRow row : dm.getRows()) {
-				int startMat = nextMatIndex;
-				Object[] rawrow = new Object[size];
-				for (int j = 0; j < dm.getAxesSize(); j++) {
-					rawrow[startMat] = dm.getAxisValue(j, row);
-					startMat++;
-				}
-				IndirectionRow newRow = new IndirectionRow(rawrow, indirAxes, null);
-				pushRow(newRow);
-			}
-			nextMatIndex += length;
-		}
-	}
-
 	public Map<Property, String> getPropertyToAlias() {
 		return this.propertyToAlias;
 
@@ -982,7 +931,7 @@ public class DataMatrix {
 				+ (fullset ? "(full)" : "(partial)"));
 		if (rows != null) {
 			int i = 0;
-			for (IndirectionRow row : rows) {
+			for (RawRow row : rows) {
 				dump.append("\n" + row.toString());
 				if (i++ > 10) {
 					dump.append("\n(...)");

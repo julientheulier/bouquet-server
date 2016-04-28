@@ -27,7 +27,7 @@ import java.util.Iterator;
 import java.util.NoSuchElementException;
 
 import com.squid.core.export.IRawExportSource;
-
+import com.squid.kraken.v4.caching.redis.datastruct.RawRow;
 import com.squid.kraken.v4.core.analysis.datamatrix.AxisValues;
 import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
 import com.squid.kraken.v4.core.analysis.datamatrix.IndirectionRow;
@@ -148,17 +148,17 @@ public class DataMatrixExportSource implements IRawExportSource{
 		@Override
 		public Object[] next() {
 			if (this.hasNext()){
-				IndirectionRow ir = matrix.getRows().get(cursor++) ;
-				Object[] raw = ir.getRawRow();
+				RawRow row = matrix.getRows().get(cursor++) ;
+				Object[] data = row.getData();
 				if (needReorder) {
 					// reorder
 					Object[] reorder = new Object[columnCount];
 					for (int i=0;i<columnCount;i++) {
-						reorder[i] = raw[columnMapping[i]];
+						reorder[i] = data[columnMapping[i]];
 					}
 					return reorder;
 				} else {
-					return raw;
+					return data;
 				}
 			}else{
 				throw new NoSuchElementException();

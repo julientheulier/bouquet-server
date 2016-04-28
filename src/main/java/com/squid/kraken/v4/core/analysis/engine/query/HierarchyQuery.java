@@ -387,7 +387,7 @@ public class HierarchyQuery extends BaseQuery {
 				indexDstRow++;
 			}
 			
-			matrix.pushRow( new IndirectionRow(row_axis, axesIndirection, null));
+			matrix.pushRow( new RawRow(row_axis));
 		}
 		matrix.setFullset(!rawMatrix.hasMoreData());
 		return matrix;
