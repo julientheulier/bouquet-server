@@ -37,7 +37,6 @@ import com.squid.core.database.model.impl.JDBCConfig;
 import com.squid.kraken.v4.KrakenConfig;
 import com.squid.kraken.v4.api.core.ServiceUtils;
 import com.squid.kraken.v4.caching.redis.RedisCacheManager;
-import com.squid.kraken.v4.caching.redis.SimpleDatabaseManager;
 import com.squid.kraken.v4.model.Project;
 import com.squid.kraken.v4.model.ProjectPK;
 import com.squid.kraken.v4.persistence.AppContext;

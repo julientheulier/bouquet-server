@@ -38,7 +38,6 @@ import org.slf4j.LoggerFactory;
 
 import com.squid.core.concurrent.CancellableCallable;
 import com.squid.core.concurrent.ExecutionManager;
-import com.squid.core.database.model.impl.ExecuteQueryTask;
 import com.squid.core.jdbc.engine.IExecutionItem;
 import com.squid.core.jdbc.formatter.IJDBCDataFormatter;
 import com.squid.kraken.v4.core.analysis.datamatrix.AxisValues;
@@ -47,8 +46,8 @@ import com.squid.kraken.v4.core.analysis.engine.query.HierarchyQuery;
 import com.squid.kraken.v4.core.analysis.engine.query.mapping.DimensionMapping;
 import com.squid.kraken.v4.core.analysis.engine.query.mapping.SimpleMapping;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
-import com.squid.kraken.v4.core.database.impl.DatabaseServiceImpl;
 import com.squid.kraken.v4.core.database.impl.DatasourceDefinition;
+import com.squid.kraken.v4.core.database.impl.ExecuteQueryTask;
 import com.squid.kraken.v4.core.sql.SelectUniversal;
 import com.squid.kraken.v4.model.Attribute;
 
@@ -91,7 +90,7 @@ public class ExecuteHierarchyQuery implements CancellableCallable<Boolean> {
 			SelectUniversal select = query.getSelect();
 			DatasourceDefinition ds = select.getDatasource();
 			String SQL = select.render();
-			executeQueryTask = DatabaseServiceImpl.INSTANCE.executeQueryTask(ds.getDBManager(),SQL);
+			executeQueryTask = ds.getDBManager().createExecuteQueryTask(SQL);
 			executeQueryTask.prepare();
 			this.countDown.countDown();// now ok to count-down because the query is already in the queue
 			this.countDown = null;// clear the count-down

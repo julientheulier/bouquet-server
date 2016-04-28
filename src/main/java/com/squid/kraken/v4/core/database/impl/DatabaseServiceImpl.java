@@ -23,14 +23,10 @@
  *******************************************************************************/
 package com.squid.kraken.v4.core.database.impl;
 
-import java.sql.Connection;
 import java.sql.Driver;
 import java.sql.DriverManager;
-import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.Enumeration;
 import java.util.Iterator;
 import java.util.List;
@@ -44,14 +40,10 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import com.squid.kraken.v4.api.core.PerfDB;
-import com.squid.kraken.v4.api.core.SQLStats;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.squid.core.concurrent.ExecutionManager;
-import com.squid.core.database.impl.DataSourceReliable.FeatureSupport;
 import com.squid.core.database.impl.DatabaseServiceException;
 import com.squid.core.database.impl.DriverLoader;
 import com.squid.core.database.impl.DriverShim;
@@ -59,15 +51,9 @@ import com.squid.core.database.model.Column;
 import com.squid.core.database.model.Database;
 import com.squid.core.database.model.Schema;
 import com.squid.core.database.model.Table;
-import com.squid.core.database.model.impl.DatabaseManager;
-import com.squid.core.database.model.impl.ExecuteQueryTask;
 import com.squid.core.database.statistics.IDatabaseStatistics;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.scope.ScopeException;
-import com.squid.core.jdbc.engine.ExecutionItem;
-import com.squid.core.jdbc.engine.IExecutionItem;
-import com.squid.core.jdbc.formatter.IJDBCDataFormatter;
-import com.squid.core.sql.render.ISkinFeatureSupport;
 import com.squid.kraken.v4.core.expression.visitor.ExtractColumns;
 import com.squid.kraken.v4.model.Project;
 import com.squid.kraken.v4.model.ProjectPK;
@@ -333,7 +319,7 @@ public class DatabaseServiceImpl implements DatabaseService {
 	public List<Table> getTables(Project project)
 			throws ExecutionException {
 		List<Table> result = new ArrayList<Table>();
-		List<Schema> schemas = getAuthorizedShemas(project);
+		List<Schema> schemas = getAuthorizedSchemas(project);
 		for (Schema schema : schemas) {
 			result.addAll(schema.getTables());
 		}
@@ -360,7 +346,7 @@ public class DatabaseServiceImpl implements DatabaseService {
 	 * @return
 	 * @throws DatabaseServiceException
 	 */
-	public List<Schema> getAuthorizedShemas(Project project)
+	public List<Schema> getAuthorizedSchemas(Project project)
 			throws DatabaseServiceException {
 		DatasourceDefinition ds = getDatasourceDefinition(project);
 		return ds.getAccess();
@@ -382,7 +368,7 @@ public class DatabaseServiceImpl implements DatabaseService {
 	public Table lookupTable(Project project, String tableReference)
 			throws ScopeException, ExecutionException {
 		// check the project access
-		List<Schema> schemas = getAuthorizedShemas(project);
+		List<Schema> schemas = getAuthorizedSchemas(project);
 		if (schemas==null || schemas.isEmpty()) {
 			throw new ScopeException("cannot lookup table '"+tableReference+"' because there is no authorized schema defined in the Project");
 		}
@@ -447,142 +433,6 @@ public class DatabaseServiceImpl implements DatabaseService {
 		return null;
 	}
 	
-	public ExecuteQueryTask executeQueryTask(DatabaseManager ds, String sql) {
-        int queryNum = queryCnt.incrementAndGet();
-        return new ExecuteQueryTask(ds, queryNum, sql);
-	}
-
-	@Override
-	public IExecutionItem executeQuery(DatabaseManager ds, String sql)
-			throws ExecutionException {
-		int queryNum = queryCnt.incrementAndGet();
-		long now = System.currentTimeMillis();
-		try {
-			boolean needCommit = false;
-			Connection connection = ds.getDatasource().getConnectionBlocking();
-			Statement statement = connection.createStatement();
-			try {
-				IJDBCDataFormatter formatter = ds.getDataFormatter(connection);
-				logger.info("running SQLQuery#" + queryNum + " on " + ds.getDatabase().getUrl()
-						+ ":\n" + sql +"\nHashcode="+sql.hashCode());
-				// make sure auto commit is false (for cursor based ResultSets and postgresql)
-				if(ds.getSkin().getFeatureSupport(FeatureSupport.AUTOCOMMIT) == ISkinFeatureSupport.IS_NOT_SUPPORTED){
-                	connection.setAutoCommit(false);
-					needCommit = true;
-                }else{
-                	connection.setAutoCommit(true);
-                }
-				statement.setFetchSize(formatter.getFetchSize());
-				Date start = new Date();
-				//ResultSet result = statement.executeQuery(sql);
-				boolean isResultset = statement.execute(sql);
-				while (!isResultset && statement.getUpdateCount() >= -1) {
-					isResultset = statement.getMoreResults();
-				}
-				ResultSet result = statement.getResultSet();
-				
-				
-				/*logger.info("SQLQuery#" + queryNum + " executed in "
-						+ (System.currentTimeMillis() - now) + " ms.");*/
-				long duration = (System.currentTimeMillis() - now);
-    			logger.info("task="+this.getClass().getName()+" method=executeQuery"+" duration="+ duration+" error=false status=done");
-				//TODO get project instead of database
-				SQLStats queryLog = new SQLStats(Integer.toString(queryNum), "executeQuery",sql, duration, ds.getDatabase().getProductName());
-				queryLog.setError(false);
-				PerfDB.INSTANCE.save(queryLog);
-
-				ExecutionItem ex = new ExecutionItem(ds.getDatabase(), ds.getDatasource(), connection, result, formatter, queryNum);
-				ex.setExecutionDate(start);
-				return ex;
-			} catch (Exception e) {
-				// ticket:2972
-				// it is our responsibility to dispose connection and statement
-				if (needCommit) {
-					connection.rollback();
-				}
-				if (statement!=null) statement.close();
-				if (connection!=null) {
-					connection.close();
-					ds.getDatasource().releaseSemaphore();
-				}
-				throw e;
-			}
-		} catch (Exception e) {
-			logger.info(e.toString());
-			long duration = (System.currentTimeMillis() - now);
-			/*logger.info("SQLQuery#" + queryNum + " failed in "
-					+ (System.currentTimeMillis() - now) + " ms.");*/
-			logger.info("task="+this.getClass().getName()+" method=executeQuery"+" duration="+ duration+" error=true status=done");
-			SQLStats queryLog = new SQLStats(Integer.toString(queryNum), "executeQuery",sql, duration, ds.getDatabase().getProductName());
-			queryLog.setError(true);
-			PerfDB.INSTANCE.save(queryLog);
-			throw new ExecutionException("SQLQuery#" + queryNum + " failed:\n"+e.getLocalizedMessage(),e);
-		}
-	}
-
-
-	@Override
-	public Boolean execute(DatabaseManager ds, String sql)
-			throws ExecutionException {
-		int queryNum = queryCnt.incrementAndGet();
-		long now = System.currentTimeMillis();
-		try {
-			boolean needCommit = false;
-			Connection connection = ds.getDatasource().getConnectionBlocking();
-			Statement statement = connection.createStatement();
-			try {
-				//IJDBCDataFormatter formatter = ds.getDataFormatter(connection);
-				logger.info("running SQLQuery#" + queryNum + " on " + ds.getDatabase().getUrl()
-						+ ":\n" + sql +"\nHashcode="+sql.hashCode());
-				// make sure auto commit is false (for cursor based ResultSets and postgresql)
-				if(ds.getSkin().getFeatureSupport(FeatureSupport.AUTOCOMMIT) == ISkinFeatureSupport.IS_NOT_SUPPORTED){
-					connection.setAutoCommit(false);
-					needCommit = true;
-				}else{
-					connection.setAutoCommit(true);
-				}
-				statement.setFetchSize(10000);
-				//Date start = new Date();
-				Boolean result = statement.execute(sql);
-				if (needCommit) {
-					connection.commit();
-				}
-				/*logger.info("SQLQuery#" + queryNum + " executed in "
-						+ (System.currentTimeMillis() - now) + " ms.");*/
-				long duration = (System.currentTimeMillis() - now);
-				logger.info("task="+this.getClass().getName()+" method=execute"+" duration="+ duration+" error=false status=done");
-				//TODO get project instead of database
-				SQLStats queryLog = new SQLStats(Integer.toString(queryNum), "execute",sql, duration, ds.getDatabase().getProductName());
-				queryLog.setError(false);
-				PerfDB.INSTANCE.save(queryLog);
-
-				return result;
-			} catch (Exception e) {
-				if (needCommit) {
-					connection.rollback();
-				}
-				throw e;
-			} finally {
-				// ticket:2972
-				// it is our responsibility to dispose connection and statement
-				if (statement!=null) statement.close();
-				if (connection!=null) {
-					connection.close();
-					ds.getDatasource().releaseSemaphore();
-				}
-			}
-		} catch (Exception e) {
-			logger.info(e.toString());
-			long duration = (System.currentTimeMillis() - now);
-			/*logger.info("SQLQuery#" + queryNum + " failed in "
-					+ (System.currentTimeMillis() - now) + " ms.");*/
-			logger.info("task="+this.getClass().getName()+" method=execute"+" duration="+ duration+" error=true status=done");
-			SQLStats queryLog = new SQLStats(Integer.toString(queryNum), "execute",sql, duration, ds.getDatabase().getProductName());
-			queryLog.setError(true);
-			PerfDB.INSTANCE.save(queryLog);
-			throw new ExecutionException("SQLQuery#" + queryNum + " failed:\n"+e.getLocalizedMessage(),e);
-		}
-	}
 
 
 	/**
