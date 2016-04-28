@@ -41,12 +41,13 @@ import com.squid.kraken.v4.caching.redis.RedisCacheConfig;
 import com.squid.kraken.v4.caching.redis.RedisCacheException;
 import com.squid.kraken.v4.caching.redis.RedisCacheProxy;
 import com.squid.kraken.v4.caching.redis.ServerID;
-import com.squid.kraken.v4.caching.redis.SimpleDatabaseManager;
 import com.squid.kraken.v4.caching.redis.datastruct.ChunkRef;
 import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
 import com.squid.kraken.v4.caching.redis.datastruct.RawMatrixStreamExecRes;
 import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValuesList;
 import com.squid.kraken.v4.core.database.impl.DatabaseServiceImpl;
+import com.squid.kraken.v4.core.database.impl.ExecuteQueryTask;
+import com.squid.kraken.v4.core.database.impl.SimpleDatabaseManager;
 
 public class QueryWorkerServer implements IQueryWorkerServer {
 
@@ -131,7 +132,10 @@ public class QueryWorkerServer implements IQueryWorkerServer {
 				}
 			}
 
-			item = db.executeQuery(SQLQuery);
+			ExecuteQueryTask exec = db.createExecuteQueryTask(SQLQuery) ;
+			
+			item = exec.call();
+//			item = db.executeQuery(SQLQuery);
 
 			RawMatrixStreamExecRes serializedRes = RawMatrix.streamExecutionItemToByteArray(item, maxRecords, limit);
 			logger.info("limit " + limit + ", linesProcessed " + serializedRes.getNbLines() + " hasMore:"

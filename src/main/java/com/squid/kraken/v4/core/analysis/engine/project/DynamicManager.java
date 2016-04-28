@@ -792,7 +792,7 @@ public class DynamicManager {
 
 		public DimensionPeriodSelector(Universe universe) {
             DatasourceDefinition ds = DatabaseServiceImpl.INSTANCE.getDatasourceDefinition(universe.getProject());
-            stats = ds.getStatistics();
+            stats = ds.getDBManager().getStatistics();
 		}
 
 	    public RawDImension selectPeriod(List<RawDImension> periodCandidates) {
