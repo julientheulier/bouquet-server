@@ -63,6 +63,7 @@ public class IndirectionRow {
 		return this.rawrow;
 	}
 	
+	/*
 	public int[] getAxesIndirection(){
 		return this.axesIndirection;
 	}
@@ -101,6 +102,7 @@ public class IndirectionRow {
     	else
     		return 0;
     }
+    */
 
 	@Override
 	public String toString() {

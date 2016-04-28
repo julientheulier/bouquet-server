@@ -77,9 +77,6 @@ import com.squid.kraken.v4.core.analysis.universe.Property;
 public class DataMatrix {
 
 	static final Logger logger = LoggerFactory.getLogger(DataMatrix.class);
-	private List<Measure> kpis = new ArrayList<Measure>();
-
-	private List<AxisValues> axes = new ArrayList<AxisValues>();
 	// private int size = 0;
 	private boolean fullset = false;// only true if we read all the data
 	private boolean isSorted = false;// true when sorted
@@ -95,6 +92,9 @@ public class DataMatrix {
 	private Date executionDate = null;// when did we compute the data
 
 	private String redisKey;
+	
+	private List<Measure> kpis = new ArrayList<Measure>();
+	private List<AxisValues> axes = new ArrayList<AxisValues>();
 
 	private int[] axesIndirection;
 	private int[] dataIndirection;
@@ -117,7 +117,12 @@ public class DataMatrix {
 
 	}
 
-	public DataMatrix(Database db, ArrayList<IndirectionRow> rows) {
+	/**
+	 * create a matrix using the parent layout but with a new list of rows. Note that the parent 
+	 * @param db
+	 * @param rows
+	 */
+	public DataMatrix(Database db, List<IndirectionRow> rows) {
 		this.database = db;
 		this.rows = rows;
 		this.fullset = true;
@@ -145,6 +150,8 @@ public class DataMatrix {
 		this.fullset = parent.fullset;
 		this.propertyToAlias = parent.propertyToAlias;
 		this.propertyToType = parent.propertyToType;
+		this.axesIndirection = parent.axesIndirection;
+		this.dataIndirection = parent.dataIndirection;
 	}
 
 	public DataMatrix getParent() {
@@ -207,12 +214,20 @@ public class DataMatrix {
 		 */
 	}
 
-	public int[] getAxesIndirection() {
-		return this.axesIndirection;
+	public int getAxisIndirection(int i) {
+		if (this.axesIndirection!=null) {
+			return this.axesIndirection[i];
+		} else {
+			return i;//identity
+		}
 	}
 
-	public int[] getDataIndirection() {
-		return this.dataIndirection;
+	public int getDataIndirection(int i) {
+		if (this.dataIndirection!=null) {
+			return this.dataIndirection[i];
+		} else {
+			return i;//identity
+		}
 	}
 
 	/**
@@ -222,46 +237,39 @@ public class DataMatrix {
 	 * @return
 	 */
 	public Object getAxisValue(int i, IndirectionRow row) {
-		return row.rawrow[axesIndirection[i]];
+		if (this.dataIndirection!=null) {
+			return row.rawrow[axesIndirection[i]];
+		} else {
+			return row.rawrow[i];// identity
+		}
 	}
 
 	public int getRowSize() {
-		return getAxesSize() + getDataSize();
+		return this.axes.size()+this.kpis.size();
 	}
 
 	public int getAxesSize() {
-		if (axesIndirection != null)
-			return axesIndirection.length;
-		else
-			return 0;
+		return this.axes.size();
 	}
 
 	public Object getDataValue(int i, IndirectionRow row) {
-		return row.rawrow[dataIndirection[i]];
+		if (this.dataIndirection!=null) {
+			return row.rawrow[dataIndirection[i]];
+		} else {
+			return row.rawrow[axes.size()+i];//identity
+		}
 	}
 
 	public Object getValue(int i, IndirectionRow row) {
-		if (i < axesIndirection.length) {
-			return row.rawrow[axesIndirection[i]];
+		if (i < axes.size()) {
+			return getAxisValue(i, row);
 		} else {
-			return row.rawrow[dataIndirection[i - axesIndirection.length]];
+			return getDataValue(i - axes.size(), row);
 		}
 	}
 
 	public int getDataSize() {
-		if (dataIndirection != null)
-			return dataIndirection.length;
-		else
-			return 0;
-	}
-
-	/**
-	 * check if the data are stale: i.e. if the source database is stale
-	 * 
-	 * @return
-	 */
-	public boolean isStale() {
-		return this.database.isStale();
+		return this.kpis.size();
 	}
 
 	public Database getDatabase() {

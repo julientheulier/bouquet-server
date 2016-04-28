@@ -107,34 +107,35 @@ public class JoinMerger extends Merger {
 	}
 	
 	@Override
-	protected void mergeAxes(IndirectionRow left, IndirectionRow right, IndirectionRow merged) {
+	protected void mergeAxes(DataMatrix merge, IndirectionRow leftrow, IndirectionRow rightrow, IndirectionRow merged) {
 		if (left == null) {
 			// copy axes
 			int rrInd = 0;
-			for (int i = 0; i < right.getAxesCount(); i++) {
+			// left & right matrices having the same size
+			for (int i = 0; i < left.getAxesSize(); i++) {
 				if (hasJoinColumn && i==joinIndex) {
-					merged.rawrow[rrInd] = translateRightToLeft(right.getAxisValue(i));
+					merged.rawrow[rrInd] = translateRightToLeft(right.getAxisValue(i, rightrow));
 					rrInd++;
 					if (joinRight!=null) {// if the join (compare) column is present
-						merged.rawrow[rrInd] = right.getAxisValue(i);
+						merged.rawrow[rrInd] = right.getAxisValue(i, rightrow);
 						rrInd++;
 					}
 				} else {
-					merged.rawrow[rrInd] = right.getAxisValue(i);
+					merged.rawrow[rrInd] = right.getAxisValue(i, rightrow);
 					rrInd++;
 				}
 			}
 		} else {
 			// copy axes
 			int rrInd = 0;
-			for (int i = 0; i < left.getAxesCount(); i++) {
-				merged.rawrow[rrInd] = left.getAxisValue(i);
+			for (int i = 0; i < left.getAxesSize(); i++) {
+				merged.rawrow[rrInd] = left.getAxisValue(i, leftrow);
 				rrInd++;
 				if (joinRight!=null && i==joinIndex) {
 					if (right!=null) {
-						merged.rawrow[rrInd] = right.getAxisValue(i);
+						merged.rawrow[rrInd] = right.getAxisValue(i, rightrow);
 					} else {
-						merged.rawrow[rrInd] = translateLeftToRight(left.getAxisValue(i));
+						merged.rawrow[rrInd] = translateLeftToRight(left.getAxisValue(i, leftrow));
 					}
 					rrInd++;
 				}

@@ -23,7 +23,6 @@
  *******************************************************************************/
 package com.squid.kraken.v4.core.analysis.datamatrix;
 
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
@@ -122,24 +121,22 @@ public class Merger {
 		}
 	}
 
-	protected IndirectionRow merge(IndirectionRow leftrow, IndirectionRow rightrow, IndirectionRow schema) {
+	protected IndirectionRow merge(DataMatrix merge, IndirectionRow leftrow, IndirectionRow rightrow) {
 		IndirectionRow merged = new IndirectionRow();
-		int nbColumns = schema.getAxesCount()+schema.getDataCount();
-		merged.axesIndirection = schema.getAxesIndirection();
-		merged.dataIndirection = schema.getDataIndirection();
+		int nbColumns = merge.getRowSize();
 		merged.rawrow = new Object[nbColumns];
 
 		// we have to reorder
 		if (leftrow == null && rightrow == null)
 			return merged;
 		else {
-			mergeAxes(leftrow, rightrow, merged);
-			mergeMeasures(leftrow, rightrow, merged);
+			mergeAxes(merge, leftrow, rightrow, merged);
+			mergeMeasures(merge, leftrow, rightrow, merged);
 		}
 		return merged;
 	}
 	
-	protected void mergeAxes(IndirectionRow leftrow, IndirectionRow rightrow, IndirectionRow merged) {
+	protected void mergeAxes(DataMatrix merge, IndirectionRow leftrow, IndirectionRow rightrow, IndirectionRow merged) {
 		DataMatrix source = (leftrow!=null)?left:right;
 		IndirectionRow sourcerow = (leftrow!=null)?leftrow:rightrow;
 		// copy axes
@@ -150,21 +147,21 @@ public class Merger {
 		}
 	}
 	
-	protected void mergeMeasures(IndirectionRow left, IndirectionRow right, IndirectionRow merged) {
-		int pos = merged.getAxesCount();// start after axes
-		if (left != null) {
+	protected void mergeMeasures(DataMatrix merge, IndirectionRow leftrow, IndirectionRow rightrow, IndirectionRow merged) {
+		int pos = merge.getAxesSize();// start after axes
+		if (leftrow != null) {
 			// copy left part
-			for (int i = 0; i < left.getDataCount(); i++) {
-				merged.rawrow[pos] = left.getDataValue(i);
+			for (int i = 0; i < left.getDataSize(); i++) {
+				merged.rawrow[pos] = left.getDataValue(i, leftrow);
 				pos++;
 			}
 		} else {
-			pos = merged.size() - right.getDataCount();
+			pos += left.getDataSize();
 		}
-		if (right != null) {
+		if (rightrow != null) {
 			// copy right part
-			for (int i = 0; i < right.getDataCount(); i++) {
-				merged.rawrow[pos] = right.getDataValue(i);
+			for (int i = 0; i < right.getDataSize(); i++) {
+				merged.rawrow[pos] = right.getDataValue(i, rightrow);
 				pos++;
 			}
 		}
@@ -201,13 +198,12 @@ public class Merger {
 			}
 		}
 		//
-		ArrayList<IndirectionRow> result = new ArrayList<IndirectionRow>();
 		Iterator<IndirectionRow> this_iter = this_rows.iterator();
 		Iterator<IndirectionRow> that_iter = that_rows.iterator();
 		IndirectionRow this_row = null;
 		IndirectionRow that_row = null;
 		
-		IndirectionRow schema = createDefaultIndirectionRow();
+		DataMatrix merge = createMatrix();
 
 		while (this_iter.hasNext() || that_iter.hasNext() || this_row!=null || that_row!=null) {
 			// read if needed and available
@@ -219,40 +215,40 @@ public class Merger {
 			}
 			// manage remaining
 			if ((this_row == null && that_row != null)) {
-				IndirectionRow merged = merge(this_row, that_row, schema);
-				result.add(merged);
+				IndirectionRow merged = merge(merge, this_row, that_row);
+				merge.pushRow(merged);
 				that_row = null;
 			}
 			if ((this_row != null && that_row == null)) {
-				IndirectionRow merged = merge(this_row, that_row, schema);
-				result.add(merged);
+				IndirectionRow merged = merge(merge, this_row, that_row);
+				merge.pushRow(merged);
 				this_row=null;		
 			}
 			// normal case
 			if (this_row!=null && that_row!=null) {
 				int cc = compare(this_row,that_row);
 				if (cc<0) {
-					IndirectionRow merged = merge(this_row, null, schema);
-					result.add(merged);
+					IndirectionRow merged = merge(merge, this_row, null);
+					merge.pushRow(merged);
 					this_row=null;
 				}
 				if (cc>0) {
-					IndirectionRow merged = merge(null, that_row, schema);
-					result.add(merged);
+					IndirectionRow merged = merge(merge, null, that_row);
+					merge.pushRow(merged);
 					that_row=null;
 				}
 				if (cc==0) {
-					IndirectionRow merged = merge(this_row, that_row, schema);
-					result.add(merged);
+					IndirectionRow merged = merge(merge, this_row, that_row);
+					merge.pushRow(merged);
 					that_row=null;this_row=null;
 				}
 			}
 		}
-		return createMatrix(result);
+		return merge;
 	}
 
-	protected DataMatrix createMatrix(ArrayList<IndirectionRow> result) {
-		DataMatrix merge = new DataMatrix(left.getDatabase(), result);
+	protected DataMatrix createMatrix() {
+		DataMatrix merge = new DataMatrix(left.getDatabase());
 		merge.setFromCache(left.isFromCache() && right.isFromCache());
 		merge.setExecutionDate(new Date(Math.max(left.getExecutionDate().getTime(), right.getExecutionDate().getTime())));
 		//

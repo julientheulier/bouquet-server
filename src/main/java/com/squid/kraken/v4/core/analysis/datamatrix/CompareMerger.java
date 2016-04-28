@@ -81,15 +81,15 @@ public class CompareMerger extends JoinMerger {
 	 * override to interleave present/past values
 	 */
 	@Override
-	protected void mergeMeasures(IndirectionRow left, IndirectionRow right, IndirectionRow merged) {
-		int pos = merged.getAxesCount();// start after axes
-		for (int i = 0; i < merged.getDataCount()/2; i++) {
+	protected void mergeMeasures(DataMatrix merge, IndirectionRow leftrow, IndirectionRow rightrow, IndirectionRow merged) {
+		int pos = merge.getAxesSize();// start after axes
+		for (int i = 0; i < left.getDataSize(); i++) {// left.size==right.size
 			if (left!=null) {
-				merged.rawrow[pos] = left.getDataValue(i);
+				merged.rawrow[pos] = left.getDataValue(i, leftrow);
 			}
 			pos++;// always advance
 			if (right!=null) {
-				merged.rawrow[pos] = right.getDataValue(i);
+				merged.rawrow[pos] = right.getDataValue(i, rightrow);
 			}
 			pos++;// always advance
 		}
