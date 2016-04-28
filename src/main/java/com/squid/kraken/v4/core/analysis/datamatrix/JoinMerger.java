@@ -107,14 +107,14 @@ public class JoinMerger extends Merger {
 			// left & right matrices having the same size
 			for (int i = 0; i < left.getAxesSize(); i++) {
 				if (hasJoinColumn && i==joinIndex) {
-					merged.setData(rrInd, translateRightToLeft(right.getAxisValue(i, rightrow)));
+					merged.data[rrInd] = translateRightToLeft(right.getAxisValue(i, rightrow));
 					rrInd++;
 					if (joinRight!=null) {// if the join (compare) column is present
-						merged.setData(rrInd, right.getAxisValue(i, rightrow));
+						merged.data[rrInd] = right.getAxisValue(i, rightrow);
 						rrInd++;
 					}
 				} else {
-					merged.setData(rrInd, right.getAxisValue(i, rightrow));
+					merged.data[rrInd] = right.getAxisValue(i, rightrow);
 					rrInd++;
 				}
 			}
@@ -122,13 +122,13 @@ public class JoinMerger extends Merger {
 			// copy axes
 			int rrInd = 0;
 			for (int i = 0; i < left.getAxesSize(); i++) {
-				merged.setData(rrInd, left.getAxisValue(i, leftrow));
+				merged.data[rrInd] = left.getAxisValue(i, leftrow);
 				rrInd++;
 				if (joinRight!=null && i==joinIndex) {
 					if (rightrow!=null) {
-						merged.setData(rrInd, right.getAxisValue(i, rightrow));
+						merged.data[rrInd] = right.getAxisValue(i, rightrow);
 					} else {
-						merged.setData(rrInd, translateLeftToRight(left.getAxisValue(i, leftrow)));
+						merged.data[rrInd] = translateLeftToRight(left.getAxisValue(i, leftrow));
 					}
 					rrInd++;
 				}

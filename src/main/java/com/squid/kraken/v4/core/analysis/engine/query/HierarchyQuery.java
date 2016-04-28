@@ -356,9 +356,9 @@ public class HierarchyQuery extends BaseQuery {
 			for (DimensionMapping m : dx_map) {
 				Object unbox;
 				if(m instanceof ContinuousDimensionMapping){
-					Object min = row.getData()[indexSrcRow];
+					Object min = row.data[indexSrcRow];
 					indexSrcRow++;
-					Object max=  row.getData()[indexSrcRow];
+					Object max=  row.data[indexSrcRow];
 					indexSrcRow++;
 					if (min==null && max==null) {
 						unbox= null;
@@ -369,14 +369,14 @@ public class HierarchyQuery extends BaseQuery {
 					}
 					
 				}else{
-					unbox = row.getData()[indexSrcRow];
+					unbox = row.data[indexSrcRow];
 					indexSrcRow++;
 				}
 				if (unbox!=null) {
 					DimensionMember member = m.getDimensionIndex().getMemberByID(unbox);
 					if (!m.getDimensionIndex().getAttributes().isEmpty()) {
 						for (int k=0; k<m.getDimensionIndex().getAttributes().size();k++) {
-							Object aunbox = row.getData()[indexSrcRow];
+							Object aunbox = row.data[indexSrcRow];
 							member.setAttribute(k,aunbox);
 							indexSrcRow++;
 						}

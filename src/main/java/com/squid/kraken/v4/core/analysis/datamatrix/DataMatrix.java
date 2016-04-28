@@ -236,9 +236,9 @@ public class DataMatrix {
 	 */
 	public Object getAxisValue(int i, RawRow row) {
 		if (this.dataIndirection!=null) {
-			return row.getData(axesIndirection[i]);
+			return row.data[axesIndirection[i]];
 		} else {
-			return row.getData(i);// identity
+			return row.data[i];// identity
 		}
 	}
 
@@ -252,9 +252,9 @@ public class DataMatrix {
 
 	public Object getDataValue(int i, RawRow row) {
 		if (this.dataIndirection!=null) {
-			return row.getData(dataIndirection[i]);
+			return row.data[dataIndirection[i]];
 		} else {
-			return row.getData(axes.size()+i);//identity
+			return row.data[axes.size()+i];//identity
 		}
 	}
 

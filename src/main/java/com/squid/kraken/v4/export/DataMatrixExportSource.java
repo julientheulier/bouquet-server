@@ -30,7 +30,6 @@ import com.squid.core.export.IRawExportSource;
 import com.squid.kraken.v4.caching.redis.datastruct.RawRow;
 import com.squid.kraken.v4.core.analysis.datamatrix.AxisValues;
 import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
-import com.squid.kraken.v4.core.analysis.datamatrix.IndirectionRow;
 import com.squid.kraken.v4.core.analysis.universe.Measure;
 import org.apache.avro.Schema;
 
@@ -149,7 +148,7 @@ public class DataMatrixExportSource implements IRawExportSource{
 		public Object[] next() {
 			if (this.hasNext()){
 				RawRow row = matrix.getRows().get(cursor++) ;
-				Object[] data = row.getData();
+				Object[] data = row.data;
 				if (needReorder) {
 					// reorder
 					Object[] reorder = new Object[columnCount];

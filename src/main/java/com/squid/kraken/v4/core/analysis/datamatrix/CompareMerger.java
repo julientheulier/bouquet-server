@@ -86,11 +86,11 @@ public class CompareMerger extends JoinMerger {
 		int pos = merge.getAxesSize();// start after axes
 		for (int i = 0; i < left.getDataSize(); i++) {// left.size==right.size
 			if (leftrow!=null) {
-				merged.setData(pos, left.getDataValue(i, leftrow));
+				merged.data[pos] = left.getDataValue(i, leftrow);
 			}
 			pos++;// always advance
 			if (rightrow!=null) {
-				merged.setData(pos, right.getDataValue(i, rightrow));
+				merged.data[pos] = right.getDataValue(i, rightrow);
 			}
 			pos++;// always advance
 		}

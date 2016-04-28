@@ -142,7 +142,7 @@ public class Merger {
 		// copy axes
 		int pos = 0;
 		for (int i = 0; i < source.getAxesSize(); i++) {
-			merged.setData(pos, source.getAxisValue(i, sourcerow));
+			merged.data[pos] = source.getAxisValue(i, sourcerow);
 			pos++;
 		}
 	}
@@ -152,7 +152,7 @@ public class Merger {
 		if (leftrow != null) {
 			// copy left part
 			for (int i = 0; i < left.getDataSize(); i++) {
-				merged.setData(pos, left.getDataValue(i, leftrow));
+				merged.data[pos] = left.getDataValue(i, leftrow);
 				pos++;
 			}
 		} else {
@@ -161,7 +161,7 @@ public class Merger {
 		if (rightrow != null) {
 			// copy right part
 			for (int i = 0; i < right.getDataSize(); i++) {
-				merged.setData(pos, right.getDataValue(i, rightrow));
+				merged.data[pos] = right.getDataValue(i, rightrow);
 				pos++;
 			}
 		}
