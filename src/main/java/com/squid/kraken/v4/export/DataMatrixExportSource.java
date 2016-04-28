@@ -61,7 +61,7 @@ public class DataMatrixExportSource implements IRawExportSource{
 		
 		if (matrix.getRows().size()>0) {// if the matrix is empty, can't init and don't need it anyway
 			int countAxes = matrix.getAxes().size();
-			int[] axesIndirection = matrix.getRows().get(0).getAxesIndirection();
+			int[] axesIndirection = matrix.getAxesIndirection();
 			for(int i = 0; i <countAxes ; i++ ){		
 				AxisValues av = matrix.getAxes().get(i);
 				int originalPos = i;//axesIndirection[i];
@@ -77,7 +77,7 @@ public class DataMatrixExportSource implements IRawExportSource{
 				}
 			}		
 			
-			int[] dataIndirection = matrix.getRows().get(0).getDataIndirection();
+			int[] dataIndirection = matrix.getDataIndirection();
 			for(int i = 0; i <matrix.getKPIs().size() ; i++ ){		
 				Measure av = matrix.getKPIs().get(i);
 				int originalPos = i+countAxes;//dataIndirection[i];
@@ -92,7 +92,7 @@ public class DataMatrixExportSource implements IRawExportSource{
 				}	
 			}
 			
-			if (columnCount<matrix.getRows().get(0).getRawRow().length) {
+			if (columnCount<matrix.getRowSize()) {
 				this.needReorder = true;
 			}
 		}
