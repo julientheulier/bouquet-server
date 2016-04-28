@@ -25,41 +25,60 @@ package com.squid.kraken.v4.caching.redis.datastruct;
 
 import java.io.Serializable;
 
-public class RawRow  implements Serializable{
+/**
+ * a super simple row of objects
+ * 
+ * @author sergefantino
+ *
+ */
+public class RawRow implements Serializable {
 
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 5298105092629830699L;
 	protected Object[] data;
 
-	public RawRow(Object[] objs ){
-		this.data= objs;
+	public RawRow(Object[] objs) {
+		this.data = objs;
 	}
-	
-	public Object[] getData(){
+
+	public Object[] getData() {
 		return this.data;
 	}
-	
-	public boolean equals(Object obj){
-		if (obj == null)
+
+	public int size() {
+		return data != null ? data.length : 0;
+	}
+
+	public boolean equals(Object obj) {
+		if (obj == null) {
 			return false;
-		if (!(obj instanceof RawRow))
+		}
+		if (!(obj instanceof RawRow)) {
 			return false;
+		}
 		RawRow r = (RawRow) obj;
 		if (this.data.length != r.data.length)
-			return false ;
-		for(int i=0 ; i <this.data.length ; i++)
-			if (! this.data[i].equals(r.data[i]))
-				return false;					
+			return false;
+		for (int i = 0; i < this.data.length; i++) {
+			if (!this.data[i].equals(r.data[i])) {
+				return false;
+			}
+		}
 		return true;
 	}
-			
-	public String toString(){
-		String res="";
-		for (Object o : data)
-			if (o!=null)
-				res+= o.toString() + "\t";
-			else
-				res+= "None ";
+
+	public String toString() {
+		String res = "";
+		for (Object o : data) {
+			if (o != null) {
+				res += o.toString() + "\t";
+			} else {
+				res += "None ";
+			}
+		}
 		return res;
 	}
 
 }
-
