@@ -62,14 +62,14 @@ public class Merger {
 		this.mergeOrder = mergeOrder;
 	}
 
-	public int compare(IndirectionRow o1, IndirectionRow o2) {
-	 	if (o1==o2) return 0;
+	public int compare(IndirectionRow leftrow, IndirectionRow rightrow) {
+	 	if (leftrow==rightrow) return 0;
 	 	if (mergeOrder==null) {// if no order specified, just use regular
-	 		for (int i=0;i<o1.getAxesCount();i++) {
-	 			if (o2.getAxesCount()<=i) {
+	 		for (int i=0;i<left.getAxesSize();i++) {
+	 			if (right.getAxesSize()<=i) {
 	 				return 1;// in case o2 is shorter...
 	 			} else {
-	 				int c = compareValueOrdering(i, o1.getAxisValue(i), o2.getAxisValue(i));
+	 				int c = compareValueOrdering(i, left.getAxisValue(i, leftrow), right.getAxisValue(i, rightrow));
 	 				if (c!=0) {
 	 					return c;
 	 				}
@@ -82,12 +82,12 @@ public class Merger {
 	 		// compare using the mergeOrder
 	 		for (int i=0;i<mergeOrder.length;i++) {
 	 			int pos = mergeOrder[i];
-	 			if (o1.getAxesCount()<=pos) {
+	 			if (left.getAxesSize()<=pos) {
 	 				return -1;
-	 			} else if (o2.getAxesCount()<=pos) {
+	 			} else if (right.getAxesSize()<=pos) {
 	 				return 1;
 	 			} else {
-	 				int c = compareValueOrdering(pos, o1.getAxisValue(pos), o2.getAxisValue(pos));
+	 				int c = compareValueOrdering(pos, left.getAxisValue(pos, leftrow), right.getAxisValue(pos, rightrow));
 	 				if (c!=0) {
 	 					return c;
 	 				}
@@ -122,7 +122,7 @@ public class Merger {
 		}
 	}
 
-	protected IndirectionRow merge(IndirectionRow left, IndirectionRow right, IndirectionRow schema) {
+	protected IndirectionRow merge(IndirectionRow leftrow, IndirectionRow rightrow, IndirectionRow schema) {
 		IndirectionRow merged = new IndirectionRow();
 		int nbColumns = schema.getAxesCount()+schema.getDataCount();
 		merged.axesIndirection = schema.getAxesIndirection();
@@ -130,21 +130,22 @@ public class Merger {
 		merged.rawrow = new Object[nbColumns];
 
 		// we have to reorder
-		if (left == null && right == null)
+		if (leftrow == null && rightrow == null)
 			return merged;
 		else {
-			mergeAxes(left, right, merged);
-			mergeMeasures(left, right, merged);
+			mergeAxes(leftrow, rightrow, merged);
+			mergeMeasures(leftrow, rightrow, merged);
 		}
 		return merged;
 	}
 	
-	protected void mergeAxes(IndirectionRow left, IndirectionRow right, IndirectionRow merged) {
-		IndirectionRow source = (left!=null)?left:right;
+	protected void mergeAxes(IndirectionRow leftrow, IndirectionRow rightrow, IndirectionRow merged) {
+		DataMatrix source = (leftrow!=null)?left:right;
+		IndirectionRow sourcerow = (leftrow!=null)?leftrow:rightrow;
 		// copy axes
 		int pos = 0;
-		for (int i = 0; i < source.getAxesCount(); i++) {
-			merged.rawrow[pos] = source.getAxisValue(i);
+		for (int i = 0; i < source.getAxesSize(); i++) {
+			merged.rawrow[pos] = source.getAxisValue(i, sourcerow);
 			pos++;
 		}
 	}
