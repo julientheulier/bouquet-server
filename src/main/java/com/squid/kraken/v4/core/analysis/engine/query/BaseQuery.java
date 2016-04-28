@@ -500,7 +500,7 @@ public class BaseQuery implements IQuery {
 	}
 
 	protected DataMatrix computeDataMatrix(Database database, RawMatrix rawMatrix) throws ScopeException {
-		return new DataMatrix( database,  rawMatrix, mapper.getMeasureMapping(), mapper.getAxisMapping());
+		return new DataMatrix( database,  rawMatrix, mapper);
 	}
 
 	protected IExecutionItem runSQL() throws ExecutionException, RenderingException {
