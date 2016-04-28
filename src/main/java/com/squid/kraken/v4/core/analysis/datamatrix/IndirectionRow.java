@@ -23,7 +23,7 @@
  *******************************************************************************/
 package com.squid.kraken.v4.core.analysis.datamatrix;
 
-public class IndirectionRow implements Comparable<IndirectionRow>  {
+public class IndirectionRow {
 
 	protected static final Object[] EMPTY_ARRAY = new Object[0];
 	
@@ -43,7 +43,6 @@ public class IndirectionRow implements Comparable<IndirectionRow>  {
 		this.rawrow = rr!=null?rr:EMPTY_ARRAY;
 
 	}
-	
 	
 	public IndirectionRow(IndirectionRow src){
 	//	if (r instanceof IndirectionRow){
@@ -71,36 +70,6 @@ public class IndirectionRow implements Comparable<IndirectionRow>  {
 	public int[] getDataIndirection(){
 		return this.dataIndirection;
 	}
-
-	public int compareTo(IndirectionRow irthat) {
-	 	if (this==irthat) return 0;
- 		for (int i=0;i<this.getAxesCount();i++) {
- 			if (irthat.getAxesCount()<=i) {
- 				return 1;
- 			}
- 			if (this.getAxisValue(i)==null && irthat.getAxisValue(i)!=null) return -1;
- 			if (this.getAxisValue(i)!=null && irthat.getAxisValue(i)==null) return 1;
- 			if (this.getAxisValue(i)==null && irthat.getAxisValue(i)==null) return 0;
- 			if ((this.getAxisValue(i) instanceof Comparable) && (irthat.getAxisValue(i) instanceof Comparable)) {
- 				@SuppressWarnings({ "unchecked", "rawtypes" })
- 				int cc = ((Comparable)this.getAxisValue(i)).compareTo(((Comparable)irthat.getAxisValue(i)));
- 				if (cc!=0) 
- 					return cc;
- 			} else {
- 				int cc = this.getAxisValue(i).toString().compareTo(irthat.getAxisValue(i).toString());
-				if (cc!=0) 
-					return cc;
- 			}	
- 		}
-	 	
-	 	return 0;	 
-	}
-
-	/**
-	 * return the DimensionMember for the ith axis
-	 * @param i
-	 * @return
-	 */
  
     public Object getAxisValue(int i) {
         return rawrow[axesIndirection[i]];
