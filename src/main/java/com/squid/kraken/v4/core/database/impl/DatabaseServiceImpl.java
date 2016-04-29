@@ -23,14 +23,8 @@
  *******************************************************************************/
 package com.squid.kraken.v4.core.database.impl;
 
-import java.sql.Driver;
-import java.sql.DriverManager;
-import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Enumeration;
-import java.util.Iterator;
 import java.util.List;
-import java.util.ServiceLoader;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -45,8 +39,6 @@ import org.slf4j.LoggerFactory;
 
 import com.squid.core.concurrent.ExecutionManager;
 import com.squid.core.database.impl.DatabaseServiceException;
-import com.squid.core.database.impl.DriverLoader;
-import com.squid.core.database.impl.DriverShim;
 import com.squid.core.database.model.Column;
 import com.squid.core.database.model.Database;
 import com.squid.core.database.model.Schema;
@@ -67,131 +59,12 @@ public class DatabaseServiceImpl implements DatabaseService {
 
 	public static final AtomicInteger queryCnt = new AtomicInteger();
 
-	public static final String PLUGIN_DIR = new String(System.getProperty("kraken.plugin.dir", "/home/squid/drivers"));
 
 	private ConcurrentHashMap<ProjectPK, Future<DatasourceDefinition>> customerAccess = new ConcurrentHashMap<ProjectPK, Future<DatasourceDefinition>>();
 
-	// Need to have the servlet directory or configs
-	//Accessed by QueryWorkers too;
-	public synchronized static void initDriver(){
-
-		ClassLoader classloader = Thread.currentThread().getContextClassLoader();
-
-		String PathToPlugins = PLUGIN_DIR;
-		if(PathToPlugins !=null){
-			DriverLoader dd = new DriverLoader(PathToPlugins);
-		
-		
-			// Will detect automatically JDBC 4 Compliant;
-			// Drill and Spark JDBC plugins are not.
-			ServiceLoader<java.sql.Driver> loader = ServiceLoader.load(java.sql.Driver.class,dd);
-		    Iterator<Driver> driverIt = loader.iterator();
-		    //LoggerFactory.getLogger(this.getClass()).debug("List of vendorSupport Providers");
-		    while(driverIt.hasNext()){
-				try {
-					Driver driver = driverIt.next();
-					Enumeration<Driver> availableDrivers = DriverManager.getDrivers();
-					Boolean duplicate = false;
-					while(availableDrivers.hasMoreElements()){
-						Driver already = availableDrivers.nextElement();
-						if(already instanceof DriverShim){
-							if(((DriverShim) already).getName() == driver.getClass().getName()){
-								duplicate = true;
-							}
-						}
-					}
-					if(logger.isDebugEnabled()){logger.debug("driver available "+driver.getClass());};
-					if(!duplicate){DriverManager.registerDriver(new DriverShim(driver));};
-				} catch (SQLException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-		    }
-		    
-		    // load registered drivers
-	    	for (String driverName : drivers) {
-	    		try {
-		    		Driver driver = (Driver)Class.forName(driverName, true, dd).newInstance();
-		    		Enumeration<Driver> availableDrivers = DriverManager.getDrivers();
-					Boolean duplicate = false;
-					while(availableDrivers.hasMoreElements()){
-						Driver already = availableDrivers.nextElement();
-						if(already instanceof DriverShim){
-							if(((DriverShim) already).getName() == driver.getClass().getName()){
-								duplicate = true;
-							}
-						}
-					}
-					logger.info("driver available "+driver.getClass());
-					if(!duplicate){DriverManager.registerDriver(new DriverShim(driver));};
-	    		} catch (Throwable	e){
-	    			logger.warn("Cannot find the jdbc driver for "+driverName);
-	    		}
-	    	}
-		}
-		Thread.currentThread().setContextClassLoader(classloader);
-	}
-
 	
-	// Without servlet directory or configs
-	public synchronized static void initDriver(String path){
-
-		String PathToPlugins = path;
-		DriverLoader dd = new DriverLoader(PathToPlugins);
-		
-		// Will detect automatically JDBC 4 Compliant;
-		// Drill and Spark JDBC plugins are not.
-		ServiceLoader<java.sql.Driver> loader = ServiceLoader.load(java.sql.Driver.class,dd);
-	    Iterator<Driver> driverIt = loader.iterator();
-	    //LoggerFactory.getLogger(this.getClass()).debug("List of vendorSupport Providers");
-	    while(driverIt.hasNext()){
-			try {
-				Driver driver = driverIt.next();
-				Enumeration<Driver> availableDrivers = DriverManager.getDrivers();
-				Boolean duplicate = false;
-				while(availableDrivers.hasMoreElements()){
-					Driver already = availableDrivers.nextElement();
-					if(already instanceof DriverShim){
-						if(((DriverShim) already).getName() == driver.getClass().getName()){
-							duplicate = true;
-						}
-					}
-				}
-				if(logger.isDebugEnabled()){logger.debug("driver available "+driver.getClass());};
-				if(!duplicate){DriverManager.registerDriver(new DriverShim(driver));};
-			} catch (SQLException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-	    }
-	    
-	    try {
-	    	for (String driverName : drivers) {
-	    		Driver driver = (Driver)Class.forName(driverName, true, dd).newInstance();
-	    		Enumeration<Driver> availableDrivers = DriverManager.getDrivers();
-				Boolean duplicate = false;
-				while(availableDrivers.hasMoreElements()){
-					Driver already = availableDrivers.nextElement();
-					if(already instanceof DriverShim){
-						if(((DriverShim) already).getName() == driver.getClass().getName()){
-							duplicate = true;
-						}
-					}
-				}
-				if(logger.isDebugEnabled()){logger.debug("driver available "+driver.getClass());};
-				if(!duplicate){DriverManager.registerDriver(new DriverShim(driver));};
-	    	}
-	    	
-		} catch (InstantiationException | IllegalAccessException | ClassNotFoundException | SQLException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-	    
-	    Thread.currentThread().setContextClassLoader(dd);
-	}
 	
 	private static DatabaseServiceImpl initINSTANCE() {
-		initDriver(); //Side effect; Modify Thread classloader
 		return new DatabaseServiceImpl();
 	}
 

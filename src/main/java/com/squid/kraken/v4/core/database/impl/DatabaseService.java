@@ -39,12 +39,6 @@ import com.squid.kraken.v4.model.Project;
  * 
  */
 public interface DatabaseService {
-	
-	//Drivers NON JDBC 4 Compliant (aka does not contains a MANIFEST for java.sql.Driver) 
-	public static final String[] drivers = new String[] { 
-			"org.apache.drill.jdbc.Driver", 
-			"org.apache.hive.jdbc.HiveDriver"};
-
     /**
      * Return the Database object associated with a given CustomerPK.
      * 
@@ -54,11 +48,6 @@ public interface DatabaseService {
      */
     public Database getDatabase(Project project) throws ExecutionException;
 
-/*    IExecutionItem executeQuery(DatabaseManager ds, String sql) throws ExecutionException;
-
-    // No result (for general SQL, think create as, insert)
-    Boolean execute(DatabaseManager ds, String sql) throws ExecutionException;
-*/
     public List<Table> getTables(Project projectPK) throws ExecutionException;
 
     public Table lookupTable(Project project, String tableReference) throws ScopeException, ExecutionException;
