@@ -145,7 +145,6 @@ public class ExecuteHierarchyQuery implements CancellableCallable<Boolean> {
 
 
 			boolean wait= true;
-			int loop = 0;
 			while ((result.next()) && (count++<maxRecords || maxRecords<0)) {
 				if (abort || executeQueryTask.isInterrupted() || Thread.interrupted()) {
 					logger.info("cancelled reading SQLQuery#" + item.getID() + " method=executeQuery"+" duration= "+ " error=false status=cancelled queryid="+item.getID()+" task="+this.getClass().getName());
@@ -208,7 +207,6 @@ public class ExecuteHierarchyQuery implements CancellableCallable<Boolean> {
 					indexBuffer = new ArrayList[dx_map.size()];
 				}
 				// end of while loop
-				loop++;
 			}
 
 			// flush last buffer ?
