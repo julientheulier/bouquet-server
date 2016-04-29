@@ -73,17 +73,17 @@ public class ExecuteQueryTask implements CancellableCallable<IExecutionItem> {
 		this.sql = sql;
 	}
 
-	public void cancel() {
-		if (statement != null) {
-			try {
-				statement.cancel();
-				logger.info("cancel SQLQuery#" + queryNum);
-				this.abort = true;// signal that client should abort asap
-			} catch (SQLException e) {
-				logger.error("failed to cancel SQLQuery#" + queryNum);
-			}
-		}
-	}
+    public void cancel() {
+        if (statement!=null) {
+            try {
+                statement.cancel();
+	            logger.info("cancel SQLQuery#" + queryNum);
+            } catch (SQLException e) {
+	            logger.error("failed to cancel SQLQuery#" + queryNum);
+            }
+        }
+        this.abort = true;// signal that client should abort asap
+    }
 
 	/**
 	 * return true if cancel() has been called - this is useful since canceling
