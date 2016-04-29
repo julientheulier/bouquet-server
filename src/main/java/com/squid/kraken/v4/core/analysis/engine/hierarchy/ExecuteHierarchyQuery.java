@@ -305,7 +305,6 @@ public class ExecuteHierarchyQuery implements CancellableCallable<Boolean> {
 		return lastIndexed;
 	}
 
-
 	private HashMap<DimensionIndex, String> flushCorrelationBuffer( List<DimensionMapping> dx_map, 
 			Map<DimensionIndex, List<Integer>> hierarchies_pos,
 			Map<DimensionIndex, List<DimensionIndex>> hierarchies_type,
