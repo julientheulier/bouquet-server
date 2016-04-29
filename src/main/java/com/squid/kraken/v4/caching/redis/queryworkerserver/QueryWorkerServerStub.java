@@ -27,7 +27,6 @@ import org.apache.cxf.jaxrs.client.WebClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.squid.kraken.v4.caching.redis.ServerID;
 
 public class QueryWorkerServerStub implements IQueryWorkerServer {
@@ -83,6 +82,15 @@ public class QueryWorkerServerStub implements IQueryWorkerServer {
 		client.path("load");
 		
 		int res  = client.get(Integer.class);
+		return res;
+	}
+
+	@Override
+	public boolean isQueryOngoing(String k) {
+		WebClient client = WebClient.create(baseURL);
+		client.path("ongoing");
+		client.query("key", k);
+		boolean res  = client.get(Boolean.class);
 		return res;
 	}
 	

@@ -48,6 +48,13 @@ public class QueriesServerRestService {
 			@QueryParam("limit") long limit) throws InterruptedException{
 		return this.delegate.fetch(key,SQLQuery, RSjdbcURL, username, pwd, ttl, limit) ;
 	}
+	
+	
+	@GET
+	@Path("/ongoing")
+	public boolean ongoing(@QueryParam("key") String key){
+		return this.delegate.isQueryOngoing(key);		
+	}
 
 	@GET
 	@Path("/hello")

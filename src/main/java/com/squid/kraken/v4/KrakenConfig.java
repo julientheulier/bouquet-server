@@ -159,6 +159,8 @@ public class KrakenConfig {
 						props.setProperty("elastic.local",Boolean.toString(confV2.getElasticLocal()) );
 						props.setProperty("feature.dynamic",Boolean.toString(confV2.getFeatureDynamic()));
 						
+						props.setProperty("ehcache.path",confV2.getEHCachePath());
+						
 					} catch (IOException e) {
 						logger.error("Could not load config file : " + filePathV2);
 					}

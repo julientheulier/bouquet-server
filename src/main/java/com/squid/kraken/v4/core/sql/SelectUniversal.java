@@ -60,6 +60,7 @@ import com.squid.core.sql.render.WherePiece;
 import com.squid.core.sql.render.groupby.IGroupByPiece;
 import com.squid.core.sql.statements.SelectStatement;
 import com.squid.kraken.v4.core.analysis.scope.SpaceExpression;
+import com.squid.kraken.v4.core.analysis.universe.Axis;
 import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.kraken.v4.core.database.impl.DatabaseServiceImpl;
@@ -195,7 +196,7 @@ public class SelectUniversal extends PieceCreator {
 			Space parent = origin.getParent();
 			IFromPiece from = from(parent);
 			Relation relation = origin.getRelation();
-			return join(ctx,from,relation,parent.getDomain(),origin.getDomain());
+			return join(ctx,getScope(),from,relation,parent.getDomain(),origin.getDomain());
 		}
 	}
 	
@@ -228,7 +229,7 @@ public class SelectUniversal extends PieceCreator {
 					Object binding = scope.get(source);
 					if (binding!=null && binding instanceof IFromPiece) {
 						IFromPiece from = (IFromPiece)binding;
-						return join(ctx, from, relation, source, target);
+						return join(ctx, scope, from, relation, source, target);
 					}
 				}
 			}
@@ -387,7 +388,7 @@ public class SelectUniversal extends PieceCreator {
 		return from;
 	}
 
-	private IFromPiece join(Context ctx, IFromPiece from, Relation relation, Domain source, Domain target) throws SQLScopeException, ScopeException {
+	private IFromPiece join(Context ctx, Scope parent, IFromPiece from, Relation relation, Domain source, Domain target) throws SQLScopeException, ScopeException {
 		Object binding = from.getScope().get(relation);
 		if (binding==null) {
 			RelationDirection direction = relation.getDirection(source.getId());
@@ -402,10 +403,19 @@ public class SelectUniversal extends PieceCreator {
 			//
 			// check if we must enforce a natural join => when the from definition is in a different statement
 			boolean natural = from.getStatement()!=getStatement();
-			IFromPiece to = natural?createNaturalJoin(from, relation, source, target):createJoin(ctx, type, from, relation, source, target);
-			from.getScope().put(relation, to);
-			to.getScope().put(relation, from);// opposite link
-			return to;
+			if (natural) {// T1085
+				// join in a different statement, must register the relation in the parent scope
+				IFromPiece to = createNaturalJoin(from, relation, source, target);
+				parent.put(relation, to);
+				to.getScope().put(relation, from);// opposite link
+				return to;
+			} else {
+				// join in the same scope/statement
+				IFromPiece to = createJoin(ctx, type, from, relation, source, target);
+				from.getScope().put(relation, to);
+				to.getScope().put(relation, from);// opposite link
+				return to;
+			}
 		} else {
 			// follow existing relation
 			if (binding instanceof IFromPiece) {
@@ -553,6 +563,13 @@ public class SelectUniversal extends PieceCreator {
 
     private HashMap<ExpressionAST, SelectUniversal> exists = new HashMap<>();
     
+
+    public SelectUniversal exists(Axis axis) throws ScopeException, SQLScopeException {
+    	SelectUniversal subselect = exists(axis.getParent().getDefinition());
+    	subselect.getStatement().addComment("exists on "+axis.getName());
+    	return subselect;
+    }
+    
     public SelectUniversal exists(ExpressionAST root) throws ScopeException, SQLScopeException {
         //
         SelectUniversal subselect = exists.get(root);
@@ -573,8 +590,8 @@ public class SelectUniversal extends PieceCreator {
 	protected SelectUniversal createExistsStatement() throws SQLScopeException, ScopeException {
 		// check that the space link is already referenced in outer==this
 		//IFromPiece from = from(link);
-		SelectUniversal inner = new SelectUniversal(this, this.getScope());
-		inner.getStatement().addComment("EXISTS");
+		Scope outerScope = new Scope(this.getScope());// T1085
+		SelectUniversal inner = new SelectUniversal(this, outerScope);
 		// add some constant in the select
 		inner.select(ExpressionMaker.CONSTANT(1));
 		// insert the exists operator in the outer statement

@@ -36,35 +36,36 @@ import org.slf4j.LoggerFactory;
 import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
 import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheReference;
 import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValue;
+import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValuesList;
 import com.squid.kraken.v4.caching.redis.generationalkeysserver.GenerationalKeysServerFactory;
 import com.squid.kraken.v4.caching.redis.generationalkeysserver.IGenerationalKeysServer;
 import com.squid.kraken.v4.caching.redis.generationalkeysserver.RedisKey;
 import com.squid.kraken.v4.caching.redis.queriesserver.IQueriesServer;
 import com.squid.kraken.v4.caching.redis.queriesserver.QueriesServerFactory;
 
-public class RedisCacheManager implements IRedisCacheManager  {
+public class RedisCacheManager implements IRedisCacheManager {
 
-    static final Logger logger = LoggerFactory.getLogger(RedisCacheManager.class);
+	static final Logger logger = LoggerFactory.getLogger(RedisCacheManager.class);
 
-    private static IRedisCacheManager INSTANCE;
-    
-    private static boolean isMock = false;
+	private static IRedisCacheManager INSTANCE;
 
-    private IRedisCacheProxy redis;
-	private AWSRedisCacheConfig conf;
+	private static boolean isMock = false;
+
+	private IRedisCacheProxy redis;
+	private RedisCacheConfig conf;
 	private IQueriesServer queriesServ;
-	private IGenerationalKeysServer genkeysServ ;
-	
-	//constructors
-	
-	public RedisCacheManager(){	
+	private IGenerationalKeysServer genkeysServ;
+
+	// constructors
+
+	public RedisCacheManager() {
 	}
-	
-	public static void setMock(){
+
+	public static void setMock() {
 		isMock = true;
 	}
 
-	public static IRedisCacheManager getInstance(){
+	public static IRedisCacheManager getInstance() {
 		if (INSTANCE == null) {
 			if (isMock) {
 				INSTANCE = new RedisCacheManagerMock();
@@ -74,177 +75,235 @@ public class RedisCacheManager implements IRedisCacheManager  {
 		}
 		return INSTANCE;
 	}
-	
-	public void setConfig(AWSRedisCacheConfig confCache){
-		this.conf=confCache;
+
+	public void setConfig(RedisCacheConfig confCache) {
+		this.conf = confCache;
 	}
-		
-	public void startCacheManager(){
+
+	public void startCacheManager() {
 		logger.info("starting cache manager");
-		
-		this.genkeysServ= GenerationalKeysServerFactory.INSTANCE.getNewGenerationalKeysServer(conf, false); 
-		this.queriesServ = QueriesServerFactory.INSTANCE.getNewQueriesServer(conf,false);
-		
+
+		this.genkeysServ = GenerationalKeysServerFactory.INSTANCE.getNewGenerationalKeysServer(conf, false);
+		this.queriesServ = QueriesServerFactory.INSTANCE.getNewQueriesServer(conf, false);
+
 		this.genkeysServ.start();
 		this.queriesServ.start();
-		
-		this.redis =  RedisCacheProxy.getInstance(conf.getRedisID());
-		
+
+		this.redis = RedisCacheProxy.getInstance(conf.getRedisID());
+
 	}
-	
-	
-	public RawMatrix getData(String SQLQuery, List<String> dependencies, String RSjdbcURL,
-		String username, String pwd, int TTLinSec, long limit) throws InterruptedException{
+
+	public RawMatrix getData(String SQLQuery, List<String> dependencies, String RSjdbcURL, String username, String pwd,
+			int TTLinSec, long limit) throws InterruptedException {
 		// generate the key by adding projectID and SQL
 		String k = buildCacheKey(SQLQuery, dependencies);
-		
+
 		RawMatrix res = getRawMatrix(k);
-		if (res != null){
+		if (res != null) {
 			logger.debug("cache hit for key = " + k);
 			res.setFromCache(true);
-		}else{
-			boolean fetchOK = this.fetch(k, SQLQuery, RSjdbcURL, username, pwd,TTLinSec, limit );
-			if (!fetchOK){
-				logger.info("failed to fetch query:\n" +SQLQuery  +"\nfetch failed") ; 
+		} else {
+			boolean fetchOK = this.fetch(k, SQLQuery, RSjdbcURL, username, pwd, TTLinSec, limit);
+			if (!fetchOK) {
+				logger.info("failed to fetch query:\n" + SQLQuery + "\nfetch failed");
 				return null;
 			}
 			res = getRawMatrix(k);
 			res.setFromCache(false);
 		}
-			
+
 		return res;
 	}
-	
-	
-	public RawMatrix  getDataLazy(String SQLQuery, List<String> dependencies, String RSjdbcURL,
-			String username, String pwd, int TTLinSec){
-		String k = buildCacheKey(SQLQuery, dependencies);
 
+	public RawMatrix getDataLazy(String SQLQuery, List<String> dependencies, String RSjdbcURL, String username,
+			String pwd, int TTLinSec) {
+		String k = buildCacheKey(SQLQuery, dependencies);
 		RawMatrix res = getRawMatrix(k);
-		if (res != null){
+		if (res != null) {
 			logger.debug("cache hit for key = " + k);
 			res.setFromCache(true);
-		}else{ 
-			res= null;
+		} else {
+			res = null;
 		}
+		
+		
 		return res;
 	}
-	
 
 	public RedisCacheValue getRedisCacheValueLazy(String SQLQuery, List<String> dependencies, String RSjdbcURL,
-			String username, String pwd, int TTLinSec ) {
-			String k = buildCacheKey(SQLQuery, dependencies);
-			return this.redis.getRawOrList(k);
-			
+			String username, String pwd, int TTLinSec) {
+		String k = buildCacheKey(SQLQuery, dependencies);
+		RedisCacheValue val  = this.redis.getRawOrList(k);
+		if(val instanceof RedisCacheValuesList){
+			return validateCacheList( (RedisCacheValuesList) val ); 
+		}else{			
+			return val;
+		}
+
 	}
+
 	public RedisCacheValue getRedisCacheValue(String SQLQuery, List<String> dependencies, String RSjdbcURL,
-			String username, String pwd, int TTLinSec, long limit ) throws InterruptedException {
-			String k = buildCacheKey(SQLQuery, dependencies);
-			RedisCacheValue val= this.redis.getRawOrList(k);
-			if (val != null){
+			String username, String pwd, int TTLinSec, long limit) throws InterruptedException {
+		String k = buildCacheKey(SQLQuery, dependencies);
+		RedisCacheValue val = this.redis.getRawOrList(k);
+		if (val != null) {
+			if(val instanceof RedisCacheValuesList){
+				RedisCacheValuesList validated = validateCacheList( (RedisCacheValuesList) val ); 
+				if (validated!=null){
+					return validated;
+				}else{
+					logger.info(" The analysis did not end properly, recomputing "+ SQLQuery );
+				}
+			}else{			
 				return val;
+			}
+		}		
+		boolean fetchOK = this.fetch(k, SQLQuery, RSjdbcURL, username, pwd, TTLinSec, limit);
+		if (!fetchOK) {
+			logger.info("failed to fetch query:\n" + SQLQuery + "\nfetch failed");
+			return null;
+		}
+		val = this.redis.getRawOrList(k);
+		if(val instanceof RedisCacheValuesList){
+			return validateCacheList( (RedisCacheValuesList) val ); 
+		}else{			
+			return val;
+		}
+	}
+	
+	private RedisCacheValuesList validateCacheList(RedisCacheValuesList list){
+		if (list.isDone()){
+			logger.debug("done");
+			return list;
+		}
+		if (list.isError()){
+			logger.debug("error");
+			return null;
+		}
+		if (list.isOngoing()){
+			boolean isOngoing = this.queriesServ.isQueryOngoing(list.getRedisKey());
+			if (isOngoing){
+				logger.debug("really ongoing");
+				return list;
 			}else{
-				boolean fetchOK = this.fetch(k, SQLQuery, RSjdbcURL, username, pwd,TTLinSec, limit );
-				if (!fetchOK){
-					logger.info("failed to fetch query:\n" +SQLQuery  +"\nfetch failed") ; 
+				// check if the state has changed to DONE
+				RedisCacheValue val = this.redis.getRawOrList(list.getRedisKey());
+				if (val instanceof RedisCacheValuesList){
+					RedisCacheValuesList newList = (RedisCacheValuesList) val;
+					if (newList.isDone()){
+						logger.debug("was ongoing, done now");
+						return newList;
+					}
+					if (newList.isError()){
+						logger.debug("was ongoing, error now");
+						return null;
+					}
+					if(newList.isOngoing()){
+						logger.debug("still ongoing status, although not being computed, setting to ERROR");
+
+						newList.setError();
+						this.redis.put(list.getRedisKey(), newList.serialize());
+						return null;
+					}
+				}else{
 					return null;
 				}
-				 val= this.redis.getRawOrList(k);
-				 return val;
-
-			}			
+			}
+		}
+		return null;
 	}
 
 	
-	public boolean addCacheReference(String sqlNoLimit, List<String> dependencies, String referencedKey ){
-		try{
+	
+
+	public boolean addCacheReference(String sqlNoLimit, List<String> dependencies, String referencedKey) {
+		try {
 			String k = buildCacheKey(sqlNoLimit, dependencies);
-			logger.info("Add reference key : " +  k + "    " + referencedKey);
-			RedisCacheReference ref = new RedisCacheReference(referencedKey);		
+			logger.info("Add reference key : " + k + "    " + referencedKey);
+			RedisCacheReference ref = new RedisCacheReference(referencedKey);
 			return this.redis.put(k, ref.serialize());
-		}catch(IOException e){
+		} catch (IOException e) {
 			return false;
 		}
 	}
-	
-	
-	
-	private String buildCacheKey(String SQLQuery, List<String> dependencies){
+
+	private String buildCacheKey(String SQLQuery, List<String> dependencies) {
 		String key = "";
-		if (dependencies.size()>0) {
+		if (dependencies.size() > 0) {
 			key += dependencies.get(0);
 		}
 		key += "-" + DigestUtils.sha256Hex(SQLQuery);
 		//
 		RedisKey rk = getKey(key, dependencies);
 		return rk.getStringKey();
-		
 	}
-	
-	public void clear(){
+
+	public void clear() {
 		logger.info("Clearing SQL cache");
 		this.redis.clear();
 	}
-    
-    public void refresh(String... dependencies) {
-        this.genkeysServ.refresh(Arrays.asList(dependencies));     
-    }
-	
-	public void refresh(List<String> dependencies){
-		this.genkeysServ.refresh(dependencies);		
+
+	public void refresh(String... dependencies) {
+		this.genkeysServ.refresh(Arrays.asList(dependencies));
 	}
-    
-    public void refresh(String key){
-        this.genkeysServ.refresh(Collections.singletonList(key));
-    }
-	
+
+	public void refresh(List<String> dependencies) {
+		this.genkeysServ.refresh(dependencies);
+	}
+
+	public void refresh(String key) {
+		this.genkeysServ.refresh(Collections.singletonList(key));
+	}
+
 	public RedisKey getKey(String key) {
-		return  this.genkeysServ.getKey(key, null);
+		return this.genkeysServ.getKey(key, null);
 	}
-	
+
 	public RedisKey getKey(String key, Collection<String> dependencies) {
-		return  this.genkeysServ.getKey(key, dependencies);
+		return this.genkeysServ.getKey(key, dependencies);
 	}
-	
+
 	public RedisKey getKey(String key, String... dependencies) {
-		return  this.genkeysServ.getKey(key, Arrays.asList(dependencies));
+		return this.genkeysServ.getKey(key, Arrays.asList(dependencies));
 	}
-	
+
 	/**
 	 * get a possibly update RedisKey for this key
+	 * 
 	 * @param key
 	 * @return
 	 */
 	public RedisKey getKey(RedisKey key) {
-		return  this.genkeysServ.getKey(key.getName(), key.getDepGen().keySet());
+		return this.genkeysServ.getKey(key.getName(), key.getDepGen().keySet());
 	}
-	
+
 	/**
 	 * check if the key is still valid
+	 * 
 	 * @param key
 	 * @return
 	 */
 	public boolean isValid(RedisKey key) {
 		RedisKey check = getKey(key);
-		return check.getVersion()==key.getVersion() && check.getUniqueID()==key.getUniqueID();
+		return check.getVersion() == key.getVersion() && check.getUniqueID() == key.getUniqueID();
 	}
 
-	public boolean inCache(RedisKey key){
-		return  this.redis.inCache(key) ;
+	public boolean inCache(RedisKey key) {
+		return this.redis.inCache(key);
 	}
 
-
-	public boolean inCache(String key){
-		return  this.redis.inCache(key) ;
+	public boolean inCache(String key) {
+		return this.redis.inCache(key);
 	}
 
-	private boolean fetch(String k, String SQLQuery, String RSjdbcURL, String username, String pwd, int ttl, long limit) throws InterruptedException{
-		return this.queriesServ.fetch(k, SQLQuery, RSjdbcURL,username, pwd, ttl, limit);
+	private boolean fetch(String k, String SQLQuery, String RSjdbcURL, String username, String pwd, int ttl, long limit)
+			throws InterruptedException {
+		return this.queriesServ.fetch(k, SQLQuery, RSjdbcURL, username, pwd, ttl, limit);
 	}
-	
-	public RawMatrix getRawMatrix(String k){
-		RawMatrix r =this.redis.getRawMatrix(k);
+
+	public RawMatrix getRawMatrix(String k) {
+		RawMatrix r = this.redis.getRawMatrix(k);
 		return r;
 	}
-	
+
 }

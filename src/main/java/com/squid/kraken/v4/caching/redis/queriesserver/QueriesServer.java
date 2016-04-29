@@ -33,7 +33,7 @@ import java.util.concurrent.Future;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.squid.kraken.v4.caching.redis.AWSRedisCacheConfig;
+import com.squid.kraken.v4.caching.redis.RedisCacheConfig;
 import com.squid.kraken.v4.caching.redis.RedisCacheException;
 import com.squid.kraken.v4.caching.redis.ServerID;
 import com.squid.kraken.v4.caching.redis.queryworkerserver.IQueryWorkerServer;
@@ -68,7 +68,7 @@ public class QueriesServer implements IQueriesServer {
 		logger.info("new Queries server");
 	}
 
-	public QueriesServer(AWSRedisCacheConfig conf){
+	public QueriesServer(RedisCacheConfig conf){
 		this();
 		this.debug = conf.getDebug();
 		this.threadPoolSize = conf.getQuerieServerThreadPoolSize();
@@ -179,6 +179,17 @@ public class QueriesServer implements IQueriesServer {
 				}
 			}
 		}
+	}
+
+	@Override
+	public boolean isQueryOngoing(String key) {
+		for (IQueryWorkerServer worker : this.workers){
+				boolean res = worker.isQueryOngoing(key);
+				if (res){
+					return true;
+				}
+		}	
+		return false;		
 	}
 	
 

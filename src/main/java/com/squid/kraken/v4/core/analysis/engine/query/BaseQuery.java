@@ -59,6 +59,7 @@ import com.squid.kraken.v4.caching.NotInCacheException;
 import com.squid.kraken.v4.caching.redis.RedisCacheManager;
 import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
 import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValue;
+import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValuesList;
 import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionMember;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
@@ -168,7 +169,8 @@ public class BaseQuery implements IQuery {
 					IPiece piece = select.createPiece(Context.ORDERBY, order.getExpression());
 					select.orderBy(piece).setOrdering(order.getOrdering());
 				} else {
-					throw new ScopeException("invalid orderBy expression "+order.getExpression().prettyPrint() + ": you must select it (or a child dimension) as a facet");
+					//throw new ScopeException("invalid orderBy expression "+order.getExpression().prettyPrint() + ": you must select it (or a child dimension) as a facet");
+					logger.warn("invalid orderBy expression "+order.getExpression().prettyPrint() + ": you must select it (or a child dimension) as a facet");
 				}
 			}
 		}
@@ -309,6 +311,10 @@ public class BaseQuery implements IQuery {
 				sqlNoLimitNoOrder = renderNoLimitNoOrderBy();
 				result = RedisCacheManager.getInstance().getRedisCacheValueLazy(sqlNoLimitNoOrder, deps, url, user, pwd,
 						-2);
+				if (result instanceof RedisCacheValuesList){
+					// we'd rather recompute the data than rebuild a big result set in memory
+					result= null;
+					}
 				if (result!=null) {
 					writer.setNeedPostProcessing(true);
 				}
@@ -575,7 +581,7 @@ public class BaseQuery implements IQuery {
 				where(select, getAxis(), getFilters());
 				break;
 			case EXISTS:
-				SelectUniversal subselect = select.exists(getAxis().getParent().getDefinition());
+				SelectUniversal subselect = select.exists(getAxis());
 				where(subselect, getAxis(), getFilters());
 				break;
 			}
@@ -601,7 +607,7 @@ public class BaseQuery implements IQuery {
 	}
 
 	public void exists(Axis axis, Collection<DimensionMember> filters) throws ScopeException, SQLScopeException {
-		SelectUniversal subselect = select.exists(axis.getParent().getDefinition());
+		SelectUniversal subselect = select.exists(axis);
 		if (where(subselect, axis, filters)) {
 			addFilter(new Filter(FilterType.EXISTS, axis, filters));
 		}

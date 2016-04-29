@@ -144,9 +144,6 @@ public class DatabaseServiceImpl implements DatabaseService {
 	    	}
 		}
 		Thread.currentThread().setContextClassLoader(classloader);
-
-		
-		
 	}
 
 	
@@ -205,47 +202,11 @@ public class DatabaseServiceImpl implements DatabaseService {
 		}
 	    
 	    Thread.currentThread().setContextClassLoader(dd);
-
-		
-		
-	}
-	
-	@SuppressWarnings("unused")
-	@Deprecated
-	private void loadDrivers() {
-		// ClassForName is not useful anymore.
-		// load the drivers
-		for (String driver : drivers) {
-			try {
-				if (logger.isDebugEnabled()) {
-					logger.debug("Loading driver " + driver);
-				}
-				Class.forName(driver);
-			} catch (ClassNotFoundException e) {
-				logger.error("unable to load driver " + driver);
-			}
-		}
-		//
 	}
 	
 	private static DatabaseServiceImpl initINSTANCE() {
 		initDriver(); //Side effect; Modify Thread classloader
 		return new DatabaseServiceImpl();
-	}
-	
-	@Deprecated
-	public void reloadDrivers(){
-		// load the drivers
-				for (String driver : drivers) {
-					try {
-						if(logger.isDebugEnabled()){
-							logger.debug("Loading driver " + driver);
-						}
-						Class.forName(driver);
-					} catch (ClassNotFoundException e) {
-						logger.error("unable to load driver " + driver);
-					}
-				}
 	}
 
 	/**

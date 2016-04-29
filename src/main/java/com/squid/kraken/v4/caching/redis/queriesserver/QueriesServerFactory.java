@@ -26,7 +26,7 @@ package com.squid.kraken.v4.caching.redis.queriesserver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.squid.kraken.v4.caching.redis.AWSRedisCacheConfig;
+import com.squid.kraken.v4.caching.redis.RedisCacheConfig;
 
 public class QueriesServerFactory {
 
@@ -40,10 +40,10 @@ public class QueriesServerFactory {
 		return instServ;
 	}
 
-	public IQueriesServer getNewQueriesServer(AWSRedisCacheConfig conf, boolean onLocalhost) {
+	public IQueriesServer getNewQueriesServer(RedisCacheConfig conf, boolean onLocalhost) {
 		if (instServ == null) {
 			if (onLocalhost || conf == null) {
-				instServ = new QueriesServer(new AWSRedisCacheConfig());
+				instServ = new QueriesServer(new RedisCacheConfig());
 			} else if (conf.getQueriesServerID().port == -1) {
 				instServ = new QueriesServer(conf);
 			} else {

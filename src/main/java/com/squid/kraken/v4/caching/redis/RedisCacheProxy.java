@@ -52,7 +52,7 @@ public class RedisCacheProxy implements IRedisCacheProxy {
 	private int REDISport =6379 ;
 	private JedisPool pool;
 	
-	private int maxSizeInByte = 524288000 ;  //500Megabytes
+	private int maxSizeInByte = 52428800 ;  //50Megabytes
 	
 	public static void setMock(){
 		isMock = true;
@@ -208,8 +208,10 @@ public class RedisCacheProxy implements IRedisCacheProxy {
 			throw new RuntimeException("Jedis: getRawMatrix() failed on key="+key, e);
 		} 
 	}
-
-
+	
+	
+	
+	
 	private RawMatrix buildChunkedRawMatrix (String key, RedisCacheValuesList refList ) throws ComputingException, ClassNotFoundException, IOException{
 		try (Jedis jedis  = getResourceFromPool()){	
 			

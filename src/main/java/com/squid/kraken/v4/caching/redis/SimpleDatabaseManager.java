@@ -40,6 +40,7 @@ import org.slf4j.LoggerFactory;
 import com.squid.core.database.impl.DataSourceReliable;
 import com.squid.core.database.impl.DatabaseServiceException;
 import com.squid.core.database.impl.DriverLoader;
+import com.squid.core.database.impl.DataSourceReliable.FeatureSupport;
 import com.squid.core.database.lazy.LazyDatabaseFactory;
 import com.squid.core.database.model.Database;
 import com.squid.core.database.model.DatabaseFactory;
@@ -48,6 +49,7 @@ import com.squid.core.database.model.impl.JDBCConfig;
 import com.squid.core.jdbc.engine.ExecutionItem;
 import com.squid.core.jdbc.engine.IExecutionItem;
 import com.squid.core.jdbc.vendor.VendorSupportRegistry;
+import com.squid.core.sql.render.ISkinFeatureSupport;
 import com.squid.kraken.v4.core.database.impl.HikariDataSourceReliable;
 import com.zaxxer.hikari.HikariDataSource;
 import com.squid.core.database.metadata.IMetadataEngine;
@@ -181,6 +183,7 @@ public class SimpleDatabaseManager extends DatabaseManager {
 		int queryNum = queryCnt.incrementAndGet();
 		long now = System.currentTimeMillis();
 		try {
+			boolean needCommit = false;
 			Connection connection = this.ds.getConnectionBlocking();
 			if (logger.isDebugEnabled()) {
 				logger.debug("Driver used for the connection", connection
@@ -188,9 +191,21 @@ public class SimpleDatabaseManager extends DatabaseManager {
 			}
 			Statement statement = connection.createStatement();
 			try {
+				if(getSkin().getFeatureSupport(FeatureSupport.AUTOCOMMIT) == ISkinFeatureSupport.IS_NOT_SUPPORTED){
+					connection.setAutoCommit(false);
+					needCommit = true;
+				}else{
+					connection.setAutoCommit(true);
+				}
 				statement.setFetchSize(getDataFormatter(connection).getFetchSize());
-				logger.info("running SQLQuery#" + queryNum + " on " + config.getJdbcUrl()
-						+ ":\n" + sql +"\nHashcode="+sql.hashCode());
+				logger.info("starting SQLQuery#" + queryNum 
+						+ " jdbc=" + config.getJdbcUrl()
+						+ " sql=\n" + sql +"\n hashcode="+sql.hashCode()
+						+ " method=executeQuery" + " duration="
+						+ " error=false status=done driver="
+						+ connection.getMetaData().getDatabaseProductName()
+						+ " queryid=" + queryNum
+						+ "task=" + this.getClass().getName());
 				Date start = new Date();
 				boolean isResultset = statement.execute(sql);
 				while (!isResultset && statement.getUpdateCount() >= -1) {
@@ -201,12 +216,13 @@ public class SimpleDatabaseManager extends DatabaseManager {
 				 * logger.info("SQLQuery#" + queryNum + " executed in " +
 				 * (System.currentTimeMillis() - now) + " ms.");
 				 */
-				double duration = (System.currentTimeMillis() - now);
-				logger.info("task=" + this.getClass().getName()
+				long duration = (System.currentTimeMillis() - now);
+				logger.info("finished SQLQuery#" + queryNum
 						+ " method=executeQuery" + " duration=" + duration
 						+ " error=false status=done driver="
 						+ connection.getMetaData().getDatabaseProductName()
-						+ " queryid=" + queryNum);
+						+ " queryid=" + queryNum
+						+ "task=" + this.getClass().getName());
 				SQLStats queryLog = new SQLStats(Integer.toString(queryNum), "executeQuery", sql, duration, connection.getMetaData().getDatabaseProductName());
 				queryLog.setError(false);
 				PerfDB.INSTANCE.save(queryLog);
@@ -217,6 +233,9 @@ public class SimpleDatabaseManager extends DatabaseManager {
 			} catch (Exception e) {
 				// ticket:2972
 				// it is our responsibility to dispose connection and statement
+				if (needCommit) {
+					connection.rollback();
+				}
 				if (statement != null)
 					statement.close();
 				if (!connection.getMetaData().getDatabaseProductName()
@@ -230,14 +249,15 @@ public class SimpleDatabaseManager extends DatabaseManager {
 			}
 		} catch (Exception e) {
 			long duration = (System.currentTimeMillis() - now);
-			logger.error("task=" + this.getClass().getName()
+			logger.error("error SQLQuery#" + queryNum
 					+ " method=executeQuery" + " duration="
 					+ duration
-					+ " error=true status=done queryid=" + queryNum);
+					+ " status=error queryid=" + queryNum
+					+ " task=" + this.getClass().getName()
+					+ " error=" + e.toString());
 			SQLStats queryLog = new SQLStats(Integer.toString(queryNum), "executeQuery", sql, duration, config.getJdbcUrl());
 			queryLog.setError(true);
 			PerfDB.INSTANCE.save(queryLog);
-			logger.error("SQLQuery#" + queryNum + " failed: "+e.getLocalizedMessage() + "\nwhile executing the following SQL query:\n" + sql);
 			throw new ExecutionException("SQLQuery#" + queryNum + " failed: "+e.getLocalizedMessage() + "\nwhile executing the following SQL query:\n" + sql, e);
 		}
 	}

@@ -29,6 +29,9 @@ import java.util.Date;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 
 import com.squid.kraken.v4.api.core.PerfDB;
 import com.squid.kraken.v4.api.core.SQLStats;
@@ -38,6 +41,7 @@ import org.joda.time.LocalDate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.squid.core.concurrent.ExecutionManager;
 import com.squid.core.domain.IDomain;
 import com.squid.core.domain.set.SetDomain;
 import com.squid.core.expression.ExpressionAST;
@@ -47,6 +51,7 @@ import com.squid.core.sql.render.IOrderByPiece.ORDERING;
 import com.squid.core.sql.render.ISelectPiece;
 import com.squid.core.sql.render.RenderingException;
 import com.squid.kraken.v4.core.analysis.datamatrix.AxisValues;
+import com.squid.kraken.v4.core.analysis.datamatrix.CompareMerger;
 import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionMember;
 import com.squid.kraken.v4.core.analysis.engine.query.SimpleQuery;
@@ -156,7 +161,7 @@ public class AnalysisCompute {
 	}
 
 	// handle compare T947
-	public DataMatrix computeAnalysisCompareTo(DashboardAnalysis currentAnalysis) throws ScopeException, ComputingException, SQLScopeException, InterruptedException {
+	public DataMatrix computeAnalysisCompareTo(final DashboardAnalysis currentAnalysis) throws ScopeException, ComputingException, SQLScopeException, InterruptedException {
 		// preparing the selection
 		DashboardSelection presentSelection = currentAnalysis.getSelection();
 		DomainSelection compare = presentSelection.getCompareToSelection();
@@ -178,7 +183,7 @@ public class AnalysisCompute {
 		}
 		//
 		// handling orderBy in the proper way...
-		List<OrderBy> fixed = new ArrayList<>();
+		final List<OrderBy> fixed = new ArrayList<>();
 		List<OrderBy> remaining = new ArrayList<>();
 		int i=0;
 		// list the dimensions
@@ -231,11 +236,6 @@ public class AnalysisCompute {
 				fixed.add(new OrderBy(i++, order.getExpression(), order.getOrdering()));
 			}
 		}
-		//currentAnalysis.setOrders(fixed);
-		//
-		// compute present
-		DataMatrix present = computeAnalysisSimple(currentAnalysis, false);
-		present.orderBy(fixed);
 		//
 		// compute the past version
 		DashboardAnalysis compareToAnalysis = new DashboardAnalysis(universe);
@@ -287,16 +287,33 @@ public class AnalysisCompute {
 			compareToAnalysis.setBeyondLimit(compareBeyondLimit);
 			compareToAnalysis.setBeyodLimitSelection(presentSelection);// use the present selection to compute
 		}
-		DataMatrix past = computeAnalysisSimple(compareToAnalysis, false);
-		past.orderBy(fixed);
 		//
-		final int offset = computeOffset(present, joinAxis, presentInterval, pastInterval);
-		//
-		CompareMerger merger = new CompareMerger(present, past, mergeOrder, joinAxis, offset);
-		DataMatrix debug = merger.merge(false);
-		// apply the original order by directive (T1039)
-		debug.orderBy(originalOrders);
-		return debug;
+		// compute present & past in //
+		Future<DataMatrix> future = ExecutionManager.INSTANCE.submit(universe.getContext().getCustomerId(), new Callable<DataMatrix>() {
+			@Override
+			public DataMatrix call() throws Exception {
+				DataMatrix present = computeAnalysisSimple(currentAnalysis, false);
+				present.orderBy(fixed);
+				return present;
+			}
+		});
+		try {
+			// compute past
+			DataMatrix past = computeAnalysisSimple(compareToAnalysis, false);
+			past.orderBy(fixed);
+			// wait for present
+			DataMatrix present = future.get();
+			//
+			final int offset = computeOffset(present, joinAxis, presentInterval, pastInterval);
+			//
+			CompareMerger merger = new CompareMerger(present, past, mergeOrder, joinAxis, offset);
+			DataMatrix debug = merger.merge(false);
+			// apply the original order by directive (T1039)
+			debug.orderBy(originalOrders);
+			return debug;
+		} catch (ExecutionException e) {
+			throw new ComputingException(e.getCause());
+		}
 	}
 	
 	private boolean compareAxis(Axis x1, Axis x2) {

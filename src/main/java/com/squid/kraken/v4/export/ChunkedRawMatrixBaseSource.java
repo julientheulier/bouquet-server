@@ -7,7 +7,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
-import org.apache.avro.Schema;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,9 +29,6 @@ public class ChunkedRawMatrixBaseSource {
 
 	protected ExecutorService executor;
 
-	private Schema schema;
-
-
 	static final Logger logger = LoggerFactory.getLogger(ChunkedRawMatrixBaseSource.class);
 
 	public ChunkedRawMatrixBaseSource(RedisCacheValuesList rf) throws InterruptedException, ExecutionException {
@@ -54,7 +50,7 @@ public class ChunkedRawMatrixBaseSource {
 			String res = refList.getReferenceKeys().get(nbChunksRead).referencedKey;
 			return res;
 		} else {
-			if (!refList.isDone()) {
+			if (!refList.isDone() && !refList.isError()) {
 				boolean ok = false;
 				int waitingCount = 1;
 				while (!ok) {
@@ -73,7 +69,6 @@ public class ChunkedRawMatrixBaseSource {
 					}
 				}
 				String res = refList.getReferenceKeys().get(nbChunksRead).referencedKey;
-				nbChunksRead++;
 				return res;
 			} else {
 				return null;

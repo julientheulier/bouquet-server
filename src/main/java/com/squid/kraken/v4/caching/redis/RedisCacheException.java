@@ -39,6 +39,9 @@ public class RedisCacheException extends APIException {
 	public RedisCacheException(String message) {
 		super(message, false, ApiError.COMPUTING_FAILED);
 	}
-	
+
+	public RedisCacheException(Throwable cause) {
+		super(cause);
+	}
 
 }

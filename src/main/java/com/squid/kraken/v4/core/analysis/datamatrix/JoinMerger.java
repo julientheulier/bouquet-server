@@ -23,9 +23,6 @@
  *******************************************************************************/
 package com.squid.kraken.v4.core.analysis.datamatrix;
 
-import java.util.ArrayList;
-import java.util.Date;
-
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
 
@@ -110,17 +107,8 @@ public class JoinMerger extends Merger {
 	}
 	
 	@Override
-	protected IndirectionRow merge(IndirectionRow left, IndirectionRow right, IndirectionRow schema) {
-		IndirectionRow merged = new IndirectionRow();
-		int nbColumns = schema.getAxesCount()+schema.getDataCount();
-		merged.axesIndirection = schema.getAxesIndirection();
-		merged.dataIndirection = schema.getDataIndirection();
-		merged.rawrow = new Object[nbColumns];
-
-		// we have to reorder
-		if (left == null && right == null)
-			return merged;
-		else if (left == null) {
+	protected void mergeAxes(IndirectionRow left, IndirectionRow right, IndirectionRow merged) {
+		if (left == null) {
 			// copy axes
 			int rrInd = 0;
 			for (int i = 0; i < right.getAxesCount(); i++) {
@@ -135,12 +123,6 @@ public class JoinMerger extends Merger {
 					merged.rawrow[rrInd] = right.getAxisValue(i);
 					rrInd++;
 				}
-			}
-			// go directly to right part
-			rrInd = nbColumns - right.getDataCount();
-			for (int i = 0; i < right.getDataCount(); i++) {
-				merged.rawrow[rrInd] = right.getDataValue(i);
-				rrInd++;
 			}
 		} else {
 			// copy axes
@@ -157,27 +139,14 @@ public class JoinMerger extends Merger {
 					rrInd++;
 				}
 			}
-			// copy left part
-			for (int i = 0; i < left.getDataCount(); i++) {
-				merged.rawrow[rrInd] = left.getDataValue(i);
-				rrInd++;
-			}
-			if (right != null) {
-				// copy right part
-				for (int i = 0; i < right.getDataCount(); i++) {
-					merged.rawrow[rrInd] = right.getDataValue(i);
-					rrInd++;
-				}
-			}
 		}
-		return merged;
 	}
 	
+	/**
+	 * take care of the join column => 2x for present/past values
+	 */
 	@Override
-	protected DataMatrix createMatrix(ArrayList<IndirectionRow> result) {
-		DataMatrix merge = new DataMatrix(left.getDatabase(), result);
-		merge.setFromCache(left.isFromCache() && right.isFromCache());
-		merge.setExecutionDate(new Date(Math.max(left.getExecutionDate().getTime(), right.getExecutionDate().getTime())));
+	protected void createMatrixAxes(DataMatrix merge) {
 		// list the new axis
 		for (AxisValues ax : left.getAxes()) {
 			merge.add(ax);
@@ -186,11 +155,6 @@ public class JoinMerger extends Merger {
 				merge.add(joinRight);
 			}
 		}
-		// list the new kpis
-		merge.getKPIs().addAll(left.getKPIs());
-		merge.getKPIs().addAll(right.getKPIs());
-		merge.setFullset(left.isFullset() && right.isFullset());
-		return merge;
 	}
 
 }

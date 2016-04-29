@@ -35,10 +35,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 //import org.junit.Test;
 
-public class AWSRedisCacheConfig {
+public class RedisCacheConfig {
 	
 	static final Logger logger = LoggerFactory
-			.getLogger(AWSRedisCacheConfig.class);
+			.getLogger(RedisCacheConfig.class);
 
 	
 	private ServerID redisID = new ServerID();
@@ -60,13 +60,15 @@ public class AWSRedisCacheConfig {
 	private int maxRecord = MAX_RECORD_DEFAULT;
 	
 	private int ttlInSecond = 24*60*60;
+	
+	private int maxChunkSizeInMByte= 10;
 
-	public AWSRedisCacheConfig(){
+	public RedisCacheConfig(){
 		
 	}
 
-	public static AWSRedisCacheConfig getDefault(){
-		AWSRedisCacheConfig defconf = new AWSRedisCacheConfig();
+	public static RedisCacheConfig getDefault(){
+		RedisCacheConfig defconf = new RedisCacheConfig();
 		ServerID defServ = new ServerID("localhost", -1);
 
 		defconf.setRedisID(new ServerID("localhost", 6379));
@@ -148,7 +150,15 @@ public class AWSRedisCacheConfig {
 		this.maxRecord = maxRecord;
 	}
 
-	public static AWSRedisCacheConfig loadFromjson(String filename) throws IOException{
+	public int getMaxChunkSizeInMByte() {
+		return maxChunkSizeInMByte;
+	}
+
+	public void setMaxChunkSizeInMByte(int maxChunkSizeInMByte) {
+		this.maxChunkSizeInMByte = maxChunkSizeInMByte;
+	}
+
+	public static RedisCacheConfig loadFromjson(String filename) throws IOException{
 	
         File file = new File(filename);
         if (!file.exists() || !file.canRead()) {        	
@@ -160,7 +170,7 @@ public class AWSRedisCacheConfig {
         } 
         ObjectMapper mapper = new ObjectMapper();
         mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-        return mapper.readValue(file, AWSRedisCacheConfig.class);
+        return mapper.readValue(file, RedisCacheConfig.class);
 	}
 	
 /*	@Test

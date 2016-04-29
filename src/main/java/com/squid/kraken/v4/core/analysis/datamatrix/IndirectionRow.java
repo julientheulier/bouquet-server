@@ -56,6 +56,9 @@ public class IndirectionRow implements Comparable<IndirectionRow>  {
 
 	}
 	
+	public int size() {
+		return this.rawrow!=null?this.rawrow.length:0;
+	}
 	
 	public Object[] getRawRow(){
 		return this.rawrow;
