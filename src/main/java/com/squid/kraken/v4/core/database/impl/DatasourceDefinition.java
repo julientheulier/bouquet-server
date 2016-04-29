@@ -37,7 +37,6 @@ import com.squid.core.database.model.impl.JDBCConfig;
 import com.squid.kraken.v4.KrakenConfig;
 import com.squid.kraken.v4.api.core.ServiceUtils;
 import com.squid.kraken.v4.caching.redis.RedisCacheManager;
-import com.squid.kraken.v4.caching.redis.SimpleDatabaseManager;
 import com.squid.kraken.v4.model.Project;
 import com.squid.kraken.v4.model.ProjectPK;
 import com.squid.kraken.v4.persistence.AppContext;
@@ -48,7 +47,7 @@ import com.squid.kraken.v4.persistence.dao.ProjectDAO;
  * the object store the datasource definition and create the link between the
  * actual DataSource object and the Database object
  */
-public class DatasourceDefinition extends SimpleDatabaseManager {
+public class DatasourceDefinition {
 
 	static final Logger logger = LoggerFactory.getLogger(DatasourceDefinition.class);
 
@@ -66,27 +65,33 @@ public class DatasourceDefinition extends SimpleDatabaseManager {
 	private ProjectPK projectId = null;
 	private String projectGenKey = null;
 
+	
+	private SimpleDatabaseManager sdbm;
+	
 	public DatasourceDefinition() {
-		super();
-		this.maximumPoolSize = 10;
+		sdbm = new SimpleDatabaseManager();
 	}
 	
 	public DatasourceDefinition(Project project) throws ExecutionException {
-		super();
+		this();
 		this.projectId = project.getId();
 		initialize(projectId);
-		setup();
+		sdbm.setup();
+	}
+	
+	public SimpleDatabaseManager getDBManager(){
+		return this.sdbm;
 	}
 	
 	/**
 	 * refresh the database - this operation will invoke the JDBC connection
 	 */
 	public void refreshDatabase() {
-		Database old = this.db;
+		Database old = this.getDBManager().getDatabase();
 		old.setStale();// anyone trying to use it should instead redirect to
 						// DatabaseService
 		try {
-			this.db = setupDatabase();
+			this.getDBManager().setupDatabase();
 		} catch (ExecutionException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -119,8 +124,8 @@ public class DatasourceDefinition extends SimpleDatabaseManager {
 		String username = projectRoot.getDbUser() != null ? projectRoot.getDbUser() : "";
 		String password = projectRoot.getDbPassword() != null ? projectRoot.getDbPassword() : "";
 		//
-		config = new JDBCConfig(jdbcUrl, username, password);
-		databaseName = projectRoot.getName();
+		this.sdbm.setupConfig(jdbcUrl, username, password);
+		this.sdbm.setDatabaseName(projectRoot.getName());
 	}
 
 	/**
@@ -129,7 +134,8 @@ public class DatasourceDefinition extends SimpleDatabaseManager {
 	 * @param project
 	 * @return
 	 */
-	public boolean checkValide(Project project) {
+	public boolean checkValid(Project project) {
+		JDBCConfig config = this.getDBManager().getConf();
 		return config.getJdbcUrl().equals(project.getDbUrl()) && config.getUsername().equals(project.getDbUser())
 				&& config.getPassword().equals(project.getDbPassword());
 	}
@@ -154,7 +160,7 @@ public class DatasourceDefinition extends SimpleDatabaseManager {
 														// db is stale
 					for (String schemaName : getProjectSchemas(projectId)) {
 
-						Schema schema = db.findSchema(schemaName);
+						Schema schema = this.sdbm.getDatabase().findSchema(schemaName);
 						if (schema == null) {
 							throw new DatabaseServiceException(
 									"the schema '" + schemaName + "' does not exist or is not accessible");

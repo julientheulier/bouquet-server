@@ -247,7 +247,7 @@ public class AnalysisCompute {
 			if (groupBy.getAxis().equals(joinAxis)) {
 				Axis compareToAxis = new Axis(groupBy.getAxis());
 				compareToAxis.setOriginType(OriginType.COMPARETO);
-				compareToAxis.setName(groupBy.getAxis().getName());//+" (past)");
+				compareToAxis.setName(groupBy.getAxis().getName()+" [compare]");
 				GroupByAxis compareToGroupBy = compareToAnalysis.add(compareToAxis, groupBy.isRollup());
 				compareToGroupBy.setRollupPosition(groupBy.getRollupPosition());
 				// update the beyondLimit
@@ -266,7 +266,7 @@ public class AnalysisCompute {
 		for (Measure kpi : currentAnalysis.getKpis()) {
 			Measure compareToKpi = new Measure(kpi);
 			compareToKpi.setOriginType(OriginType.COMPARETO);
-			compareToKpi.setName(kpi.getName());
+			compareToKpi.setName(kpi.getName()+" [compare]");
 			compareToAnalysis.add(compareToKpi);
 		}
 		// copy stuff

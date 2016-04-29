@@ -81,7 +81,7 @@ public class DatabaseServiceRest extends BaseServiceRest {
 		Project project = ProjectServiceBaseImpl.getInstance().read(userContext, projectPK);
 		AccessRightsUtils.getInstance().checkRole(userContext, project, Role.WRITE);
 		DatasourceDefinition dd = DatabaseServiceImpl.INSTANCE.getDatasourceDefinition(project);
-		DataSourceReliable ds = dd.getDatasource(); //Appropriate driver should be set already.
+		DataSourceReliable ds = dd.getDBManager().getDatasource(); //Appropriate driver should be set already.
 		Connection conn = null;
 		try {
 			conn = ds.getConnectionBlocking();

@@ -29,7 +29,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,7 +43,6 @@ import com.squid.core.expression.ConstantValue;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.scope.ExpressionMaker;
 import com.squid.core.expression.scope.ScopeException;
-import com.squid.core.jdbc.engine.IExecutionItem;
 import com.squid.core.sql.Context;
 import com.squid.core.sql.db.features.QualifySupport;
 import com.squid.core.sql.model.SQLScopeException;
@@ -74,7 +72,6 @@ import com.squid.kraken.v4.core.analysis.model.Intervalle;
 import com.squid.kraken.v4.core.analysis.model.OrderBy;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
-import com.squid.kraken.v4.core.database.impl.DatabaseServiceImpl;
 import com.squid.kraken.v4.core.database.impl.DatasourceDefinition;
 import com.squid.kraken.v4.core.sql.SelectUniversal;
 import com.squid.kraken.v4.core.sql.script.SQLScript;
@@ -352,7 +349,7 @@ public class BaseQuery implements IQuery {
 			}
 			writer.setSource(result);
 			writer.setMapper(this.mapper);
-			writer.setDatabase(getDatasource().getDatabase());
+			writer.setDatabase(getDatasource().getDBManager().getDatabase());
 			writer.write() ;
 
 		} catch (InterruptedException| RenderingException |ScopeException e) {
@@ -416,7 +413,7 @@ public class BaseQuery implements IQuery {
 				throw new ComputingException("Failed to compute or retrieve the matrix");
 			}
 		}else{
-			DataMatrix res = computeDataMatrix(getDatasource().getDatabase(), m);
+			DataMatrix res = computeDataMatrix(getDatasource().getDBManager().getDatabase(), m);
 			return res;
 		}
 	}
@@ -467,52 +464,9 @@ public class BaseQuery implements IQuery {
 		// nothing for now
 	}
 
-	public IExecutionItem executeQuery() throws ComputingException {
-		IExecutionItem item;
-		try {
-			item = runSQL();
-			return item;
-		} catch (Exception e) {
-			throw new ComputingException(e);
-		}
-
-	}
-
-	public Boolean execute() throws ComputingException {
-		Boolean noresult;
-		try {
-			noresult = runSQLNoResult();
-			return noresult;
-		} catch (Exception e) {
-			throw new ComputingException(e);
-		}
-
-	}
-
-	protected Boolean runSQLNoResult() throws ExecutionException, RenderingException {
-		// allow to override select definition
-		return runSQLNoResult(render());
-	}
-
-	protected Boolean runSQLNoResult(String SQL) throws ExecutionException, RenderingException {
-		Boolean noresult = DatabaseServiceImpl.INSTANCE.execute(getDatasource(), SQL);
-		return noresult;
-	}
 
 	protected DataMatrix computeDataMatrix(Database database, RawMatrix rawMatrix) throws ScopeException {
 		return new DataMatrix( database,  rawMatrix, mapper);
-	}
-
-	protected IExecutionItem runSQL() throws ExecutionException, RenderingException {
-		// allow to override select definition
-		return runSQL(render());
-	}
-
-	protected IExecutionItem runSQL(String SQL) throws ExecutionException {
-		//
-		IExecutionItem item = DatabaseServiceImpl.INSTANCE.executeQuery(getDatasource(), SQL);
-		//
-		return item;
 	}
 
 	//

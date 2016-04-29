@@ -26,12 +26,10 @@ package com.squid.kraken.v4.core.database.impl;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 
+import com.squid.core.database.impl.DatabaseServiceException;
 import com.squid.core.database.model.Database;
 import com.squid.core.database.model.Table;
-import com.squid.core.database.impl.DatabaseServiceException;
-import com.squid.core.database.model.impl.DatabaseManager;
 import com.squid.core.expression.scope.ScopeException;
-import com.squid.core.jdbc.engine.IExecutionItem;
 import com.squid.kraken.v4.model.Project;
 
 /**
@@ -56,11 +54,11 @@ public interface DatabaseService {
      */
     public Database getDatabase(Project project) throws ExecutionException;
 
-    IExecutionItem executeQuery(DatabaseManager ds, String sql) throws ExecutionException;
+/*    IExecutionItem executeQuery(DatabaseManager ds, String sql) throws ExecutionException;
 
     // No result (for general SQL, think create as, insert)
     Boolean execute(DatabaseManager ds, String sql) throws ExecutionException;
-
+*/
     public List<Table> getTables(Project projectPK) throws ExecutionException;
 
     public Table lookupTable(Project project, String tableReference) throws ScopeException, ExecutionException;

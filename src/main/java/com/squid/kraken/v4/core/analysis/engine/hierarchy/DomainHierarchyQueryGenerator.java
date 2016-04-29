@@ -276,7 +276,7 @@ public class DomainHierarchyQueryGenerator {
 				Universe universe = root.getAxis().getParent().getUniverse();
 				DatasourceDefinition ds = DatabaseServiceImpl.INSTANCE
 						.getDatasourceDefinition(universe.getProject());
-				IDatabaseStatistics stats = ds.getStatistics();
+				IDatabaseStatistics stats = ds.getDBManager().getStatistics();
 				if (stats != null) {
 					if (stats.isPartitionTable(column.getTable())) {
 						// if the table is partitioned, apply to each partition

@@ -107,7 +107,7 @@ public class SimpleQuery extends BaseQuery {
 			
 			RawMatrix rm = 	RedisCacheManager.getInstance().getRawMatrix(key);
 			if (rm != null){
-				return 	this.computeDataMatrix(getDatasource().getDatabase(), rm);
+				return 	this.computeDataMatrix(getDatasource().getDBManager().getDatabase(), rm);
 			}
 			else{
 				return null;
