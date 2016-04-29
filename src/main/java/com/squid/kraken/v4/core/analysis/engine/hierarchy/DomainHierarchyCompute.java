@@ -26,6 +26,7 @@ package com.squid.kraken.v4.core.analysis.engine.hierarchy;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -173,7 +174,7 @@ implements CancellableCallable<Boolean> {
     public void cancel() {
         if (jobs!=null) {
             for (Future<Boolean> job : jobs) {
-                job.cancel(true);
+                job.cancel(false);
             }
         }
     }
