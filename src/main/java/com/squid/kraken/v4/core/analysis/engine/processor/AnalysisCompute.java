@@ -25,8 +25,6 @@ package com.squid.kraken.v4.core.analysis.engine.processor;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -446,17 +444,7 @@ public class AnalysisCompute {
 		// if it is a full dataset and no rollup, store the layout in the intelligentCache
 		if (dm.isFullset() && !dm.isFromCache() && !analysis.hasRollup()) {
 			// 1/ compute the axes signature
-			ArrayList<GroupByAxis> ordered = new ArrayList<>(analysis.getGrouping());
-			Collections.sort(ordered, new Comparator<GroupByAxis>() {
-				@Override
-				public int compare(GroupByAxis o1, GroupByAxis o2) {
-					return o1.getAxis().getId().compareTo(o2.getAxis().getId());
-				}
-			});
-			StringBuilder signature = new StringBuilder(universe.getProject().getOid());
-			for (GroupByAxis axis : ordered) {
-				signature.append("#").append(axis.getAxis().getId());
-			}
+			CachedAnalysis cached = new CachedAnalysis(universe, analysis, group);
 			// 2/ compute the filters signature
 			
 			// 3/ compute the measure set

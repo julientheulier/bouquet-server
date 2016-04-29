@@ -29,6 +29,7 @@ import java.util.Comparator;
 
 import com.squid.kraken.v4.core.analysis.model.DashboardAnalysis;
 import com.squid.kraken.v4.core.analysis.model.GroupByAxis;
+import com.squid.kraken.v4.core.analysis.model.MeasureGroup;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
 
 /**
@@ -36,16 +37,18 @@ import com.squid.kraken.v4.core.analysis.universe.Universe;
  * @author sergefantino
  *
  */
-public class CachedAnalysisSignature {
+public class CachedAnalysis {
 	
 	private DashboardAnalysis analysis;
+	private MeasureGroup measures;
 	
 	private String axesSignature = null;
 
-	public CachedAnalysisSignature(Universe universe, DashboardAnalysis analysis) {
+	public CachedAnalysis(Universe universe, DashboardAnalysis analysis, MeasureGroup measures) {
 		super();
 		this.analysis = analysis;
-		this.axesSignature = computeAxesignature(universe);
+		this.measures = measures;
+		this.axesSignature = computeAxesSignature(universe);
 	}
 	
 	/**
@@ -58,7 +61,7 @@ public class CachedAnalysisSignature {
 	/**
 	 * @return
 	 */
-	private String computeAxesignature(Universe universe) {
+	private String computeAxesSignature(Universe universe) {
 		ArrayList<GroupByAxis> ordered = new ArrayList<>(analysis.getGrouping());
 		Collections.sort(ordered, new Comparator<GroupByAxis>() {
 			@Override
@@ -67,6 +70,9 @@ public class CachedAnalysisSignature {
 			}
 		});
 		StringBuilder signature = new StringBuilder(universe.getProject().getOid());
+		//
+		signature.append("#").append(measures.getRoot().getOid());
+		//
 		for (GroupByAxis axis : ordered) {
 			signature.append("#").append(axis.getAxis().getId());
 		}
