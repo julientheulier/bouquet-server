@@ -24,61 +24,56 @@
 package com.squid.kraken.v4.core.analysis.engine.processor;
 
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
+import java.util.List;
 
 import com.squid.kraken.v4.core.analysis.model.DashboardAnalysis;
-import com.squid.kraken.v4.core.analysis.model.GroupByAxis;
 import com.squid.kraken.v4.core.analysis.model.MeasureGroup;
-import com.squid.kraken.v4.core.analysis.universe.Universe;
 
 /**
- * Prototype: this class allow to define an analysis signature to intelligently reuse cached matrix
+ * Information to handle a match
  * @author sergefantino
  *
  */
-public class CachedAnalysis {
+public class AnalysisSmartCacheMatch {
 	
-	private DashboardAnalysis analysis;
-	private MeasureGroup measures;
+	private AnalysisSignature signature;
+	private List<DataMatrixTransform> postProcessing = new ArrayList<>();
 	
-	private String axesSignature = null;
-
-	public CachedAnalysis(Universe universe, DashboardAnalysis analysis, MeasureGroup measures) {
+	public AnalysisSmartCacheMatch(AnalysisSignature signature) {
 		super();
-		this.analysis = analysis;
-		this.measures = measures;
-		this.axesSignature = computeAxesSignature(universe);
+		this.signature = signature;
 	}
 	
 	/**
-	 * @return the axesSignature
+	 * @return the signature
 	 */
-	public String getAxesSignature() {
-		return axesSignature;
+	public AnalysisSignature getSignature() {
+		return signature;
+	}
+	
+	/**
+	 * @return the analysis
+	 */
+	public DashboardAnalysis getAnalysis() {
+		return signature.getAnalysis();
+	}
+	
+	/**
+	 * @return the measures
+	 */
+	public MeasureGroup getMeasures() {
+		return signature.getMeasures();
 	}
 
 	/**
-	 * @return
+	 * @return the postProcessing
 	 */
-	private String computeAxesSignature(Universe universe) {
-		ArrayList<GroupByAxis> ordered = new ArrayList<>(analysis.getGrouping());
-		Collections.sort(ordered, new Comparator<GroupByAxis>() {
-			@Override
-			public int compare(GroupByAxis o1, GroupByAxis o2) {
-				return o1.getAxis().getId().compareTo(o2.getAxis().getId());
-			}
-		});
-		StringBuilder signature = new StringBuilder(universe.getProject().getOid());
-		//
-		signature.append("#").append(measures.getRoot().getOid());
-		//
-		for (GroupByAxis axis : ordered) {
-			signature.append("#").append(axis.getAxis().getId());
-		}
-		return signature.toString();
+	public List<DataMatrixTransform> getPostProcessing() {
+		return postProcessing;
 	}
 	
+	public void addPostProcessing(DataMatrixTransform transform) {
+		postProcessing.add(transform);
+	}
 	
-
 }
