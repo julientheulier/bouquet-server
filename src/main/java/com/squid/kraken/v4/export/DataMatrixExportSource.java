@@ -30,6 +30,7 @@ import com.squid.core.export.IRawExportSource;
 import com.squid.kraken.v4.caching.redis.datastruct.RawRow;
 import com.squid.kraken.v4.core.analysis.datamatrix.AxisValues;
 import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
+import com.squid.kraken.v4.core.analysis.datamatrix.MeasureValues;
 import com.squid.kraken.v4.core.analysis.universe.Measure;
 import org.apache.avro.Schema;
 
@@ -74,18 +75,19 @@ public class DataMatrixExportSource implements IRawExportSource{
 					this.needReorder = true;
 				}
 			}		
-			for(int i = 0; i <matrix.getKPIs().size() ; i++ ){		
-				Measure av = matrix.getKPIs().get(i);
+			for (int i = 0; i <matrix.getKPIs().size() ; i++ ){		
+				MeasureValues mv = matrix.getKPIs().get(i);
+				Measure m = mv.getMeasure();
 				int originalPos = i+countAxes;//dataIndirection[i];
-				this.columnNames[originalPos] = av.getName();
+				this.columnNames[originalPos] = m.getName();
 						//matrix.getPropertyToAlias().get(av) ;
-				this.columnTypes[originalPos] = matrix.getPropertyToInteger().get(av);	
+				this.columnTypes[originalPos] = matrix.getPropertyToInteger().get(m);	
 				
 				// so we need the indirection
 				this.columnMapping[originalPos] = matrix.getDataIndirection(i);
 				if (this.columnMapping[originalPos]!=originalPos) {
 					this.needReorder = true;
-				}	
+				}
 			}
 			
 			if (columnCount<matrix.getRowSize()) {
