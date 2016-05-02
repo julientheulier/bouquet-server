@@ -133,13 +133,17 @@ public class RedisCacheManager implements IRedisCacheManager {
 	public RedisCacheValue getRedisCacheValueLazy(String SQLQuery, List<String> dependencies, String RSjdbcURL,
 			String username, String pwd, int TTLinSec) {
 		String k = buildCacheKey(SQLQuery, dependencies);
-		RedisCacheValue val  = this.redis.getRawOrList(k);
-		if(val instanceof RedisCacheValuesList){
-			return validateCacheList( (RedisCacheValuesList) val ); 
-		}else{			
-			return val;
+		RedisCacheValue val = this.redis.getRawOrList(k);
+		if (val!=null) {
+			val.setFromCache(true);
+			if (val instanceof RedisCacheValuesList) {
+				return validateCacheList((RedisCacheValuesList) val);
+			} else {
+				return val;
+			}
+		} else {
+			return null;
 		}
-
 	}
 
 	public RedisCacheValue getRedisCacheValue(String SQLQuery, List<String> dependencies, String RSjdbcURL,
@@ -147,6 +151,7 @@ public class RedisCacheManager implements IRedisCacheManager {
 		String k = buildCacheKey(SQLQuery, dependencies);
 		RedisCacheValue val = this.redis.getRawOrList(k);
 		if (val != null) {
+			val.setFromCache(true);
 			if(val instanceof RedisCacheValuesList){
 				RedisCacheValuesList validated = validateCacheList( (RedisCacheValuesList) val ); 
 				if (validated!=null){

@@ -46,6 +46,7 @@ import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
 import com.squid.kraken.v4.caching.redis.datastruct.RawMatrixStreamExecRes;
 import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValuesList;
 import com.squid.kraken.v4.core.database.impl.DatabaseServiceImpl;
+import com.squid.kraken.v4.core.database.impl.DriversService;
 import com.squid.kraken.v4.core.database.impl.ExecuteQueryTask;
 import com.squid.kraken.v4.core.database.impl.SimpleDatabaseManager;
 
@@ -103,8 +104,6 @@ public class QueryWorkerServer implements IQueryWorkerServer {
 
 	public void start() {
 		logger.info("Starting query worker " + this.host + " " + this.port + " max record " + this.maxRecords);
-		// load the drivers
-		DatabaseServiceImpl.initDriver();
 		redis = RedisCacheProxy.getInstance(new ServerID(this.REDIS_SERVER_HOST, this.REDIS_SERVER_PORT));
 	}
 
