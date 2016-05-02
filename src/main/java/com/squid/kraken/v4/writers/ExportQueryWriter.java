@@ -49,7 +49,7 @@ public class ExportQueryWriter extends QueryWriter {
 	static final Logger logger = LoggerFactory.getLogger(QueryWriter.class);
 
 	public ExportQueryWriter(ExportSourceWriter w, OutputStream out, String jobId) {
-		super(null);// no postProcessing
+		super();
 		this.out = out;
 		this.writer = w;
 		this.jobID = jobId;
