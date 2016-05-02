@@ -93,7 +93,7 @@ public class DataMatrix {
 
 	private String redisKey;
 	
-	private List<Measure> kpis = new ArrayList<Measure>();
+	private List<MeasureValues> measures = new ArrayList<MeasureValues>();
 	private List<AxisValues> axes = new ArrayList<AxisValues>();
 
 	private int[] axesIndirection;
@@ -144,7 +144,7 @@ public class DataMatrix {
 		for (AxisValues d : parent.getAxes()) {
 			add(new AxisValues(d));
 		}
-		this.kpis.addAll(parent.getKPIs());
+		this.measures.addAll(parent.getKPIs());
 		this.fromCache = parent.fromCache;
 		this.executionDate = parent.executionDate;
 		this.fullset = parent.fullset;
@@ -243,7 +243,7 @@ public class DataMatrix {
 	}
 
 	public int getRowSize() {
-		return this.axes.size()+this.kpis.size();
+		return this.axes.size()+this.measures.size();
 	}
 
 	public int getAxesSize() {
@@ -267,7 +267,7 @@ public class DataMatrix {
 	}
 
 	public int getDataSize() {
-		return this.kpis.size();
+		return this.measures.size();
 	}
 
 	public Database getDatabase() {
@@ -299,7 +299,7 @@ public class DataMatrix {
 	}
 
 	public boolean add(Measure data) {
-		return kpis.add(data);
+		return measures.add(new MeasureValues(data));
 	}
 
 	public boolean add(AxisValues data) {
@@ -310,8 +310,8 @@ public class DataMatrix {
 		rows.add(r);
 	}
 
-	public List<Measure> getKPIs() {
-		return kpis;
+	public List<MeasureValues> getKPIs() {
+		return measures;
 	}
 
 	public List<AxisValues> getAxes() {
@@ -332,6 +332,16 @@ public class DataMatrix {
 		for (AxisValues ax : axes) {
 			if (ax.getAxis().equals(axis)) {
 				return ax;
+			}
+		}
+		// else
+		return null;
+	}
+
+	public MeasureValues getColumn(Measure measure) {
+		for (MeasureValues x : measures) {
+			if (x.getProperty().equals(measure)) {
+				return x;
 			}
 		}
 		// else
@@ -396,10 +406,11 @@ public class DataMatrix {
 			}
 			if (!check) {
 				// try the kpis
-				for (Measure kpi : getKPIs()) {
-					if (kpi.getReference().equals(itemExpr)) {
+				for (MeasureValues v : getKPIs()) {
+					if (v.getMeasure().getReference().equals(itemExpr)) {
 						ordering.add(pos);
 						direction.add(item.getOrdering());
+						v.setOrdering(item.getOrdering());
 						check = true;
 						break;
 					}
@@ -741,10 +752,9 @@ public class DataMatrix {
 			}
 			int i = 0;
 			for (int k = 0; k < getDataSize(); k++, i++) {
-				Measure kpi = kpis.get(k);
+				MeasureValues kpi = measures.get(k);
 				Object value = getDataValue(i, row);
-
-				output.append(kpi.getName()).append("=").append(value != null ? value.toString() : "--").append(";");
+				output.append(kpi.getProperty().getName()).append("=").append(value != null ? value.toString() : "--").append(";");
 			}
 			//
 			logger.info(output.toString());
@@ -763,9 +773,9 @@ public class DataMatrix {
 			AxisValues m = axes.get(i);
 			header.append(m.getAxis().getDimension().getName()).append(";");
 		}
-		for (int i = 0; i < kpis.size(); i++) {
-			Measure m = kpis.get(i);
-			header.append(m.getName()).append(";");
+		for (int i = 0; i < measures.size(); i++) {
+			MeasureValues m = measures.get(i);
+			header.append(m.getProperty().getName()).append(";");
 		}
 		logger.info(header.toString());
 		// expot data
@@ -800,7 +810,7 @@ public class DataMatrix {
 		List<AxisValues> axes = this.getAxes();
 
 		List<RawRow> rows = this.getRows();
-		List<Measure> kpis = this.getKPIs();
+		List<MeasureValues> kpis = this.getKPIs();
 
 		// export header
 		List<Col> header = table.getCols();
@@ -837,13 +847,16 @@ public class DataMatrix {
 			}
 		}
 		for (int i = 0; i < kpis.size(); i++) {
-			Measure m = kpis.get(i);
-			Metric metric = m.getMetric();
-			ExtendedType type = getExtendedType(m.getDefinitionSafe());
-			Col col = new Col(metric != null ? metric.getId() : null, m.getName(), type, Col.Role.DATA);
-			col.setDefinition(m.prettyPrint());
-			col.setOriginType(m.getOriginType());
-			header.add(col);
+			MeasureValues v = kpis.get(i);
+			if (v.isVisible()) {
+				Measure m = v.getMeasure();
+				Metric metric = m.getMetric();
+				ExtendedType type = getExtendedType(m.getDefinitionSafe());
+				Col col = new Col(metric != null ? metric.getId() : null, m.getName(), type, Col.Role.DATA);
+				col.setDefinition(m.prettyPrint());
+				col.setOriginType(m.getOriginType());
+				header.add(col);
+			}
 		}
 		// export data
 		List<DataTable.Row> tableRows = table.getRows();
@@ -875,11 +888,14 @@ public class DataMatrix {
 					}
 				}
 				for (int i = 0; i < kpi_count; i++) {
-					Object value = getDataValue(i, row);
-					if ((value == null) && replaceNullValues) {
-						values[colIdx++] = "";
-					} else {
-						values[colIdx++] = value;
+					MeasureValues m = kpis.get(i);
+					if (m.isVisible()) {
+						Object value = getDataValue(i, row);
+						if ((value == null) && replaceNullValues) {
+							values[colIdx++] = "";
+						} else {
+							values[colIdx++] = value;
+						}
 					}
 				}
 				//
@@ -927,7 +943,7 @@ public class DataMatrix {
 	@Override
 	public String toString() {
 		StringBuilder dump = new StringBuilder();
-		dump.append("DataMatrix: size=" + (axes.size() + kpis.size()) + "x" + rows.size()
+		dump.append("DataMatrix: size=" + (axes.size() + measures.size()) + "x" + rows.size()
 				+ (fullset ? "(full)" : "(partial)"));
 		if (rows != null) {
 			int i = 0;
