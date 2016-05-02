@@ -61,6 +61,7 @@ import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValuesList;
 import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionMember;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
+import com.squid.kraken.v4.core.analysis.engine.processor.DataMatrixTransform;
 import com.squid.kraken.v4.core.analysis.engine.processor.DataMatrixTransformOrderBy;
 import com.squid.kraken.v4.core.analysis.engine.processor.DataMatrixTransformTruncate;
 import com.squid.kraken.v4.core.analysis.engine.processor.DateExpressionAssociativeTransformationExtractor;
@@ -92,6 +93,8 @@ public class BaseQuery implements IQuery {
 	protected SelectUniversal select;
 
 	private QueryMapper mapper = new QueryMapper();
+	
+	private List<DataMatrixTransform> postProcessing = new ArrayList<>();
 
 	public BaseQuery() {
 		//
@@ -113,6 +116,22 @@ public class BaseQuery implements IQuery {
 	public BaseQuery(Universe universe, Domain subject) throws SQLScopeException, ScopeException {
 		this(universe);
 		this.select.from(universe.S(subject));
+	}
+
+	/**
+	 * Add a postProcessing step for latter use
+	 * @param dataMatrixTransformOrderBy
+	 */
+	public void addPostProcessing(DataMatrixTransform dataMatrixTransform) {
+		this.postProcessing.add(dataMatrixTransform);
+	}
+	
+	/**
+	 * Get all the defined postProcessing steps
+	 * @return the postProcessing
+	 */
+	public List<DataMatrixTransform> getPostProcessing() {
+		return postProcessing;
 	}
 
 	public SelectUniversal getSelect() {
@@ -316,10 +335,10 @@ public class BaseQuery implements IQuery {
 					}
 				if (result!=null) {
 					if (!getOrderBy().isEmpty()) {
-						writer.addPostProcessing(new DataMatrixTransformOrderBy(getOrderBy()));
+						addPostProcessing(new DataMatrixTransformOrderBy(getOrderBy()));
 					}
 					if (getSelect().getStatement().hasLimitValue() || getSelect().getStatement().hasOffsetValue()) {
-						writer.addPostProcessing(new DataMatrixTransformTruncate(getSelect().getStatement().getLimitValue(), getSelect().getStatement().getOffsetValue()));
+						addPostProcessing(new DataMatrixTransformTruncate(getSelect().getStatement().getLimitValue(), getSelect().getStatement().getOffsetValue()));
 					}
 				}
 			}
@@ -356,8 +375,6 @@ public class BaseQuery implements IQuery {
 			throw new ComputingException("Failed to compute or retrieve the matrix");
 		}		
 	}
-
-
 
 	/**
 	 * execute the SQL statement and return the result as a DataMatrix; 
