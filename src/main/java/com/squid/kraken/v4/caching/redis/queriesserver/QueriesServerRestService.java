@@ -27,38 +27,33 @@ import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.QueryParam;
 
-
 public class QueriesServerRestService {
-	
+
 	private QueriesServer delegate;
-	
-	public QueriesServerRestService(QueriesServer s){
-		
-		this.delegate=s; 
+
+	public QueriesServerRestService(QueriesServer s) {
+
+		this.delegate = s;
 	}
-	
+
 	@GET
 	@Path("/fetch")
-	public boolean fetch(@QueryParam("key") String key, 
-			@QueryParam("sqlquery") String SQLQuery, 
-			@QueryParam("jdbc") String RSjdbcURL,
-			@QueryParam("user") String username, 
-			@QueryParam("pwd") String pwd,
-			@QueryParam("ttl") int ttl,
-			@QueryParam("limit") long limit) throws InterruptedException{
-		return this.delegate.fetch(key,SQLQuery, RSjdbcURL, username, pwd, ttl, limit) ;
+	public int fetch(@QueryParam("key") String key, @QueryParam("sqlquery") String SQLQuery,
+			@QueryParam("jobid") String jobID, @QueryParam("jdbc") String RSjdbcURL,
+			@QueryParam("user") String username, @QueryParam("pwd") String pwd, @QueryParam("ttl") int ttl,
+			@QueryParam("limit") long limit) throws InterruptedException {
+		return this.delegate.fetch(key, SQLQuery, jobID, RSjdbcURL, username, pwd, ttl, limit);
 	}
-	
-	
+
 	@GET
 	@Path("/ongoing")
-	public boolean ongoing(@QueryParam("key") String key){
-		return this.delegate.isQueryOngoing(key);		
+	public boolean ongoing(@QueryParam("key") String key) {
+		return this.delegate.isQueryOngoing(key);
 	}
 
 	@GET
 	@Path("/hello")
-	public String hello(){
+	public String hello() {
 		return delegate.hello();
 	}
 }
