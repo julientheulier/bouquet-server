@@ -30,7 +30,6 @@ import java.util.HashMap;
 import com.esotericsoftware.kryo.io.Input;
 
 public class RedisCacheValue {
-
 	
 	public enum RedisCacheType{
 		RAW_MATRIX, CACHE_REFERENCE, CACHE_REFERENCE_LIST
@@ -40,10 +39,24 @@ public class RedisCacheValue {
 	
 	private transient String redisKey = null;
 
+	private transient boolean fromCache = false;
 	
 	public RedisCacheValue(){
 	}
 	
+	/**
+	 * @return true if the value was in the cache and false if it has just been computed
+	 */
+	public boolean isFromCache() {
+		return fromCache;
+	}
+	
+	/**
+	 * @param fromCache the fromCache to set
+	 */
+	public void setFromCache(boolean fromCache) {
+		this.fromCache = fromCache;
+	}
 
 	public String getRedisKey() {
 		return redisKey;
@@ -55,66 +68,69 @@ public class RedisCacheValue {
 	
     public static RedisCacheValue deserialize(byte[] serializedVal) throws IOException, ClassNotFoundException{
         Input in = new Input( new ByteArrayInputStream(serializedVal));
-        
-        HashMap <String, Integer> registration = new HashMap <String, Integer>() ;
-
-        //READ HEADER
-        
-        //classes registration (used by Kryo)
-        int nbClasses = in.readInt();
-        for (int i = 0; i <nbClasses; i++){
-            String className = in.readString();
-            int id  = in.readInt();
-            registration.put(className, id);
+        try {
+		    HashMap <String, Integer> registration = new HashMap <String, Integer>() ;
+		
+		    //READ HEADER
+		    
+		    //classes registration (used by Kryo)
+		    int nbClasses = in.readInt();
+		    for (int i = 0; i <nbClasses; i++){
+		        String className = in.readString();
+		        int id  = in.readInt();
+		        registration.put(className, id);
+		    }
+		    
+		    // get version         
+		    int position = in.position(); // in case there is no version available;
+		    
+		    int version;
+		    int type ;
+		    int check_version = in.readInt();
+		           
+		    if (check_version==-1) {
+		        // version>=1, read the version in the stream
+		        version = in.readInt();// read the version
+		        if (version<2){
+		        	type = RedisCacheType.RAW_MATRIX.ordinal();
+		        }else{
+		        	type = in.readInt() ;
+		        }
+		    } else {
+		        // version=0, no information in stream
+		    	version = 0;
+		    	type = RedisCacheType.RAW_MATRIX.ordinal();
+		    	in.setPosition(position) ;
+		    }
+		            
+		    //delegate deserialization to the concrete  class
+		    if (type == RedisCacheType.RAW_MATRIX.ordinal()){
+		        RawMatrix res =  new RawMatrix(version, registration );
+		        res.readObject(in) ;
+		        in.close();
+		        return res;
+		
+		    }else{
+		    	if (type == RedisCacheType.CACHE_REFERENCE.ordinal()){
+		    		RedisCacheReference  res = new RedisCacheReference();
+		    		res.readObject(in);
+		    		in.close();
+		    		return res;
+		    	}else{
+		    		if (type == RedisCacheType.CACHE_REFERENCE_LIST.ordinal()){
+		    			RedisCacheValuesList  res = new RedisCacheValuesList();
+		        		res.readObject(in);
+		        		in.close();
+		        		return res;
+		    			
+		    		}else{
+		    			throw new ClassNotFoundException("Could not deserialize Redis Cache Value");
+		    		}
+		    	}
+			}
+        } finally {
+        	in.close();
         }
-        
-        // get version         
-        int position = in.position(); // in case there is no version available;
-        
-        int version;
-        int type ;
-        int check_version = in.readInt();
-               
-        if (check_version==-1) {
-            // version>=1, read the version in the stream
-            version = in.readInt();// read the version
-            if (version<2){
-            	type = RedisCacheType.RAW_MATRIX.ordinal();
-            }else{
-            	type = in.readInt() ;
-            }
-        } else {
-            // version=0, no information in stream
-        	version = 0;
-        	type = RedisCacheType.RAW_MATRIX.ordinal();
-        	in.setPosition(position) ;
-        }
-                
-        //delegate deserialization to the concrete  class
-        if (type == RedisCacheType.RAW_MATRIX.ordinal()){
-            RawMatrix res =  new RawMatrix(version, registration );
-            res.readObject(in) ;
-            in.close();
-            return res;
-
-        }else{
-        	if (type == RedisCacheType.CACHE_REFERENCE.ordinal()){
-        		RedisCacheReference  res = new RedisCacheReference();
-        		res.readObject(in);
-        		in.close();
-        		return res;
-        	}else{
-        		if (type == RedisCacheType.CACHE_REFERENCE_LIST.ordinal()){
-        			RedisCacheValuesList  res = new RedisCacheValuesList();
-            		res.readObject(in);
-            		in.close();
-            		return res;
-        			
-        		}else{
-        			throw new ClassNotFoundException("Could not deserialize Redis Cache Value");
-        		}
-        	}
-    	}        
     }
 
 }

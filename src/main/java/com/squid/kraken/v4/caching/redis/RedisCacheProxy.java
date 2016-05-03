@@ -179,7 +179,7 @@ public class RedisCacheProxy implements IRedisCacheProxy {
 				RedisCacheValue  val = RedisCacheValue.deserialize(serialized);
 				if (val instanceof RawMatrix){
 					RawMatrix res= (RawMatrix) val;
-					res.setRedisKey(currKey); 
+					res.setRedisKey(currKey);
 					return res;
 				}else{
 					if(val instanceof  RedisCacheReference){	
