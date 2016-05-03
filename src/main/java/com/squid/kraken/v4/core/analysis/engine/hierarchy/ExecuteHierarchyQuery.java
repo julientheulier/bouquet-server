@@ -94,6 +94,7 @@ public class ExecuteHierarchyQuery implements CancellableCallable<Boolean> {
 			DatasourceDefinition ds = select.getDatasource();
 			String SQL = select.render();
 			executeQueryTask = ds.getDBManager().createExecuteQueryTask(SQL);
+			executeQueryTask.setWorkerId("front");
 			executeQueryTask.prepare();
 			this.countDown.countDown();// now ok to count-down because the query is already in the queue
 			this.countDown = null;// clear the count-down

@@ -314,7 +314,6 @@ public abstract class JobServiceBaseImpl<T extends ComputationJob<PK, R>, PK ext
         job.setStatistics(null);
         job.setError(null);
         job.setStatus(Status.PENDING);
-        logger.info("job persist");
         job = super.store(ctx, job);
       }
       if (outputCompression == OutputCompression.GZIP) {
@@ -367,7 +366,6 @@ public abstract class JobServiceBaseImpl<T extends ComputationJob<PK, R>, PK ext
    * @return a job.
    */
   public T store(AppContext ctx, T job, Integer timeout, boolean run, Integer maxResults, Integer startIndex, boolean lazy) {
-    logger.info("job store begin + lazy? " + lazy);
     T jobToStart = null;
     AppContext jobctx = ctx;
     T existingJob = null;
@@ -411,14 +409,12 @@ public abstract class JobServiceBaseImpl<T extends ComputationJob<PK, R>, PK ext
     jobToStart.setStatistics(null);
     jobToStart.setError(null);
     jobToStart.setStatus(Status.PENDING);
-    logger.info("job persist");
     jobToStart = super.store(jobctx, jobToStart);
 
     // start the job
     if (run) {
       jobToStart = runJob(jobctx, jobToStart, timeout, false, maxResults, startIndex, lazy, returnJob);
     }
-    logger.info("job store end");
     return jobToStart;
   }
 
@@ -443,7 +439,6 @@ public abstract class JobServiceBaseImpl<T extends ComputationJob<PK, R>, PK ext
    * @return
    */
   private T runJob(AppContext ctx, T jobToStart, Integer timeout, boolean forceAutoRun, Integer maxResults, Integer startIndex, boolean lazy, boolean returnJob) {
-    logger.info("run job lazy?" + lazy);
     if ((!jobToStart.getStatus().equals(Status.RUNNING)) && ((jobToStart.getAutoRun() == true) || forceAutoRun)) {
       JobTask<T, PK, R> task = new JobTask<T, PK, R>(ctx, jobToStart, computer, type, maxResults, startIndex, lazy, returnJob);
       // and start it

@@ -45,8 +45,6 @@ import com.squid.kraken.v4.caching.redis.datastruct.ChunkRef;
 import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
 import com.squid.kraken.v4.caching.redis.datastruct.RawMatrixStreamExecRes;
 import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValuesList;
-import com.squid.kraken.v4.core.database.impl.DatabaseServiceImpl;
-import com.squid.kraken.v4.core.database.impl.DriversService;
 import com.squid.kraken.v4.core.database.impl.ExecuteQueryTask;
 import com.squid.kraken.v4.core.database.impl.SimpleDatabaseManager;
 
@@ -76,8 +74,8 @@ public class QueryWorkerServer implements IQueryWorkerServer {
 	private String REDIS_SERVER_HOST;
 	private int REDIS_SERVER_PORT;
 	private IRedisCacheProxy redis;
-	
-	private ConcurrentHashMap<String, CallableChunkedMatrixFetch> ongoingLongQueries ;
+
+	private ConcurrentHashMap<String, CallableChunkedMatrixFetch> ongoingLongQueries;
 
 	public QueryWorkerServer(RedisCacheConfig conf) {
 		this.load = new AtomicInteger(0);
@@ -92,9 +90,9 @@ public class QueryWorkerServer implements IQueryWorkerServer {
 		this.defaultTTLinSec = conf.getTtlInSecond();
 
 		RawMatrix.setMaxChunkSizeInMB(conf.getMaxChunkSizeInMByte());
-		
+
 		this.ongoingLongQueries = new ConcurrentHashMap<String, CallableChunkedMatrixFetch>();
-		
+
 		logger.info("New Query Worker " + this.host + " " + this.port);
 	}
 
@@ -117,7 +115,7 @@ public class QueryWorkerServer implements IQueryWorkerServer {
 	}
 
 	@Override
-	public boolean fetch(String k, String SQLQuery, String RSjdbcURL, String username, String pwd, int ttl,
+	public int fetch(String k, String SQLQuery, String jobId, String RSjdbcURL, String username, String pwd, int ttl,
 			long limit) {
 		IExecutionItem item = null;
 		String dbKey = username + "\\" + RSjdbcURL + "\\" + pwd;
@@ -131,20 +129,21 @@ public class QueryWorkerServer implements IQueryWorkerServer {
 				}
 			}
 
-			ExecuteQueryTask exec = db.createExecuteQueryTask(SQLQuery) ;
-			
+			ExecuteQueryTask exec = db.createExecuteQueryTask(SQLQuery);
+			exec.setWorkerId(this.host + ":" + this.port);
+			exec.setJobId(jobId);
 			item = exec.call();
-//			item = db.executeQuery(SQLQuery);
 
 			RawMatrixStreamExecRes serializedRes = RawMatrix.streamExecutionItemToByteArray(item, maxRecords, limit);
 			logger.info("limit " + limit + ", linesProcessed " + serializedRes.getNbLines() + " hasMore:"
 					+ serializedRes.hasMore());
 			if (!serializedRes.hasMore()) {
 				try {
-					logger.info("SQLQuery #" + item.getID() + " fits in one chunk; queryid=" + item.getID());
+					logger.info("SQLQuery #" + item.getID() + " jobId " + jobId + " fits in one chunk; queryid="
+							+ item.getID());
 					if (!put(k, serializedRes.getStreamedMatrix(), ttl)) {
-						throw new RedisCacheException(
-								"We did not manage to store the result for queryid=#" + item.getID() + "in redis");
+						throw new RedisCacheException("We did not manage to store the result for queryid=#"
+								+ item.getID() + "jobId " + jobId + "in redis");
 					}
 				} finally {
 					if (item != null)
@@ -152,24 +151,25 @@ public class QueryWorkerServer implements IQueryWorkerServer {
 				}
 
 			} else {
-				logger.info("SQLQuery #" + item.getID() + " does not fit in one chunk; queryid=" + item.getID());
+				logger.info("SQLQuery #" + item.getID() + " jobId " + jobId + " does not fit in one chunk; queryid="
+						+ item.getID());
 				// store first batch
 				String batchKey = k + "_" + 0 + "-" + (serializedRes.getNbLines() - 1);
 				if (!put(batchKey, serializedRes.getStreamedMatrix(), ttl)) {
-					throw new RedisCacheException(
-							"We did not manage to store the result for queryid=#" + item.getID() + "in redis");
+					throw new RedisCacheException("We did not manage to store the result for queryid=" + item.getID()
+							+ " jobId " + jobId + " in redis");
 				}
 				// save the batch list under the main key
 				RedisCacheValuesList valuesList = new RedisCacheValuesList();
 				valuesList.addReferenceKey(new ChunkRef(batchKey, 0, serializedRes.getNbLines() - 1));
 				put(k, valuesList);
 				// process the remaining row in a separate thread
-				CallableChunkedMatrixFetch chunkedMatrixFetch = new CallableChunkedMatrixFetch(this, k, valuesList,
-						item, ttl, serializedRes.getNbLines(), limit);
+				CallableChunkedMatrixFetch chunkedMatrixFetch = new CallableChunkedMatrixFetch(this, k, jobId,
+						valuesList, item, ttl, serializedRes.getNbLines(), limit);
 				this.executor.submit(chunkedMatrixFetch);
 				this.ongoingLongQueries.put(k, chunkedMatrixFetch);
 			}
-			return true;
+			return item.getID();
 		} catch (ExecutionException e) {
 			throw new RedisCacheException(e);
 		} catch (SQLException | IOException e) {
@@ -205,13 +205,18 @@ public class QueryWorkerServer implements IQueryWorkerServer {
 	public void decrementLoad() {
 		load.decrementAndGet();
 	}
-	public void removeOngoingQuery(String k){
+
+	public void removeOngoingQuery(String k) {
 		this.ongoingLongQueries.remove(k);
+	}
+
+	public String getWorkerId() {
+		return this.host + ":" + this.port;
 	}
 
 	@Override
 	public boolean isQueryOngoing(String k) {
-		return (this.ongoingLongQueries.containsKey(k)) ;
+		return (this.ongoingLongQueries.containsKey(k));
 
 	}
 

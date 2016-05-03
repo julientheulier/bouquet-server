@@ -57,9 +57,11 @@ class CallableChunkedMatrixFetch implements Callable<Boolean> {
 	private long batchUpperBound;
 	private RedisCacheValuesList valuesList;
 	private QueryWorkerServer server;
+	private String workerId;
+	private String jobId;
 
-	public CallableChunkedMatrixFetch(QueryWorkerServer server, String key, RedisCacheValuesList valuesList,
-			IExecutionItem item, int ttl, long nbLinesRead, long limit) {
+	public CallableChunkedMatrixFetch(QueryWorkerServer server, String key, String jobId,
+			RedisCacheValuesList valuesList, IExecutionItem item, int ttl, long nbLinesRead, long limit) {
 		this.server = server;
 		this.key = key;
 		this.item = item;
@@ -69,6 +71,7 @@ class CallableChunkedMatrixFetch implements Callable<Boolean> {
 		this.batchUpperBound = nbLinesRead;
 		this.valuesList = valuesList;
 		this.nbBatches = 1;
+		this.workerId = this.server.getWorkerId();
 	}
 
 	@Override
@@ -109,10 +112,11 @@ class CallableChunkedMatrixFetch implements Callable<Boolean> {
 			} while (!done && !error);
 
 			if (error) {
-				throw new RedisCacheException(
-						"We did not manage to store the result for queryid #" + item.getID() + "in redis");
+				throw new RedisCacheException("We did not manage to store the result for queryid=" + item.getID()
+						+ " jobId " + this.jobId + " on worker " + workerId + " in redis");
 			} else {
-				logger.info("Result for SQLQuery#" + item.getID() + "was split into " + nbBatches + " batches; queryid=#" + item.getID());
+				logger.info("Result for SQLQuery#" + item.getID() + " jobId " + this.jobId + " on worker " + workerId
+						+ "was split into " + nbBatches + " batches; queryid=" + item.getID());
 			}
 			return true;
 		} finally {

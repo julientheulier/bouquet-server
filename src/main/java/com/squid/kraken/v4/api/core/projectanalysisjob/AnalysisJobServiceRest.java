@@ -124,7 +124,6 @@ public class AnalysisJobServiceRest extends BaseServiceRest {
       @ApiParam(value = "if true, get the analysis only if already in cache", defaultValue = "false") @QueryParam("lazy") boolean lazy,
       @ApiParam(value = "output format", allowableValues = "json,csv,vxls", defaultValue = "json") @QueryParam("format") String format,
       @ApiParam(value = "output compression", allowableValues = "gzip, none, null", defaultValue = "none") @QueryParam("compression") String compression) {
-    logger.info("getResults : lazy?" + lazy);
 
     final ProjectAnalysisJobPK id = new ProjectAnalysisJobPK(userContext.getCustomerId(), projectId, jobId);
     final ProjectAnalysisJob job = new ProjectAnalysisJob(id);
@@ -364,7 +363,7 @@ public class AnalysisJobServiceRest extends BaseServiceRest {
     response = Response.ok(stream);
     response.header("Content-Type", mediaType);
     if (setFileName && ((outFormat != OutputFormat.JSON) || (outCompression != OutputCompression.NONE))) {
-      logger.info("returnin results as " + mediaType + ", fileName : " + fileName);
+      logger.info("returning results as " + mediaType + ", fileName : " + fileName);
       response.header("Content-Disposition", "attachment; filename=" + fileName);
     }
 

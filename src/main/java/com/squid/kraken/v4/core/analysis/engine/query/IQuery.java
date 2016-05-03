@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright © Squid Solutions, 2016
+  * Copyright © Squid Solutions, 2016
  *
  * This file is part of Open Bouquet software.
  *  
@@ -32,21 +32,18 @@ import com.squid.kraken.v4.core.sql.script.SQLScript;
 
 /**
  * A very simple interface to run SQL seelct
+ * 
  * @author sfantino
  *
  */
 public interface IQuery {
 
-
-	public DataMatrix run() throws ComputingException;
-	
 	public SQLScript generateScript() throws SQLScopeException;
-	
+
 	public String render() throws RenderingException;
-	
+
 	public String viewSQL();
 
 	public SelectUniversal getSelectUniversal();
-
 
 }

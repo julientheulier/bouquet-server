@@ -67,6 +67,9 @@ public class ExecuteQueryTask implements CancellableCallable<IExecutionItem> {
 	private boolean prepared = false;
 	private volatile boolean abort = false;
 
+	private String workerId;
+	private String jobId;
+	
 	public ExecuteQueryTask(DatabaseManager ds, int queryNum, String sql) {
 		this.ds = ds;
 		this.queryNum = queryNum;
@@ -77,9 +80,9 @@ public class ExecuteQueryTask implements CancellableCallable<IExecutionItem> {
         if (statement!=null) {
             try {
                 statement.cancel();
-	            logger.info("cancel SQLQuery#" + queryNum);
+	            logger.info("cancel SQLQuery#" + queryNum +" jobId "+jobId + " on worker " + this.workerId );
             } catch (SQLException e) {
-	            logger.error("failed to cancel SQLQuery#" + queryNum);
+	            logger.error("failed to cancel SQLQuery#" + queryNum + " jobId "+jobId + " on worker " + this.workerId);
             }
         }
         this.abort = true;// signal that client should abort asap
@@ -96,6 +99,14 @@ public class ExecuteQueryTask implements CancellableCallable<IExecutionItem> {
 		return abort;
 	}
 
+	public void setWorkerId(String workerId){
+		this.workerId = workerId;
+	}
+	
+	public void setJobId(String jobId){
+		this.jobId = jobId;
+	}
+	
 	/**
 	 * optionally prepare the call and make sure to allocate a connection from
 	 * the pool
@@ -122,7 +133,7 @@ public class ExecuteQueryTask implements CancellableCallable<IExecutionItem> {
 						// ignore
 					}
 				}
-				logger.error("failed to prepare SQLQuery#" + queryNum + " queryid=" + queryNum
+				logger.error("failed to prepare SQLQuery#" + queryNum + " jobId "+jobId + " on worker " + this.workerId + " queryid=" + queryNum
 						+ " method=prepare() status=error error=" + e.toString());
 				throw e;
 			}
@@ -137,7 +148,7 @@ public class ExecuteQueryTask implements CancellableCallable<IExecutionItem> {
 			boolean needCommit = false;
 
 			if (connection == null || statement == null) {
-				throw new SQLException("failed to connect SQLQuery#" + queryNum + " queryid=" + queryNum
+				throw new SQLException("failed to connect SQLQuery#" + queryNum + " jobId "+jobId + " on worker " + this.workerId + " queryid=" + queryNum
 						+ " method=call() status=error");
 			}
 			// ok to start
@@ -155,10 +166,10 @@ public class ExecuteQueryTask implements CancellableCallable<IExecutionItem> {
 				IJDBCDataFormatter formatter = ds.getDataFormatter(connection);
 
 				statement.setFetchSize(formatter.getFetchSize());
-				logger.info("starting SQLQuery#" + queryNum + " jdbc=" + ds.getConfig().getJdbcUrl() + " sql=\n" + sql
+				logger.info("starting SQLQuery#" + queryNum +" jobId "+jobId + " on worker " + this.workerId+ " jdbc=" + ds.getConfig().getJdbcUrl() + " sql=\n" + sql
 						+ "\n hashcode=" + sql.hashCode() + " method=executeQuery" + " duration="
 						+ " error=false status=done driver=" + connection.getMetaData().getDatabaseProductName()
-						+ " queryid=" + queryNum + "task=" + this.getClass().getName());
+						+" queryid=" + queryNum + " task=" + this.getClass().getName());
 				Date start = new Date();
 				// ResultSet result = statement.executeQuery(sql);
 				boolean isResultset = statement.execute(sql);
@@ -168,9 +179,9 @@ public class ExecuteQueryTask implements CancellableCallable<IExecutionItem> {
 				ResultSet result = statement.getResultSet();
 
 				long duration = (System.currentTimeMillis() - now);
-				logger.info("finished SQLQuery#" + queryNum + " method=executeQuery" + " duration=" + duration
-						+ " error=false status=done driver=" + connection.getMetaData().getDatabaseProductName()
-						+ " queryid=" + queryNum + "task=" + this.getClass().getName());
+				logger.info("finished SQLQuery#" + queryNum +" jobId "+jobId + " on worker " + this.workerId+  " method=executeQuery" + " duration=" + duration
+						+ " error=false status=done driver=" + connection.getMetaData().getDatabaseProductName() +" queryid=" + queryNum
+						+ " task=" + this.getClass().getName());
 				SQLStats queryLog = new SQLStats(Integer.toString(queryNum), "executeQuery", sql, duration,
 						connection.getMetaData().getDatabaseProductName());
 				queryLog.setError(false);
@@ -206,14 +217,16 @@ public class ExecuteQueryTask implements CancellableCallable<IExecutionItem> {
 				}
 			}
 			long duration = (System.currentTimeMillis() - now);
-			logger.error("error SQLQuery#" + queryNum + " method=executeQuery" + " duration=" + duration
-					+ " status=error queryid=" + queryNum + " task=" + this.getClass().getName() + " error="
-					+ e.toString());
+			logger.error("error SQLQuery#" + queryNum + " jobId "+jobId + " on worker " + this.workerId
+					+ " method=executeQuery" + " duration=" + duration
+					+ " status=error queryid=" + queryNum + " task=" + this.getClass().getName() 
+					+ " error="+ e.toString());
 			SQLStats queryLog = new SQLStats(Integer.toString(queryNum), "executeQuery", sql, duration,
 					ds.getConfig().getJdbcUrl());
 			queryLog.setError(true);
 			PerfDB.INSTANCE.save(queryLog);
-			throw new ExecutionException("SQLQuery#" + queryNum + " failed: " + e.getLocalizedMessage()
+			throw new ExecutionException("SQLQuery#" + queryNum + "  jobId "+jobId + " on worker " + this.workerId
+					+  " failed: " + e.getLocalizedMessage()
 					+ "\nwhile executing the following SQL query:\n" + sql, e);
 		} finally {
 
