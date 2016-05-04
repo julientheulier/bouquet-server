@@ -129,11 +129,26 @@ public class DashboardAnalysis extends Dashboard {
     public boolean hasBeyondLimit() {
     	return beyondLimit!=null && !beyondLimit.isEmpty();
     }
+
+	/**
+	 * reset the beyondLimit property
+	 */
+	public void resetBeyondLimit() {
+		beyondLimit = null;
+	}
     
+	/**
+	 * @deprecated this is not working with sub-select and smart-cache
+	 * @param beyodLimitSelection
+	 */
     public void setBeyodLimitSelection(DashboardSelection beyodLimitSelection) {
 		this.beyodLimitSelection = beyodLimitSelection;
 	}
     
+    /**
+     * @deprecated
+     * @return
+     */
     public DashboardSelection getBeyodLimitSelection() {
 		return beyodLimitSelection;
 	}
