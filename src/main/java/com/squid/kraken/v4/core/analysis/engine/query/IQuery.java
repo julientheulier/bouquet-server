@@ -31,7 +31,7 @@ import com.squid.kraken.v4.core.sql.SelectUniversal;
 import com.squid.kraken.v4.core.sql.script.SQLScript;
 
 /**
- * A very simple interface to run SQL seelct
+ * A very simple interface to generate SQL select
  * 
  * @author sfantino
  *

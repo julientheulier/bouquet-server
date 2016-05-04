@@ -102,20 +102,6 @@ public class SimpleQuery extends BaseQuery {
 		return subject;
 	}
 	
-	public DataMatrix getFromCache(String key){
-		try {
-			
-			RawMatrix rm = 	RedisCacheManager.getInstance().getRawMatrix(key);
-			if (rm != null){
-				return 	this.computeDataMatrix(getDatasource().getDBManager().getDatabase(), rm);
-			}
-			else{
-				return null;
-			}
-		}catch(ScopeException e){
-			return null ;
-		}
-	}
 
 	public void select(Measure measure, ExpressionAST expr) throws SQLScopeException, ScopeException {
 		try {
