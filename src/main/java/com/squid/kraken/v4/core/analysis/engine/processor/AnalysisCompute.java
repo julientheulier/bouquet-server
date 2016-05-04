@@ -430,16 +430,18 @@ public class AnalysisCompute {
 	protected DataMatrix computeAnalysisSimpleForGroup(DashboardAnalysis analysis, MeasureGroup group,
 			boolean optimize) throws ScopeException, SQLScopeException, ComputingException, InterruptedException, RenderingException {
 		// generate the query
+		if (analysis.hasBeyondLimit()) {
+			System.out.println("test");
+		}
 		PreviewWriter  qw = new PreviewWriter();
 		SimpleQuery query = this.genAnalysisQueryCachable(analysis,
 				group, optimize);
 		String SQL = query.render();// analysis signature for future use
+		// compute the signature: do it after generating the query to take into account side-effects
 		AnalysisSignature signature = new AnalysisSignature(analysis, group, SQL);
-		SimpleQuery done = null; // set to true when query is done
 		try {
 			// always try lazy first
 			query.run(true/*lazy*/, qw);
-			done = query;
 		} catch (NotInCacheException e) {
 			// try the smart cache
 			AnalysisSmartCacheMatch match = AnalysisSmartCache.INSTANCE.checkMatch(universe, signature);
@@ -456,31 +458,34 @@ public class AnalysisCompute {
 					for (DataMatrixTransform transform : match.getPostProcessing()) {
 						queryBis.addPostProcessing(transform);
 					}
-					done = queryBis;
+					// run the postprocessing now so it can fails
+					DataMatrix dm =  qw.getDataMatrix();
+					if (dm != null) {
+						for (DataMatrixTransform transform : queryBis.getPostProcessing()) {
+							dm = transform.apply(dm);
+						}
+					}
 					logger.info("get analysis from Smart Cache");
+					return dm;
 				} catch (Exception ee) {
 					// catch all, we don't want to fail here !
 				}
 			}
 			// still not yet, shall we run it?
-			if (done==null) { 
-				if (!analysis.isLazy()) {
-					query.run(false, qw);
-					done = query;
-				} else {
-					throw e;// throw the NotInCache exception
-				}
+			if (!analysis.isLazy()) {
+				query.run(false, qw);
+			} else {
+				throw e;// throw the NotInCache exception
 			}
 		}
 		DataMatrix dm =  qw.getDataMatrix();
 		if (dm != null) {
-			for (DataMatrixTransform transform : done.getPostProcessing()) {
+			for (DataMatrixTransform transform : query.getPostProcessing()) {
 				dm = transform.apply(dm);
 			}
 		}
 		// if it is a full dataset and no rollup, store the layout in the intelligentCache
-		if (done==query && // only the original
-			dm.isFullset() && !analysis.hasRollup()) {
+		if (dm.isFullset() && !analysis.hasRollup()) {
 			if (dm.isFromCache()) {
 				// from cache, but is it still in the smartCache ?
 				if (!AnalysisSmartCache.INSTANCE.contains(SQL)) {
@@ -696,7 +701,8 @@ public class AnalysisCompute {
 		}
 		// softfiltering
 		if (!soft_filters.isEmpty() || !hidden_slice.isEmpty()) {
-			query.addPostProcessing(new DataMatrixTransformSoftFilter(soft_filters, hidden_slice));
+			query.addPostProcessing(new DataMatrixTransformHideColumns<Axis>(hidden_slice));
+			query.addPostProcessing(new DataMatrixTransformSoftFilter(soft_filters));
 		}
 		//
 		// add the metrics
@@ -881,10 +887,13 @@ public class AnalysisCompute {
 			Collection<DimensionMember> values = selection.getAxisValues(join);
 			if (!values.isEmpty()) {
 				Long limit = analysis.getLimit();
+				// change the analysis definition
+				// => we need to define the join condition explicitly for SmartCache to correctly pick it
 				analysis.noLimit();
+				analysis.getSelection().add(join, values);
 				SimpleQuery mainquery = genAnalysisQueryWithSoftFiltering(analysis, group, cachable, optimize);
-				analysis.limit(limit);// restore the limit in case we need it again (compare for example)
-				mainquery.where(join, values);
+				//analysis.limit(limit);// restore the limit in case we need it again (compare for example)
+				//mainquery.where(join, values);
 				return mainquery;
 			} else {
 				// failed, using original limit
