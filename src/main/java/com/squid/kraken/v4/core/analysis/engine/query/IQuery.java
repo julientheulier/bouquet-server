@@ -44,6 +44,6 @@ public interface IQuery {
 
 	public String viewSQL();
 
-	public SelectUniversal getSelectUniversal();
+	public SelectUniversal getSelect();
 
 }
