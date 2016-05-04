@@ -26,6 +26,9 @@ package com.squid.kraken.v4.core.analysis.engine.processor;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 import org.apache.commons.codec.digest.DigestUtils;
 
@@ -37,6 +40,7 @@ import com.squid.kraken.v4.core.analysis.model.GroupByAxis;
 import com.squid.kraken.v4.core.analysis.model.MeasureGroup;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
+import com.squid.kraken.v4.model.Domain;
 
 /**
  * Prototype: this class allow to define an analysis signature to intelligently reuse cached matrix
@@ -51,6 +55,8 @@ public class AnalysisSignature {
 	private String axesSignature = null;
 	private String filtersSignature = null;
 	private String hash;
+	
+	private Set<Axis> axes = null;
 
 	public AnalysisSignature(DashboardAnalysis analysis, MeasureGroup measures, String SQL) {
 		super();
@@ -85,16 +91,33 @@ public class AnalysisSignature {
 	 */
 	public String getAxesSignature(Universe universe) {
 		if (axesSignature==null) {
-			axesSignature = computeAxesSignature(universe, analysis);
+			axesSignature = computeConstantSignature(universe, analysis);
 		}
 		return axesSignature;
+	}
+	
+	/**
+	 * @return the axes
+	 */
+	public Set<Axis> getAxes() {
+		return axes;
 	}
 
 	/**
 	 * @param analysis 
 	 * @return
 	 */
-	private String computeAxesSignature(Universe universe, DashboardAnalysis analysis) {
+	private String computeConstantSignature(Universe universe, DashboardAnalysis analysis) {
+		//
+		// add the project ID
+		StringBuilder signature = new StringBuilder(universe.getProject().getOid());
+		//
+		// add the measure group domain
+		Domain root = measures.getRoot();
+		signature.append("##").append(root.getOid());
+		//
+		// add the axes
+		signature.append("#");
 		ArrayList<GroupByAxis> ordered = new ArrayList<>(analysis.getGrouping());
 		Collections.sort(ordered, new Comparator<GroupByAxis>() {
 			@Override
@@ -102,35 +125,15 @@ public class AnalysisSignature {
 				return o1.getAxis().getId().compareTo(o2.getAxis().getId());
 			}
 		});
-		StringBuilder signature = new StringBuilder(universe.getProject().getOid());
-		//
-		signature.append("#").append(measures.getRoot().getOid());
-		//
+		axes = new HashSet<>();
 		for (GroupByAxis axis : ordered) {
 			String hash = DigestUtils.sha256Hex(axis.getAxis().getId());
 			signature.append("#").append(hash);
+			axes.add(axis.getAxis());
 		}
-		return signature.toString();
-	}
-	
-	/**
-	 * @return the axesSignature
-	 */
-	public String getFiltersSignature(Universe universe) {
-		if (filtersSignature==null) {
-			filtersSignature = computeFiltersSignature(universe, analysis);
-		}
-		return filtersSignature;
-	}
-	
-	private String computeFiltersSignature(Universe universe, DashboardAnalysis analysis) {
-		DashboardSelection selection = analysis.getSelection();
-		if (selection.isEmpty()) {
-			return "#EMPTY#";
-		}
-		// sort the domains
-		StringBuilder signature = new StringBuilder(universe.getProject().getOid());
-		ArrayList<DomainSelection> domains = new ArrayList<>(selection.get());
+		//
+		// add the expression filters
+		ArrayList<DomainSelection> domains = new ArrayList<>(analysis.getSelection().get());
 		Collections.sort(domains, new Comparator<DomainSelection>() {
 			@Override
 			public int compare(DomainSelection o1, DomainSelection o2) {
@@ -139,7 +142,8 @@ public class AnalysisSignature {
 		});
 		for (DomainSelection ds : domains) {
 			// add domain
-			signature.append("#").append(ds.getDomain().getOid());
+			signature.append("#");
+			String domainId = ds.getDomain().getOid();
 			ArrayList<ExpressionInput> inputs = new ArrayList<>(ds.getConditions());
 			Collections.sort(inputs, new Comparator<ExpressionInput>() {
 				@Override
@@ -150,20 +154,43 @@ public class AnalysisSignature {
 			for (ExpressionInput input : inputs) {
 				// hash the expression input
 				String normalized = input.getExpression().prettyPrint();
-				String hash = DigestUtils.sha256Hex(normalized);
+				String hash = DigestUtils.sha256Hex(domainId+"!"+normalized);
 				signature.append("#").append(hash);
 			}
-			ArrayList<Axis> axes = new ArrayList<>(ds.getFilters());
-			Collections.sort(axes, new Comparator<Axis>() {
-				@Override
-				public int compare(Axis o1, Axis o2) {
-					return o1.getId().compareTo(o2.getId());
-				}
-			});
-			for (Axis axis : axes) {
-				String hash = DigestUtils.sha256Hex(axis.getId());
-				signature.append("#").append(hash);
+		}
+		return signature.toString();
+	}
+	
+	/**
+	 * @return the axesSignature
+	 */
+	public String getFiltersSignature(Universe universe) {
+		if (filtersSignature==null) {
+			filtersSignature = computeFiltersSignature(universe, analysis.getSelection());
+		}
+		return filtersSignature;
+	}
+	
+	protected String computeFiltersSignature(Universe universe, DashboardSelection selection) {
+		if (selection.isEmpty()) {
+			return "#EMPTY#";
+		} else {
+			return computeFiltersSignature(universe, selection.getFilters());
+		}
+	}
+	
+	protected String computeFiltersSignature(Universe universe, List<Axis> filters) {
+		// sort the domains
+		StringBuilder signature = new StringBuilder();
+		Collections.sort(filters, new Comparator<Axis>() {
+			@Override
+			public int compare(Axis o1, Axis o2) {
+				return o1.getId().compareTo(o2.getId());
 			}
+		});
+		for (Axis axis : filters) {
+			String hash = DigestUtils.sha256Hex(axis.getId());
+			signature.append("#").append(hash);
 		}
 		//
 		return signature.toString();
