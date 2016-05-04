@@ -23,7 +23,9 @@
  *******************************************************************************/
 package com.squid.kraken.v4.core.analysis.engine.processor;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -32,12 +34,48 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.commons.codec.digest.DigestUtils;
 
+import com.squid.core.domain.IDomain;
+import com.squid.core.expression.ExpressionAST;
+import com.squid.core.expression.scope.ScopeException;
+import com.squid.kraken.v4.caching.NotInCacheException;
+import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionMember;
+import com.squid.kraken.v4.core.analysis.model.DashboardAnalysis;
 import com.squid.kraken.v4.core.analysis.model.DashboardSelection;
 import com.squid.kraken.v4.core.analysis.model.DomainSelection;
+import com.squid.kraken.v4.core.analysis.model.GroupByAxis;
+import com.squid.kraken.v4.core.analysis.model.Intervalle;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
 import com.squid.kraken.v4.core.analysis.universe.Measure;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
+
+/**
+ * custom version that will fail if the result-set is empty: run a query in that case
+ * @author sergefantino
+ *
+ */
+class DataMatrixTransformSoftFilterNonEmpty extends DataMatrixTransformSoftFilter {
+
+	/**
+	 * @param softFilters
+	 */
+	public DataMatrixTransformSoftFilterNonEmpty(DashboardSelection softFilters) {
+		super(softFilters);
+	}
+	
+	/* (non-Javadoc)
+	 * @see com.squid.kraken.v4.core.analysis.engine.processor.DataMatrixTransformSoftFilter#apply(com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix)
+	 */
+	@Override
+	public DataMatrix apply(DataMatrix input) {
+		DataMatrix output = super.apply(input);
+		if (output.getRows().isEmpty()) {
+			throw new NotInCacheException("Smart Cache failed");
+		}
+		return output;
+	}
+	
+}
 
 /**
  * The SmartCache allow to store AnalysisSignature and retrieve compatible analysis
@@ -70,19 +108,31 @@ public class AnalysisSmartCache {
 			// check same filters
 			Set<AnalysisSignature> sameFilters = sameAxes.get(signature.getFiltersSignature(universe));
 			if (sameFilters!=null) {
-				// iter to check if we found a compatible query
-				for (AnalysisSignature match : sameFilters) {
-					if (signature.getMeasures().getKPIs().size()<=match.getMeasures().getKPIs().size()) {
-						if (equals(signature.getAnalysis().getSelection(), match.getAnalysis().getSelection())) {
-							// check the measures
-							Set<Measure> o1 = new HashSet<>(signature.getMeasures().getKPIs());
-							Set<Measure> o2 = new HashSet<>(match.getMeasures().getKPIs());
-							if (o2.containsAll(o1)) {
-								AnalysisSmartCacheMatch result = new AnalysisSmartCacheMatch(match);
-								if (o2.removeAll(o1) && !o2.isEmpty()) {
-									result.addPostProcessing(new DataMatrixTransformHideColumns<Measure>(o2));
-								}
-								return result;
+				AnalysisSmartCacheMatch match = checkMatch(null, signature, sameFilters);
+				if (match!=null) {
+					return match;
+				}
+			}
+			// try to generalize the search ?
+			Collection<Axis> filters = signature.getAnalysis().getSelection().getFilters();
+			if (filters.size()>1) {
+				// let try by excluding one filter at a time?
+				for (Axis filter : filters) {
+					HashSet<Axis> filterMinusOne = new HashSet<>(filters);
+					filterMinusOne.remove(filter);
+					String sign1 = signature.computeFiltersSignature(universe, new ArrayList<>(filterMinusOne));
+					sameFilters = sameAxes.get(sign1);
+					if (sameFilters!=null) {
+						AnalysisSmartCacheMatch match = checkMatch(filterMinusOne, signature, sameFilters);
+						if (match!=null) {
+							try {
+								DashboardSelection softFilters = new DashboardSelection();
+								softFilters.add(filter, signature.getAnalysis().getSelection().getMembers(filter));
+								// add the post-processing
+								match.addPostProcessing(new DataMatrixTransformSoftFilter(softFilters));
+								return match;
+							} catch (ScopeException e) {
+								// ignore
 							}
 						}
 					}
@@ -92,33 +142,137 @@ public class AnalysisSmartCache {
 		//
 		return null;
 	}
+	
+	/**
+	 * @param filterMinusOne
+	 * @param signature
+	 * @param sameFilters
+	 * @return
+	 */
+	private AnalysisSmartCacheMatch checkMatch(Set<Axis> restrict, AnalysisSignature signature,
+			Set<AnalysisSignature> sameFilters) {
+		// iter to check if we found a compatible query
+		for (AnalysisSignature candidate : sameFilters) {
+			if (signature.getMeasures().getKPIs().size() <= candidate.getMeasures().getKPIs().size()) {
+				AnalysisSmartCacheMatch match = new AnalysisSmartCacheMatch(candidate);
+				if (equals(restrict, signature, candidate, match)) {
+					// check the measures
+					Set<Measure> o1 = new HashSet<>(signature.getMeasures().getKPIs());
+					Set<Measure> o2 = new HashSet<>(candidate.getMeasures().getKPIs());
+					if (o2.containsAll(o1)) {
+						if (o2.removeAll(o1) && !o2.isEmpty()) {
+							match.addPostProcessing(new DataMatrixTransformHideColumns<Measure>(o2));
+						}
+						return match;
+					}
+				}
+			}
+		}
+		// else
+		return null;
+	}
 		
 	/**
 	 * compare 2 selection knowing they have the same signatures
+	 * @param restrict 
 	 * @param signature
-	 * @param match
+	 * @param candidate
+	 * @param match2 
 	 * @return
 	 */
-	private boolean equals(DashboardSelection signature, DashboardSelection match) {
+	private boolean equals(Set<Axis> restrict, AnalysisSignature signature, AnalysisSignature candidate, AnalysisSmartCacheMatch match) {
 		// check filter values
-		for (DomainSelection ds : signature.get()) {
+		ArrayList<DataMatrixTransform> postProcessing = new ArrayList<>();
+		for (DomainSelection ds : signature.getAnalysis().getSelection().get()) {
 			for (Axis filter : ds.getFilters()) {
-				Collection<DimensionMember> original = ds.getMembers(filter);
-				Collection<DimensionMember> candidates = match.getMembers(filter);
-				if (original.size()==candidates.size()) {
-					HashSet<DimensionMember> check = new HashSet<>(original);
-					if (!check.containsAll(candidates)) {
+				if (restrict==null || restrict.contains(filter)) {
+					if (!equals(ds, filter, signature, candidate, postProcessing)) {
 						return false;
 					}
-				} else {
-					return false;
 				}
 			}
 		}
 		// the same ? yes because we already know they have the same filters !
+		for (DataMatrixTransform transform : postProcessing) {
+			match.addPostProcessing(transform);
+		}
 		return true;
 	}
 	
+	/**
+	 * @param ds 
+	 * @param filter
+	 * @param signature
+	 * @param candidate
+	 * @param postProcessing
+	 * @return
+	 */
+	private boolean equals(DomainSelection ds, Axis filter, AnalysisSignature signature, AnalysisSignature candidate,
+			ArrayList<DataMatrixTransform> postProcessing) {
+		Collection<DimensionMember> original = ds.getMembers(filter);
+		Collection<DimensionMember> candidates = candidate.getAnalysis().getSelection().getMembers(filter);
+		// check for a perfect match
+		if (original.size()==candidates.size()) {
+			HashSet<DimensionMember> check = new HashSet<>(original);
+			if (check.containsAll(candidates)) {
+				return true;
+			} // check for time-range inclusion
+			else if (filter.getDefinitionSafe().getImageDomain().isInstanceOf(IDomain.DATE)
+					&& original.size()==1
+					&& candidates.size()==1) {
+				GroupByAxis groupBy = findGroupingJoin(filter, candidate.getAnalysis());
+				if (groupBy!=null) {
+					// use it only if the filter is visible
+					Object originalValue = original.iterator().next().getID();
+					Object candidateValue = candidates.iterator().next().getID();
+					if (originalValue instanceof Intervalle
+					   && candidateValue instanceof Intervalle) 
+					{
+						Intervalle originalDate = (Intervalle)originalValue;
+						Intervalle candidateDate = (Intervalle)candidateValue;
+						Date originalLowerBound = (Date)originalDate.getLowerBound();
+						Date originalUpperBound = (Date)originalDate.getUpperBound();
+						Date candidateLowerBound = (Date)candidateDate.getLowerBound();
+						Date candidateUpperBound = (Date)candidateDate.getUpperBound();
+						if (candidateLowerBound.before(originalLowerBound)
+							&& originalUpperBound.before(candidateUpperBound)) 
+						{
+							// we need to add some post-processing
+							try {
+								DashboardSelection softFilters = new DashboardSelection();
+								softFilters.add(filter, original);
+								// add the post-processing
+								postProcessing.add(new DataMatrixTransformSoftFilter(softFilters));
+								return true;
+							} catch (ScopeException e) {
+								return false;
+							}
+						}
+					}
+				}
+			} else {
+				return false;
+			}
+		}
+		// check for simple inclusion
+		else if (candidate.getAxes().contains(filter)// filter on visible axis, we can soft-filter
+				&& candidates.containsAll(original)) {// yes, it's a subset
+			// we need to add some post-processing
+			try {
+				DashboardSelection softFilters = new DashboardSelection();
+				softFilters.add(filter, original);
+				// add the post-processing
+				postProcessing.add(new DataMatrixTransformSoftFilter(softFilters));
+				return true;
+			} catch (ScopeException e) {
+				return false;
+			}
+		} else {
+			return false;
+		}
+		return false;// please the compiler
+	}
+
 	/**
 	 * Store the signature
 	 * @param signature
@@ -149,6 +303,33 @@ public class AnalysisSmartCache {
 	public boolean contains(String SQL) {
 		String hash = DigestUtils.sha256Hex(SQL);
 		return contains.contains(hash);
+	}
+
+	/**
+	 * copied from AnalysisCompute
+	 * @param join
+	 * @param from
+	 * @return
+	 */
+	private GroupByAxis findGroupingJoin(Axis join, DashboardAnalysis from) {
+		DateExpressionAssociativeTransformationExtractor checker = new DateExpressionAssociativeTransformationExtractor();
+		ExpressionAST naked1 = checker.eval(join.getDimension()!=null?join.getReference():join.getDefinitionSafe());
+		IDomain d1 = join.getDefinitionSafe().getImageDomain();
+		for (GroupByAxis groupBy : from.getGrouping()) {
+			IDomain d2 = groupBy.getAxis().getDefinitionSafe().getImageDomain();
+			if (d1.isInstanceOf(IDomain.TEMPORAL) && d2.isInstanceOf(IDomain.TEMPORAL)) {
+				// if 2 dates, try harder...
+				// => the groupBy can be a associative transformation of the filter
+				ExpressionAST naked2 = checker.eval(groupBy.getAxis().getDefinitionSafe());
+				if (naked1.equals(naked2)) {
+					return groupBy;
+				}
+			} else if (join.equals(groupBy.getAxis())) {
+				return groupBy;
+			}
+		}
+		// else
+		return null;
 	}
 	
 }
