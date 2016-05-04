@@ -530,7 +530,6 @@ public class BaseQuery implements IQuery {
 	protected boolean where(SelectUniversal select, Axis axis, Collection<DimensionMember> filters)
 			throws ScopeException, SQLScopeException {
 		//
-		List<Object> filter_by_members = new ArrayList<Object>();
 		ExpressionAST expr = axis.getDefinition();
 		// ticket:3014 - handles predicates
 		if (expr.getImageDomain().isInstanceOf(IDomain.CONDITIONAL)) {
@@ -549,6 +548,8 @@ public class BaseQuery implements IQuery {
 			// else
 			return false;
 		}
+		boolean filter_by_null = false;// T1198
+		List<Object> filter_by_members = new ArrayList<Object>();
 		ExpressionAST filter_by_intervalle = null;
 		for (DimensionMember filter : filters) {
 			Object value = filter.getID();
@@ -561,7 +562,11 @@ public class BaseQuery implements IQuery {
 					filter_by_intervalle = ExpressionMaker.OR(filter_by_intervalle, where);
 				}
 			} else {
-				filter_by_members.add((filter).getID());
+				if (filter.getID()==null || filter.getID().toString()=="") {
+					filter_by_null = true;
+				} else {
+					filter_by_members.add((filter).getID());
+				}
 			}
 		}
 		ExpressionAST filterALL = null;
@@ -573,8 +578,12 @@ public class BaseQuery implements IQuery {
 				filterALL = ExpressionMaker.IN(expr, ExpressionMaker.CONSTANTS(filter_by_members));
 			}
 		}
+		if (filter_by_null) {
+			ExpressionAST filterNULL = ExpressionMaker.ISNULL(expr);
+			filterALL = (filterALL == null) ? filterNULL : ExpressionMaker.OR(filterALL, filterNULL);
+		}
 		if (filter_by_intervalle != null) {
-			filterALL = filterALL == null ? filter_by_intervalle : ExpressionMaker.AND(filterALL, filter_by_intervalle);
+			filterALL = (filterALL == null) ? filter_by_intervalle : ExpressionMaker.OR(filterALL, filter_by_intervalle);
 		}
 		if (filterALL != null) {
 			IWherePiece piece = select.where(filterALL);
