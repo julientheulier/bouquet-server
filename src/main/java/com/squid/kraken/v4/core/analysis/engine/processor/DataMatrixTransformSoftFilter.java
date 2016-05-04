@@ -23,35 +23,24 @@
  *******************************************************************************/
 package com.squid.kraken.v4.core.analysis.engine.processor;
 
-import java.util.List;
-
 import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
 import com.squid.kraken.v4.core.analysis.model.DashboardSelection;
-import com.squid.kraken.v4.core.analysis.universe.Axis;
 
 /**
- * perform the SoftFilter transformation:
- * - filter the matrix using the given selection
- * - hide the axis
+ * perform a softFilter based on the selection
  * @author sergefantino
  *
  */
 public class DataMatrixTransformSoftFilter implements DataMatrixTransform {
 
 	private DashboardSelection softFilters;
-	private List<Axis> hiddenAxes;
 
-	public DataMatrixTransformSoftFilter(DashboardSelection softFilters, List<Axis> hiddenAxes) {
+	public DataMatrixTransformSoftFilter(DashboardSelection softFilters) {
 		this.softFilters = softFilters;
-		this.hiddenAxes = hiddenAxes;
 	}
 
 	@Override
 	public DataMatrix apply(DataMatrix input) {
-		// hide axis in case there are coming from generalized query
-		for (Axis axis : hiddenAxes) {
-			input.getAxisColumn(axis).setVisible(false);
-		}
 		// apply the soft filters if any left
 		if (!softFilters.isEmpty()) {
 			input = input.filter(softFilters, false);//ticket:2923 Null values must not be retained.
