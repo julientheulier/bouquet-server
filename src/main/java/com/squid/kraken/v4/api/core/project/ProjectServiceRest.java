@@ -43,6 +43,9 @@ import javax.ws.rs.core.Response;
 import com.google.common.base.Optional;
 import com.squid.core.database.impl.DatabaseServiceException;
 import com.squid.core.database.model.Database;
+import com.squid.core.domain.operators.IntrinsicOperators;
+import com.squid.core.domain.operators.OperatorDefinition;
+import com.squid.core.domain.operators.OperatorScope;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.api.core.APIException;
 import com.squid.kraken.v4.api.core.AccessRightsUtils;
@@ -146,7 +149,7 @@ public class ProjectServiceRest extends BaseServiceRest {
 	@GET
 	@Path("{"+PARAM_NAME+"}"+"/features")
 	@ApiOperation(value = "Give the functions supported by the project")
-	public List<String> features(@PathParam(PARAM_NAME) String objectId) {
+	public String features(@PathParam(PARAM_NAME) String objectId) {
 		ProjectPK projectPK = new ProjectPK(userContext.getCustomerId(),
 				objectId);
 		Optional<Project> project = ((ProjectDAO) DAOFactory.getDAOFactory().getDAO(Project.class)).read(
@@ -154,7 +157,17 @@ public class ProjectServiceRest extends BaseServiceRest {
 		if (project.isPresent()) {
 			try {
 				Database db = DatabaseServiceImpl.INSTANCE.getDatabase(project.get());
-				return db.getSkin().canRender();
+
+				String res = "{";
+				for (OperatorDefinition opDef: OperatorScope.getDefault().getRegisteredOperators()){
+					if(opDef.getExtendedID().contains(IntrinsicOperators.INTRINSIC_EXTENDED_ID)){
+						res+= "{" + opDef.getName() + ":" + opDef.getParametersTypes() + "}";
+					}else{
+						res+= "{" + opDef.getExtendedID() + ":" + opDef.getParametersTypes() + "}";
+					}
+				}
+				res += "}";
+				return res;
 			} catch (DatabaseServiceException e) {
 				throw new APIException(e.getMessage(), e, false);
 			}
