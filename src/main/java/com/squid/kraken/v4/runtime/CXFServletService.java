@@ -52,6 +52,7 @@ import com.squid.kraken.v4.caching.redis.CacheInitPoint;
 import com.squid.kraken.v4.caching.redis.RedisCacheManager;
 import com.squid.kraken.v4.config.KrakenConfigV2;
 import com.squid.kraken.v4.core.analysis.engine.index.DimensionStoreManagerFactory;
+import com.squid.kraken.v4.core.database.impl.DriversService;
 import com.wordnik.swagger.config.ScannerFactory;
 import com.wordnik.swagger.jaxrs.config.ReflectiveJaxrsScanner;
 import com.wordnik.swagger.models.Info;
@@ -188,7 +189,8 @@ public class CXFServletService extends CXFNonSpringJaxrsServlet {
 		}
 		CacheInitPoint cache = CacheInitPoint.INSTANCE;
 		cache.start(conf, facets);
-
+		DriversService.initDriver();
+		
 		// DimensionStoreManagerFactory initialization
 		try {
 			String embeddedValue = KrakenConfig.getProperty("elastic.local", "true");

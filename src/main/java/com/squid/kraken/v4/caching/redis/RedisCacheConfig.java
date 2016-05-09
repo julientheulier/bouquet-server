@@ -61,7 +61,7 @@ public class RedisCacheConfig {
 	
 	private int ttlInSecond = 24*60*60;
 	
-	private int maxChunkSizeInMByte= 50;
+	private int maxChunkSizeInMByte= 10;
 
 	public RedisCacheConfig(){
 		

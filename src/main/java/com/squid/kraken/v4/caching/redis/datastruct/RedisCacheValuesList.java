@@ -81,6 +81,18 @@ public class RedisCacheValuesList extends RedisCacheValue {
 		return this.state == State.DONE;
 	} 
 
+	public boolean isError(){
+		return this.state == State.ERROR;	
+	}
+	
+	public boolean isOngoing(){
+		return this.state == State.ONGOING;
+	}
+	public State getState(){
+		return this.state;
+	}
+	
+	
 	@Override
 	public boolean equals(Object obj){
 		if (obj instanceof RedisCacheValuesList ){

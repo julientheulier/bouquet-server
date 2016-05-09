@@ -38,7 +38,6 @@ import org.slf4j.LoggerFactory;
 
 import com.squid.core.concurrent.CancellableCallable;
 import com.squid.core.concurrent.ExecutionManager;
-import com.squid.core.database.model.impl.ExecuteQueryTask;
 import com.squid.core.jdbc.engine.IExecutionItem;
 import com.squid.core.jdbc.formatter.IJDBCDataFormatter;
 import com.squid.kraken.v4.core.analysis.datamatrix.AxisValues;
@@ -47,8 +46,8 @@ import com.squid.kraken.v4.core.analysis.engine.query.HierarchyQuery;
 import com.squid.kraken.v4.core.analysis.engine.query.mapping.DimensionMapping;
 import com.squid.kraken.v4.core.analysis.engine.query.mapping.SimpleMapping;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
-import com.squid.kraken.v4.core.database.impl.DatabaseServiceImpl;
 import com.squid.kraken.v4.core.database.impl.DatasourceDefinition;
+import com.squid.kraken.v4.core.database.impl.ExecuteQueryTask;
 import com.squid.kraken.v4.core.sql.SelectUniversal;
 import com.squid.kraken.v4.model.Attribute;
 
@@ -72,8 +71,11 @@ public class ExecuteHierarchyQuery implements CancellableCallable<Boolean> {
 		this.countDown = countDown;
 		this.query = query;
 	}
+	
+	private volatile boolean abort = false;// make sure this callable will stop working
 
 	public void cancel() {
+		abort = true;
 		if (executeQueryTask!=null) {
 			executeQueryTask.cancel();
 		}
@@ -91,7 +93,8 @@ public class ExecuteHierarchyQuery implements CancellableCallable<Boolean> {
 			SelectUniversal select = query.getSelect();
 			DatasourceDefinition ds = select.getDatasource();
 			String SQL = select.render();
-			executeQueryTask = DatabaseServiceImpl.INSTANCE.executeQueryTask(ds,SQL);
+			executeQueryTask = ds.getDBManager().createExecuteQueryTask(SQL);
+			executeQueryTask.setWorkerId("front");
 			executeQueryTask.prepare();
 			this.countDown.countDown();// now ok to count-down because the query is already in the queue
 			this.countDown = null;// clear the count-down
@@ -144,9 +147,8 @@ public class ExecuteHierarchyQuery implements CancellableCallable<Boolean> {
 
 			boolean wait= true;
 			while ((result.next()) && (count++<maxRecords || maxRecords<0)) {
-				if (Thread.interrupted() || executeQueryTask.isInterrupted()) {
-					// handling interruption
-					logger.info("cancelled SQLQuery#" + item.getID() + " method=executeQuery"+" duration= "+ " error=false status=cancelled queryid="+item.getID()+" task="+this.getClass().getName());
+				if (abort || executeQueryTask.isInterrupted() || Thread.interrupted()) {
+					logger.info("cancelled reading SQLQuery#" + item.getID() + " method=executeQuery"+" duration= "+ " error=false status=cancelled queryid="+item.getID()+" task="+this.getClass().getName());
 					throw new InterruptedException("cancelled while reading query results");
 				}
 				if (count%100000==0) {
@@ -205,6 +207,7 @@ public class ExecuteHierarchyQuery implements CancellableCallable<Boolean> {
 					rowBuffer.clear();
 					indexBuffer = new ArrayList[dx_map.size()];
 				}
+				// end of while loop
 			}
 
 			// flush last buffer ?
@@ -235,8 +238,9 @@ public class ExecuteHierarchyQuery implements CancellableCallable<Boolean> {
 			for (DimensionMapping m : dx_map) {
 				m.getDimensionIndex().setPermanentError(e.getMessage());
 			}
-			//logger.error("SQLQuery#" + (item!=null?item.getID():"?") + " failed with error: " + e.toString());
-			logger.info("failed SQLQuery#" + item.getID()+" method=executeQuery"+" duration="+ " error=true status=failed queryid="+(item!=null?item.getID():"?")+" "+e.getLocalizedMessage()+"task="+this.getClass().getName());
+			if (!abort) {
+				logger.info("failed SQLQuery#" + item.getID()+" method=executeQuery"+" duration="+ " error=true status=failed queryid="+(item!=null?item.getID():"?")+" "+e.getLocalizedMessage()+"task="+this.getClass().getName());
+			}
 			throw e;
 		} finally {
 			if (item!=null) try {
@@ -298,7 +302,6 @@ public class ExecuteHierarchyQuery implements CancellableCallable<Boolean> {
 		}
 		return lastIndexed;
 	}
-
 
 	private HashMap<DimensionIndex, String> flushCorrelationBuffer( List<DimensionMapping> dx_map, 
 			Map<DimensionIndex, List<Integer>> hierarchies_pos,

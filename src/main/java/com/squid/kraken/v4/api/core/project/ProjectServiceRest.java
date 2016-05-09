@@ -379,7 +379,7 @@ public class ProjectServiceRest extends BaseServiceRest {
 
 	@Path("{"+PARAM_NAME+"}"+"/schemas-suggestion")
 	@GET
-	@ApiOperation(value = "Gets suggestions for DB Schemas")
+	@ApiOperation(value = "DEPRECATED: Gets suggestions for DB Schemas")
 	public ExpressionSuggestion getSchemaSuggestion(
 			@PathParam("projectId") String projectId) {
 		return delegate.getSchemaSuggestion(userContext, projectId);
@@ -470,6 +470,7 @@ public class ProjectServiceRest extends BaseServiceRest {
 
 	// database service
 	@Path("{"+PARAM_NAME+"}"+"/database")
+	@ApiOperation(value = "Database API: provide access to the database catalog (read-only)")
 	public DatabaseServiceRest getDatabaseService() {
 		return new DatabaseServiceRest(userContext);
 	}

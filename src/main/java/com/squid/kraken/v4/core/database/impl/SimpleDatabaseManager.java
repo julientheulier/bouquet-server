@@ -21,36 +21,32 @@
  * you and Squid Solutions (above licenses and LICENSE.txt included).
  * See http://www.squidsolutions.com/EnterpriseBouquet/
  *******************************************************************************/
-package com.squid.kraken.v4.caching.redis;
+package com.squid.kraken.v4.core.database.impl;
 
 import java.sql.Connection;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.Date;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import com.squid.kraken.v4.api.core.PerfDB;
-import com.squid.kraken.v4.api.core.SQLStats;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.squid.core.database.impl.DataSourceReliable;
+import com.squid.core.database.impl.DataSourceReliable.FeatureSupport;
 import com.squid.core.database.impl.DatabaseServiceException;
 import com.squid.core.database.impl.DriverLoader;
 import com.squid.core.database.lazy.LazyDatabaseFactory;
+import com.squid.core.database.metadata.IMetadataEngine;
 import com.squid.core.database.model.Database;
 import com.squid.core.database.model.DatabaseFactory;
 import com.squid.core.database.model.impl.DatabaseManager;
 import com.squid.core.database.model.impl.JDBCConfig;
-import com.squid.core.jdbc.engine.ExecutionItem;
-import com.squid.core.jdbc.engine.IExecutionItem;
 import com.squid.core.jdbc.vendor.VendorSupportRegistry;
-import com.squid.kraken.v4.core.database.impl.HikariDataSourceReliable;
+import com.squid.core.sql.render.ISkinFeatureSupport;
+import com.squid.kraken.v4.api.core.PerfDB;
+import com.squid.kraken.v4.api.core.SQLStats;
 import com.zaxxer.hikari.HikariDataSource;
-import com.squid.core.database.metadata.IMetadataEngine;
 
 
 public class SimpleDatabaseManager extends DatabaseManager {
@@ -70,8 +66,12 @@ public class SimpleDatabaseManager extends DatabaseManager {
 	public SimpleDatabaseManager(String jdbcURL, String username, String password)
 			throws ExecutionException {
 		super();
-		this.config = new JDBCConfig(jdbcURL, username, password);
+		this.setupConfig(jdbcURL, username, password);
 		setup();
+	}
+	
+	public JDBCConfig getConf(){
+		return this.config;
 	}
 
 	protected HikariDataSourceReliable createDatasourceWithConfig(JDBCConfig config) {
@@ -118,13 +118,18 @@ public class SimpleDatabaseManager extends DatabaseManager {
 		}
 	}
 
-	protected void setup() throws ExecutionException {
+	public void setup() throws ExecutionException {
 		HikariDataSourceReliable hikari = setupDataSource();
 		this.ds = hikari;
-		this.db = setupDatabase();
+		setupDatabase();
 		setupFinalize(hikari, db);
 	}
 
+	public void setupConfig(String jdbcURL, String username, String password){
+		this.config= new JDBCConfig(jdbcURL, username, password);
+	}
+	
+	
 	protected HikariDataSourceReliable setupDataSource() throws DatabaseServiceException {
 		HikariDataSourceReliable ds = createDatasourceWithConfig(config);
 		chooseDriver(ds);
@@ -149,17 +154,22 @@ public class SimpleDatabaseManager extends DatabaseManager {
 		return ds;
 	}
 
-	protected Database setupDatabase() throws ExecutionException {
+	public Database setupDatabase() throws ExecutionException {
 		DatabaseFactory df = new LazyDatabaseFactory(this);
-		Database db = df.createDatabase();
-		db.setName(databaseName);
-		db.setUrl(config.getJdbcUrl());
+		Database newDb = df.createDatabase();
+		newDb.setName(databaseName);
+		newDb.setUrl(config.getJdbcUrl());
 		//
 		// setup vendor support
-		this.vendor = VendorSupportRegistry.INSTANCE.getVendorSupport(db);
+		this.vendor = VendorSupportRegistry.INSTANCE.getVendorSupport(newDb);
 		this.stats = this.vendor.createDatabaseStatistics(ds);
 		//
-		return db;
+		this.db = newDb;
+		return newDb;
+	}
+	
+	public void setDatabaseName(String dbName){
+		this.databaseName = dbName;		
 	}
 	
 	protected void setupFinalize(HikariDataSourceReliable hikari, Database db) {
@@ -175,79 +185,75 @@ public class SimpleDatabaseManager extends DatabaseManager {
 			hikari.setAutoCommit(false);
 		}
 	}
+	
+	public ExecuteQueryTask createExecuteQueryTask(String sql){
+		  int queryNum = queryCnt.incrementAndGet();
+	        return new ExecuteQueryTask(this, queryNum, sql);
+	}
 
-	public IExecutionItem executeQuery(String sql)
+
+	
+	public Boolean execute(String sql)
 			throws ExecutionException {
 		int queryNum = queryCnt.incrementAndGet();
 		long now = System.currentTimeMillis();
 		try {
-			Connection connection = this.ds.getConnectionBlocking();
-			if (logger.isDebugEnabled()) {
-				logger.debug("Driver used for the connection", connection
-						.getMetaData().getDriverName());
-			}
+			boolean needCommit = false;
+			Connection connection = this.getDatasource().getConnectionBlocking();
 			Statement statement = connection.createStatement();
 			try {
-				statement.setFetchSize(getDataFormatter(connection).getFetchSize());
-				logger.info("starting SQLQuery#" + queryNum 
-						+ " jdbc=" + config.getJdbcUrl()
-						+ " sql=\n" + sql +"\n hashcode="+sql.hashCode()
-						+ " method=executeQuery" + " duration="
-						+ " error=false status=done driver="
-						+ connection.getMetaData().getDatabaseProductName()
-						+ " queryid=" + queryNum
-						+ "task=" + this.getClass().getName());
-				Date start = new Date();
-				boolean isResultset = statement.execute(sql);
-				while (!isResultset && statement.getUpdateCount() >= -1) {
-					isResultset = statement.getMoreResults();
+				//IJDBCDataFormatter formatter = ds.getDataFormatter(connection);
+				logger.info("running SQLQuery#" + queryNum + " on " + this.getDatabase().getUrl()
+						+ ":\n" + sql +"\nHashcode="+sql.hashCode());
+				// make sure auto commit is false (for cursor based ResultSets and postgresql)
+				if(this.getSkin().getFeatureSupport(FeatureSupport.AUTOCOMMIT) == ISkinFeatureSupport.IS_NOT_SUPPORTED){
+					connection.setAutoCommit(false);
+					needCommit = true;
+				}else{
+					connection.setAutoCommit(true);
 				}
-				ResultSet result = statement.getResultSet();
-				/*
-				 * logger.info("SQLQuery#" + queryNum + " executed in " +
-				 * (System.currentTimeMillis() - now) + " ms.");
-				 */
+				statement.setFetchSize(10000);
+				//Date start = new Date();
+				Boolean result = statement.execute(sql);
+				if (needCommit) {
+					connection.commit();
+				}
+				/*logger.info("SQLQuery#" + queryNum + " executed in "
+						+ (System.currentTimeMillis() - now) + " ms.");*/
 				long duration = (System.currentTimeMillis() - now);
-				logger.info("finished SQLQuery#" + queryNum
-						+ " method=executeQuery" + " duration=" + duration
-						+ " error=false status=done driver="
-						+ connection.getMetaData().getDatabaseProductName()
-						+ " queryid=" + queryNum
-						+ "task=" + this.getClass().getName());
-				SQLStats queryLog = new SQLStats(Integer.toString(queryNum), "executeQuery", sql, duration, connection.getMetaData().getDatabaseProductName());
+				logger.info("task="+this.getClass().getName()+" method=execute"+" duration="+ duration+" error=false status=done");
+				//TODO get project instead of database
+				SQLStats queryLog = new SQLStats(Integer.toString(queryNum), "execute",sql, duration, this.getDatabase().getProductName());
 				queryLog.setError(false);
 				PerfDB.INSTANCE.save(queryLog);
-				ExecutionItem ex = new ExecutionItem(db, ds, connection, result,
-						getDataFormatter(connection), queryNum);
-				ex.setExecutionDate(start);
-				return ex;
+
+				return result;
 			} catch (Exception e) {
-				// ticket:2972
-				// it is our responsibility to dispose connection and statement
-				if (statement != null)
-					statement.close();
-				if (!connection.getMetaData().getDatabaseProductName()
-						.equals("Spark SQL")) {
-					if (connection != null) {
-						connection.close();
-						ds.releaseSemaphore();
-					}
+				if (needCommit) {
+					connection.rollback();
 				}
 				throw e;
+			} finally {
+				// ticket:2972
+				// it is our responsibility to dispose connection and statement
+				if (statement!=null) statement.close();
+				if (connection!=null) {
+					connection.close();
+					this.getDatasource().releaseSemaphore();
+				}
 			}
 		} catch (Exception e) {
+			logger.info(e.toString());
 			long duration = (System.currentTimeMillis() - now);
-			logger.error("error SQLQuery#" + queryNum
-					+ " method=executeQuery" + " duration="
-					+ duration
-					+ " status=error queryid=" + queryNum
-					+ " task=" + this.getClass().getName()
-					+ " error=" + e.toString());
-			SQLStats queryLog = new SQLStats(Integer.toString(queryNum), "executeQuery", sql, duration, config.getJdbcUrl());
+			/*logger.info("SQLQuery#" + queryNum + " failed in "
+					+ (System.currentTimeMillis() - now) + " ms.");*/
+			logger.info("task="+this.getClass().getName()+" method=execute"+" duration="+ duration+" error=true status=done");
+			SQLStats queryLog = new SQLStats(Integer.toString(queryNum), "execute",sql, duration, this.getDatabase().getProductName());
 			queryLog.setError(true);
 			PerfDB.INSTANCE.save(queryLog);
-			throw new ExecutionException("SQLQuery#" + queryNum + " failed: "+e.getLocalizedMessage() + "\nwhile executing the following SQL query:\n" + sql, e);
+			throw new ExecutionException("SQLQuery#" + queryNum + " failed:\n"+e.getLocalizedMessage(),e);
 		}
 	}
 
+	
 }

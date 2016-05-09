@@ -23,11 +23,13 @@
  *******************************************************************************/
 package com.squid.kraken.v4.caching.redis.queriesserver;
 
-
 public interface IQueriesServer {
 
-	public boolean fetch(String key, String SQLQuery, String RSjdbcURL,String username, String pwd, int ttl, long limit) throws InterruptedException ;
+	public int fetch(String key, String SQLQuery, String jobID, String RSjdbcURL, String username, String pwd, int ttl,
+			long limit) throws InterruptedException;
 
 	public void start();
-	
+
+	public boolean isQueryOngoing(String key);
+
 }

@@ -279,7 +279,7 @@ public class InternalAnalysisJobServiceRest extends BaseServiceRest {
 
                 if (run) {                    
                     // execute the Script directly
-                    Boolean noresult = DatabaseServiceImpl.INSTANCE.execute(query.getDatasource(), insertScript.render());
+                    Boolean noresult = query.getDatasource().getDBManager().execute(insertScript.render());
                     if (!noresult) {
                     	newTable.refresh();
                         DomainServiceBaseImpl.getInstance().store(userContext, domain);
@@ -469,7 +469,9 @@ public class InternalAnalysisJobServiceRest extends BaseServiceRest {
 
                         DomainServiceBaseImpl.getInstance().store(userContext, domain);
                         BaseQuery materializeQuery = new BaseQuery(destuniverse, insertSelectUniversal);
-                        Boolean noResult = materializeQuery.execute();
+                        String  sql = materializeQuery.render();
+                        Boolean noResult = materializeQuery.getDatasource().getDBManager().execute(sql);
+                        
                         if (!noResult) {
                             response = Response.ok("The domain " + domain.getName() + " has been created ");
                             // TODO separate create and insert if needed?
@@ -486,11 +488,12 @@ public class InternalAnalysisJobServiceRest extends BaseServiceRest {
 // You can retry or change method.
             }  catch (SQLScopeException e) {
                 e.printStackTrace();
-            }  catch (ComputingException e) {
-                e.printStackTrace();
             } catch (RenderingException e) {
                 e.printStackTrace();
-            }
+            } catch (ExecutionException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
         }
 
 

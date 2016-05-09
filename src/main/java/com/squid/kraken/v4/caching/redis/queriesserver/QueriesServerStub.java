@@ -32,44 +32,53 @@ import com.squid.kraken.v4.caching.redis.ServerID;
 
 public class QueriesServerStub implements IQueriesServer {
 
-    static final Logger logger = LoggerFactory.getLogger(QueriesServerStub.class);
+	static final Logger logger = LoggerFactory.getLogger(QueriesServerStub.class);
 
-	private String host ;
+	private String host;
 	private int port;
 	private String appName;
 	private String baseURL;
-	
-	public QueriesServerStub(ServerID id, String appName)  {
-		this.host= id.host;
+
+	public QueriesServerStub(ServerID id, String appName) {
+		this.host = id.host;
 		this.port = id.port;
-		this.appName=appName;
-		logger.info("new  Queries Server Stub "+ this.host + " " + this.port);
+		this.appName = appName;
+		logger.info("new  Queries Server Stub " + this.host + " " + this.port);
 	}
 
-
 	@Override
-	public boolean fetch(String key, String SQLQuery, String RSjdbcURL, String username, String pwd, int ttl, long limit) {
-		
+	public int fetch(String key, String SQLQuery, String jobID, String RSjdbcURL, String username, String pwd, int ttl,
+			long limit) {
+
 		WebClient client = WebClient.create(baseURL);
 		client.path("fetch");
 		client.query("sqlquery", SQLQuery);
 		client.query("key", key);
+		client.query("jobid", jobID);
 		client.query("jdbc", RSjdbcURL);
 		client.query("pwd", pwd);
-		client.query("ttl",ttl);
+		client.query("ttl", ttl);
 		client.query("user", username);
 		client.query("limit", limit);
-		boolean res  = client.get(Boolean.class);
+		Integer res = client.get(Integer.class);
 		return res;
 	}
-
-	
 
 	@Override
 	public void start() {
 		logger.info("starting  Queries Server Stub");
-		this.baseURL="http://"+this.host+":"+this.port+"/"+this.appName + "/cache/queries";	
-		logger.info("base URL " +this.baseURL);
+		this.baseURL = "http://" + this.host + ":" + this.port + "/" + this.appName + "/cache/queries";
+		logger.info("base URL " + this.baseURL);
+	}
+
+	@Override
+	public boolean isQueryOngoing(String key) {
+		WebClient client = WebClient.create(baseURL);
+		client.path("ongoing");
+		client.query("sqlquery");
+		client.query("key", key);
+		boolean res = client.get(Boolean.class);
+		return res;
 	}
 
 }

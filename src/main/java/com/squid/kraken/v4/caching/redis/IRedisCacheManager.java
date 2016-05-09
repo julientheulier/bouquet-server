@@ -36,13 +36,11 @@ public interface IRedisCacheManager {
 
 	public void startCacheManager();
 
-	public RawMatrix getData(String SQLQuery, List<String> dependencies,
-			String RSjdbcURL, String username, String pwd, int TTLinSec, long limit)
-			throws InterruptedException ;
-	
-	public RawMatrix getDataLazy(String SQLQuery, List<String> dependencies,
-			String RSjdbcURL, String username, String pwd, int TTLinSec)
-			throws InterruptedException;
+	public RawMatrix getData(String SQLQuery, List<String> dependencies, String jobId, String RSjdbcURL,
+			String username, String pwd, int TTLinSec, long limit) throws InterruptedException;
+
+	public RawMatrix getDataLazy(String SQLQuery, List<String> dependencies, String RSjdbcURL, String username,
+			String pwd, int TTLinSec) throws InterruptedException;
 
 	public void clear();
 
@@ -55,17 +53,17 @@ public interface IRedisCacheManager {
 	public RedisKey getKey(String key);
 
 	public RedisCacheValue getRedisCacheValueLazy(String SQLQuery, List<String> dependencies, String RSjdbcURL,
-			String username, String pwd, int TTLinSec ) ;
-	
-	public RedisCacheValue getRedisCacheValue(String SQLQuery, List<String> dependencies, String RSjdbcURL,
-			String username, String pwd, int TTLinSec, long limit ) throws InterruptedException ;
-	
+			String username, String pwd, int TTLinSec);
+
+	public RedisCacheValue getRedisCacheValue(String SQLQuery, List<String> dependencies, String jobId,
+			String RSjdbcURL, String username, String pwd, int TTLinSec, long limit) throws InterruptedException;
+
 	public RedisKey getKey(String key, Collection<String> dependencies);
 
 	public RedisKey getKey(String key, String... dependencies);
-	
+
 	public RedisKey getKey(RedisKey key);
-	
+
 	public boolean isValid(RedisKey key);
 
 	public boolean inCache(RedisKey key);
@@ -74,8 +72,6 @@ public interface IRedisCacheManager {
 
 	public RawMatrix getRawMatrix(String k);
 
-	
-	public boolean addCacheReference(String sqlNoLimit, List<String> dependencies, String referencedKey );
-
+	public String addCacheReference(String sqlNoLimit, List<String> dependencies, String referencedKey);
 
 }
