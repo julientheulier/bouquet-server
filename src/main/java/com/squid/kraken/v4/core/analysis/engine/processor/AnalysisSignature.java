@@ -57,6 +57,7 @@ public class AnalysisSignature {
 	private String hash;
 	
 	private Set<Axis> axes = null;
+	private int rowCount;
 
 	public AnalysisSignature(DashboardAnalysis analysis, MeasureGroup measures, String SQL) {
 		super();
@@ -219,6 +220,20 @@ public class AnalysisSignature {
 		} else if (!hash.equals(other.hash))
 			return false;
 		return true;
+	}
+
+	/**
+	 * @param rowCount
+	 */
+	public void setRowCount(int rowCount) {
+		this.rowCount = rowCount;
+	}
+	
+	/**
+	 * @return the rowCount
+	 */
+	public int getRowCount() {
+		return rowCount;
 	}
 
 }
