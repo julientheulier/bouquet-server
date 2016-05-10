@@ -99,7 +99,7 @@ public class DynamicManager {
 	static final Logger logger = LoggerFactory
 			.getLogger(DynamicManager.class);
 
-	public static final boolean DYNAMIC_FLAG = new Boolean(KrakenConfig.getProperty("feature.dynamic", "false"));
+	public static final boolean DYNAMIC_FLAG = true;// always ON (T1216)
 	public static final boolean SPARK_FLAG = new Boolean(KrakenConfig.getProperty("feature.spark", "false"));
 
 	public static final DynamicManager INSTANCE = new DynamicManager();
