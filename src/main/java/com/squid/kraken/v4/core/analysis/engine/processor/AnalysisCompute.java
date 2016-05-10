@@ -56,6 +56,7 @@ import com.squid.kraken.v4.core.analysis.datamatrix.AxisValues;
 import com.squid.kraken.v4.core.analysis.datamatrix.CompareMerger;
 import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionMember;
+import com.squid.kraken.v4.core.analysis.engine.query.QueryRunner;
 import com.squid.kraken.v4.core.analysis.engine.query.SimpleQuery;
 import com.squid.kraken.v4.core.analysis.model.Dashboard;
 import com.squid.kraken.v4.core.analysis.model.DashboardAnalysis;
@@ -143,7 +144,10 @@ public class AnalysisCompute {
 		if (groups.isEmpty()) {
 			SimpleQuery query = this.genSimpleQuery(analysis);
 			PreviewWriter qw = new PreviewWriter();
-			query.run(analysis.isLazy(), qw, analysis.getJobId());
+
+			QueryRunner runner = new QueryRunner(query, analysis.isLazy(), qw, analysis.getJobId());
+			runner.run();
+			
 			DataMatrix dm = qw.getDataMatrix();
 			// apply postProcessing if needed
 			if (qw.isNeedPostProcessing()) {
@@ -460,7 +464,10 @@ public class AnalysisCompute {
 			SimpleQuery query = this.genAnalysisQueryCachable(analysis, group, optimize, soft_filters, hidden_slice);
 
 			PreviewWriter qw = new PreviewWriter();
-			query.run(analysis.isLazy(), qw, analysis.getJobId());
+
+			QueryRunner runner = new QueryRunner(query, analysis.isLazy(), qw, analysis.getJobId());
+			runner.run();
+
 			DataMatrix dm = qw.getDataMatrix();
 
 			if (dm != null) {
@@ -541,8 +548,9 @@ public class AnalysisCompute {
 					e.printStackTrace();
 				}
 
-				query.run(lazy, writer, analysis.getJobId());
-
+				QueryRunner runner = new QueryRunner(query, lazy, writer, analysis.getJobId());
+				runner.run();
+				
 			} else {
 				// possible only if there is only one group
 				if (groups.size() != 1) {
@@ -555,7 +563,9 @@ public class AnalysisCompute {
 				//
 				SimpleQuery query = genAnalysisQueryWithSoftFiltering(analysis, group, false, false, null, null);
 				//
-				query.run(lazy, writer, analysis.getJobId());
+				QueryRunner runner = new QueryRunner(query, lazy, writer, analysis.getJobId());
+				runner.run();
+
 			}
 		} catch (ScopeException e) {
 			throw new ComputingException(e);

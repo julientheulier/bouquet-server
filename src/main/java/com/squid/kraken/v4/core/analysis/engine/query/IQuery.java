@@ -25,13 +25,11 @@ package com.squid.kraken.v4.core.analysis.engine.query;
 
 import com.squid.core.sql.model.SQLScopeException;
 import com.squid.core.sql.render.RenderingException;
-import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
-import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.core.sql.SelectUniversal;
 import com.squid.kraken.v4.core.sql.script.SQLScript;
 
 /**
- * A very simple interface to run SQL seelct
+ * A very simple interface to generate SQL select
  * 
  * @author sfantino
  *
@@ -44,6 +42,6 @@ public interface IQuery {
 
 	public String viewSQL();
 
-	public SelectUniversal getSelectUniversal();
+	public SelectUniversal getSelect();
 
 }
