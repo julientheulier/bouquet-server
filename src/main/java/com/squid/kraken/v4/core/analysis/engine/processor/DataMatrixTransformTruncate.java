@@ -32,10 +32,10 @@ import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
  */
 public class DataMatrixTransformTruncate implements DataMatrixTransform {
 	
-	private long limit;
-	private long offset;
+	private Long limit;
+	private Long offset;
 
-	public DataMatrixTransformTruncate(long limit, long offset) {
+	public DataMatrixTransformTruncate(Long limit, Long offset) {
 		this.limit = limit;
 		this.offset = offset;
 	}
