@@ -444,6 +444,7 @@ public class AnalysisCompute {
 			query.run(true/*lazy*/, qw);
 		} catch (NotInCacheException e) {
 			// try the smart cache
+			long start = System.currentTimeMillis();
 			AnalysisSmartCacheMatch match = AnalysisSmartCache.INSTANCE.checkMatch(universe, signature);
 			if (match!=null) {
 				// need to setup the postprocessing somewhere...
@@ -465,11 +466,15 @@ public class AnalysisCompute {
 							dm = transform.apply(dm);
 						}
 					}
-					logger.info("get analysis from Smart Cache");
+					long end = System.currentTimeMillis();
+					logger.info("HIT! get analysis from Smart Cache in "+(end-start)+"ms : "+SQL);
 					return dm;
 				} catch (Exception ee) {
 					// catch all, we don't want to fail here !
 				}
+			} else {
+				long end = System.currentTimeMillis();
+				logger.info("Smart Cache consumed: "+(end-start)+"ms");
 			}
 			// still not yet, shall we run it?
 			if (!analysis.isLazy()) {
@@ -489,12 +494,12 @@ public class AnalysisCompute {
 			if (dm.isFromCache()) {
 				// from cache, but is it still in the smartCache ?
 				if (!AnalysisSmartCache.INSTANCE.contains(SQL)) {
-					AnalysisSmartCache.INSTANCE.put(universe, signature);
+					AnalysisSmartCache.INSTANCE.put(universe, signature, dm);
 					logger.info("put analysis in Smart Cache");
 				}
 			} else {
 				// add to the smart cache
-				AnalysisSmartCache.INSTANCE.put(universe, signature);
+				AnalysisSmartCache.INSTANCE.put(universe, signature, dm);
 				logger.info("put analysis in Smart Cache");
 			}
 		}
