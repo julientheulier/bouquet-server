@@ -230,8 +230,13 @@ public class DynamicManager {
 		Collections.sort(concretes, new RelationComparator());
 		//
 		if (DYNAMIC_FLAG) {
-			if (root.getDatabase().getSkin().getFeatureSupport(IMetadataForeignKeySupport.ID)==ISkinFeatureSupport.IS_SUPPORTED) {
-				return loadDynamicRelations(root, domains, coverage, concretes);
+			try {
+				if (root.getDatabase().getSkin().getFeatureSupport(IMetadataForeignKeySupport.ID)==ISkinFeatureSupport.IS_SUPPORTED) {
+					return loadDynamicRelations(root, domains, coverage, concretes);
+				}
+			} catch (DatabaseServiceException e) {
+				// unable to build dynamic model for relations
+				// but it's ok to return only concrete relations.
 			}
 		}
 		// else
