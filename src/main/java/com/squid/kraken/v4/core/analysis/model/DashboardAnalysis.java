@@ -137,20 +137,22 @@ public class DashboardAnalysis extends Dashboard {
 		beyondLimit = null;
 	}
     
-	/**
-	 * @deprecated this is not working with sub-select and smart-cache
-	 * @param beyodLimitSelection
-	 */
-    public void setBeyodLimitSelection(DashboardSelection beyodLimitSelection) {
-		this.beyodLimitSelection = beyodLimitSelection;
-	}
-    
     /**
-     * @deprecated
+     * this is the alternative selection to use to compute the beyondLimit analysis. This analysis will define a sub segment of values
+     * where to execute the original analysis. This option is use by the compareTo feature to make sure that the application is computing
+     * the result on comparable population (for example if we compare evolution of the top 10 series on present period, we want to compare in the past from the very same series, not the top 10 from the past)
+     * 
      * @return
      */
     public DashboardSelection getBeyodLimitSelection() {
 		return beyodLimitSelection;
+	}
+    
+	/**
+	 * @param beyodLimitSelection
+	 */
+    public void setBeyodLimitSelection(DashboardSelection beyodLimitSelection) {
+		this.beyodLimitSelection = beyodLimitSelection;
 	}
     
     public void offset(long offset) {
