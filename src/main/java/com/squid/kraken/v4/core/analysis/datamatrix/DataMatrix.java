@@ -454,9 +454,9 @@ public class DataMatrix {
 		}
 	}
 
-	public void truncate(long limitValue, long offsetValue) {
-		int from = (int) Math.max(0, offsetValue);
-		int to = (int) Math.min(rows.size(), from + limitValue);
+	public void truncate(Long limitValue, Long offsetValue) {
+		int from = offsetValue!=null?((int) Math.max(0, offsetValue)):0;
+		int to = limitValue!=null?((int) Math.min(rows.size(), from + limitValue)):rows.size();
 		this.rows = this.rows.subList(from, to);// this is not a copy, just a
 												// view
 	}
@@ -793,6 +793,14 @@ public class DataMatrix {
 
 	public List<RawRow> getRows() {
 		return rows;
+	}
+	
+	/**
+	 * get the number of rows
+	 * @return
+	 */
+	public int getRowCount() {
+		return rows!=null?rows.size():0;
 	}
 
 	/**
