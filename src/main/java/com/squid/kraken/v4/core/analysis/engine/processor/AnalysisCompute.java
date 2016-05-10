@@ -35,6 +35,8 @@ import java.util.concurrent.Future;
 
 import com.squid.kraken.v4.api.core.PerfDB;
 import com.squid.kraken.v4.api.core.SQLStats;
+import com.squid.kraken.v4.caching.NotInCacheException;
+import com.squid.kraken.v4.caching.redis.RedisCacheException;
 
 import org.joda.time.Days;
 import org.joda.time.LocalDate;
@@ -329,8 +331,19 @@ public class AnalysisCompute {
 			debug.orderBy(originalOrders);
 			return debug;
 		} catch (ExecutionException e) {
+			if (e.getCause() != null){
+				if ( e.getCause() instanceof RedisCacheException) {
+					throw (RedisCacheException) e.getCause();
+				}	
+				if (e.getCause() instanceof NotInCacheException){
+					throw (NotInCacheException) e.getCause();
+				}
+				if (e.getCause() instanceof ComputingException){
+					throw (ComputingException) e.getCause();
+				}
+			}				
 			throw new ComputingException(e.getCause());
-		}
+		}			
 	}
 
 	private boolean compareAxis(Axis x1, Axis x2) {
