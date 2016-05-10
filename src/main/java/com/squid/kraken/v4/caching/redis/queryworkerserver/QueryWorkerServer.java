@@ -64,10 +64,6 @@ public class QueryWorkerServer implements IQueryWorkerServer {
 	private AtomicInteger load;
 	private ExecutorService executor;
 
-	// private int maxRecords=1024;
-
-	private int maxRecords = -1;
-
 	private int defaultTTLinSec = 3600;
 
 	// redis
@@ -86,7 +82,6 @@ public class QueryWorkerServer implements IQueryWorkerServer {
 		this.REDIS_SERVER_HOST = conf.getRedisID().host;
 		this.REDIS_SERVER_PORT = conf.getRedisID().port;
 		this.managers = new HashMap<String, SimpleDatabaseManager>();
-		this.maxRecords = conf.getMaxRecord();
 		this.defaultTTLinSec = conf.getTtlInSecond();
 
 		RawMatrix.setMaxChunkSizeInMB(conf.getMaxChunkSizeInMByte());
@@ -96,12 +91,9 @@ public class QueryWorkerServer implements IQueryWorkerServer {
 		logger.info("New Query Worker " + this.host + " " + this.port);
 	}
 
-	public int getMaxRecords() {
-		return maxRecords;
-	}
 
 	public void start() {
-		logger.info("Starting query worker " + this.host + " " + this.port + " max record " + this.maxRecords);
+		logger.info("Starting query worker " + this.host + " " + this.port );
 		redis = RedisCacheProxy.getInstance(new ServerID(this.REDIS_SERVER_HOST, this.REDIS_SERVER_PORT));
 	}
 
@@ -134,7 +126,7 @@ public class QueryWorkerServer implements IQueryWorkerServer {
 			exec.setJobId(jobId);
 			item = exec.call();
 
-			RawMatrixStreamExecRes serializedRes = RawMatrix.streamExecutionItemToByteArray(item, maxRecords, limit);
+			RawMatrixStreamExecRes serializedRes = RawMatrix.streamExecutionItemToByteArray(item, limit);
 			logger.info("limit " + limit + ", linesProcessed " + serializedRes.getNbLines() + " hasMore:"
 					+ serializedRes.hasMore());
 			if (!serializedRes.hasMore()) {
