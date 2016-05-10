@@ -160,8 +160,25 @@ public class AnalysisSmartCache {
 					Set<Measure> o1 = new HashSet<>(signature.getMeasures().getKPIs());
 					Set<Measure> o2 = new HashSet<>(candidate.getMeasures().getKPIs());
 					if (o2.containsAll(o1)) {
+						// hide not requested metrics
 						if (o2.removeAll(o1) && !o2.isEmpty()) {
 							match.addPostProcessing(new DataMatrixTransformHideColumns<Measure>(o2));
+						}
+						// sort
+						if (signature.getAnalysis().hasOrderBy()) {
+							if (!signature.getAnalysis().getOrders().equals(match.getAnalysis().getOrders())) {
+								match.addPostProcessing(new DataMatrixTransformOrderBy(signature.getAnalysis().getOrders()));
+							}
+						}
+						// limit
+						if (signature.getAnalysis().hasLimit()) {
+							long ending = signature.getAnalysis().getLimit();
+							if (signature.getAnalysis().hasOffset()) {
+								ending += signature.getAnalysis().getOffset();
+							}
+							if (ending<match.getSignature().getRowCount()) {
+								match.addPostProcessing(new DataMatrixTransformTruncate(signature.getAnalysis().getLimit(), signature.getAnalysis().getOffset()));
+							}
 						}
 						return match;
 					}
@@ -234,8 +251,9 @@ public class AnalysisSmartCache {
 						Date originalUpperBound = (Date)originalDate.getUpperBound();
 						Date candidateLowerBound = (Date)candidateDate.getLowerBound();
 						Date candidateUpperBound = (Date)candidateDate.getUpperBound();
-						if (candidateLowerBound.before(originalLowerBound)
-							&& originalUpperBound.before(candidateUpperBound)) 
+						// check using before or equals
+						if ((candidateLowerBound.before(originalLowerBound) || candidateLowerBound.equals(originalLowerBound))
+							&& (originalUpperBound.before(candidateUpperBound) || originalUpperBound.equals(candidateUpperBound))) 
 						{
 							// we need to add some post-processing
 							try {
@@ -276,8 +294,9 @@ public class AnalysisSmartCache {
 	/**
 	 * Store the signature
 	 * @param signature
+	 * @param dm 
 	 */
-	public void put(Universe universe, AnalysisSignature signature) {
+	public void put(Universe universe, AnalysisSignature signature, DataMatrix dm) {
 		Map<String, Set<AnalysisSignature>> sameAxes = lookup.get(signature.getAxesSignature(universe));
 		if (sameAxes==null) {
 			sameAxes = new HashMap<>();
@@ -289,6 +308,7 @@ public class AnalysisSmartCache {
 			sameAxes.put(signature.getFiltersSignature(universe), sameFilters);
 		}
 		if (!sameFilters.contains(signature)) {
+			signature.setRowCount(dm.getRowCount());
 			sameFilters.add(signature);
 		}
 		//
