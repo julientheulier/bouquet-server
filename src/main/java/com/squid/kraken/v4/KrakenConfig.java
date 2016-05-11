@@ -152,6 +152,7 @@ public class KrakenConfig {
 						props.setProperty("mail.sslPort", new Integer(confV2.getMail().getSslPort()).toString());		
 						props.setProperty("mail.senderName", confV2.getMail().getSenderName());
 						props.setProperty("mail.senderEmail",confV2.getMail().getSenderEmail());
+						props.setProperty("kraken.server.mode", confV2.getServerMode());
 						
 						props.setProperty("default.client.url",confV2.getDefaultClientURL());
 						props.setProperty("kraken.oauth.endpoint",confV2.getKrakenOAuthEndpoint());
