@@ -35,73 +35,74 @@ import com.squid.kraken.v4.caching.redis.ServerID;
 import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
 import com.squid.kraken.v4.caching.redis.datastruct.RawRow;
 
-
 /*
  * This mock query worker does contact not redshift
  * but rather returns a String generated using its ID + a counter 
  */
 
-public class MockQueryWorker implements IQueryWorkerServer{
+public class MockQueryWorker implements IQueryWorkerServer {
 
-    static final Logger logger = LoggerFactory.getLogger(MockQueryWorker.class);
+	static final Logger logger = LoggerFactory.getLogger(MockQueryWorker.class);
 
-	//redis
+	// redis
 	public String REDIS_SERVER_HOST;
 	public int REDIS_SERVER_PORT;
 
-	//self
-	public String host= "localhost";
+	// self
+	public String host = "localhost";
 	public int port = -1;
-	
-	private IRedisCacheProxy redis ;
+
+	private IRedisCacheProxy redis;
 	private int repCounter;
-	
-	public MockQueryWorker(ServerID self, ServerID redisID){
+
+	public MockQueryWorker(ServerID self, ServerID redisID) {
 		this.host = self.host;
 		this.port = self.port;
-		this.repCounter=0;
+		this.repCounter = 0;
 		this.REDIS_SERVER_HOST = redisID.host;
-		this.REDIS_SERVER_PORT= redisID.port;
-		logger.info(" new Mock Worker "+ this.host + " "+ this.port);
+		this.REDIS_SERVER_PORT = redisID.port;
+		logger.info(" new Mock Worker " + this.host + " " + this.port);
 	}
-	
-	public void start(){
-		logger.info("starting Mock Worker "+ this.host + " "+ this.port);		
-		redis =  RedisCacheProxy.getInstance(new ServerID(this.REDIS_SERVER_HOST, this.REDIS_SERVER_PORT));
 
-	} 
+	public void start() {
+		logger.info("starting Mock Worker " + this.host + " " + this.port);
+		redis = RedisCacheProxy.getInstance(new ServerID(this.REDIS_SERVER_HOST, this.REDIS_SERVER_PORT));
 
-	
+	}
+
 	@Override
-	public boolean fetch(String k, String SQLQuery, String RSjdbcURL, String username, String pwd, int ttl, long limit){
+	public int fetch(String k, String SQLQuery, String jobId, String RSjdbcURL, String username, String pwd, int ttl,
+			long limit) {
 		RawMatrix res = new RawMatrix();
-		synchronized(this){
+		int id = -1;
+		synchronized (this) {
+			id = this.repCounter;
+			this.repCounter += 1;
 			Object[] r = new String[1];
-			r[0]= this.host +":"+this.port+"/mockData-"+ this.repCounter;
-			res.addRow( new RawRow(r));
-			ArrayList<Integer> types  = new  ArrayList<Integer>();
+			r[0] = this.host + ":" + this.port + "/mockData-" + id;
+			res.addRow(new RawRow(r));
+			ArrayList<Integer> types = new ArrayList<Integer>();
 			types.add(1);
 			res.setColTypes(types);
 			ArrayList<String> names = new ArrayList<String>();
 			names.add("bla");
 			res.setColNames(names);
 			res.setMoreData(false);
-			repCounter+=1;
 			res.setExecutionDate(new Date());
 		}
-		try{
-			java.lang.Thread.sleep(10*1000);
-		}catch(InterruptedException e){
-			return false;
+		try {
+			java.lang.Thread.sleep(10 * 1000);
+		} catch (InterruptedException e) {
+			return -1;
 		}
-		boolean ok = redis.put(k, res) ;
-		if (ok && ttl>0)
+		boolean ok = redis.put(k, res);
+		if (ok && ttl > 0)
 			redis.setTTL(k, ttl);
-		return ok ;
+		return id;
 	}
-		
+
 	@Override
-	public String hello(){
+	public String hello() {
 		return "Hello Mock Query Worker server";
 	}
 
@@ -115,5 +116,5 @@ public class MockQueryWorker implements IQueryWorkerServer{
 		// TODO Auto-generated method stub
 		return false;
 	}
-	
+
 }

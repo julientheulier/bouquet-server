@@ -1,0 +1,47 @@
+{
+  "elasticLocal": true,
+  "defaultClientURL": "localhost",
+  "cache": {
+    "ttlInSecond": 86400,
+    "maxRecord": -1,
+    "querieServerThreadPoolSize": 5,
+    "appName": "v4.2",
+    "workers": [
+      {
+        "port": -1,
+        "host": "localhost"
+      }
+    ],
+    "queriesServerID": {
+      "port": -1,
+      "host": "localhost"
+    },
+    "generationalKeysServerID": {
+      "port": -1,
+      "host": "localhost"
+    },
+    "redisID": {
+      "port": 6379,
+      "host": "localhost"
+    }
+  },
+  "serverMode": "dev",
+  "signupEmailBCC": "your-support@yourdomain.com",
+  "mongodb": {
+    "port": "27017",
+    "password": "password",
+    "user": "user",
+    "dbname": "bouquet",
+    "host": "127.0.0.1"
+  },
+  "mail": {
+    "sslPort": 465,
+    "senderEmail": "your@domain.com",
+    "senderName": "secret",
+    "hostname": "smtp.gmail.com",
+    "senderPassword": "secret"
+  },
+  "wsHost": "localhost:8080",
+  "krakenWSAPI": "release",
+  "krakenOAuthEndpoint": "http://localhost:8080/admin/auth/oauth"
+}

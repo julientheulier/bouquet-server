@@ -133,7 +133,6 @@ public class SimpleDatabaseManager extends DatabaseManager {
 	protected HikariDataSourceReliable setupDataSource() throws DatabaseServiceException {
 		HikariDataSourceReliable ds = createDatasourceWithConfig(config);
 		chooseDriver(ds);
-
 		// check the connection
 		try {
 			Connection conn = ds.getConnectionBlocking();
@@ -190,8 +189,6 @@ public class SimpleDatabaseManager extends DatabaseManager {
 		  int queryNum = queryCnt.incrementAndGet();
 	        return new ExecuteQueryTask(this, queryNum, sql);
 	}
-
-
 	
 	public Boolean execute(String sql)
 			throws ExecutionException {

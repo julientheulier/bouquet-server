@@ -292,7 +292,7 @@ public class RawMatrix extends RedisCacheValue {
 	// (value+future reference)
 	private static final int MEMBER_VALUE = 3;// this is a simple value
 
-	public static RawMatrixStreamExecRes streamExecutionItemToByteArray(IExecutionItem item, long maxRecords,
+	public static RawMatrixStreamExecRes streamExecutionItemToByteArray(IExecutionItem item,
 			long nbLinesExpectedLeft) throws IOException, SQLException {
 
 		RawMatrixStreamExecRes res = new RawMatrixStreamExecRes();
@@ -385,8 +385,6 @@ public class RawMatrix extends RedisCacheValue {
 		int index = 0;
 		boolean moreData = false;
 		boolean maxSizeReached = false;
-		// while ((count<maxRecords || maxRecords<0) && (moreData =
-		// result.next())) {
 
 		while ((!maxSizeReached) && (moreData = result.next())) {
 			i = 0;

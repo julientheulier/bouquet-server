@@ -56,6 +56,8 @@ public class DashboardAnalysis extends Dashboard {
 	
 	private boolean lazy = false;
 	
+	private String jobId;
+	
 	public DashboardAnalysis(Universe universe) {
 	    super(universe);
     }
@@ -174,6 +176,14 @@ public class DashboardAnalysis extends Dashboard {
     public boolean isLazy(){
     	return this.lazy;
     }
+    
+    public String getJobId(){
+    	return this.jobId;
+    }
+    
+    public void setJobId(String jobId){
+    	this.jobId = jobId;
+    }
 
 	public GroupByAxis add(GroupByAxis slice) {
 		grouping.add(slice);
@@ -224,6 +234,7 @@ public class DashboardAnalysis extends Dashboard {
 	@Override
 	public String toString() {
 		StringBuffer buffer = new StringBuffer(super.toString());
+		buffer.append("\n"+this.jobId);
 		if (!grouping.isEmpty()) {
 			buffer.append("\nGroup By");
 			for (GroupByAxis slice : grouping) {

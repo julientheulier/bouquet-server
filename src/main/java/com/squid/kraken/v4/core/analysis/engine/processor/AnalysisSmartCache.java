@@ -37,7 +37,6 @@ import org.apache.commons.codec.digest.DigestUtils;
 import com.squid.core.domain.IDomain;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.scope.ScopeException;
-import com.squid.kraken.v4.caching.NotInCacheException;
 import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionMember;
 import com.squid.kraken.v4.core.analysis.model.DashboardAnalysis;
@@ -48,34 +47,6 @@ import com.squid.kraken.v4.core.analysis.model.Intervalle;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
 import com.squid.kraken.v4.core.analysis.universe.Measure;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
-
-/**
- * custom version that will fail if the result-set is empty: run a query in that case
- * @author sergefantino
- *
- */
-class DataMatrixTransformSoftFilterNonEmpty extends DataMatrixTransformSoftFilter {
-
-	/**
-	 * @param softFilters
-	 */
-	public DataMatrixTransformSoftFilterNonEmpty(DashboardSelection softFilters) {
-		super(softFilters);
-	}
-	
-	/* (non-Javadoc)
-	 * @see com.squid.kraken.v4.core.analysis.engine.processor.DataMatrixTransformSoftFilter#apply(com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix)
-	 */
-	@Override
-	public DataMatrix apply(DataMatrix input) {
-		DataMatrix output = super.apply(input);
-		if (output.getRows().isEmpty()) {
-			throw new NotInCacheException("Smart Cache failed");
-		}
-		return output;
-	}
-	
-}
 
 /**
  * The SmartCache allow to store AnalysisSignature and retrieve compatible analysis
