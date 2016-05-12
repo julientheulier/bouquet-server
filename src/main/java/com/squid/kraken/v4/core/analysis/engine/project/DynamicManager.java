@@ -290,6 +290,18 @@ public class DynamicManager {
 		}
 	}
 	
+	class NaturalRelation {
+		public boolean first = true;
+		public Relation rel;
+		public ForeignKey fk;
+		public NaturalRelation(Relation rel, ForeignKey fk, boolean first) {
+			super();
+			this.first = first;
+			this.rel = rel;
+			this.fk = fk;
+		}
+	}
+	
 	/**
 	 * dynamic relation loading: check all existing FK and automatically create relation if not already concrete
 	 * 
@@ -321,23 +333,38 @@ public class DynamicManager {
 			try {
 				if(!domain.getOptions().getReinjected() && !domain.getOptions().getAlink()) {
 					Table table = root.getTable(domain);
+					HashMap<String, NaturalRelation> dedupLinks = new HashMap<>();
 					for (ForeignKey fk : getForeignKeys(table)) {
 						Table targetTable = fk.getPrimaryTable();
 						Domain target = coverage.get(targetTable);
 						if (target != null) {
 							// create a relation ?
-							String id = "rel/" + domain.getId().toUUID() + "-" + target.getId().toUUID() + ":" + fk.getName();
+							String link = "rel/" + domain.getId().toUUID() + "-" + target.getId().toUUID();// link from source to target
+							String id = link + ":" + fk.getName();
 							String digest = digest(id);
+							Relation relation = null;
+							NaturalRelation samesame = null;
 							if (!naturals.contains(digest)) {
+								String leftName = domain.getName();
+								String rightName = target.getName();
+								samesame = dedupLinks.get(link);
+								if (samesame!=null) {
+									leftName += "["+fk.getName()+"]";
+									rightName += "["+fk.getName()+"]";
+									if (samesame.first) {// it's the first
+										samesame.rel.setLeftName(samesame.rel.getLeftName()+ "["+samesame.fk.getName()+"]");
+										samesame.rel.setRightName(samesame.rel.getRightName()+ "["+samesame.fk.getName()+"]");
+									}
+								}
 								RelationPK relationPk = new RelationPK(project.getId(), digest);
-								Relation relation =
+								relation =
 										new Relation(relationPk,
 												domain.getId(),
 												Cardinality.MANY,
 												target.getId(),
 												Cardinality.ZERO_OR_ONE,
-												domain.getName(),
-												target.getName(),
+												leftName,
+												rightName,
 												new Expression("'" + fk.getName() + "'"), true);
 								AccessRightsUtils.getInstance().setAccessRights(root.getContext(), relation, project);
 								try {
@@ -349,6 +376,8 @@ public class DynamicManager {
 									// ignore if invalid
 								}
 							}
+							// always handle dedup
+							dedupLinks.put(link, new NaturalRelation(relation, fk, relation!=null && samesame==null));
 						}
 					}
 				}else{
