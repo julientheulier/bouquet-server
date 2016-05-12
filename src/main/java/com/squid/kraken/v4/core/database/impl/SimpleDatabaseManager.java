@@ -64,7 +64,7 @@ public class SimpleDatabaseManager extends DatabaseManager {
 	}
 
 	public SimpleDatabaseManager(String jdbcURL, String username, String password)
-			throws ExecutionException {
+			throws ExecutionException, IllegalArgumentException {
 		super();
 		this.setupConfig(jdbcURL, username, password);
 		setup();
@@ -118,22 +118,23 @@ public class SimpleDatabaseManager extends DatabaseManager {
 		}
 	}
 
-	public void setup() throws ExecutionException {
+	public void setup() throws ExecutionException, DatabaseServiceException {
 		HikariDataSourceReliable hikari = setupDataSource();
 		this.ds = hikari;
 		setupDatabase();
 		setupFinalize(hikari, db);
 	}
 
-	public void setupConfig(String jdbcURL, String username, String password){
-		this.config= new JDBCConfig(jdbcURL, username, password);
+	public void setupConfig(String jdbcURL, String username, String password)
+	throws IllegalArgumentException
+	{
+		this.config = new JDBCConfig(jdbcURL, username, password);
 	}
 	
 	
 	protected HikariDataSourceReliable setupDataSource() throws DatabaseServiceException {
 		HikariDataSourceReliable ds = createDatasourceWithConfig(config);
 		chooseDriver(ds);
-
 		// check the connection
 		try {
 			Connection conn = ds.getConnectionBlocking();
@@ -190,8 +191,6 @@ public class SimpleDatabaseManager extends DatabaseManager {
 		  int queryNum = queryCnt.incrementAndGet();
 	        return new ExecuteQueryTask(this, queryNum, sql);
 	}
-
-
 	
 	public Boolean execute(String sql)
 			throws ExecutionException {

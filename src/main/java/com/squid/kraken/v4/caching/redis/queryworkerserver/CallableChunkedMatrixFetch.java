@@ -83,8 +83,7 @@ class CallableChunkedMatrixFetch implements Callable<Boolean> {
 			server.incrementLoad();
 			do {
 				try {
-					nextBatch = RawMatrix.streamExecutionItemToByteArray(item, server.getMaxRecords(),
-							nbLinesLeftToRead);
+					nextBatch = RawMatrix.streamExecutionItemToByteArray(item, nbLinesLeftToRead);
 				} catch (IOException | SQLException e) {
 					error = true;
 				}

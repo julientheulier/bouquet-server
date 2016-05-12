@@ -99,7 +99,7 @@ public class DynamicManager {
 	static final Logger logger = LoggerFactory
 			.getLogger(DynamicManager.class);
 
-	public static final boolean DYNAMIC_FLAG = new Boolean(KrakenConfig.getProperty("feature.dynamic", "false"));
+	public static final boolean DYNAMIC_FLAG = true;// always ON (T1216)
 	public static final boolean SPARK_FLAG = new Boolean(KrakenConfig.getProperty("feature.spark", "false"));
 
 	public static final DynamicManager INSTANCE = new DynamicManager();
@@ -230,8 +230,13 @@ public class DynamicManager {
 		Collections.sort(concretes, new RelationComparator());
 		//
 		if (DYNAMIC_FLAG) {
-			if (root.getDatabase().getSkin().getFeatureSupport(IMetadataForeignKeySupport.ID)==ISkinFeatureSupport.IS_SUPPORTED) {
-				return loadDynamicRelations(root, domains, coverage, concretes);
+			try {
+				if (root.getDatabase().getSkin().getFeatureSupport(IMetadataForeignKeySupport.ID)==ISkinFeatureSupport.IS_SUPPORTED) {
+					return loadDynamicRelations(root, domains, coverage, concretes);
+				}
+			} catch (DatabaseServiceException e) {
+				// unable to build dynamic model for relations
+				// but it's ok to return only concrete relations.
 			}
 		}
 		// else

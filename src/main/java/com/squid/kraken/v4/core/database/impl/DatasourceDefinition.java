@@ -72,7 +72,7 @@ public class DatasourceDefinition {
 		sdbm = new SimpleDatabaseManager();
 	}
 	
-	public DatasourceDefinition(Project project) throws ExecutionException {
+	public DatasourceDefinition(Project project) throws DatabaseServiceException, IllegalArgumentException, ExecutionException {
 		this();
 		this.projectId = project.getId();
 		initialize(projectId);
@@ -109,7 +109,7 @@ public class DatasourceDefinition {
 		}
 	}
 
-	private void initialize(ProjectPK projectId) throws ExecutionException {
+	private void initialize(ProjectPK projectId) throws IllegalArgumentException {
 		//
 		// reload the project as the root context
 		AppContext rootctx = ServiceUtils.getInstance().getRootUserContext(projectId.getCustomerId());

@@ -51,11 +51,7 @@ import com.squid.core.sql.render.ISelectPiece;
 import com.squid.core.sql.render.ISkinFeatureSupport;
 import com.squid.core.sql.render.IWherePiece;
 import com.squid.core.sql.render.RenderingException;
-import com.squid.kraken.v4.caching.NotInCacheException;
-import com.squid.kraken.v4.caching.redis.RedisCacheManager;
 import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
-import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValue;
-import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValuesList;
 import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionMember;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
@@ -72,8 +68,6 @@ import com.squid.kraken.v4.core.database.impl.DatasourceDefinition;
 import com.squid.kraken.v4.core.sql.SelectUniversal;
 import com.squid.kraken.v4.core.sql.script.SQLScript;
 import com.squid.kraken.v4.model.Domain;
-import com.squid.kraken.v4.model.Project;
-import com.squid.kraken.v4.writers.QueryWriter;
 
 /**
  * Implements the IQuery interface on top of the SelctMapping
@@ -234,10 +228,6 @@ public class BaseQuery implements IQuery {
 		this.select.getStatement().setOffsetValue(limit);
 	}
 
-	@Override
-	public SelectUniversal getSelectUniversal() {
-		return select;
-	}
 
 	@Override
 	public String viewSQL() {
@@ -287,83 +277,7 @@ public class BaseQuery implements IQuery {
 		throw new RuntimeException("QUALIFY clause is not supported for that request");
 	}
 
-	public void run(boolean lazy, QueryWriter writer, String jobId) throws ComputingException {
-		try {
 
-			Project project = universe.asRootUserContext().getProject();
-			//
-			ArrayList<String> deps = new ArrayList<String>();
-			deps.add(project.getId().toUUID());
-			setDependencies(deps);// to override
-			//
-			String url = project.getDbUrl();
-			String user = project.getDbUser();
-			String pwd = project.getDbPassword();
-			//
-			String sql = render();
-			String sqlNoLimitNoOrder = null;// Optionally the "full" version
-			boolean checkFullVersion = select.getStatement().hasLimitValue() || select.getStatement().hasOffsetValue()
-					|| select.getStatement().hasOrderByPieces();
-			RedisCacheValue result;
-			// first check if the original query is in cache (lazy)
-			result = RedisCacheManager.getInstance().getRedisCacheValueLazy(sql, deps, url, user, pwd, -2);
-			// check full version if different
-			if (result == null && checkFullVersion) {
-				// else try to use the query with no orderBy/limit
-				sqlNoLimitNoOrder = renderNoLimitNoOrderBy();
-				result = RedisCacheManager.getInstance().getRedisCacheValueLazy(sqlNoLimitNoOrder, deps, url, user, pwd,
-						-2);
-				if (result instanceof RedisCacheValuesList) {
-					// we'd rather recompute the data than rebuild a big result
-					// set in memory
-					result = null;
-				}
-				if (result != null) {
-					writer.setNeedPostProcessing(true);
-				}
-			}
-			if (result != null) {
-				// all right
-			} else if (lazy) {
-				// do not compute
-				// logger.info("Lazy query, analysis not in cache");
-				throw new NotInCacheException("Lazy query, analysis " + jobId + " not in cache");
-			} else {
-				// compute
-				result = RedisCacheManager.getInstance().getRedisCacheValue(sql, deps, jobId, url, user, pwd, -2,
-						this.getSelectUniversal().getStatement().getLimitValue());
-				if (result == null) {
-					throw new ComputingException("Failed to compute or retrieve the matrix for job " + jobId);
-				} else {
-					if (checkFullVersion && result instanceof RawMatrix) {
-						// create a new reference
-						RawMatrix rm = (RawMatrix) result;
-						if (!rm.isMoreData()) {// only if the result is complete
-												// == full version
-							String refKey = RedisCacheManager.getInstance().addCacheReference(sqlNoLimitNoOrder, deps,
-									rm.getRedisKey());
-							if (refKey != null) {
-								logger.info("Analysis " + jobId + " full result set.\nCreating  new Cache Reference "
-										+ refKey + " to " + rm.getRedisKey());
-							} else {
-								logger.info("Analysis " + jobId
-										+ " full result set.\nFailed to create a  new Cache Reference to "
-										+ rm.getRedisKey());
-
-							}
-						}
-					}
-				}
-			}
-			writer.setSource(result);
-			writer.setMapper(this.mapper);
-			writer.setDatabase(getDatasource().getDBManager().getDatabase());
-			writer.write();
-
-		} catch (InterruptedException | RenderingException | ScopeException e) {
-			throw new ComputingException("Failed to compute or retrieve the matrix for job " + jobId);
-		}
-	}
 
 	/**
 	 * override to add more dependencies
