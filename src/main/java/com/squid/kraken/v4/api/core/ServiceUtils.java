@@ -143,9 +143,11 @@ public class ServiceUtils {
 		for (AppContext ctx : rootUsers.values()){
 			List<User> users = UserServiceBaseImpl.getInstance().readAll(ctx);
 			for(User user : users){
-				if(user.isSuperUser()){
-					return true;
-				}
+						if (user.getGroups() == null) {
+							return (false || user.isSuperUser());
+						}else{
+							return (user.getGroups().contains("superuser") || user.isSuperUser());
+						}
 			}
 		}
 
