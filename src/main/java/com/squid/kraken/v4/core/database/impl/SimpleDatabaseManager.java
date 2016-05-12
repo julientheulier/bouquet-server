@@ -145,6 +145,9 @@ public class SimpleDatabaseManager extends DatabaseManager {
 							+ conn.getMetaData().getDriverName());
 				}
 			} finally {
+				if (!conn.getAutoCommit()) {
+					conn.commit();
+				}
 				conn.close();
 				ds.releaseSemaphore();
 			}
@@ -228,7 +231,7 @@ public class SimpleDatabaseManager extends DatabaseManager {
 
 				return result;
 			} catch (Exception e) {
-				if (needCommit) {
+				if (needCommit && connection!=null) {
 					connection.rollback();
 				}
 				throw e;
@@ -237,6 +240,9 @@ public class SimpleDatabaseManager extends DatabaseManager {
 				// it is our responsibility to dispose connection and statement
 				if (statement!=null) statement.close();
 				if (connection!=null) {
+					if (needCommit) {
+						connection.commit();
+					}
 					connection.close();
 					this.getDatasource().releaseSemaphore();
 				}
