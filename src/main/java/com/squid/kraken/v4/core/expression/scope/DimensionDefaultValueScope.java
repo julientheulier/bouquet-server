@@ -109,7 +109,7 @@ public class DimensionDefaultValueScope extends DefaultScope {
 						}
 					}
 					// else - cannot evaluate but it's OK to try
-					return new ParameterReference("MAX",index.getAxis().getDefinitionSafe().getImageDomain());
+					return new ParameterReference("MAX",index.getAxis().getDefinition().getImageDomain());
 				}
 			} else if (name.equalsIgnoreCase("MIN")) {
 				if (index.getDimension().getType() == Type.CONTINUOUS) {
