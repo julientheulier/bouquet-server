@@ -470,6 +470,12 @@ public class AnalysisCompute {
         return result;
     }
 	
+	private DataMatrix runQuery(SimpleQuery query, boolean lazy, DashboardAnalysis analysis, PreviewWriter qw) throws ComputingException {
+		QueryRunner runner = new QueryRunner(query, lazy, qw, analysis.getJobId());
+		runner.run();
+		return qw.getDataMatrix();
+	}
+	
 	protected DataMatrix computeAnalysisSimpleForGroup(DashboardAnalysis analysis, MeasureGroup group,
 			boolean optimize) throws ScopeException, SQLScopeException, ComputingException, InterruptedException, RenderingException {
 		// generate the query
@@ -484,7 +490,7 @@ public class AnalysisCompute {
 		AnalysisSignature signature = new AnalysisSignature(analysis, group, SQL);
 		try {
 			// always try lazy first
-			query.run(true/*lazy*/, qw);
+			runQuery(query, true/*lazy*/, analysis, qw);
 		} catch (NotInCacheException e) {
 			// try the smart cache
 			long start = System.currentTimeMillis();
@@ -497,7 +503,7 @@ public class AnalysisCompute {
 						match.getMeasures(), 
 						optimize);
 				try {
-					queryBis.run(true/*lazy*/, qw);
+					runQuery(queryBis, true/*lazy*/, analysis, qw);
 					// add postprocessing
 					for (DataMatrixTransform transform : match.getPostProcessing()) {
 						queryBis.addPostProcessing(transform);
@@ -521,7 +527,7 @@ public class AnalysisCompute {
 			}
 			// still not yet, shall we run it?
 			if (!analysis.isLazy()) {
-				query.run(false, qw);
+				runQuery(query, false, analysis, qw);
 			} else {
 				throw e;// throw the NotInCache exception
 			}
@@ -548,27 +554,39 @@ public class AnalysisCompute {
 		}
 		return dm;
 	}
+	
+    /**
+     * execute the analysis but does not read the result: 
+     * this method can be used to stream the result back to client, for instance to export the dataset
+     * @param analysis
+     * @return
+     * @throws ComputingException
+     * @throws InterruptedException
+     */
+    public void executeAnalysis(DashboardAnalysis analysis, QueryWriter writer, boolean lazy) throws ComputingException, InterruptedException {
+	    try {
+            long start = System.currentTimeMillis();
+    		logger.info("start of sql generation");
 
-	/**
-	 * execute the analysis but does not read the result: this method can be
-	 * used to stream the result back to client, for instance to export the
-	 * dataset
-	 * 
-	 * @param analysis
-	 * @return
-	 * @throws ComputingException
-	 * @throws InterruptedException
-	 */
-	public void executeAnalysis(DashboardAnalysis analysis, QueryWriter writer, boolean lazy)
-			throws ComputingException, InterruptedException {
-		try {
-			long start = System.currentTimeMillis();
-			logger.info("start of sql generation");
+	        List<MeasureGroup> groups = analysis.getGroups();
+            if (groups.isEmpty()) {
+                 SimpleQuery query = this.genSimpleQuery(analysis);
+                
+                long stop = System.currentTimeMillis();
+        		//logger.info("End of sql generation  in " +(stop-start)+ "ms" );
+    			logger.info("task="+this.getClass().getName()+" method=executeAnalysis.SQLGeneration"+" duration="+ (stop-start)+" error=false status=done");
+                try {
+                    String sql = query.render();
+                    SQLStats queryLog = new SQLStats(query.toString(), "executeAnalysis.SQLGeneration",sql, (stop-start), analysis.getUniverse().getProject().getId().getProjectId());
+                    queryLog.setError(false);
+                    PerfDB.INSTANCE.save(queryLog);
+
                 } catch (RenderingException e) {
                     e.printStackTrace();
                 }
-                
-                query.run(lazy, writer);
+
+				QueryRunner runner = new QueryRunner(query, lazy, writer, analysis.getJobId());
+				runner.run();
                         	
             } else {
                 // possible only if there is only one group
@@ -581,7 +599,8 @@ public class AnalysisCompute {
                 //
                 SimpleQuery query = genAnalysisQueryWithSoftFiltering(analysis, group, false, false);
         		//
-                query.run(lazy, writer);
+				QueryRunner runner = new QueryRunner(query, lazy, writer, analysis.getJobId());
+				runner.run();
             }
 	    } catch (ScopeException e) {
 	        throw new ComputingException(e);
