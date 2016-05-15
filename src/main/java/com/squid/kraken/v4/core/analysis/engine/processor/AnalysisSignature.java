@@ -110,8 +110,9 @@ public class AnalysisSignature {
 	 */
 	private String computeConstantSignature(Universe universe, DashboardAnalysis analysis) {
 		//
-		// add the project ID
-		StringBuilder signature = new StringBuilder(universe.getProject().getOid());
+		// add the customer ID / project ID
+		StringBuilder signature = new StringBuilder();
+		signature.append(universe.getProject().getId().toUUID());
 		//
 		// add the measure group domain
 		Domain root = measures.getRoot();
