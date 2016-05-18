@@ -33,6 +33,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
+import com.squid.kraken.v4.KrakenConfig;
 import com.squid.kraken.v4.api.core.PerfDB;
 import com.squid.kraken.v4.api.core.SQLStats;
 import com.squid.kraken.v4.caching.NotInCacheException;
@@ -91,11 +92,11 @@ public class AnalysisCompute {
 	private boolean mandatory_link = false;
 
 	static final Logger logger = LoggerFactory.getLogger(AnalysisCompute.class);
-
-	private static final boolean SUPPORT_SOFT_FILTERS = false; // turn to true
-																// to support
-																// soft-filter
-																// optimization
+	
+	public static final boolean SUPPORT_SMART_CACHE = new Boolean(KrakenConfig.getProperty("feature.smartcache", "true"));
+	
+	// turn to true to support soft-filter optimization
+	private static final boolean SUPPORT_SOFT_FILTERS = new Boolean(KrakenConfig.getProperty("feature.softfilters", "false"));
 
 	public AnalysisCompute(Universe universe) {
 		this.universe = universe;
@@ -159,7 +160,6 @@ public class AnalysisCompute {
 			return computeAnalysisCompareTo(analysis);
 		} else {
 			// disable the optimizing when using the limit feature
-			@SuppressWarnings("unused")
 			boolean optimize = SUPPORT_SOFT_FILTERS && !analysis.hasLimit() && !analysis.hasOffset()
 					&& !analysis.hasRollup();
 			return computeAnalysisSimple(analysis, optimize);
@@ -479,54 +479,71 @@ public class AnalysisCompute {
 	protected DataMatrix computeAnalysisSimpleForGroup(DashboardAnalysis analysis, MeasureGroup group,
 			boolean optimize) throws ScopeException, SQLScopeException, ComputingException, InterruptedException, RenderingException {
 		// generate the query
-		if (analysis.hasBeyondLimit()) {
-			System.out.println("test");
-		}
 		PreviewWriter  qw = new PreviewWriter();
 		SimpleQuery query = this.genAnalysisQueryCachable(analysis,
 				group, optimize);
 		String SQL = query.render();// analysis signature for future use
 		// compute the signature: do it after generating the query to take into account side-effects
-		AnalysisSignature signature = new AnalysisSignature(analysis, group, SQL);
+		boolean smartCache = SUPPORT_SMART_CACHE && !analysis.hasRollup();
+		AnalysisSignature signature = smartCache?new AnalysisSignature(analysis, group, SQL):null;
+		boolean temporarySignature = false;
+		try {
 		try {
 			// always try lazy first
 			runQuery(query, true/*lazy*/, analysis, qw);
 		} catch (NotInCacheException e) {
-			// try the smart cache
-			long start = System.currentTimeMillis();
-			AnalysisSmartCacheMatch match = AnalysisSmartCache.INSTANCE.checkMatch(universe, signature);
-			if (match!=null) {
-				// need to setup the postprocessing somewhere...
-				// restore the query for the match
-				SimpleQuery queryBis = this.genAnalysisQueryCachable(
-						match.getAnalysis(),
-						match.getMeasures(), 
-						optimize);
-				try {
-					runQuery(queryBis, true/*lazy*/, analysis, qw);
-					// add postprocessing
-					for (DataMatrixTransform transform : match.getPostProcessing()) {
-						queryBis.addPostProcessing(transform);
+			if (signature!=null) {
+				// try the smart cache
+				long start = System.currentTimeMillis();
+				AnalysisSmartCacheMatch match = AnalysisSmartCache.INSTANCE.checkMatch(universe, signature);
+				if (match!=null) {
+					boolean lazy = true;
+					if (match.getSignature().getRowCount()<0) {
+						// if the DM is not yet available, run a standard query to wait
+						lazy = false;
 					}
-					// run the postprocessing now so it can fails
-					DataMatrix dm =  qw.getDataMatrix();
-					if (dm != null) {
-						for (DataMatrixTransform transform : queryBis.getPostProcessing()) {
-							dm = transform.apply(dm);
+					// need to setup the postprocessing somewhere...
+					// restore the query for the match
+					SimpleQuery queryBis = this.genAnalysisQueryCachable(
+							match.getAnalysis(),
+							match.getMeasures(), 
+							optimize);
+					try {
+						runQuery(queryBis, lazy, analysis, qw);
+						if (!lazy) {
+							// check that the DM is not too big
+							if (!qw.getDataMatrix().isFullset()) {
+								throw new NotInCacheException("cannot use this cached datamatrix");
+							}
 						}
+						// add postprocessing
+						for (DataMatrixTransform transform : match.getPostProcessing()) {
+							queryBis.addPostProcessing(transform);
+						}
+						// run the postprocessing now so it can fails
+						DataMatrix dm =  qw.getDataMatrix();
+						if (dm != null) {
+							for (DataMatrixTransform transform : queryBis.getPostProcessing()) {
+								dm = transform.apply(dm);
+							}
+						}
+						long end = System.currentTimeMillis();
+						logger.info("HIT! get analysis from Smart Cache in "+(end-start)+"ms : "+SQL);
+						return dm;
+					} catch (Exception ee) {
+						// catch all, we don't want to fail here !
 					}
+				} else {
 					long end = System.currentTimeMillis();
-					logger.info("HIT! get analysis from Smart Cache in "+(end-start)+"ms : "+SQL);
-					return dm;
-				} catch (Exception ee) {
-					// catch all, we don't want to fail here !
+					logger.info("Smart Cache consumed: "+(end-start)+"ms");
 				}
-			} else {
-				long end = System.currentTimeMillis();
-				logger.info("Smart Cache consumed: "+(end-start)+"ms");
 			}
 			// still not yet, shall we run it?
 			if (!analysis.isLazy()) {
+				// if smart-cache enabled, lets keep a reference
+				if (signature!=null) {
+					temporarySignature = AnalysisSmartCache.INSTANCE.put(universe, signature, null);
+				}
 				runQuery(query, false, analysis, qw);
 			} else {
 				throw e;// throw the NotInCache exception
@@ -539,20 +556,28 @@ public class AnalysisCompute {
 			}
 		}
 		// if it is a full dataset and no rollup, store the layout in the intelligentCache
-		if (dm.isFullset() && !analysis.hasRollup()) {
-			if (dm.isFromCache()) {
-				// from cache, but is it still in the smartCache ?
-				if (!AnalysisSmartCache.INSTANCE.contains(SQL)) {
+		if (signature!=null) {
+			if (dm.isFullset() && !analysis.hasRollup()) {
+				if (dm.isFromCache()) {
+					// from cache, but is it still in the smartCache ?
+					if (!AnalysisSmartCache.INSTANCE.contains(SQL)) {
+						AnalysisSmartCache.INSTANCE.put(universe, signature, dm);
+						logger.info("put analysis in Smart Cache");
+					}
+				} else {
+					// add to the smart cache
 					AnalysisSmartCache.INSTANCE.put(universe, signature, dm);
 					logger.info("put analysis in Smart Cache");
 				}
-			} else {
-				// add to the smart cache
-				AnalysisSmartCache.INSTANCE.put(universe, signature, dm);
-				logger.info("put analysis in Smart Cache");
 			}
 		}
 		return dm;
+		} finally {
+			if (signature!=null && temporarySignature) {
+				// make sure to remove the temporary signature from cache
+				//AnalysisSmartCache.INSTANCE.remove(universe, signature);
+			}
+		}
 	}
 	
     /**
