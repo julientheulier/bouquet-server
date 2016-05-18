@@ -186,7 +186,7 @@ public class SegmentManager {
     public static void addSegmentSelection(AppContext ctx, Universe universe, Facet facet, DashboardSelection ds) throws ComputingException, InterruptedException, ScopeException {
         DomainPK pk = new DomainPK(facet.getDimensionId().getCustomerId(), facet.getDimensionId().getProjectId(), facet.getDimensionId().getDomainId());
         Domain domain = DomainServiceBaseImpl.getInstance().read(ctx, pk);
-        DomainHierarchy hierarchy = universe.getDomainHierarchy(domain);
+        DomainHierarchy hierarchy = universe.getDomainHierarchy(domain, false);
         for (FacetMember selectedItem : facet.getSelectedItems()) {
             if (selectedItem instanceof FacetMemberString) {
                 FacetMemberString fmember = (FacetMemberString) selectedItem;

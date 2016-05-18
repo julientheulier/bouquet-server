@@ -56,7 +56,7 @@ public class DomainHierarchyCreator {
 
 	private LockableMap<DomainPK, DomainHierarchy> hierarchies;
 	
-	private List<DomainHierarchy> todo = new ArrayList<>();
+	private List<DomainPK> todo = new ArrayList<>();
 	
 	private List<DimensionIndex> subdomains = new ArrayList<>();
 	
@@ -73,7 +73,7 @@ public class DomainHierarchyCreator {
 		this.hierarchies = hierarchies;
 	}
 	
-	public List<DomainHierarchy> getTodo() {
+	public List<DomainPK> getTodo() {
 		return todo;
 	}
 
@@ -93,7 +93,7 @@ public class DomainHierarchyCreator {
 		hierarchies.put(space.getDomain().getId(), hierarchy);
 		//
 		// add to the todo list (to compute the indexes)
-		todo.add(0, hierarchy);// T753: since now it is tail recursive, we add it at the beginning so that sub-domains get on top
+		todo.add(0, space.getDomain().getId());// T753: since now it is tail recursive, we add it at the beginning so that sub-domains get on top
 		//
 		// handles sub-domains
 		populateSubDomains(hierarchy);

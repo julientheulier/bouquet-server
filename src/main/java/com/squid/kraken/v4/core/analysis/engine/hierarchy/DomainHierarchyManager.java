@@ -23,8 +23,7 @@
  *******************************************************************************/
 package com.squid.kraken.v4.core.analysis.engine.hierarchy;
 
-import java.util.Deque;
-import java.util.LinkedList;
+import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.ReentrantLock;
@@ -41,8 +40,8 @@ import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.kraken.v4.model.Dimension;
 import com.squid.kraken.v4.model.DimensionPK;
 import com.squid.kraken.v4.model.Domain;
-import com.squid.kraken.v4.model.Metric;
 import com.squid.kraken.v4.model.DomainPK;
+import com.squid.kraken.v4.model.Metric;
 import com.squid.kraken.v4.model.Project;
 import com.squid.kraken.v4.model.ProjectPK;
 import com.squid.kraken.v4.persistence.AppContext;
@@ -59,14 +58,16 @@ public class DomainHierarchyManager {
 			.getLogger(DomainHierarchyManager.class);
 
 	public static final DomainHierarchyManager INSTANCE = new DomainHierarchyManager();
-	
+
 	private LockableMap<DomainPK, DomainHierarchy> hierarchies = new LockableMap<DomainPK, DomainHierarchy>();
 
+	private LockableMap<DomainPK, List<DomainPK>> computingOrder =  new LockableMap<DomainPK, List<DomainPK>> ();
+	
 	private DomainHierarchyManager() {
 		//
 	}
 
-	
+
 	public void invalidate(DomainPK domainID) throws InterruptedException {
 		// cancel any running execution
 		DomainHierarchy hierarchy = hierarchies.get(domainID);	
@@ -78,47 +79,47 @@ public class DomainHierarchyManager {
 		// clear the index
 		DimensionStoreManagerFactory.INSTANCE.invalidate(domainID);
 	}
-	
-	public void setStatesToStale(DomainPK domainId) {
-		
-	}
-	
 
-	public DomainHierarchy getHierarchy(ProjectPK projectPk, Domain domain)
-			throws ComputingException, InterruptedException {
-		return getHierarchy(projectPk, domain, 0);
+	public void setStatesToStale(DomainPK domainId) {
+
 	}
-	
+
+
+	public DomainHierarchy getHierarchy(ProjectPK projectPk, Domain domain, boolean lazy)
+			throws ComputingException, InterruptedException {
+		return getHierarchy(projectPk, domain, 0, lazy);
+	}
+
 	public DomainHierarchy getHierarchySilent(ProjectPK projectPk, Domain domain) throws ComputingException, InterruptedException {
 		return hierarchies.get(domain.getId());
 	}
 
-    /**
-     * find the dimension identified by its PK - or null if cannot find or cannot access
-     * @param ctx
-     * @param dimensionPK
-     * @return
-     * @throws ScopeException
-     * @throws InterruptedException 
-     * @throws ComputingException 
-     */
-    public Dimension findDimension(AppContext ctx, ProjectPK projectPk, Domain domain, DimensionPK dimensionPK) throws ScopeException, ComputingException, InterruptedException {
-    	DomainHierarchy hierarchy = getHierarchy(projectPk, domain, 0);
-    	if (hierarchy!=null) {
-    		return hierarchy.findDimension(ctx, dimensionPK);
-    	} else {
-    		return null;
-    	}
-    }
+	/**
+	 * find the dimension identified by its PK - or null if cannot find or cannot access
+	 * @param ctx
+	 * @param dimensionPK
+	 * @return
+	 * @throws ScopeException
+	 * @throws InterruptedException 
+	 * @throws ComputingException 
+	 */
+	public Dimension findDimension(AppContext ctx, ProjectPK projectPk, Domain domain, DimensionPK dimensionPK) throws ScopeException, ComputingException, InterruptedException {
+		DomainHierarchy hierarchy = getHierarchy(projectPk, domain, 0, true);
+		if (hierarchy!=null) {
+			return hierarchy.findDimension(ctx, dimensionPK);
+		} else {
+			return null;
+		}
+	}
 
 	public Metric findMetric(AppContext ctx, ProjectPK projectPk,
 			Domain domain, String metricId) throws ComputingException, InterruptedException {
-		DomainHierarchy hierarchy = getHierarchy(projectPk, domain, 0);
-    	if (hierarchy!=null) {
-    		return hierarchy.findMetric(ctx, metricId);
-    	} else {
-    		return null;
-    	}
+		DomainHierarchy hierarchy = getHierarchy(projectPk, domain, 0,true);
+		if (hierarchy!=null) {
+			return hierarchy.findMetric(ctx, metricId);
+		} else {
+			return null;
+		}
 	}
 
 	/**
@@ -134,7 +135,7 @@ public class DomainHierarchyManager {
 	 */
 	public boolean isHierarchyDone(Universe universe, Domain domain,
 			Integer timeoutMs) throws InterruptedException, TimeoutException,
-			ExecutionException {
+	ExecutionException {
 		DomainHierarchy hierarchy = hierarchies.get(domain.getId());
 		if (hierarchy != null) {
 			return hierarchy.isDone(timeoutMs);
@@ -155,7 +156,7 @@ public class DomainHierarchyManager {
 	 * @throws InterruptedException
 	 */
 	protected DomainHierarchy getHierarchy(ProjectPK projectPk, Domain domain,
-			int timeoutMs) throws ComputingException, InterruptedException {
+			int timeoutMs, boolean lazy) throws ComputingException, InterruptedException {
 		try {
 			DomainHierarchy hierarchy = hierarchies.get(domain.getId());
 			ReentrantLock lock = null;
@@ -166,6 +167,9 @@ public class DomainHierarchyManager {
 					// double check
 					check = hierarchies.get(hierarchy.getRoot().getDomain().getId());
 					if (check!=null && (check!=hierarchy || check.isValid())) {
+						if (!lazy){
+							runComputation(this.computingOrder.get(domain.getId())) ;
+						}
 						return check;
 					}
 					if (check!=null) {
@@ -176,18 +180,27 @@ public class DomainHierarchyManager {
 							hierarchy.cancel();// kill me please (but make sure it's me)
 							hierarchy = null;
 						} else {
+							if (!lazy){
+							runComputation(this.computingOrder.get(domain.getId())) ;
+							}
 							return hierarchy;
 						}
 					}
 				}
 				if (hierarchy != null) {
+					if (!lazy){
+						runComputation(this.computingOrder.get(domain.getId())) ;
+					}
 					return hierarchy;
 				} else {
 					if (lock==null) lock = hierarchies.lock(domain.getId(), timeoutMs);// if it's a new one
 					// check race condition
 					hierarchy = hierarchies.get(domain.getId());
 					if (hierarchy == null) {
-						hierarchy = computeHierarchy(projectPk, domain);
+						hierarchy = createHierarchy(projectPk, domain);
+					}
+					if (!lazy){
+						runComputation(this.computingOrder.get(domain.getId())) ;
 					}
 					return hierarchy;
 				}
@@ -199,31 +212,47 @@ public class DomainHierarchyManager {
 		}
 	}
 
-	private DomainHierarchy computeHierarchy(ProjectPK projectPk, Domain domain) throws ScopeException, InterruptedException {
+	
+	
+	
+	private DomainHierarchy createHierarchy(ProjectPK projectPk, Domain domain) throws ScopeException, InterruptedException {
 		//
 		// escalate context as root
-    	AppContext rootctx = ServiceUtils.getInstance().getRootUserContext(projectPk.getCustomerId());
-    	Project project = ProjectManager.INSTANCE.getProject(rootctx, projectPk);
+		AppContext rootctx = ServiceUtils.getInstance().getRootUserContext(projectPk.getCustomerId());
+		Project project = ProjectManager.INSTANCE.getProject(rootctx, projectPk);
 		Universe root = new Universe(rootctx, project);
 		//
-		// fill the todo with the created domains
 		DomainHierarchyCreator creator = new DomainHierarchyCreator(hierarchies);
 		DomainHierarchy hierarchy = creator.createDomainHierarchy(root.S(domain));
-		//
-		// create the computer before starting the computation so we can cancel them
-		final Deque<DomainHierarchyCompute> goals = new LinkedList<DomainHierarchyCompute>();
-		for (DomainHierarchy h : creator.getTodo()) {
-			DomainHierarchyCompute compute = new DomainHierarchyCompute(h);
-			goals.push(compute);
-		}
-		//
-		
-		Runnable run = new Runnable() {
+
+		// store the computing order with the created domains
+		this.computingOrder.put(domain.getId(), creator.getTodo()) ;
+
+		return hierarchy;
+	}
+	
 			
+	
+	public void runComputation( List<DomainPK> goals){
+		
+		
+		class Computation implements Runnable{
+		
+			List<DomainPK> goals ;
+			public Computation( List<DomainPK> goals){
+				this.goals= goals;
+			}
+		
 			@Override
 			public void run() {
 				while (!goals.isEmpty()) {
-					DomainHierarchyCompute compute = goals.pop();
+					
+					DomainHierarchy hierarchy  =  hierarchies.get(goals.remove(0)) ;
+					if ( ! hierarchy.getState().equals(DomainHierarchy.State.INIT)){
+						continue;
+					}
+					// create the computer before starting the computation so we can cancel them
+					 DomainHierarchyCompute compute = new DomainHierarchyCompute(hierarchy);
 					if (Thread.interrupted()) {
 						break;// stop
 					}
@@ -236,11 +265,12 @@ public class DomainHierarchyManager {
 				}
 			}
 		};
+		
 		//
-		Thread t = new Thread(run);
+		Thread t = new Thread(new Computation(goals));
 		t.start();
 		//
-		return hierarchy;
+		
 	}
 
 	/**
@@ -265,7 +295,7 @@ public class DomainHierarchyManager {
 
 				DomainHierarchy check = hierarchies.remove(hierarchy.getRoot().getDomain().getId());// T595: better check if we are removing the good one
 				if (check!=null) {
-					
+
 					logger.info("Invalidation hierarchy for domain " +  hierarchy.getRoot().getDomain().getName());
 					check.cancel();// kill me please (but make sure it's me)
 					return null;

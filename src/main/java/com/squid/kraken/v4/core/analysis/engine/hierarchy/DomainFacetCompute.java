@@ -93,7 +93,7 @@ public class DomainFacetCompute extends FacetBuilder {
             int offset,
             int size, Integer timeoutMs) throws ComputingException, InterruptedException, ExecutionException, TimeoutException {
         //
-        DomainHierarchy hierarchy = universe.getDomainHierarchy(domain);
+        DomainHierarchy hierarchy = universe.getDomainHierarchy(domain, false);
         DimensionIndex index = hierarchy.getDimensionIndex(axis);
         //
         if (index.getStatus()==Status.STALE) {
@@ -148,7 +148,7 @@ public class DomainFacetCompute extends FacetBuilder {
     public Collection<Facet> computeDomainFacets(
             Domain domain,
             DashboardSelection sel) throws ScopeException, InterruptedException, ComputingException {
-        DomainHierarchy hierarchy = universe.getDomainHierarchy(domain);
+        DomainHierarchy hierarchy = universe.getDomainHierarchy(domain, false);
         List<Facet> facets = new ArrayList<>();
         for (DimensionIndex index : hierarchy.getDimensionIndexes()) {
         	IDomain image = index.getAxis().getDefinitionSafe().getImageDomain();

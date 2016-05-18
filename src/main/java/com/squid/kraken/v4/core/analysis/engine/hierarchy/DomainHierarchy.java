@@ -290,6 +290,10 @@ public class DomainHierarchy {
 		this.compute = c;
 	}
 
+	public DomainHierarchyCompute getCompute(){
+		return this.compute;
+	}
+	
 	public boolean isDone(Integer timeoutMs) throws InterruptedException, TimeoutException, ExecutionException {
 
 		if ((this.state == State.CANCELLED) || (this.state == State.DONE)) {
