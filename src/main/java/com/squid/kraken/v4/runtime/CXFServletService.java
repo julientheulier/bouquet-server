@@ -217,13 +217,16 @@ public class CXFServletService extends CXFNonSpringJaxrsServlet {
 				serverMode = KrakenConfig.getProperty("kraken.server.mode", "release");
 			}
 			// we don't want to modify release servers.
-			if(serverMode.equals("dev")){
-				// Checking for previous superusers...
-				if(!ServiceUtils.getInstance().checkforSuperUserRootUserContext()) {
-					String defaultClientURL = KrakenConfig.getProperty(
-							"default.client.url", true);
-					CustomerServiceBaseImpl.getInstance().accessRequest("demo", null, null, null, null,
-							null, null, defaultClientURL, EmailHelperImpl.getInstance());
+			if(serverMode.equals("dev") && System.getProperty("kraken.autocreate")!=null){
+				//Extra safety for prod
+				if(System.getProperty("kraken.autocreate").contains("true")){
+					// Checking for previous superusers...
+					if(!ServiceUtils.getInstance().checkforSuperUserRootUserContext()) {
+						String defaultClientURL = KrakenConfig.getProperty(
+								"default.client.url", true);
+						CustomerServiceBaseImpl.getInstance().accessRequest("demo", null, null, null, null,
+								null, null, defaultClientURL, EmailHelperImpl.getInstance());
+					}
 				}
 			}
 		} catch (Exception e) {
