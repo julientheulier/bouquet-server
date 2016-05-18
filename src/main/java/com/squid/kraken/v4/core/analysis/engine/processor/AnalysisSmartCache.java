@@ -267,7 +267,7 @@ public class AnalysisSmartCache {
 	 * @param signature
 	 * @param dm 
 	 */
-	public void put(Universe universe, AnalysisSignature signature, DataMatrix dm) {
+	public boolean put(Universe universe, AnalysisSignature signature, DataMatrix dm) {
 		Map<String, Set<AnalysisSignature>> sameAxes = lookup.get(signature.getAxesSignature(universe));
 		if (sameAxes==null) {
 			sameAxes = new HashMap<>();
@@ -279,11 +279,11 @@ public class AnalysisSmartCache {
 			sameAxes.put(signature.getFiltersSignature(universe), sameFilters);
 		}
 		if (!sameFilters.contains(signature)) {
-			signature.setRowCount(dm.getRowCount());
+			signature.setRowCount(dm!=null?dm.getRowCount():-1);// if no DM is provided, set to -1 so we can test if it is a temporary signature
 			sameFilters.add(signature);
 		}
 		//
-		contains.add(signature.getHash());
+		return contains.add(signature.getHash());
 	}
 
 	/**
