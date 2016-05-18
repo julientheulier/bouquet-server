@@ -232,7 +232,7 @@ public class DatabaseServiceImpl implements DatabaseService {
 		} catch (DatabaseServiceException e) {
 			if (e.getCause() instanceof IllegalArgumentException) {
 				// if the project's dbUrl is not correctly set or it is jdbc:test:, then just return an empty schema list
-				if (project.getDbUrl()==null || project.getDbUrl().equals("") || "jdbc:test:".equals(project.getDbUrl())) {
+				if (project.getDbUrl()==null || "".equals(project.getDbUrl()) || "jdbc:test:".equals(project.getDbUrl())) {
 					return Collections.emptyList();
 				}
 			}
