@@ -31,7 +31,9 @@ package com.squid.kraken.v4.model;
 public class ExpressionSuggestionItem {
 
 	private String display = null;// this is the display value for the suggestion, if different from suggestion
-	
+
+	private String description = null;
+
 	private String suggestion = null;// this is the actual value for the suggestion, that will be used in the expression
     
     private ObjectType objectType = null;
@@ -41,12 +43,21 @@ public class ExpressionSuggestionItem {
     public ExpressionSuggestionItem() {
 	}
     
-    public ExpressionSuggestionItem(String display, String suggestion,
+    public ExpressionSuggestionItem(String display, String description, String suggestion,
 			ObjectType objectType, ValueType valueType) {
     	this.display = display;
+		this.setDescription(description);
     	this.suggestion = suggestion;
     	this.objectType = objectType;
     	this.valueType = valueType;
+	}
+
+	public ExpressionSuggestionItem(String display, String suggestion,
+									ObjectType objectType, ValueType valueType) {
+		this.display = display;
+		this.suggestion = suggestion;
+		this.objectType = objectType;
+		this.valueType = valueType;
 	}
     
     public ExpressionSuggestionItem(String suggestion,
@@ -55,6 +66,8 @@ public class ExpressionSuggestionItem {
     	this.objectType = objectType;
     	this.valueType = valueType;
 	}
+
+
     
     public String getDisplay() {
 		return display!=null?display:suggestion;
@@ -88,4 +101,11 @@ public class ExpressionSuggestionItem {
 		this.valueType = valueType;
 	}
 
+	public String getDescription() {
+		return description;
+	}
+
+	public void setDescription(String description) {
+		this.description = description;
+	}
 }

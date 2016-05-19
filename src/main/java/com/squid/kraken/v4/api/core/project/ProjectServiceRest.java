@@ -161,9 +161,17 @@ public class ProjectServiceRest extends BaseServiceRest {
 				String res = "{";
 				for (OperatorDefinition opDef: OperatorScope.getDefault().getRegisteredOperators()){
 					if(opDef.getExtendedID().contains(IntrinsicOperators.INTRINSIC_EXTENDED_ID)){
-						res+= "{" + opDef.getName() + ":" + opDef.getParametersTypes() + "}";
+						res 	+= "{" + opDef.getName() + ":";
+						if(opDef.getListContentAssistEntry()!=null){
+							res+=opDef.getListContentAssistEntry().toString();
+						}
+						res += "}";
 					}else{
-						res+= "{" + opDef.getExtendedID() + ":" + opDef.getParametersTypes() + "}";
+						res+= "{" + opDef.getExtendedID() + ":";
+						if(opDef.getListContentAssistEntry()!=null){
+							res+=opDef.getListContentAssistEntry().toString();
+						}
+						res+= "}";
 					}
 				}
 				res += "}";

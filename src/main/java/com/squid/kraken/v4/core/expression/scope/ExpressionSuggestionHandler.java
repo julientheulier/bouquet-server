@@ -31,6 +31,7 @@ import com.squid.core.database.domain.TableDomain;
 import com.squid.core.database.model.Table;
 import com.squid.core.database.model.TableType;
 import com.squid.core.domain.IDomain;
+import com.squid.core.domain.operators.ListContentAssistEntry;
 import com.squid.core.domain.operators.OperatorDefinition;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.ExpressionRef;
@@ -52,6 +53,7 @@ import com.squid.kraken.v4.model.ExpressionSuggestion;
 import com.squid.kraken.v4.model.ExpressionSuggestionItem;
 import com.squid.kraken.v4.model.ObjectType;
 import com.squid.kraken.v4.model.ValueType;
+import org.eclipse.xtext.ide.editor.contentassist.ContentAssistEntry;
 
 public class ExpressionSuggestionHandler {
 
@@ -245,9 +247,27 @@ public class ExpressionSuggestionHandler {
 
 			}
 			try {
-				OperatorDefinition opDef = this.scope.lookup(text); //test if it is a function
+				OperatorDefinition opDef = this.scope.looseLookup(text); //test if it is a function
 				List<List> poly = opDef.getParametersTypes();
-				for (List<IDomain> type : poly) {
+				ListContentAssistEntry listContentAssistEntry = opDef.getListContentAssistEntry();
+				if(listContentAssistEntry != null){
+					for(ContentAssistEntry contentAssistEntry : listContentAssistEntry.getContentAssistEntries()){
+						//TODO this code should disappear when we get to XTEXT
+						ExpressionSuggestionItem item =
+								new ExpressionSuggestionItem(
+										opDef.getSymbol() + "(" + contentAssistEntry.getLabel()+ ")",
+										contentAssistEntry.getDescription(),
+										opDef.getSymbol() + "(" + contentAssistEntry.getProposal()+ ")",
+										ObjectType.FORMULA,
+										computeValueTypeFromImage(opDef.computeImageDomain(poly.get(listContentAssistEntry.getContentAssistEntries().indexOf(contentAssistEntry)))));//computeValueTypeFromImage(opDef.computeImageDomain(type)));
+						if (item.getValueType() != ValueType.ERROR) {
+							if (proposals.size() < PROPOSAL_MAX_SIZE) {
+								proposals.add(item);
+							}
+						}
+					}
+				}
+				/*for (List<IDomain> type : poly) {
 					if (type.size() == 0) { //not null just empty
 						ExpressionSuggestionItem item =
 								new ExpressionSuggestionItem(
@@ -297,7 +317,7 @@ public class ExpressionSuggestionHandler {
 						}
 					}
 
-				}
+				}*/
 			} catch (ScopeException e) {
 				//ignoring
 			}
@@ -329,6 +349,7 @@ public class ExpressionSuggestionHandler {
 	}
 
 	private ExpressionSuggestionItem createItem(String suggestion, ExpressionAST expr) {
+		//TODO handle description escpaially for domain's suggestion.
 		if (expr instanceof ExpressionRef && !(expr instanceof ParameterReference)) {
 			return new ExpressionSuggestionItem(
 					((ExpressionRef) expr).getReferenceName(),
