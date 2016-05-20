@@ -67,7 +67,7 @@ public class ExpressionSuggestionHandler {
 
 	private final static String OPENING_CHARSET = "([";
 
-	private final static int PROPOSAL_MAX_SIZE = 10;
+	private final static int PROPOSAL_MAX_SIZE = 200;
 
 	private ExpressionScope scope;
 
@@ -247,25 +247,28 @@ public class ExpressionSuggestionHandler {
 
 			}
 			try {
-				OperatorDefinition opDef = this.scope.looseLookup(text); //test if it is a function
-				List<List> poly = opDef.getParametersTypes();
-				ListContentAssistEntry listContentAssistEntry = opDef.getListContentAssistEntry();
-				if(listContentAssistEntry != null){
-					for(ContentAssistEntry contentAssistEntry : listContentAssistEntry.getContentAssistEntries()){
-						//TODO this code should disappear when we get to XTEXT
-						ExpressionSuggestionItem item =
-								new ExpressionSuggestionItem(
-										opDef.getSymbol() + "(" + contentAssistEntry.getLabel()+ ")",
-										contentAssistEntry.getDescription(),
-										opDef.getSymbol() + "(" + contentAssistEntry.getLabel()+ ")",
-										opDef.getSymbol() + "(" + contentAssistEntry.getProposal()+ ")",
-										ObjectType.FORMULA,
-										computeValueTypeFromImage(opDef.computeImageDomain(poly.get(listContentAssistEntry.getContentAssistEntries().indexOf(contentAssistEntry)))));//computeValueTypeFromImage(opDef.computeImageDomain(type)));
-						if (item.getValueType() != ValueType.ERROR) {
-							if (proposals.size() < PROPOSAL_MAX_SIZE) {
-								proposals.add(item);
+				Set<OperatorDefinition> opDefs = this.scope.looseLookup(text); //test if it is a function
+				for(OperatorDefinition opDef : opDefs) {
+					List<List> poly = opDef.getParametersTypes();
+					ListContentAssistEntry listContentAssistEntry = opDef.getListContentAssistEntry();
+					if (listContentAssistEntry != null) {
+						if (listContentAssistEntry.getContentAssistEntries() != null)
+							for (ContentAssistEntry contentAssistEntry : listContentAssistEntry.getContentAssistEntries()) {
+								//TODO this code should disappear when we get to XTEXT
+								ExpressionSuggestionItem item =
+										new ExpressionSuggestionItem(
+												opDef.getSymbol() + "(" + contentAssistEntry.getLabel() + ")",
+												contentAssistEntry.getDescription(),
+												opDef.getSymbol() + "(" + contentAssistEntry.getLabel() + ")",
+												opDef.getSymbol() + "(" + contentAssistEntry.getProposal() + ")",
+												ObjectType.FORMULA,
+												computeValueTypeFromImage(opDef.computeImageDomain(poly.get(listContentAssistEntry.getContentAssistEntries().indexOf(contentAssistEntry)))));//computeValueTypeFromImage(opDef.computeImageDomain(type)));
+								if (item.getValueType() != ValueType.ERROR) {
+									if (proposals.size() < PROPOSAL_MAX_SIZE) {
+										proposals.add(item);
+									}
+								}
 							}
-						}
 					}
 				}
 				/*for (List<IDomain> type : poly) {
