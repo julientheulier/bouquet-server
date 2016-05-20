@@ -257,6 +257,7 @@ public class ExpressionSuggestionHandler {
 								new ExpressionSuggestionItem(
 										opDef.getSymbol() + "(" + contentAssistEntry.getLabel()+ ")",
 										contentAssistEntry.getDescription(),
+										opDef.getSymbol() + "(" + contentAssistEntry.getLabel()+ ")",
 										opDef.getSymbol() + "(" + contentAssistEntry.getProposal()+ ")",
 										ObjectType.FORMULA,
 										computeValueTypeFromImage(opDef.computeImageDomain(poly.get(listContentAssistEntry.getContentAssistEntries().indexOf(contentAssistEntry)))));//computeValueTypeFromImage(opDef.computeImageDomain(type)));

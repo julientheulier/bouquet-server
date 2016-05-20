@@ -34,6 +34,8 @@ public class ExpressionSuggestionItem {
 
 	private String description = null;
 
+	private String caption = null;
+
 	private String suggestion = null;// this is the actual value for the suggestion, that will be used in the expression
     
     private ObjectType objectType = null;
@@ -42,11 +44,20 @@ public class ExpressionSuggestionItem {
     
     public ExpressionSuggestionItem() {
 	}
-    
+
+	public ExpressionSuggestionItem(String display, String description, String caption, String suggestion,
+									ObjectType objectType, ValueType valueType) {
+		this.display = display;
+		this.description = description;
+		this.caption = caption;
+		this.suggestion = suggestion;
+		this.objectType = objectType;
+		this.valueType = valueType;
+	}
     public ExpressionSuggestionItem(String display, String description, String suggestion,
 			ObjectType objectType, ValueType valueType) {
     	this.display = display;
-		this.setDescription(description);
+		this.description = description;
     	this.suggestion = suggestion;
     	this.objectType = objectType;
     	this.valueType = valueType;
@@ -108,4 +119,13 @@ public class ExpressionSuggestionItem {
 	public void setDescription(String description) {
 		this.description = description;
 	}
+
+	public String getCaption() {
+		return caption;
+	}
+
+	public void setCaption(String caption) {
+		this.caption = caption;
+	}
+
 }
