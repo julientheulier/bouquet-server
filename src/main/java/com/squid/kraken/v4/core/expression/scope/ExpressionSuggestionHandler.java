@@ -262,7 +262,8 @@ public class ExpressionSuggestionHandler {
 												opDef.getSymbol() + "(" + contentAssistEntry.getLabel() + ")",
 												opDef.getSymbol() + "(" + contentAssistEntry.getProposal() + ")",
 												ObjectType.FORMULA,
-												computeValueTypeFromImage(opDef.computeImageDomain(poly.get(listContentAssistEntry.getContentAssistEntries().indexOf(contentAssistEntry)))));//computeValueTypeFromImage(opDef.computeImageDomain(type)));
+												computeValueTypeFromImage(opDef.computeImageDomain(poly.get(listContentAssistEntry.getContentAssistEntries().indexOf(contentAssistEntry)))),
+												0);//computeValueTypeFromImage(opDef.computeImageDomain(type)));
 								if (item.getValueType() != ValueType.ERROR) {
 									if (proposals.size() < PROPOSAL_MAX_SIZE) {
 										proposals.add(item);
