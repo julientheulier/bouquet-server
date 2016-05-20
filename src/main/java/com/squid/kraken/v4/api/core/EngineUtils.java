@@ -185,8 +185,12 @@ public class EngineUtils {
 		if (value.startsWith("__")) {
 			//
 			// support hard-coded shortcuts
-			if (compareFromInterval!=null) {
+			if (value.toUpperCase().startsWith("__COMPARE_TO_")) {
 				// for compareTo
+				if (compareFromInterval==null) {
+					// invalid compare_to selection...
+					return null;
+				}
 				if (value.equalsIgnoreCase("__COMPARE_TO_PREVIOUS_PERIOD")) {
 					LocalDate localLower = new LocalDate(((Date)compareFromInterval.getLowerBound()).getTime());
 					if (bound==Bound.UPPER) {
