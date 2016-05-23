@@ -251,6 +251,10 @@ public class Universe extends Physics {
 		return getProject().hashCode();
 	}
 	
+	  public DomainHierarchy getDomainHierarchy(Domain domain) throws ComputingException, InterruptedException {
+	        return this.getDomainHierarchy(domain, false) ;
+	    }
+			
     public DomainHierarchy getDomainHierarchy(Domain domain, boolean lazy) throws ComputingException, InterruptedException {
         return DomainHierarchyManager.INSTANCE.getHierarchy(getProject().getId(), domain, lazy);
     }
