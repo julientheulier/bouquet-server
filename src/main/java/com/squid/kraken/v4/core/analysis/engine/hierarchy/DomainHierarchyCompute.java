@@ -171,27 +171,32 @@ implements CancellableCallable<Boolean> {
      * @throws ExecutionException
      */
     public boolean isDone(Integer timeoutMs) throws InterruptedException, TimeoutException, ExecutionException {
-        if (jobs==null) return false;
-        long start = System.currentTimeMillis();
-        long elapse = 0;
-        for (Future<Boolean> job : jobs) {
-            if (!job.isDone()) {
-                if (timeoutMs==null) {
-                    job.get();
-                } else {
-                    int remaining = timeoutMs - (int)elapse;
-                    if (remaining>0) {
-                        job.get(remaining,TimeUnit.MILLISECONDS);// wait for completion
-                    } else {
-                        // computing still in progress
-                        return false;
-                    }
-                    elapse = System.currentTimeMillis() - start;
-                }
-            }
-        }
-        // ok
-        return true;
+    	if ( ! this.queries.isEmpty()){
+    		return false;
+    	}else{
+    		
+    		if (jobs==null) return false;
+    		long start = System.currentTimeMillis();
+    		long elapse = 0;
+    		for (Future<Boolean> job : jobs) {
+    			if (!job.isDone()) {
+    				if (timeoutMs==null) {
+    					job.get();
+    				} else {
+    					int remaining = timeoutMs - (int)elapse;
+    					if (remaining>0) {
+    						job.get(remaining,TimeUnit.MILLISECONDS);// wait for completion
+    					} else {
+    						// computing still in progress
+    						return false;
+    					}
+    					elapse = System.currentTimeMillis() - start;
+    				}
+    			}
+    		}
+    		// ok
+    		return true;
+    	}
     }
 
     public boolean isDone(DimensionIndex index, Integer timeoutMs) throws InterruptedException, ExecutionException, TimeoutException {
