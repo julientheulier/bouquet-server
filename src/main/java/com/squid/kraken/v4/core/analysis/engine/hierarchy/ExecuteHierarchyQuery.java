@@ -23,7 +23,7 @@
  *******************************************************************************/
 package com.squid.kraken.v4.core.analysis.engine.hierarchy;
 
-import java.sql.ResultSet;  
+import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.util.ArrayList;
 import java.util.Date;
@@ -63,13 +63,13 @@ public class ExecuteHierarchyQuery implements CancellableCallable<Boolean> {
 
 	static final Logger logger = LoggerFactory.getLogger(ExecuteHierarchyQuery.class);
 
-	private AtomicInteger countDown;
+	private CountDownLatch countdown;
 	private HierarchyQuery query;
 
 	private ExecuteQueryTask executeQueryTask;
 
-	public ExecuteHierarchyQuery(AtomicInteger countDown, HierarchyQuery query) {
-		this.countDown = countDown;
+	public ExecuteHierarchyQuery(CountDownLatch countDown, HierarchyQuery query) {
+		this.countdown = countDown;
 		this.query = query;
 	}
 	
@@ -97,8 +97,8 @@ public class ExecuteHierarchyQuery implements CancellableCallable<Boolean> {
 			executeQueryTask = ds.getDBManager().createExecuteQueryTask(SQL);
 			executeQueryTask.setWorkerId("front");
 			executeQueryTask.prepare();
-			this.countDown.decrementAndGet();// now ok to count-down because the query is already in the queue
-			this.countDown = null;// clear the count-down
+			this.countdown.countDown(); ;// now ok to count-down because the query is already in the queue
+			this.countdown = null;// clear the count-down
 			item = executeQueryTask.call();// calling the query in the same thread
 			ResultSet result = item.getResultSet();
 			int bufferCommitSize = result.getFetchSize();
@@ -251,7 +251,7 @@ public class ExecuteHierarchyQuery implements CancellableCallable<Boolean> {
 				//swallow the exception
 			}
 			// update the latch
-			if (this.countDown!=null) this.countDown.decrementAndGet();
+			if (this.countdown!=null) this.countdown.countDown();
 			//
 			// unregister
 			ExecutionManager.INSTANCE.unregisterTask(this);

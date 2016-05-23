@@ -24,7 +24,6 @@
 package com.squid.kraken.v4.core.analysis.engine.hierarchy;
 
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -61,8 +60,8 @@ import com.squid.kraken.v4.core.database.impl.DatabaseServiceImpl;
 import com.squid.kraken.v4.core.database.impl.DatasourceDefinition;
 import com.squid.kraken.v4.model.Attribute;
 import com.squid.kraken.v4.model.Dimension;
-import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.Dimension.Type;
+import com.squid.kraken.v4.model.Domain;
 
 public class DomainHierarchyQueryGenerator {
 

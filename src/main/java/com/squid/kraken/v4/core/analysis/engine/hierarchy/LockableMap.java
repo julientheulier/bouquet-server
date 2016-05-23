@@ -28,9 +28,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 
-import com.squid.kraken.v4.model.Domain;
-import com.squid.kraken.v4.model.DomainPK;
-
 /**
  * A map that can lock access by Key
  * @author sergefantino

@@ -25,9 +25,8 @@ package com.squid.kraken.v4.core.analysis.engine.hierarchy;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -54,15 +53,14 @@ import com.squid.kraken.v4.core.analysis.engine.query.mapping.DimensionMapping;
  */
 public class DomainHierarchyCompute 
 extends DomainHierarchyQueryGenerator
-//implements CancellableCallable<Boolean> {
-{  
+implements CancellableCallable<Boolean> {
     static final Logger logger = LoggerFactory.getLogger(DomainHierarchyCompute.class);
     
     private List<Future<Boolean>> jobs;
     private HashMap<DimensionIndex, Future<Boolean>> jobLookup;
     private DomainHierarchy hierarchy;
     private HashMap<DimensionIndex,HierarchyQuery> queries;
-    private AtomicInteger nbOngoingQueries  ;
+    private CountDownLatch latch  ;
      
     public DomainHierarchyCompute(DomainHierarchy hierarchy) {
     	super(hierarchy);
@@ -72,13 +70,13 @@ extends DomainHierarchyQueryGenerator
     	try {
     		// prepare the queries upfront since the ES indexes cannot work until the mapping is initialized, and this is a side effect of the query prep
 			queries = prepareQueries();
+			latch = new CountDownLatch(new HashSet(queries.values()).size()); 
 		} catch (ScopeException | SQLScopeException e) {
             // unable to run any query
             // need to provide some feedback to the user ?
             //result.setFatalError(e);
 			this.hierarchy.setState(DomainHierarchy.State.CANCELLED) ;
 		}
-    	nbOngoingQueries = new AtomicInteger(queries.size()); 
 
         jobs = new ArrayList<>();
         jobLookup = new HashMap<>();
@@ -90,6 +88,7 @@ extends DomainHierarchyQueryGenerator
     		// if prepareQueries() fails...
     		return false;
     	}
+    	
     	this.hierarchy.setState(DomainHierarchy.State.STARTED);
     	
     	HierarchyQuery hq ;
@@ -98,7 +97,6 @@ extends DomainHierarchyQueryGenerator
     		if (hq == null){
     			return true;
     		}else{
-    			this.queries.remove(index);
     			
     			ArrayList<DimensionIndex> diList = new ArrayList<DimensionIndex>(this.queries.keySet());
     			for( DimensionIndex di : diList){
@@ -111,7 +109,7 @@ extends DomainHierarchyQueryGenerator
     	}
     	String customerId = hq.getSelect().getUniverse().getProject().getCustomerId();
         Future<Boolean> future = ExecutionManager.INSTANCE.submit(customerId,
-                new ExecuteHierarchyQuery(nbOngoingQueries, hq));
+                new ExecuteHierarchyQuery(latch, hq));
         // keep an eye on it
         jobs.add(future);
         for (DimensionMapping m : hq.getDimensionMapping()) {
@@ -121,7 +119,7 @@ extends DomainHierarchyQueryGenerator
     }
     
 
-/*    @Override
+    @Override
     public Boolean call() throws Exception {
 
     	logger.info("starting computation for " + hierarchy.toString());
@@ -137,8 +135,8 @@ extends DomainHierarchyQueryGenerator
     		logger.info("Preparing queries for "+hierarchy+" : "+queries.size() + " queries");
     		logger.info("class="+this.getClass().getName()+" size="+queries.size());
 
-
-    		CountDownLatch latch = runExecuteQueries(queries);
+        	latch = new CountDownLatch(queries.size()); 
+    		runExecuteQueries(new HashSet(queries.values()));
     		//logger.info("queries executing");
     		latch.await();
     		//logger.info("computation ok");
@@ -161,7 +159,7 @@ extends DomainHierarchyQueryGenerator
     		this.hierarchy.setState(DomainHierarchy.State.CANCELLED) ;
     		return false;
     	}
-    } */
+    }
 
     /**
      * check if the domainHierarchy is done (for every dimension)
@@ -229,12 +227,11 @@ extends DomainHierarchyQueryGenerator
      * Execute the queries
      * @param queries
      */
-    /*
-    protected CountDownLatch runExecuteQueries(List<HierarchyQuery> queries) {
+    
+    protected void runExecuteQueries(HashSet<HierarchyQuery> queries) {
         // update the latches
         // -- arm the execution latch
  
-        CountDownLatch latch = new CountDownLatch(queries.size()); 
         //logger.info ("latch armed " + latch.getCount());
         jobs = new ArrayList<>();
         jobLookup = new HashMap<>();
@@ -249,6 +246,5 @@ extends DomainHierarchyQueryGenerator
                 jobLookup.put(m.getDimensionIndex(),future);
             }
         }
-        return latch;
-    }*/
+    }
 }
