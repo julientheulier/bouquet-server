@@ -92,7 +92,7 @@ public class DimensionServiceBaseImpl extends
 	        ProjectPK projectPk = new ProjectPK(ctx.getCustomerId(), domainPk.getProjectId());
 	    	// T70
 	        Domain domain = ProjectManager.INSTANCE.getDomain(ctx, domainPk);
-	    	DomainHierarchy domainHierarchy = DomainHierarchyManager.INSTANCE.getHierarchy(projectPk, domain);
+	    	DomainHierarchy domainHierarchy = DomainHierarchyManager.INSTANCE.getHierarchy(projectPk, domain, true);
 	    	return domainHierarchy.getDimensions(ctx);
     	} catch (InterruptedException | ComputingException | ScopeException e) {
     		throw new APIException(e, true);
@@ -108,7 +108,7 @@ public class DimensionServiceBaseImpl extends
 	    		ProjectPK projectPk = domainPk.getParent();
 		    	// T70
 		        Domain domain = ProjectManager.INSTANCE.getDomain(ctx, domainPk);
-		    	DomainHierarchy domainHierarchy = DomainHierarchyManager.INSTANCE.getHierarchy(projectPk, domain);
+		    	DomainHierarchy domainHierarchy = DomainHierarchyManager.INSTANCE.getHierarchy(projectPk, domain, true);
 		    	for (DimensionIndex index : domainHierarchy.getDimensionIndexes()) {
 		    		if (!(index instanceof DimensionIndexProxy)) {
 		    			Dimension dimension = index.getDimension();
@@ -189,7 +189,7 @@ public class DimensionServiceBaseImpl extends
 	        if (dimension.getName()==null || dimension.getName().length()==0) {
 	        	throw new APIException("Dimension name must be defined", ctx.isNoError());
 	        }
-	        DomainHierarchy hierarchy = DomainHierarchyManager.INSTANCE.getHierarchy(domainPk.getParent(), domain);
+	        DomainHierarchy hierarchy = DomainHierarchyManager.INSTANCE.getHierarchy(domainPk.getParent(), domain, true); 
 			// check if exists
 	        Dimension old = null;
 	        try {

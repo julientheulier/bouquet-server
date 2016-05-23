@@ -343,7 +343,7 @@ public class Space {
 	 */
 	public Axis A(String dimension) throws ScopeException {
 		try {
-			DomainHierarchy hierarchy = universe.getDomainHierarchy(domain);
+			DomainHierarchy hierarchy = universe.getDomainHierarchy(domain, true);
 			for (DimensionIndex index : hierarchy.getDimensionIndexes()) {
 				if (index.getDimensionName().compareTo(dimension)==0) {
 					return A(index.getDimension());
@@ -381,7 +381,7 @@ public class Space {
 	public List<Axis> A() {
 		ArrayList<Axis> axes = new ArrayList<Axis>();
 		try {
-			for (DimensionIndex index : universe.getDomainHierarchy(domain).getDimensionIndexes(universe.getContext())) {
+			for (DimensionIndex index : universe.getDomainHierarchy(domain, true).getDimensionIndexes(universe.getContext())) {
 				axes.add(index.getAxis());
 			}
 		} catch (ComputingException | InterruptedException e) {
@@ -456,7 +456,7 @@ public class Space {
 	public Collection<Measure> M() {
 		ArrayList<Measure> measures = new ArrayList<Measure>();
 		try {
-			List<Metric> metrics = DomainHierarchyManager.INSTANCE.getHierarchy(universe.getProject().getId(), domain).getMetrics(universe.getContext());
+			List<Metric> metrics = DomainHierarchyManager.INSTANCE.getHierarchy(universe.getProject().getId(), domain, true).getMetrics(universe.getContext());
 			for (Metric m : metrics) {
 				measures.add(new Measure(this, m));
 			}

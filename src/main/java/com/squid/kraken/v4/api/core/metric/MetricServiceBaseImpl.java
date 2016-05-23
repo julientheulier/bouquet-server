@@ -68,7 +68,7 @@ public class MetricServiceBaseImpl extends GenericServiceImpl<Metric, MetricPK> 
 	        ProjectPK projectPk = new ProjectPK(ctx.getCustomerId(), domainPk.getProjectId());
 	    	// T70
 	        Domain domain = ProjectManager.INSTANCE.getDomain(ctx, domainPk);
-	    	DomainHierarchy domainHierarchy = DomainHierarchyManager.INSTANCE.getHierarchy(projectPk, domain);
+	    	DomainHierarchy domainHierarchy = DomainHierarchyManager.INSTANCE.getHierarchy(projectPk, domain, true);
 	    	return domainHierarchy.getMetricsExt(ctx);
     	} catch (InterruptedException | ComputingException e) {
     		throw new APIException(e, true);
@@ -85,7 +85,7 @@ public class MetricServiceBaseImpl extends GenericServiceImpl<Metric, MetricPK> 
 				ProjectPK projectPk = domainPk.getParent();
 				// T70
 		        Domain domain = ProjectManager.INSTANCE.getDomain(ctx, domainPk);
-		    	DomainHierarchy domainHierarchy = DomainHierarchyManager.INSTANCE.getHierarchy(projectPk, domain);
+		    	DomainHierarchy domainHierarchy = DomainHierarchyManager.INSTANCE.getHierarchy(projectPk, domain, true);
 				Metric metric = domainHierarchy.getMetric(ctx, metricId.getMetricId());
 				return metric;
 	    	} catch (InterruptedException | ComputingException e) {
@@ -117,7 +117,7 @@ public class MetricServiceBaseImpl extends GenericServiceImpl<Metric, MetricPK> 
 	        if (metric.getName()==null || metric.getName().length()==0) {
 	        	throw new APIException("Metric name must be defined", ctx.isNoError());
 	        }
-	        DomainHierarchy hierarchy = DomainHierarchyManager.INSTANCE.getHierarchy(domainPk.getParent(), domain);
+	        DomainHierarchy hierarchy = DomainHierarchyManager.INSTANCE.getHierarchy(domainPk.getParent(), domain, true);
 			// check if exists
 	        Metric old = null;
 	        try {

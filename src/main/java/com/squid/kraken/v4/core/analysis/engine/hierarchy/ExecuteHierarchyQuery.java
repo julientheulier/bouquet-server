@@ -23,7 +23,7 @@
  *******************************************************************************/
 package com.squid.kraken.v4.core.analysis.engine.hierarchy;
 
-import java.sql.ResultSet;  
+import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.util.ArrayList;
 import java.util.Date;
@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -62,13 +63,13 @@ public class ExecuteHierarchyQuery implements CancellableCallable<Boolean> {
 
 	static final Logger logger = LoggerFactory.getLogger(ExecuteHierarchyQuery.class);
 
-	private CountDownLatch countDown;
+	private CountDownLatch countdown;
 	private HierarchyQuery query;
 
 	private ExecuteQueryTask executeQueryTask;
 
 	public ExecuteHierarchyQuery(CountDownLatch countDown, HierarchyQuery query) {
-		this.countDown = countDown;
+		this.countdown = countDown;
 		this.query = query;
 	}
 	
@@ -96,8 +97,8 @@ public class ExecuteHierarchyQuery implements CancellableCallable<Boolean> {
 			executeQueryTask = ds.getDBManager().createExecuteQueryTask(SQL);
 			executeQueryTask.setWorkerId("front");
 			executeQueryTask.prepare();
-			this.countDown.countDown();// now ok to count-down because the query is already in the queue
-			this.countDown = null;// clear the count-down
+			this.countdown.countDown(); ;// now ok to count-down because the query is already in the queue
+			this.countdown = null;// clear the count-down
 			item = executeQueryTask.call();// calling the query in the same thread
 			ResultSet result = item.getResultSet();
 			int bufferCommitSize = result.getFetchSize();
@@ -250,7 +251,7 @@ public class ExecuteHierarchyQuery implements CancellableCallable<Boolean> {
 				//swallow the exception
 			}
 			// update the latch
-			if (this.countDown!=null) this.countDown.countDown();
+			if (this.countdown!=null) this.countdown.countDown();
 			//
 			// unregister
 			ExecutionManager.INSTANCE.unregisterTask(this);
