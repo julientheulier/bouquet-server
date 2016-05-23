@@ -318,12 +318,8 @@ public class AnalysisJobComputer implements JobComputer<ProjectAnalysisJob, Proj
 					} else if (metricData.getLName() != null) {
 						measure.withName(metricData.getLName());
 					}
-					// krkn-61: add all inherited parents
-					Space parent = measure.getParent();
-					while (parent != null) {
-						domains.add(parent.getDomain());
-						parent = parent.getParent();
-					}
+					// add only the root domain
+					domains.add(measure.getParent().getRoot());
 					// define a kpi
 					dash.add(measure);
 				}

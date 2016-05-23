@@ -92,7 +92,11 @@ public class DatabaseServiceImpl implements DatabaseService {
 		if (mapping != null) {
 			try {
 				return mapping.get();
-			} catch (Exception e) {
+			} catch (Throwable e) {
+				// unwrap execution exception
+				if (e instanceof ExecutionException && e.getCause()!=null) {
+					e = e.getCause();
+				}
 				if (e.getCause() instanceof DatabaseServiceException) {
 					throw (DatabaseServiceException) e.getCause();
 				} else {
@@ -222,12 +226,18 @@ public class DatabaseServiceImpl implements DatabaseService {
 	 */
 	public List<Schema> getAuthorizedSchemas(Project project)
 			throws DatabaseServiceException {
-		// if the project's dbUrl is not correctly set or it is jdbc:test:, then just return an empty schema list
-		if (project.getDbUrl()==null || project.getDbUrl().equals("") || "jdbc:test:".equals(project.getDbUrl())) {
-			return Collections.emptyList();
+		try {
+			DatasourceDefinition ds = getDatasourceDefinition(project);
+			return ds.getAccess();
+		} catch (DatabaseServiceException e) {
+			if (e.getCause() instanceof IllegalArgumentException) {
+				// if the project's dbUrl is not correctly set or it is jdbc:test:, then just return an empty schema list
+				if (project.getDbUrl()==null || "".equals(project.getDbUrl()) || "jdbc:test:".equals(project.getDbUrl())) {
+					return Collections.emptyList();
+				}
+			}
+			throw e;
 		}
-		DatasourceDefinition ds = getDatasourceDefinition(project);
-		return ds.getAccess();
 	}
 
 	/**
