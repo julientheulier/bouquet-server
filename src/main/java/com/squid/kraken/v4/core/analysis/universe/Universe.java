@@ -323,7 +323,7 @@ public class Universe extends Physics {
 	 */
 	public Axis axis(DimensionPK dimensionPK) throws ScopeException, ComputingException, InterruptedException {
 		Domain domain = ProjectManager.INSTANCE.getDomain(getContext(), dimensionPK.getParent());
-		DomainHierarchy hierarchy = DomainHierarchyManager.INSTANCE.getHierarchy(getProject().getId(), domain, false);
+		DomainHierarchy hierarchy = DomainHierarchyManager.INSTANCE.getHierarchy(getProject().getId(), domain, true);
 		Dimension dimension = hierarchy.getDimension(getContext(), dimensionPK);
 		return S(domain).A(dimension);
 	}

@@ -117,7 +117,7 @@ public class FacetJobServiceBaseImpl extends
 			if (SegmentManager.isSegmentFacet(facetId)) {
 				for (Domain domain : domains) {
 					DomainHierarchy hierarchy = universe
-							.getDomainHierarchy(domain, false);
+							.getDomainHierarchy(domain, true);
 					return SegmentManager.createSegmentFacet(universe, hierarchy, domain,
 							facetId, filter, maxResults, startIndex, sel);
 				}

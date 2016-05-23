@@ -61,7 +61,7 @@ public class DomainHierarchyManager {
 
 	private LockableMap<DomainPK, DomainHierarchy> hierarchies = new LockableMap<DomainPK, DomainHierarchy>();
 
-	private LockableMap<DomainPK, List<DomainPK>> computingOrder =  new LockableMap<DomainPK, List<DomainPK>> ();
+
 	
 	private DomainHierarchyManager() {
 		//
@@ -167,9 +167,6 @@ public class DomainHierarchyManager {
 					// double check
 					check = hierarchies.get(hierarchy.getRoot().getDomain().getId());
 					if (check!=null && (check!=hierarchy || check.isValid())) {
-						if (!lazy){
-							runComputation(this.computingOrder.get(domain.getId())) ;
-						}
 						return check;
 					}
 					if (check!=null) {
@@ -180,17 +177,11 @@ public class DomainHierarchyManager {
 							hierarchy.cancel();// kill me please (but make sure it's me)
 							hierarchy = null;
 						} else {
-							if (!lazy){
-							runComputation(this.computingOrder.get(domain.getId())) ;
-							}
 							return hierarchy;
 						}
 					}
 				}
 				if (hierarchy != null) {
-					if (!lazy){
-						runComputation(this.computingOrder.get(domain.getId())) ;
-					}
 					return hierarchy;
 				} else {
 					if (lock==null) lock = hierarchies.lock(domain.getId(), timeoutMs);// if it's a new one
@@ -198,9 +189,6 @@ public class DomainHierarchyManager {
 					hierarchy = hierarchies.get(domain.getId());
 					if (hierarchy == null) {
 						hierarchy = createHierarchy(projectPk, domain);
-					}
-					if (!lazy){
-						runComputation(this.computingOrder.get(domain.getId())) ;
 					}
 					return hierarchy;
 				}
@@ -226,52 +214,26 @@ public class DomainHierarchyManager {
 		DomainHierarchy hierarchy = creator.createDomainHierarchy(root.S(domain));
 
 		// store the computing order with the created domains
-		this.computingOrder.put(domain.getId(), creator.getTodo()) ;
-
+		for( DomainHierarchy h  : creator.getTodo()){
+			 DomainHierarchyCompute compute = new DomainHierarchyCompute(h) ;
+		}	
+		
 		return hierarchy;
 	}
 	
-			
-	
-	public void runComputation( List<DomainPK> goals){
+	public void computeIndex(DomainPK domain,  DimensionIndex index){
+		DomainHierarchy hierarchy = this.hierarchies.get(domain);
 		
+		if (index instanceof DimensionIndexProxy){
+			DimensionIndexProxy dip = (DimensionIndexProxy) index;
+			computeIndex(dip.getSourceIndex().getDomain().getId(), dip.getSourceIndex());
 		
-		class Computation implements Runnable{
-		
-			List<DomainPK> goals ;
-			public Computation( List<DomainPK> goals){
-				this.goals= goals;
-			}
-		
-			@Override
-			public void run() {
-				while (!goals.isEmpty()) {
-					
-					DomainHierarchy hierarchy  =  hierarchies.get(goals.remove(0)) ;
-					if ( ! hierarchy.getState().equals(DomainHierarchy.State.INIT)){
-						continue;
-					}
-					// create the computer before starting the computation so we can cancel them
-					 DomainHierarchyCompute compute = new DomainHierarchyCompute(hierarchy);
-					if (Thread.interrupted()) {
-						break;// stop
-					}
-					try {
-						compute.call();
-					} catch (Exception e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}
-				}
-			}
-		};
-		
-		//
-		Thread t = new Thread(new Computation(goals));
-		t.start();
-		//
-		
+		}else{
+			DomainHierarchyCompute compute = hierarchy.getCompute();			
+			compute.computeIndex(index);				
+		}
 	}
+
 
 	/**
 	 * invalidate the given hierarchy if needed or if force

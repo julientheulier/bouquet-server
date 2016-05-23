@@ -306,7 +306,7 @@ public class EngineUtils {
 			try {
 				String expr = value.substring(1);
 				// check if the index content is available and give some extra time to wait before using a default value
-				DomainHierarchy hierarchy = universe.getDomainHierarchy(index.getAxis().getParent().getDomain(), false);
+				DomainHierarchy hierarchy = universe.getDomainHierarchy(index.getAxis().getParent().getDomain(), true);
 				hierarchy.isDone(index, 10000);
 				// evaluate the expression
 				Object defaultValue = evaluateExpression(universe, index, expr, compareFromInterval);
@@ -387,7 +387,7 @@ public class EngineUtils {
         //
         // krkn-61: handling dimension options
         for (Domain domain : domains) {
-        	DomainHierarchy hierarchy = universe.getDomainHierarchy(domain, false);
+        	DomainHierarchy hierarchy = universe.getDomainHierarchy(domain, true);
         	for (DimensionIndex index : hierarchy.getDimensionIndexes()) {
         		DimensionOption option = DimensionOptionUtils.computeContextOption(index.getDimension(), ctx);
         		if (option!=null) {
@@ -458,7 +458,7 @@ public class EngineUtils {
                 if (axis!=null) {
                     Domain domain = axis.getParent().getRoot();
                     DimensionIndex index = universe.
-                            getDomainHierarchy(domain, false).
+                            getDomainHierarchy(domain, true).
                             getDimensionIndex(axis);
                     AccessRightsUtils.getInstance().checkRole(ctx, index.getDimension(), Role.READ);
                     for (FacetMember selectedItem : facetSel.getSelectedItems()) {

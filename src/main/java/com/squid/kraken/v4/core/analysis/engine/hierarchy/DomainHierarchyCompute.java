@@ -26,12 +26,14 @@ package com.squid.kraken.v4.core.analysis.engine.hierarchy;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,17 +54,19 @@ import com.squid.kraken.v4.core.analysis.engine.query.mapping.DimensionMapping;
  */
 public class DomainHierarchyCompute 
 extends DomainHierarchyQueryGenerator
-implements CancellableCallable<Boolean> {
-    
+//implements CancellableCallable<Boolean> {
+{  
     static final Logger logger = LoggerFactory.getLogger(DomainHierarchyCompute.class);
     
     private List<Future<Boolean>> jobs;
     private HashMap<DimensionIndex, Future<Boolean>> jobLookup;
     private DomainHierarchy hierarchy;
-    private List<HierarchyQuery> queries;
-    
+    private HashMap<DimensionIndex,HierarchyQuery> queries;
+    private AtomicInteger nbOngoingQueries  ;
+     
     public DomainHierarchyCompute(DomainHierarchy hierarchy) {
     	super(hierarchy);
+   
     	this.hierarchy = hierarchy;
     	hierarchy.setCompute(this);
     	try {
@@ -74,9 +78,50 @@ implements CancellableCallable<Boolean> {
             //result.setFatalError(e);
 			this.hierarchy.setState(DomainHierarchy.State.CANCELLED) ;
 		}
-    }
+    	nbOngoingQueries = new AtomicInteger(queries.size()); 
 
-    @Override
+        jobs = new ArrayList<>();
+        jobLookup = new HashMap<>();
+    }
+    
+    
+    public boolean  computeIndex(DimensionIndex index){
+    	if (this.hierarchy.getState()==DomainHierarchy.State.CANCELLED) {
+    		// if prepareQueries() fails...
+    		return false;
+    	}
+    	this.hierarchy.setState(DomainHierarchy.State.STARTED);
+    	
+    	HierarchyQuery hq ;
+    	synchronized(this.queries){
+    		hq = this.queries.remove(index);
+    		if (hq == null){
+    			return true;
+    		}else{
+    			this.queries.remove(index);
+    			
+    			ArrayList<DimensionIndex> diList = new ArrayList<DimensionIndex>(this.queries.keySet());
+    			for( DimensionIndex di : diList){
+    				if (this.queries.get(di).equals(hq)){
+    					this.queries.remove(di);
+    				}
+    			}
+    			
+    		}
+    	}
+    	String customerId = hq.getSelect().getUniverse().getProject().getCustomerId();
+        Future<Boolean> future = ExecutionManager.INSTANCE.submit(customerId,
+                new ExecuteHierarchyQuery(nbOngoingQueries, hq));
+        // keep an eye on it
+        jobs.add(future);
+        for (DimensionMapping m : hq.getDimensionMapping()) {
+            jobLookup.put(m.getDimensionIndex(),future);
+        }
+        return true;
+    }
+    
+
+/*    @Override
     public Boolean call() throws Exception {
 
     	logger.info("starting computation for " + hierarchy.toString());
@@ -116,7 +161,7 @@ implements CancellableCallable<Boolean> {
     		this.hierarchy.setState(DomainHierarchy.State.CANCELLED) ;
     		return false;
     	}
-    }
+    } */
 
     /**
      * check if the domainHierarchy is done (for every dimension)
@@ -184,6 +229,7 @@ implements CancellableCallable<Boolean> {
      * Execute the queries
      * @param queries
      */
+    /*
     protected CountDownLatch runExecuteQueries(List<HierarchyQuery> queries) {
         // update the latches
         // -- arm the execution latch
@@ -204,5 +250,5 @@ implements CancellableCallable<Boolean> {
             }
         }
         return latch;
-    }
+    }*/
 }
