@@ -179,9 +179,10 @@ public class EngineUtils {
      * @return
      * @throws ParseException
      * @throws ScopeException
+     * @throws ComputingException 
      */
 	public Date convertToDate(Universe universe, DimensionIndex index, Bound bound, String value, IntervalleObject compareFromInterval)
-			throws ParseException, ScopeException {
+			throws ParseException, ScopeException, ComputingException {
 		if (value.startsWith("__")) {
 			//
 			// support hard-coded shortcuts
@@ -236,6 +237,13 @@ public class EngineUtils {
 							if (object instanceof Intervalle) {
 								range = (Intervalle)object;
 							}
+						}
+					} else {
+						try {
+							DomainHierarchy hierarchy = universe.getDomainHierarchy(index.getAxis().getParent().getDomain());
+							hierarchy.isDone(index, null);
+						} catch (ComputingException | InterruptedException | ExecutionException | TimeoutException e) {
+							throw new ComputingException("failed to retrieve period interval");
 						}
 					}
 				}
@@ -305,9 +313,9 @@ public class EngineUtils {
 			// evaluated
 			try {
 				String expr = value.substring(1);
-				// check if the index content is available and give some extra time to wait before using a default value
+				// check if the index content is available or wait for it
 				DomainHierarchy hierarchy = universe.getDomainHierarchy(index.getAxis().getParent().getDomain(), true);
-				hierarchy.isDone(index, 10000);
+				hierarchy.isDone(index, null);
 				// evaluate the expression
 				Object defaultValue = evaluateExpression(universe, index, expr, compareFromInterval);
 				// check we can use it
@@ -321,8 +329,7 @@ public class EngineUtils {
 				return (Date) defaultValue;
 			} catch (ComputingException | InterruptedException | ExecutionException
 					| TimeoutException e) {
-				logger.error("unable to parse computed selection for " + index.getAxis());
-				return null;
+				throw new ComputingException("failed to retrieve period interval");
 			}
 		} else {
 			return ServiceUtils.getInstance().toDate(value);
