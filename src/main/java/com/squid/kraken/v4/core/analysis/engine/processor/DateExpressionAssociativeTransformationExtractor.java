@@ -25,11 +25,11 @@ package com.squid.kraken.v4.core.analysis.engine.processor;
 
 import com.squid.core.domain.DomainConstant;
 import com.squid.core.domain.IDomain;
-import com.squid.core.domain.extensions.AddMonthsOperatorDefinition;
-import com.squid.core.domain.extensions.CastOperatorDefinition;
-import com.squid.core.domain.extensions.DateOperatorDefinition;
-import com.squid.core.domain.extensions.DateTruncateOperatorDefinition;
-import com.squid.core.domain.extensions.DateTruncateShortcutsOperatorDefinition;
+import com.squid.core.domain.extensions.date.AddMonthsOperatorDefinition;
+import com.squid.core.domain.extensions.cast.CastOperatorDefinition;
+import com.squid.core.domain.extensions.date.operator.DateOperatorDefinition;
+import com.squid.core.domain.extensions.date.DateTruncateOperatorDefinition;
+import com.squid.core.domain.extensions.date.DateTruncateShortcutsOperatorDefinition;
 import com.squid.core.domain.operators.IntrinsicOperators;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.ExpressionLeaf;

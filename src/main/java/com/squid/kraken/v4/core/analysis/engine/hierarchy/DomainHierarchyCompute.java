@@ -25,13 +25,14 @@ package com.squid.kraken.v4.core.analysis.engine.hierarchy;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,28 +54,70 @@ import com.squid.kraken.v4.core.analysis.engine.query.mapping.DimensionMapping;
 public class DomainHierarchyCompute 
 extends DomainHierarchyQueryGenerator
 implements CancellableCallable<Boolean> {
-    
     static final Logger logger = LoggerFactory.getLogger(DomainHierarchyCompute.class);
     
     private List<Future<Boolean>> jobs;
     private HashMap<DimensionIndex, Future<Boolean>> jobLookup;
     private DomainHierarchy hierarchy;
-    private List<HierarchyQuery> queries;
-    
+    private HashMap<DimensionIndex,HierarchyQuery> queries;
+    private CountDownLatch latch  ;
+     
     public DomainHierarchyCompute(DomainHierarchy hierarchy) {
     	super(hierarchy);
+   
     	this.hierarchy = hierarchy;
     	hierarchy.setCompute(this);
     	try {
     		// prepare the queries upfront since the ES indexes cannot work until the mapping is initialized, and this is a side effect of the query prep
 			queries = prepareQueries();
+			latch = new CountDownLatch(new HashSet(queries.values()).size()); 
 		} catch (ScopeException | SQLScopeException e) {
             // unable to run any query
             // need to provide some feedback to the user ?
             //result.setFatalError(e);
 			this.hierarchy.setState(DomainHierarchy.State.CANCELLED) ;
 		}
+
+        jobs = new ArrayList<>();
+        jobLookup = new HashMap<>();
     }
+    
+    
+    public boolean  computeIndex(DimensionIndex index){
+    	if (this.hierarchy.getState()==DomainHierarchy.State.CANCELLED) {
+    		// if prepareQueries() fails...
+    		return false;
+    	}
+    	
+    	this.hierarchy.setState(DomainHierarchy.State.STARTED);
+    	
+    	HierarchyQuery hq ;
+    	synchronized(this.queries){
+    		hq = this.queries.remove(index);
+    		if (hq == null){
+    			return true;
+    		}else{
+    			
+    			ArrayList<DimensionIndex> diList = new ArrayList<DimensionIndex>(this.queries.keySet());
+    			for( DimensionIndex di : diList){
+    				if (this.queries.get(di).equals(hq)){
+    					this.queries.remove(di);
+    				}
+    			}
+    			
+    		}
+    	}
+    	String customerId = hq.getSelect().getUniverse().getProject().getCustomerId();
+        Future<Boolean> future = ExecutionManager.INSTANCE.submit(customerId,
+                new ExecuteHierarchyQuery(latch, hq));
+        // keep an eye on it
+        jobs.add(future);
+        for (DimensionMapping m : hq.getDimensionMapping()) {
+            jobLookup.put(m.getDimensionIndex(),future);
+        }
+        return true;
+    }
+    
 
     @Override
     public Boolean call() throws Exception {
@@ -92,8 +135,8 @@ implements CancellableCallable<Boolean> {
     		logger.info("Preparing queries for "+hierarchy+" : "+queries.size() + " queries");
     		logger.info("class="+this.getClass().getName()+" size="+queries.size());
 
-
-    		CountDownLatch latch = runExecuteQueries(queries);
+        	latch = new CountDownLatch(queries.size()); 
+    		runExecuteQueries(new HashSet(queries.values()));
     		//logger.info("queries executing");
     		latch.await();
     		//logger.info("computation ok");
@@ -128,27 +171,32 @@ implements CancellableCallable<Boolean> {
      * @throws ExecutionException
      */
     public boolean isDone(Integer timeoutMs) throws InterruptedException, TimeoutException, ExecutionException {
-        if (jobs==null) return false;
-        long start = System.currentTimeMillis();
-        long elapse = 0;
-        for (Future<Boolean> job : jobs) {
-            if (!job.isDone()) {
-                if (timeoutMs==null) {
-                    job.get();
-                } else {
-                    int remaining = timeoutMs - (int)elapse;
-                    if (remaining>0) {
-                        job.get(remaining,TimeUnit.MILLISECONDS);// wait for completion
-                    } else {
-                        // computing still in progress
-                        return false;
-                    }
-                    elapse = System.currentTimeMillis() - start;
-                }
-            }
-        }
-        // ok
-        return true;
+    	if ( ! this.queries.isEmpty()){
+    		return false;
+    	}else{
+    		
+    		if (jobs==null) return false;
+    		long start = System.currentTimeMillis();
+    		long elapse = 0;
+    		for (Future<Boolean> job : jobs) {
+    			if (!job.isDone()) {
+    				if (timeoutMs==null) {
+    					job.get();
+    				} else {
+    					int remaining = timeoutMs - (int)elapse;
+    					if (remaining>0) {
+    						job.get(remaining,TimeUnit.MILLISECONDS);// wait for completion
+    					} else {
+    						// computing still in progress
+    						return false;
+    					}
+    					elapse = System.currentTimeMillis() - start;
+    				}
+    			}
+    		}
+    		// ok
+    		return true;
+    	}
     }
 
     public boolean isDone(DimensionIndex index, Integer timeoutMs) throws InterruptedException, ExecutionException, TimeoutException {
@@ -184,11 +232,11 @@ implements CancellableCallable<Boolean> {
      * Execute the queries
      * @param queries
      */
-    protected CountDownLatch runExecuteQueries(List<HierarchyQuery> queries) {
+    
+    protected void runExecuteQueries(HashSet<HierarchyQuery> queries) {
         // update the latches
         // -- arm the execution latch
  
-        CountDownLatch latch = new CountDownLatch(queries.size()); 
         //logger.info ("latch armed " + latch.getCount());
         jobs = new ArrayList<>();
         jobLookup = new HashMap<>();
@@ -203,6 +251,5 @@ implements CancellableCallable<Boolean> {
                 jobLookup.put(m.getDimensionIndex(),future);
             }
         }
-        return latch;
     }
 }

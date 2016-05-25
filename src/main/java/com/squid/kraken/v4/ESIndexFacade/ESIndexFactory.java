@@ -67,7 +67,7 @@ public class ESIndexFactory {
             	elastic.start(node.node());
             	try {
             		// wait a bit to make sure node is built
-            		Thread.sleep(5000);
+            		Thread.sleep(1000);
             	} catch (InterruptedException e) {
             		e.printStackTrace();
             	}
