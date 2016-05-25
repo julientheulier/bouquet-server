@@ -98,6 +98,10 @@ public class ESIndexFacade implements IESIndexFacade {
 	private Client client;
 	private Node node;
 
+	
+	private static int MIN_NGRAM  =1;
+	private static int MAX_NGRAM =6 ;
+	
 	public ESIndexFacade() {
 	}
 
@@ -173,8 +177,8 @@ public class ESIndexFacade implements IESIndexFacade {
 							.startObject("tokenizer")
 								.startObject("my_ngram_tokenizer")
 									.field("type", "nGram")
-									.field("min_gram", "2")
-									.field("max_gram", "6")
+									.field("min_gram", MIN_NGRAM)
+									.field("max_gram", MAX_NGRAM)
 								.endObject()
 							.endObject()
 //					.endObject()
@@ -891,12 +895,18 @@ try {
 				BoolQueryBuilder andQuery = QueryBuilders.boolQuery();
 				if (tokens.length== 1)
 				{
-					andQuery = ESIndexFacadeUtilities
-							.matchOnSubstringAnyField(tokens[0], mappings);
+					String filter = tokens[0];					
+					if (filter.length() == 1){
+						andQuery = ESIndexFacadeUtilities
+							.matchOnSubstringAnyField(filter, mappings, true);
+					}else{
+						andQuery = ESIndexFacadeUtilities
+								.matchOnSubstringAnyField(filter, mappings, false);					
+					}
 				}else{
 					for (String token: tokens){		
 						BoolQueryBuilder oneTokenQuery = ESIndexFacadeUtilities
-							.matchOnSubstringAnyField(token, mappings);
+							.matchOnSubstringAnyField(token, mappings,false);
 						andQuery.must(oneTokenQuery);
 					}
 				}
@@ -906,6 +916,7 @@ try {
 						.setTypes(dimensionName).setQuery(andQuery);
 				srb.setSize(nbResults);
 				srb.setFrom(from);
+
 				// srb.addSort(SortBuilders.fieldSort("_uid"));
 				if (logger.isDebugEnabled()) {
 					logger.debug((srb.toString()));
