@@ -310,6 +310,9 @@ public class DomainHierarchy {
 	public boolean isDone(DimensionIndex index, Integer timeoutMs)
 			throws InterruptedException, ExecutionException, TimeoutException {
 
+		return compute.isDone(index, timeoutMs);
+		
+		/*
 		if ((this.state == State.CANCELLED) || (this.state == State.DONE)) {
 			return true;
 		} else {
@@ -319,6 +322,7 @@ public class DomainHierarchy {
 				return false;
 			}
 		}
+		*/
 	}
 
 	public boolean isValid() {
