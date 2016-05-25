@@ -318,17 +318,6 @@ public class DomainHierarchy {
 				return false;
 			}
 		}
-		/*
-		if ((this.state == State.CANCELLED) || (this.state == State.DONE)) {
-			return true;
-		} else {
-			if (this.state == State.STARTED) {
-				return compute.isDone(index, timeoutMs);
-			} else {
-				return false;
-			}
-		}
-		*/
 	}
 
 	public boolean isValid() {
