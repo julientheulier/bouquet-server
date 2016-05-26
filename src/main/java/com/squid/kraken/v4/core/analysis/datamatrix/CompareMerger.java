@@ -26,6 +26,7 @@ package com.squid.kraken.v4.core.analysis.datamatrix;
 import java.util.Date;
 
 import org.joda.time.LocalDate;
+import org.joda.time.Period;
 
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
@@ -37,9 +38,9 @@ import com.squid.kraken.v4.core.analysis.universe.Axis;
  */
 public class CompareMerger extends JoinMerger {
 
-	private int offset;
+	private Period offset;
 
-	public CompareMerger(DataMatrix left, DataMatrix right, int[] mergeOrder, Axis join, int offset) throws ScopeException {
+	public CompareMerger(DataMatrix left, DataMatrix right, int[] mergeOrder, Axis join, Period offset) throws ScopeException {
 		super(left, right, mergeOrder, join);
 		this.offset = offset;
 		// check measures
@@ -50,8 +51,8 @@ public class CompareMerger extends JoinMerger {
 	
 	@Override
 	protected Object translateRightToLeft(Object right) {
-		if (right instanceof Date) {
-			LocalDate delta = (new LocalDate(((Date)right).getTime())).plusDays(offset);
+		if (right instanceof Date && offset!=null) {
+			LocalDate delta = (new LocalDate(((Date)right).getTime())).plus(offset);
 			return new java.sql.Date(delta.toDate().getTime());
 		} else {
 			return right;
@@ -60,8 +61,8 @@ public class CompareMerger extends JoinMerger {
 	
 	@Override
 	protected Object translateLeftToRight(Object left) {
-		if (left instanceof Date) {
-			LocalDate delta = (new LocalDate(((Date)left).getTime())).minusDays(offset);
+		if (left instanceof Date && offset!=null) {
+			LocalDate delta = (new LocalDate(((Date)left).getTime())).minus(offset);
 			return new java.sql.Date(delta.toDate().getTime());
 		} else {
 			return right;
@@ -70,8 +71,8 @@ public class CompareMerger extends JoinMerger {
 	
 	@Override
 	protected int compareJoinValue(int pos, Object left, Object right) {
-		if (right instanceof Date) {
-			return ((Date)left).compareTo((new LocalDate(((Date)right).getTime())).plusDays(offset).toDate());
+		if (right instanceof Date && offset!=null) {
+			return ((Date)left).compareTo((new LocalDate(((Date)right).getTime())).plus(offset).toDate());
 		} else {
 			return super.compareJoinValue(pos, left, right);
 		}
