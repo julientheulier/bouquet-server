@@ -171,6 +171,8 @@ implements CancellableCallable<Boolean> {
      * @throws ExecutionException
      */
     public boolean isDone(Integer timeoutMs) throws InterruptedException, TimeoutException, ExecutionException {
+    	if (this.queries==null)
+    		return false;
     	if ( ! this.queries.isEmpty()){
     		return false;
     	}else{
