@@ -290,6 +290,10 @@ public class DomainHierarchy {
 		this.compute = c;
 	}
 
+	public DomainHierarchyCompute getCompute(){
+		return this.compute;
+	}
+	
 	public boolean isDone(Integer timeoutMs) throws InterruptedException, TimeoutException, ExecutionException {
 
 		if ((this.state == State.CANCELLED) || (this.state == State.DONE)) {
@@ -305,12 +309,11 @@ public class DomainHierarchy {
 
 	public boolean isDone(DimensionIndex index, Integer timeoutMs)
 			throws InterruptedException, ExecutionException, TimeoutException {
-
-		if ((this.state == State.CANCELLED) || (this.state == State.DONE)) {
-			return true;
+		if (compute!=null) {
+			return compute.isDone(index, timeoutMs);
 		} else {
-			if (this.state == State.STARTED) {
-				return compute.isDone(index, timeoutMs);
+			if ((this.state == State.CANCELLED) || (this.state == State.DONE)) {
+				return true;
 			} else {
 				return false;
 			}

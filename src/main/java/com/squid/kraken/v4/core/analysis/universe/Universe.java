@@ -130,7 +130,7 @@ public class Universe extends Physics {
 	public List<Metric> getMetrics(Domain domain) {
 		// T16
 		try {
-			DomainHierarchy hierarchy = getDomainHierarchy(domain);
+			DomainHierarchy hierarchy = getDomainHierarchy(domain, true);
 			return hierarchy.getMetrics(getContext());
 		} catch (ComputingException | InterruptedException e) {
 			//
@@ -251,8 +251,12 @@ public class Universe extends Physics {
 		return getProject().hashCode();
 	}
 	
-    public DomainHierarchy getDomainHierarchy(Domain domain) throws ComputingException, InterruptedException {
-        return DomainHierarchyManager.INSTANCE.getHierarchy(getProject().getId(), domain);
+	  public DomainHierarchy getDomainHierarchy(Domain domain) throws ComputingException, InterruptedException {
+	        return this.getDomainHierarchy(domain, false) ;
+	    }
+			
+    public DomainHierarchy getDomainHierarchy(Domain domain, boolean lazy) throws ComputingException, InterruptedException {
+        return DomainHierarchyManager.INSTANCE.getHierarchy(getProject().getId(), domain, lazy);
     }
 	
 	/**
@@ -323,7 +327,7 @@ public class Universe extends Physics {
 	 */
 	public Axis axis(DimensionPK dimensionPK) throws ScopeException, ComputingException, InterruptedException {
 		Domain domain = ProjectManager.INSTANCE.getDomain(getContext(), dimensionPK.getParent());
-		DomainHierarchy hierarchy = DomainHierarchyManager.INSTANCE.getHierarchy(getProject().getId(), domain);
+		DomainHierarchy hierarchy = DomainHierarchyManager.INSTANCE.getHierarchy(getProject().getId(), domain, true);
 		Dimension dimension = hierarchy.getDimension(getContext(), dimensionPK);
 		return S(domain).A(dimension);
 	}

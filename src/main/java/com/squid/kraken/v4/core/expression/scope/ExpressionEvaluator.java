@@ -29,11 +29,11 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 
-import com.squid.core.domain.extensions.AddMonthsOperatorDefinition;
-import com.squid.core.domain.extensions.DateOperatorDefinition;
-import com.squid.core.domain.extensions.DateTruncateOperatorDefinition;
-import com.squid.core.domain.extensions.DateTruncateShortcutsOperatorDefinition;
-import com.squid.core.domain.extensions.ExtractOperatorDefinition;
+import com.squid.core.domain.extensions.date.AddMonthsOperatorDefinition;
+import com.squid.core.domain.extensions.date.operator.DateOperatorDefinition;
+import com.squid.core.domain.extensions.date.DateTruncateOperatorDefinition;
+import com.squid.core.domain.extensions.date.DateTruncateShortcutsOperatorDefinition;
+import com.squid.core.domain.extensions.date.extract.ExtractOperatorDefinition;
 import com.squid.core.domain.operators.IntrinsicOperators;
 import com.squid.core.domain.operators.OperatorScope;
 import com.squid.core.domain.vector.VectorOperatorDefinition;

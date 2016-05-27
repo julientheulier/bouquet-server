@@ -126,6 +126,9 @@ public class ExecuteQueryTask implements CancellableCallable<IExecutionItem> {
 			} catch (Exception e) {
 				if (connection != null) {
 					try {
+						if (!connection.getAutoCommit()) {
+							connection.rollback();
+						}
 						connection.close();
 						ds.getDatasource().releaseSemaphore();
 						connection = null;

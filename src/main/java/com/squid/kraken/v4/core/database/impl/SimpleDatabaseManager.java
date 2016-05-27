@@ -64,7 +64,7 @@ public class SimpleDatabaseManager extends DatabaseManager {
 	}
 
 	public SimpleDatabaseManager(String jdbcURL, String username, String password)
-			throws ExecutionException {
+			throws ExecutionException, IllegalArgumentException {
 		super();
 		this.setupConfig(jdbcURL, username, password);
 		setup();
@@ -118,15 +118,17 @@ public class SimpleDatabaseManager extends DatabaseManager {
 		}
 	}
 
-	public void setup() throws ExecutionException {
+	public void setup() throws ExecutionException, DatabaseServiceException {
 		HikariDataSourceReliable hikari = setupDataSource();
 		this.ds = hikari;
 		setupDatabase();
 		setupFinalize(hikari, db);
 	}
 
-	public void setupConfig(String jdbcURL, String username, String password){
-		this.config= new JDBCConfig(jdbcURL, username, password);
+	public void setupConfig(String jdbcURL, String username, String password)
+	throws IllegalArgumentException
+	{
+		this.config = new JDBCConfig(jdbcURL, username, password);
 	}
 	
 	
@@ -143,6 +145,9 @@ public class SimpleDatabaseManager extends DatabaseManager {
 							+ conn.getMetaData().getDriverName());
 				}
 			} finally {
+				if (!conn.getAutoCommit()) {
+					conn.commit();
+				}
 				conn.close();
 				ds.releaseSemaphore();
 			}
@@ -226,7 +231,7 @@ public class SimpleDatabaseManager extends DatabaseManager {
 
 				return result;
 			} catch (Exception e) {
-				if (needCommit) {
+				if (needCommit && connection!=null) {
 					connection.rollback();
 				}
 				throw e;
@@ -235,6 +240,9 @@ public class SimpleDatabaseManager extends DatabaseManager {
 				// it is our responsibility to dispose connection and statement
 				if (statement!=null) statement.close();
 				if (connection!=null) {
+					if (needCommit) {
+						connection.commit();
+					}
 					connection.close();
 					this.getDatasource().releaseSemaphore();
 				}

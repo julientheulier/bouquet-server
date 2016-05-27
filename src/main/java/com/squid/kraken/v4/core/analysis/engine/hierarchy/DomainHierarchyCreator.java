@@ -56,7 +56,7 @@ public class DomainHierarchyCreator {
 
 	private LockableMap<DomainPK, DomainHierarchy> hierarchies;
 	
-	private List<DomainHierarchy> todo = new ArrayList<>();
+	private List<DomainHierarchy> todo = new ArrayList<DomainHierarchy>();
 	
 	private List<DimensionIndex> subdomains = new ArrayList<>();
 	

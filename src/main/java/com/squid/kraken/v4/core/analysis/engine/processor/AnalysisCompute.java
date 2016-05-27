@@ -39,8 +39,9 @@ import com.squid.kraken.v4.api.core.SQLStats;
 import com.squid.kraken.v4.caching.NotInCacheException;
 import com.squid.kraken.v4.caching.redis.RedisCacheException;
 
-import org.joda.time.Days;
 import org.joda.time.LocalDate;
+import org.joda.time.Period;
+import org.joda.time.PeriodType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -61,8 +62,8 @@ import com.squid.kraken.v4.core.analysis.engine.query.QueryRunner;
 import com.squid.kraken.v4.core.analysis.engine.query.SimpleQuery;
 import com.squid.kraken.v4.core.analysis.model.Dashboard;
 import com.squid.kraken.v4.core.analysis.model.DashboardAnalysis;
-import com.squid.kraken.v4.core.analysis.model.DomainSelection;
 import com.squid.kraken.v4.core.analysis.model.DashboardSelection;
+import com.squid.kraken.v4.core.analysis.model.DomainSelection;
 import com.squid.kraken.v4.core.analysis.model.ExpressionInput;
 import com.squid.kraken.v4.core.analysis.model.GroupByAxis;
 import com.squid.kraken.v4.core.analysis.model.IntervalleObject;
@@ -302,12 +303,8 @@ public class AnalysisCompute {
 		compareToAnalysis.setSelection(pastSelection);
 		if (currentAnalysis.hasBeyondLimit()) {// T1042: handling beyondLimit
 			compareToAnalysis.setBeyondLimit(compareBeyondLimit);
-			compareToAnalysis.setBeyodLimitSelection(presentSelection);// use
-																		// the
-																		// present
-																		// selection
-																		// to
-																		// compute
+			// use the present selection to compute
+			compareToAnalysis.setBeyodLimitSelection(presentSelection);
 		}
 		//
 		// compute present & past in //
@@ -327,7 +324,7 @@ public class AnalysisCompute {
 			// wait for present
 			DataMatrix present = future.get();
 			//
-			final int offset = computeOffset(present, joinAxis, presentInterval, pastInterval);
+			final Period offset = computeOffset(present, joinAxis, presentInterval, pastInterval);
 			//
 			CompareMerger merger = new CompareMerger(present, past, mergeOrder, joinAxis, offset);
 			DataMatrix debug = merger.merge(false);
@@ -380,35 +377,44 @@ public class AnalysisCompute {
 		return null;
 	}
 
-	private int computeOffset(DataMatrix present, Axis joinAxis, IntervalleObject presentInterval,
-			IntervalleObject pastInterval) {
+	private Period computeOffset(DataMatrix present, Axis joinAxis, IntervalleObject presentInterval,
+			IntervalleObject pastInterval) throws ScopeException {
 		if (joinAxis == null || presentInterval == null || pastInterval == null) {
-			return 0;
+			return null;
 		} else {
 			AxisValues check = present.find(joinAxis);
 			if (check == null) {
-				return 0;// no need to bother
+				return null;// no need to bother
 			} else {
-				return computeOffset(presentInterval, pastInterval, check.getOrdering());
+				return computeOffset(presentInterval, pastInterval, check);
 			}
 		}
 	}
 
-	private int computeOffset(IntervalleObject presentInterval, IntervalleObject pastInterval, ORDERING ordering) {
+	private Period computeOffset(IntervalleObject presentInterval, IntervalleObject pastInterval, AxisValues joinAxis) throws ScopeException {
 		// it is better to compare on the lower bound because alignment on the
 		// end of month is not accurate
 		Object present = presentInterval.getLowerBound();
 		Object past = pastInterval.getLowerBound();
+		//
+		IDomain image = joinAxis.getAxis().getDefinition().getImageDomain();
+		PeriodType type = computePeriodType(image);
+		//
 		if (present instanceof Date && past instanceof Date) {
-			return daysBetween((Date) past, (Date) present);
+			return new Period(new LocalDate(((Date) past).getTime()), new LocalDate(((Date) present).getTime()), type);
 		} else {
-			return 0;
+			return null;
 		}
 	}
-
-	private int daysBetween(Date lower, Date upper) {
-		return Days.daysBetween(new LocalDate(((Date) lower).getTime()), new LocalDate(((Date) upper).getTime()))
-				.getDays();
+	
+	private PeriodType computePeriodType(IDomain image) {
+		if (image.isInstanceOf(IDomain.YEARLY)) {
+			return PeriodType.years();
+		} else if (image.isInstanceOf(IDomain.MONTHLY)) {
+			return PeriodType.months();
+		} else {
+			return PeriodType.days();
+		}
 	}
 
 	private IntervalleObject computeMinMax(Collection<DimensionMember> members) throws ScopeException {

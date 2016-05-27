@@ -179,14 +179,19 @@ public class EngineUtils {
      * @return
      * @throws ParseException
      * @throws ScopeException
+     * @throws ComputingException 
      */
 	public Date convertToDate(Universe universe, DimensionIndex index, Bound bound, String value, IntervalleObject compareFromInterval)
-			throws ParseException, ScopeException {
+			throws ParseException, ScopeException, ComputingException {
 		if (value.startsWith("__")) {
 			//
 			// support hard-coded shortcuts
-			if (compareFromInterval!=null) {
+			if (value.toUpperCase().startsWith("__COMPARE_TO_")) {
 				// for compareTo
+				if (compareFromInterval==null) {
+					// invalid compare_to selection...
+					return null;
+				}
 				if (value.equalsIgnoreCase("__COMPARE_TO_PREVIOUS_PERIOD")) {
 					LocalDate localLower = new LocalDate(((Date)compareFromInterval.getLowerBound()).getTime());
 					if (bound==Bound.UPPER) {
@@ -236,6 +241,13 @@ public class EngineUtils {
 							if (object instanceof Intervalle) {
 								range = (Intervalle)object;
 							}
+						}
+					} else {
+						try {
+							DomainHierarchy hierarchy = universe.getDomainHierarchy(index.getAxis().getParent().getDomain());
+							hierarchy.isDone(index, null);
+						} catch (ComputingException | InterruptedException | ExecutionException | TimeoutException e) {
+							throw new ComputingException("failed to retrieve period interval");
 						}
 					}
 				}
@@ -305,9 +317,9 @@ public class EngineUtils {
 			// evaluated
 			try {
 				String expr = value.substring(1);
-				// check if the index content is available and give some extra time to wait before using a default value
-				DomainHierarchy hierarchy = universe.getDomainHierarchy(index.getAxis().getParent().getDomain());
-				hierarchy.isDone(index, 10000);
+				// check if the index content is available or wait for it
+				DomainHierarchy hierarchy = universe.getDomainHierarchy(index.getAxis().getParent().getDomain(), true);
+				hierarchy.isDone(index, null);
 				// evaluate the expression
 				Object defaultValue = evaluateExpression(universe, index, expr, compareFromInterval);
 				// check we can use it
@@ -321,8 +333,7 @@ public class EngineUtils {
 				return (Date) defaultValue;
 			} catch (ComputingException | InterruptedException | ExecutionException
 					| TimeoutException e) {
-				logger.error("unable to parse computed selection for " + index.getAxis());
-				return null;
+				throw new ComputingException("failed to retrieve period interval");
 			}
 		} else {
 			Date date = ServiceUtils.getInstance().toDate(value);
@@ -393,7 +404,7 @@ public class EngineUtils {
         //
         // krkn-61: handling dimension options
         for (Domain domain : domains) {
-        	DomainHierarchy hierarchy = universe.getDomainHierarchy(domain);
+        	DomainHierarchy hierarchy = universe.getDomainHierarchy(domain, true);
         	for (DimensionIndex index : hierarchy.getDimensionIndexes()) {
         		DimensionOption option = DimensionOptionUtils.computeContextOption(index.getDimension(), ctx);
         		if (option!=null) {
@@ -464,7 +475,7 @@ public class EngineUtils {
                 if (axis!=null) {
                     Domain domain = axis.getParent().getRoot();
                     DimensionIndex index = universe.
-                            getDomainHierarchy(domain).
+                            getDomainHierarchy(domain, true).
                             getDimensionIndex(axis);
                     AccessRightsUtils.getInstance().checkRole(ctx, index.getDimension(), Role.READ);
                     for (FacetMember selectedItem : facetSel.getSelectedItems()) {

@@ -218,7 +218,7 @@ public class Axis implements Property {
 
 	public DimensionIndex getIndex(boolean wait) throws ComputingException, InterruptedException {
 	    Universe universe = parent.getUniverse();
-		DomainHierarchy hierarchy = universe.getDomainHierarchy(parent.getRoot());// the index is attached to the root; in case of a sub-dimension, the index is a proxy to the actual dimension. If you think it should be parent.getDomain(), that's not good...
+		DomainHierarchy hierarchy = universe.getDomainHierarchy(parent.getRoot(), true);// the index is attached to the root; in case of a sub-dimension, the index is a proxy to the actual dimension. If you think it should be parent.getDomain(), that's not good...
 		if (hierarchy!=null) {
 			DimensionIndex res =  hierarchy.getDimensionIndex(this);
 			return res;

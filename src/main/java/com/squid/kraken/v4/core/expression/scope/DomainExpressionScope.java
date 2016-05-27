@@ -44,6 +44,7 @@ import com.squid.kraken.v4.core.expression.scope.DomainExpressionScope;
 import com.squid.core.expression.scope.ExpressionScope;
 import com.squid.core.expression.scope.IdentifierType;
 import com.squid.core.expression.scope.ScopeException;
+import com.squid.kraken.v4.core.analysis.engine.cartography.Path.Type;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.core.analysis.engine.project.DynamicManager;
 import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
@@ -421,16 +422,18 @@ public class DomainExpressionScope extends DefaultScope {
 			//
 			HashSet<String> digest = new HashSet<String>();
 			//
-			// check if it's a SET
-			IDomain image = space.getImageDomain();
-			boolean multiset = image.isInstanceOf(SetDomain.DOMAIN);
-			//
 			// add dimensions
-			if (!multiset) {
-				for (Dimension dimension : getDimensions(true)) {
-					content.add(space.A(dimension));
-					digest.add(dimension.getId().getDimensionId());
+			try {
+				Type type = universe.getCartography().computeType(space);
+				// exclude SETs but allows MANY_MANY
+				if (type.equals(Type.ONE_ONE) || type.equals(Type.MANY_ONE) || type.equals(Type.MANY_MANY)) {
+					for (Dimension dimension : getDimensions(true)) {
+						content.add(space.A(dimension));
+						digest.add(dimension.getId().getDimensionId());
+					}
 				}
+			} catch (ScopeException e) {
+				// ignore
 			}
 			//
 			// add metrics

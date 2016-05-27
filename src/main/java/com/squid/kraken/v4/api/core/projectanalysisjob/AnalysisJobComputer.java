@@ -293,7 +293,7 @@ public class AnalysisJobComputer implements JobComputer<ProjectAnalysisJob, Proj
 							metricId.getDomainId());
 					Domain domain = ProjectManager.INSTANCE.getDomain(ctx, domainPk);
 					// Metric is referenced by id
-					DomainHierarchy hierarchy = universe.getDomainHierarchy(domain);
+					DomainHierarchy hierarchy = universe.getDomainHierarchy(domain, true);
 					Metric metric = hierarchy.getMetric(ctx, metricId.getMetricId());
 					if (metric == null)
 						throw new ScopeException("cannot lockup metric ID=" + metricId.getMetricId());
