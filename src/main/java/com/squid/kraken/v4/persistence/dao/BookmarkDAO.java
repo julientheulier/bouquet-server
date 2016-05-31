@@ -24,6 +24,7 @@
 package com.squid.kraken.v4.persistence.dao;
 
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 
@@ -73,13 +74,30 @@ public class BookmarkDAO extends
 			String path) {
 		List<DataStoreQueryField> queryFields = new ArrayList<DataStoreQueryField>(
 				1);
-		queryFields.add(new DataStoreQueryField("id.projectId", projectId
-				.getProjectId()));
-		queryFields.add(new DataStoreQueryField("path", path));
 		List<DataStoreFilterOperator> filterOperators = new ArrayList<DataStoreFilterOperator>();
-		filterOperators.add(DataStoreFilterOperator.EQUAL);
+		if (projectId != null) {
+			queryFields.add(new DataStoreQueryField("id.projectId", projectId
+					.getProjectId()));
+			filterOperators.add(DataStoreFilterOperator.EQUAL);
+		}
+		queryFields.add(new DataStoreQueryField("path", path));
 		filterOperators.add(DataStoreFilterOperator.STARTS_WITH);
 		return super.find(app, projectId, queryFields, filterOperators, null);
+	}
+	
+	public List<Bookmark> findByPath(AppContext app,
+			String path) {
+		return findByPath(app, null, path);
+	}
+	
+	public List<Bookmark> findByOwner(AppContext app) {
+		List<DataStoreQueryField> queryFields = new LinkedList<DataStoreQueryField>();
+        List<DataStoreFilterOperator> operators = new ArrayList<DataStoreFilterOperator>();
+        List<AccessRight> rights = new ArrayList<AccessRight>();
+        rights.add(new AccessRight(Role.OWNER, app.getUser().getOid(), null));
+        queryFields.add(new DataStoreQueryField("accessRights", rights));
+        operators.add(DataStoreFilterOperator.IN);
+        return super.find(app, null, queryFields, operators, null);
 	}
 
 	@Override
