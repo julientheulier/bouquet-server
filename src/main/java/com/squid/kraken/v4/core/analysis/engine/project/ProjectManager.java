@@ -542,6 +542,7 @@ public class ProjectManager {
 	}
 	
 	public void invalidate(Project project) throws InterruptedException, ScopeException {
+		ReentrantLock lock = lock(project.getId());
 		// load the list first
 		List<Domain> domains = ProjectManager.INSTANCE.getDomains(ServiceUtils.getInstance().getRootUserContext(project.getId().getCustomerId()), project.getId());
 		// ... then refresh the project
@@ -553,6 +554,7 @@ public class ProjectManager {
 				DomainHierarchyManager.INSTANCE.invalidate(d.getId());		
 			}
 		}
+		lock.unlock();
 	}
 	
 }
