@@ -474,7 +474,7 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 				List<Map<String, Object>> elements = master
 						.searchDimensionMembersByTokensAndLocalFilter(
 								indexName, dimensionTypeName, tokens, offset,
-								size, mapping).hits;
+								size, mapping, idName_mapping).hits;
 				return readMembersWithAttrs(elements);
 			} else {
 				return new ArrayList<DimensionMember>();
