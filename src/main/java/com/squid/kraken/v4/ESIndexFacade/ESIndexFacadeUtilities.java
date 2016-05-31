@@ -136,19 +136,19 @@ public class ESIndexFacadeUtilities {
 	}
 	
 	
-	public static BoolQueryBuilder matchOnSubstringAnyField( String substring,HashMap<String, ESMapping> mappings)
+	public static BoolQueryBuilder matchOnSubstringAnyField( String substring,HashMap<String, ESMapping> mappings, boolean firstChar)
 	{
 		BoolQueryBuilder orQuery  = QueryBuilders.boolQuery();
 		orQuery.minimumNumberShouldMatch(1);
 		for(String fieldname : mappings.keySet()){
 			QueryBuilder query ;
-			if (substring.length() == 1){
+			if (firstChar){
 				if (mappings.get(fieldname).type == ESTypeMapping.STRING){	
-					BoolQueryBuilder firstChar = QueryBuilders.boolQuery();
-					firstChar.minimumNumberShouldMatch(1);
-					firstChar.should(filterOnFirstCharOneField(substring.toLowerCase(), fieldname, mappings)); 
-					firstChar.should(filterOnFirstCharOneField(substring.toUpperCase(), fieldname, mappings)); 
-					query = firstChar; 
+					BoolQueryBuilder firstCharQuery = QueryBuilders.boolQuery();
+					firstCharQuery.minimumNumberShouldMatch(1);
+					firstCharQuery.should(filterOnFirstCharOneField(substring.toLowerCase(), fieldname, mappings)); 
+					firstCharQuery.should(filterOnFirstCharOneField(substring.toUpperCase(), fieldname, mappings)); 
+					query = firstCharQuery; 
 				}else{
 					query = null;
 				}
