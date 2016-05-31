@@ -16,6 +16,7 @@ import com.squid.kraken.v4.caching.redis.RedisCacheProxy;
 import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
 import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValue;
 import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValuesList;
+import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 
 public class ChunkedRawMatrixBaseSource {
 
@@ -34,7 +35,7 @@ public class ChunkedRawMatrixBaseSource {
 	public ChunkedRawMatrixBaseSource(RedisCacheValuesList rf) throws InterruptedException, ExecutionException {
 		this.refList = rf;
 		this.key = this.refList.getRedisKey();
-		this.executor= Executors.newFixedThreadPool(1);
+		this.executor = Executors.newFixedThreadPool(1);
 
 		// get first chunk
 		processingQuery = (Future<RawMatrix>) executor.submit(new GetChunk());
@@ -42,7 +43,7 @@ public class ChunkedRawMatrixBaseSource {
 
 		// launch second chunk
 		processingQuery = (Future<RawMatrix>) executor.submit(new GetChunk());
-		
+
 	}
 
 	private String getNextChunkKey() throws ClassNotFoundException, IOException, InterruptedException {
@@ -82,8 +83,8 @@ public class ChunkedRawMatrixBaseSource {
 		public GetChunk() {
 		}
 
-		public RawMatrix call() {
-			String chunkKey;
+		public RawMatrix call() throws ComputingException {
+			String chunkKey = "";
 			try {
 				chunkKey = getNextChunkKey();
 				if (chunkKey == null) {
@@ -91,37 +92,42 @@ public class ChunkedRawMatrixBaseSource {
 					return null;
 				} else {
 					RawMatrix res = RedisCacheProxy.getInstance().getRawMatrix(chunkKey);
-					nbChunksRead += 1;
-					return res;
+
+					if (res == null) {
+						throw new ComputingException("Error retrieving chunk " + chunkKey + " from redis");
+					} else {
+						nbChunksRead += 1;
+						return res;
+					}
 				}
 			} catch (ClassNotFoundException | IOException | InterruptedException e) {
-				return null;
+				throw new ComputingException("Error retrieving chunk " + chunkKey + " from redis");
 			}
 		}
 	}
-	
-	public class Col implements ICol{
+
+	public class Col implements ICol {
 
 		private boolean isData;
 		private String name;
 		private Object pk;
-		
-		public Col(String name, boolean isData, Object pk){
-			this.name = name ;
-			this.isData= isData;
+
+		public Col(String name, boolean isData, Object pk) {
+			this.name = name;
+			this.isData = isData;
 			this.pk = pk;
 		}
-		public String toString(){
-			return this.name+" " +this.getRole() ;
-			
+
+		public String toString() {
+			return this.name + " " + this.getRole();
+
 		}
-		
+
 		@Override
 		public String getRole() {
-			if(isData){
+			if (isData) {
 				return "DATA";
-			}
-			else{
+			} else {
 				return "DOMAIN";
 			}
 		}
@@ -135,7 +141,6 @@ public class ChunkedRawMatrixBaseSource {
 		public Object getPk() {
 			return this.pk;
 		}
-		
 
 	}
 
