@@ -23,12 +23,47 @@
  *******************************************************************************/
 package com.squid.kraken.v4.model;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
+@SuppressWarnings("serial")
+public class BookmarkFolderPK extends CustomerPK {
 
+	private String bookmarkfolderId;
 
-public interface HasChildren {
-	
-	@JsonProperty("_children")
-	public String[] getChildren();
-	
+	public BookmarkFolderPK() {
+	}
+
+	public BookmarkFolderPK(String customerId) {
+		this(customerId, null);
+	}
+
+	public BookmarkFolderPK(String customerId, String bookmarkfolderId) {
+		super(customerId);
+		this.bookmarkfolderId = bookmarkfolderId;
+	}
+
+	public String getBookmarkfolderId() {
+		return bookmarkfolderId;
+	}
+
+	public void setBookmarkfolderId(String bookmarkfolderId) {
+		this.bookmarkfolderId = bookmarkfolderId;
+	}
+
+	public String getObjectId() {
+		return bookmarkfolderId;
+	}
+
+	public void setObjectId(String bookmarkfolderId) {
+		this.bookmarkfolderId = bookmarkfolderId;
+	}
+
+	@Override
+	public GenericPK getParent() {
+		return new CustomerPK(getCustomerId());
+	}
+
+	@Override
+	public void setParent(GenericPK pk) {
+		setCustomerId(((CustomerPK) pk).getCustomerId());
+	}
+
 }

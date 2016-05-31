@@ -154,7 +154,7 @@ public class CustomerServiceRest {
 		return new ShortcutServiceRest(userContext);
 	}
 	
-	@Path("/bookmark-folders")
+	@Path("/bookmarkfolders")
 	@ApiOperation(value = "Gets bookmarkFolders")
 	public BookmarkFolderServiceRest getBookmarkFolderService(
 			@Context HttpServletRequest request) {

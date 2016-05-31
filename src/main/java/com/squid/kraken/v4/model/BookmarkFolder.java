@@ -28,47 +28,102 @@ import java.util.List;
 import javax.xml.bind.annotation.XmlType;
 
 /**
- * A BookmarkFolder is used to navigate through folders defined in Bookmarks and
+ * A BookmarkFolder is specific object used to navigate through folders defined in Bookmarks and
  * regardless of Projects.
  */
 @XmlType(namespace = "http://model.v4.kraken.squid.com")
 public class BookmarkFolder implements HasChildren {
 
-	private String id;
+	private static String[] CHILDREN = { "folders" };
 
-	private List<BookmarkPK> bookmarks;
-
-	private List<String> children;
+	private BookmarkFolderPK id;
+	private String name;
+	private List<BookmarkLink> bookmarks;
 
 	/**
 	 * Default constructor (required for jaxb).
 	 */
 	public BookmarkFolder() {
 	}
-
-	public String getId() {
-		return id;
-	}
-
-	public void setId(String id) {
+	
+	public BookmarkFolder(BookmarkFolderPK id) {
 		this.id = id;
 	}
 
-	public List<BookmarkPK> getBookmarks() {
+	public BookmarkFolderPK getId() {
+		return id;
+	}
+
+	public void setId(BookmarkFolderPK id) {
+		this.id = id;
+	}
+
+	public String getName() {
+		return name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
+	}
+
+	public List<BookmarkLink> getBookmarks() {
 		return bookmarks;
 	}
 
-	public void setBookmarks(List<BookmarkPK> bookmarks) {
+	public void setBookmarks(List<BookmarkLink> bookmarks) {
 		this.bookmarks = bookmarks;
 	}
 
 	@Override
-	public List<String> getChildren() {
-		return children;
+	public String[] getChildren() {
+		return CHILDREN;
+	}
+	
+	/**
+	 * Bookmark holds a project configuration
+	 */
+	static public class BookmarkLink {
+		
+		private BookmarkPK id;
+
+		private String name;
+		private String description;
+
+		/**
+		 * Default constructor (required for jaxb).
+		 */
+		public BookmarkLink() {
+		}
+
+		public BookmarkLink(BookmarkPK id) {
+			this.id = id;
+		}
+
+		public BookmarkPK getId() {
+			return id;
+		}
+
+		public void setId(BookmarkPK id) {
+			this.id = id;
+		}
+
+		public String getName() {
+			return name;
+		}
+
+		public void setName(String name) {
+			this.name = name;
+		}
+
+		public String getDescription() {
+			return description;
+		}
+
+		public void setDescription(String description) {
+			this.description = description;
+		}
+
 	}
 
-	public void setChildren(List<String> children) {
-		this.children = children;
-	}
 
 }

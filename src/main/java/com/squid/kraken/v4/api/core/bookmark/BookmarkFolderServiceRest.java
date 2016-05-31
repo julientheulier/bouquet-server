@@ -23,6 +23,8 @@
  *******************************************************************************/
 package com.squid.kraken.v4.api.core.bookmark;
 
+import java.util.List;
+
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
@@ -56,18 +58,30 @@ public class BookmarkFolderServiceRest extends BaseServiceRest {
 
 	@GET
 	@Path("")
-	@ApiOperation(value = "Get All")
+	@ApiOperation(value = "Get My Bookmarks")
 	public BookmarkFolder read() {
-		// get my bookmarks
 		return delegate.read(userContext, null);
 	}
-	
+
 	@GET
 	@Path("{path}")
-	@ApiOperation(value = "Get")
+	@ApiOperation(value = "Get a Bookmark folder given a full path")
 	public BookmarkFolder read(@PathParam("path") String path) {
-		// get my bookmarks
 		return delegate.read(userContext, path);
+	}
+
+	@GET
+	@Path("folders")
+	@ApiOperation(value = "Get all Bookmark folders under My Bookmarks")
+	public List<BookmarkFolder> readFolders() {
+		return delegate.readFolders(userContext, null);
+	}
+
+	@GET
+	@Path("{path}/folders")
+	@ApiOperation(value = "Get all Bookmark folders under the specified full path")
+	public List<BookmarkFolder> readFolders(@PathParam("path") String path) {
+		return delegate.readFolders(userContext, path);
 	}
 
 }
