@@ -41,7 +41,10 @@ import com.wordnik.swagger.annotations.ApiModelProperty;
 @XmlType(namespace = "http://model.v4.kraken.squid.com")
 @XmlRootElement
 @JsonTypeName("Customer")
-public class CustomerInfo implements HasAccessRights {
+public class CustomerInfo implements HasAccessRights, HasChildren  {
+	
+	private static String[] CHILDREN = { "users", "userGroups", "clients",
+		"projects", "shortcuts" };
 
 	private String id;
 
@@ -205,5 +208,10 @@ public class CustomerInfo implements HasAccessRights {
     @JsonIgnore
 	public void setUserRole(Role role) {
 		this.userRole = role;
+	}
+    
+	@Override
+	public String[] getChildren() {
+		return CHILDREN;
 	}
 }
