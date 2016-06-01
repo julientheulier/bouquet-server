@@ -32,7 +32,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,8 +52,8 @@ import com.squid.kraken.v4.core.sql.SelectUniversal;
 import com.squid.kraken.v4.model.Attribute;
 
 /**
- * Handles the execution of the HierarchyQuery, and populates the associated DimensionIndexes.
- * It also support non-standard cancellation policy.
+ * Handles the execution of the HierarchyQuery, and populates the associated
+ * DimensionIndexes. It also support non-standard cancellation policy.
  * 
  * @author sergefantino
  *
@@ -72,17 +71,18 @@ public class ExecuteHierarchyQuery implements CancellableCallable<Boolean> {
 		this.countdown = countDown;
 		this.query = query;
 	}
-	
-	private volatile boolean abort = false;// make sure this callable will stop working
+
+	private volatile boolean abort = false;// make sure this callable will stop
+											// working
 
 	public void cancel() {
 		abort = true;
-		if (executeQueryTask!=null) {
+		if (executeQueryTask != null) {
 			executeQueryTask.cancel();
 		}
 	}
 
-	public Boolean call() throws Exception  {
+	public Boolean call() throws Exception {
 		//
 		ExecutionManager.INSTANCE.registerTask(this);
 		//
@@ -97,9 +97,11 @@ public class ExecuteHierarchyQuery implements CancellableCallable<Boolean> {
 			executeQueryTask = ds.getDBManager().createExecuteQueryTask(SQL);
 			executeQueryTask.setWorkerId("front");
 			executeQueryTask.prepare();
-			this.countdown.countDown(); ;// now ok to count-down because the query is already in the queue
+			this.countdown.countDown();
+			;// now ok to count-down because the query is already in the queue
 			this.countdown = null;// clear the count-down
-			item = executeQueryTask.call();// calling the query in the same thread
+			item = executeQueryTask.call();// calling the query in the same
+											// thread
 			ResultSet result = item.getResultSet();
 			int bufferCommitSize = result.getFetchSize();
 			//
@@ -111,19 +113,19 @@ public class ExecuteHierarchyQuery implements CancellableCallable<Boolean> {
 				m.setMetadata(result, metadata);
 				Axis axis = m.getDimensionIndex().getAxis();
 				AxisValues axisData = new AxisValues(axis);
-				//matrix.add(axisData);
+				// matrix.add(axisData);
 				m.setAxisData(axisData);
 				indexes.add(m.getDimensionIndex());
 			}
 			// prepare the hierarchy
 			Map<DimensionIndex, List<Integer>> hierarchies_pos = new HashMap<>();
 			Map<DimensionIndex, List<DimensionIndex>> hierarchies_type = new HashMap<>();
-			for (int i=0;i<dx_map.size();i++) {
+			for (int i = 0; i < dx_map.size(); i++) {
 				DimensionIndex index = indexes.get(i);
 				DimensionIndex root = index.getRoot();
 				List<Integer> pos = hierarchies_pos.get(root);
 				List<DimensionIndex> type = hierarchies_type.get(root);
-				if (pos==null) {
+				if (pos == null) {
 					pos = new ArrayList<>();
 					hierarchies_pos.put(root, pos);
 					type = new ArrayList<>();
@@ -142,66 +144,77 @@ public class ExecuteHierarchyQuery implements CancellableCallable<Boolean> {
 
 			// to detected proper end of indexation;
 
-			HashMap<DimensionIndex, String> lastIndexedDimension = new HashMap<DimensionIndex, String>() ;
-			HashMap<DimensionIndex, String>  lastIndexedCorrelation = new HashMap<DimensionIndex, String>() ;
+			HashMap<DimensionIndex, String> lastIndexedDimension = new HashMap<DimensionIndex, String>();
+			HashMap<DimensionIndex, String> lastIndexedCorrelation = new HashMap<DimensionIndex, String>();
 
-
-			boolean wait= true;
-			while ((result.next()) && (count++<maxRecords || maxRecords<0)) {
+			boolean wait = true;
+			while ((result.next()) && (count++ < maxRecords || maxRecords < 0)) {
 				if (abort || executeQueryTask.isInterrupted() || Thread.interrupted()) {
-					logger.info("cancelled reading SQLQuery#" + item.getID() + " method=executeQuery"+" duration= "+ " error=false status=cancelled queryid="+item.getID()+" task="+this.getClass().getName());
+					logger.info("cancelled reading SQLQuery#" + item.getID() + " method=executeQuery" + " duration= "
+							+ " error=false status=cancelled queryid=" + item.getID() + " task="
+							+ this.getClass().getName());
 					throw new InterruptedException("cancelled while reading query results");
 				}
-				if (count%100000==0) {
+				if (count % 100000 == 0) {
 					long intermediate = new Date().getTime();
-					long speed = Math.round((double)count/((intermediate-metter_start)/1000));// in row/s
-					//logger.info("SQLQuery#" + item.getID() + " proceeded " + count + "items, still running at "+speed+ "row/s");
-					logger.info("reading SQLQuery#" + item.getID() + " proceeded " + count + "items, still running at "+speed+ "row/s"+" method=executeQuery"+" duration= "+ " speed="+speed+ " error=false status=reading queryid="+item.getID()+" task="+this.getClass().getName());
+					long speed = Math.round((double) count / ((intermediate - metter_start) / 1000));// in
+																										// row/s
+					// logger.info("SQLQuery#" + item.getID() + " proceeded " +
+					// count + "items, still running at "+speed+ "row/s");
+					logger.info("reading SQLQuery#" + item.getID() + " proceeded " + count + "items, still running at "
+							+ speed + "row/s" + " method=executeQuery" + " duration= " + " speed=" + speed
+							+ " error=false status=reading queryid=" + item.getID() + " task="
+							+ this.getClass().getName());
 
 				}
 				DimensionMember[] row_axis = new DimensionMember[dx_map.size()];
-				int i=0;
+				int i = 0;
 				for (DimensionMapping m : dx_map) {
 					Object unbox = m.readData(formatter, result);
-					//String label = formatter.formatJDBCObject(value, m.getType());
+					// String label = formatter.formatJDBCObject(value,
+					// m.getType());
 					//
-					if (unbox==null) {
-						//ignore;
-					} else if (dedup[i]==null || !dedup[i].getID().equals(unbox)) {
-						DimensionMember member = new DimensionMember(-1, unbox, m.getDimensionIndex().getAttributes().size());
-						//Object[] raw = new Object[1+m.getDimensionIndex().getAttributes().size()];
+					if (unbox == null) {
+						// ignore;
+					} else if (dedup[i] == null || !dedup[i].getID().equals(unbox)) {
+						DimensionMember member = new DimensionMember(-1, unbox,
+								m.getDimensionIndex().getAttributes().size());
+						// Object[] raw = new
+						// Object[1+m.getDimensionIndex().getAttributes().size()];
 						int k = 0;
-						//raw[k++] = unbox;
+						// raw[k++] = unbox;
 						for (Attribute attr : m.getDimensionIndex().getAttributes()) {
 							SimpleMapping s = m.getMapping(attr.getId().getAttributeId());
 							Object aunbox = s.readData(formatter, result);
-							//raw[k++] = aunbox;
+							// raw[k++] = aunbox;
 							member.setAttribute(k, aunbox);
 						}
-						//DimensionMember member = m.getDimensionIndex().index(raw);
+						// DimensionMember member =
+						// m.getDimensionIndex().index(raw);
 						row_axis[i] = member;
-						if (indexBuffer[i]==null) indexBuffer[i] = new ArrayList<>(bufferCommitSize);
+						if (indexBuffer[i] == null)
+							indexBuffer[i] = new ArrayList<>(bufferCommitSize);
 						indexBuffer[i].add(member);
 						dedup[i] = member;
 					} else {
 						// unbox == dedup
 						row_axis[i] = dedup[i];
 					}
-					i++;//dumb
+					i++;// dumb
 				}
 				rowBuffer.add(row_axis);
 				//
 				// flush buffer ?
-				if (rowBuffer.size()==bufferCommitSize) {
-
+				if (rowBuffer.size() == bufferCommitSize) {
 
 					// commit the index buffers
-					this.flushDimensionBuffer(dx_map, indexBuffer, lastIndexedDimension, wait) ;
+					this.flushDimensionBuffer(dx_map, indexBuffer, lastIndexedDimension, wait);
 					// map the correlation
-					this.flushCorrelationBuffer(dx_map, hierarchies_pos, hierarchies_type, rowBuffer, indexBuffer, lastIndexedCorrelation, wait) ;
+					this.flushCorrelationBuffer(dx_map, hierarchies_pos, hierarchies_type, rowBuffer, indexBuffer,
+							lastIndexedCorrelation, wait);
 
 					// only check ES state for the first batch
-					if (wait){
+					if (wait) {
 						wait = false;
 					}
 					// clear buffers
@@ -215,12 +228,15 @@ public class ExecuteHierarchyQuery implements CancellableCallable<Boolean> {
 			if (!rowBuffer.isEmpty()) {
 				// check ES state for the last batch
 				// commit the index buffers
-				this.flushDimensionBuffer(dx_map, indexBuffer ,lastIndexedDimension, true) ;
+				this.flushDimensionBuffer(dx_map, indexBuffer, lastIndexedDimension, true);
 				// map the correlation
-				this.flushCorrelationBuffer(dx_map, hierarchies_pos, hierarchies_type, rowBuffer, indexBuffer,lastIndexedCorrelation, true ) ;
+				this.flushCorrelationBuffer(dx_map, hierarchies_pos, hierarchies_type, rowBuffer, indexBuffer,
+						lastIndexedCorrelation, true);
 			}
 
-			//check and  set Indexes status
+			item.close();
+
+			// check and set Indexes status
 			this.waitForIndexationCompletion(lastIndexedDimension, lastIndexedCorrelation, 5);
 			// check also empty dimensionIndexes
 			for (DimensionIndex index : indexes) {
@@ -230,8 +246,12 @@ public class ExecuteHierarchyQuery implements CancellableCallable<Boolean> {
 			}
 
 			long metter_finish = new Date().getTime();
-			//logger.info("SQLQuery#" + item.getID() + " read "+count+" row(s) in "+(metter_finish-metter_start)+" ms.");
-			logger.info("complete SQLQuery#" + item.getID() + " reads "+count+" row(s) in "+(metter_finish-metter_start)+" ms."+" method=executeQuery"+" duration="+(metter_finish-metter_start)+ " error=false status=complete queryid="+item.getID()+"task="+this.getClass().getName());
+			// logger.info("SQLQuery#" + item.getID() + " read "+count+" row(s)
+			// in "+(metter_finish-metter_start)+" ms.");
+			logger.info("complete SQLQuery#" + item.getID() + " reads " + count + " row(s) in "
+					+ (metter_finish - metter_start) + " ms." + " method=executeQuery" + " duration="
+					+ (metter_finish - metter_start) + " error=false status=complete queryid=" + item.getID() + "task="
+					+ this.getClass().getName());
 
 			//
 			return true;
@@ -240,63 +260,72 @@ public class ExecuteHierarchyQuery implements CancellableCallable<Boolean> {
 				m.getDimensionIndex().setPermanentError(e.getMessage());
 			}
 			if (!abort) {
-				logger.info("failed SQLQuery#" + item.getID()+" method=executeQuery"+" duration="+ " error=true status=failed queryid="+(item!=null?item.getID():"?")+" "+e.getLocalizedMessage()+"task="+this.getClass().getName());
+				logger.info("failed SQLQuery#" + item.getID() + " method=executeQuery" + " duration="
+						+ " error=true status=failed queryid=" + (item != null ? item.getID() : "?") + " "
+						+ e.getLocalizedMessage() + "task=" + this.getClass().getName());
 			}
 			throw e;
 		} finally {
-			if (item!=null) try {
-				item.close();
+			if (item != null)
+				try {
+					item.close();
 
-			} catch (Exception e) {
-				//swallow the exception
-			}
+				} catch (Exception e) {
+					// swallow the exception
+				}
 			// update the latch
-			if (this.countdown!=null) this.countdown.countDown();
+			if (this.countdown != null)
+				this.countdown.countDown();
 			//
 			// unregister
 			ExecutionManager.INSTANCE.unregisterTask(this);
 		}
 	}
 
-	private void waitForIndexationCompletion(HashMap<DimensionIndex, String> lastIndexedDimension, 
-			HashMap<DimensionIndex, String> lastIndexedCorrelation, int timeOutInSec ){
+	private void waitForIndexationCompletion(HashMap<DimensionIndex, String> lastIndexedDimension,
+			HashMap<DimensionIndex, String> lastIndexedCorrelation, int timeOutInSec) {
 
 		try {
-			Thread.sleep(timeOutInSec*1000);
+			Thread.sleep(timeOutInSec * 1000);
 		} catch (InterruptedException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 
-		for(DimensionIndex di: lastIndexedCorrelation.keySet()){
-			if (! di.isCorrelationIndexationDone(lastIndexedCorrelation.get(di))){
-				logger.info("timeout during correlation indexing " + di.getDimensionName() ) ;
+		for (DimensionIndex di : lastIndexedCorrelation.keySet()) {
+			if (!di.isCorrelationIndexationDone(lastIndexedCorrelation.get(di))) {
+				logger.info("timeout during correlation indexing " + di.getDimensionName());
 				di.setPermanentError("timeout during correlation indexing");
-			}    		
+			}
 		}
 
-		for (DimensionIndex di : lastIndexedDimension.keySet()){    		
-			if (di.isDimensionIndexationDone(lastIndexedDimension.get(di))){
-				logger.info( "indexing  ok " + di.getDimensionName() ) ;
+		for (DimensionIndex di : lastIndexedDimension.keySet()) {
+			if (di.isDimensionIndexationDone(lastIndexedDimension.get(di))) {
+				logger.info("indexing  ok " + di.getDimensionName());
 				di.setDone();
-			}else{
-				logger.info("timeout during  indexing " + di.getDimensionName() ) ;
+			} else {
+				logger.info("timeout during  indexing " + di.getDimensionName());
 				di.setPermanentError("timeout during indexing");
 			}
 		}
 
 	}
 
+	private HashMap<DimensionIndex, String> flushDimensionBuffer(List<DimensionMapping> dx_map,
+			ArrayList<DimensionMember>[] indexBuffer, HashMap<DimensionIndex, String> lastIndexed, boolean wait)
+					throws IndexationException {
 
-	private HashMap<DimensionIndex, String> flushDimensionBuffer( List<DimensionMapping> dx_map, 
-			ArrayList<DimensionMember>[] indexBuffer, HashMap<DimensionIndex, String> lastIndexed, boolean wait) throws IndexationException{
-
-		int j=0;
+		int j = 0;
 		for (DimensionMapping m : dx_map) {
-			if (indexBuffer[j]!=null && m.isOption(DimensionMapping.COMPUTE_INDEX)) {// it may not have been initialized
+			if (indexBuffer[j] != null && m.isOption(DimensionMapping.COMPUTE_INDEX)) {// it
+																						// may
+																						// not
+																						// have
+																						// been
+																						// initialized
 				String id = m.getDimensionIndex().index(indexBuffer[j], wait);
-				if (wait){
-					lastIndexed.put(m.getDimensionIndex(), id );
+				if (wait) {
+					lastIndexed.put(m.getDimensionIndex(), id);
 				}
 			}
 			j++;
@@ -304,15 +333,14 @@ public class ExecuteHierarchyQuery implements CancellableCallable<Boolean> {
 		return lastIndexed;
 	}
 
-	private HashMap<DimensionIndex, String> flushCorrelationBuffer( List<DimensionMapping> dx_map, 
+	private HashMap<DimensionIndex, String> flushCorrelationBuffer(List<DimensionMapping> dx_map,
 			Map<DimensionIndex, List<Integer>> hierarchies_pos,
-			Map<DimensionIndex, List<DimensionIndex>> hierarchies_type,
-			ArrayList<DimensionMember[]> rowBuffer, 
-			ArrayList<DimensionMember>[] indexBuffer, 
-			HashMap<DimensionIndex, String> lastIndexed, boolean wait) throws IndexationException{
+			Map<DimensionIndex, List<DimensionIndex>> hierarchies_type, ArrayList<DimensionMember[]> rowBuffer,
+			ArrayList<DimensionMember>[] indexBuffer, HashMap<DimensionIndex, String> lastIndexed, boolean wait)
+					throws IndexationException {
 
 		for (Entry<DimensionIndex, List<Integer>> entry : hierarchies_pos.entrySet()) {
-			if (entry.getValue().size()>1) {
+			if (entry.getValue().size() > 1) {
 				ArrayList<List<DimensionMember>> batch = new ArrayList<>(rowBuffer.size());
 				for (DimensionMember[] row : rowBuffer) {
 					List<DimensionMember> values = new ArrayList<>(entry.getValue().size());
@@ -321,14 +349,13 @@ public class ExecuteHierarchyQuery implements CancellableCallable<Boolean> {
 					}
 					batch.add(values);
 				}
-				String id = entry.getKey().indexCorrelations(hierarchies_type.get(entry.getKey()), batch, wait) ;
-				if (wait){
-					lastIndexed.put(entry.getKey() , id);
+				String id = entry.getKey().indexCorrelations(hierarchies_type.get(entry.getKey()), batch, wait);
+				if (wait) {
+					lastIndexed.put(entry.getKey(), id);
 				}
 			}
-		}	
-		return lastIndexed;    	
+		}
+		return lastIndexed;
 	}
-
 
 }
