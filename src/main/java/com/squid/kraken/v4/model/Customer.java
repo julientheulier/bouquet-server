@@ -46,7 +46,10 @@ import com.wordnik.swagger.annotations.ApiModelProperty;
 @XmlType(namespace = "http://model.v4.kraken.squid.com")
 @XmlRootElement
 @SuppressWarnings("serial")
-public class Customer extends PersistentBaseImpl<CustomerPK> {
+public class Customer extends PersistentBaseImpl<CustomerPK> implements HasChildren {
+	
+	private static String[] CHILDREN = { "users", "userGroups", "clients",
+			"projects", "shortcuts" };
 
     private String name;
 
@@ -223,6 +226,11 @@ public class Customer extends PersistentBaseImpl<CustomerPK> {
 
 	public void setAWSClientId(String aWSClientId) {
 		AWSClientId = aWSClientId;
+	}
+	
+	@Override
+	public String[] getChildren() {
+		return CHILDREN;
 	}
 
 }

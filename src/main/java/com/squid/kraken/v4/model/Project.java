@@ -52,7 +52,9 @@ import com.wordnik.swagger.annotations.ApiModelProperty;
 @Indexes({ @Index(fields = { @Field(value = "id.customerId"),
 		@Field(value = "id.projectId") }) })
 public class Project extends LzPersistentBaseImpl<ProjectPK> implements
-		HasConfig, Cloneable {
+		HasConfig, Cloneable, HasChildren {
+	
+	private static String[] CHILDREN = { "domains", "relations", "bookmarks" };
 
 	private String dbUrl;
 
@@ -257,6 +259,11 @@ public class Project extends LzPersistentBaseImpl<ProjectPK> implements
 			t = null;
 		}
 		this.config = t;
+	}
+	
+	@Override
+	public String[] getChildren() {
+		return CHILDREN;
 	}
 
 }

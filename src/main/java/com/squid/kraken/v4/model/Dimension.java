@@ -53,8 +53,10 @@ import com.wordnik.swagger.annotations.ApiModelProperty;
 				@Field(value = "id.dimensionId")}),
 		@Index(fields = { @Field(value = "id.customerId"),
 				@Field(value = "id.projectId"), @Field(value = "id.projectId") }) })
-public class Dimension extends ExpressionObject<DimensionPK> implements Cloneable {
+public class Dimension extends ExpressionObject<DimensionPK> implements Cloneable, HasChildren {
 
+	private static String[] CHILDREN = { "attributes" };
+	
 	// this is a list of conditional dimension - this is an internal type and
 	// should not be used by the meta-model
 	static public enum Type {
@@ -199,6 +201,11 @@ public class Dimension extends ExpressionObject<DimensionPK> implements Cloneabl
 	@Override
 	public String toString() {
 		return "Dimension '"+getName()+"'";
+	}
+	
+	@Override
+	public String[] getChildren() {
+		return CHILDREN;
 	}
 
 }

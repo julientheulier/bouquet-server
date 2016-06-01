@@ -51,15 +51,15 @@ import com.wordnik.swagger.annotations.ApiModelProperty;
 @SuppressWarnings("serial")
 @Indexes({ @Index(fields = { @Field(value = "id.customerId"),
 		@Field(value = "id.projectId"), @Field(value = "id.domainId") }) })
-public class Domain extends DynamicObject<DomainPK> implements Cloneable {
+public class Domain extends DynamicObject<DomainPK> implements Cloneable, HasChildren {
 
+	private static String[] CHILDREN = { "metrics", "dimensions" };
+	
     private Expression subject;
-
     
     @Transient
     transient private List<Metric> metrics;
 
-    
     @Transient
     transient private List<Dimension> dimensions;
 
@@ -164,5 +164,10 @@ public class Domain extends DynamicObject<DomainPK> implements Cloneable {
     public void setOptions(DomainOption options) {
         this.options = options;
     }
+    
+	@Override
+	public String[] getChildren() {
+		return CHILDREN;
+	}
 
 }
