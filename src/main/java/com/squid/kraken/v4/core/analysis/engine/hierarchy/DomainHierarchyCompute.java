@@ -32,8 +32,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicInteger;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,26 +49,25 @@ import com.squid.kraken.v4.core.analysis.engine.query.mapping.DimensionMapping;
  * @author sergefantino
  *
  */
-public class DomainHierarchyCompute 
-extends DomainHierarchyQueryGenerator
-implements CancellableCallable<Boolean> {
-    static final Logger logger = LoggerFactory.getLogger(DomainHierarchyCompute.class);
-    
-    private List<Future<Boolean>> jobs;
-    private HashMap<DimensionIndex, Future<Boolean>> jobLookup;
-    private DomainHierarchy hierarchy;
-    private HashMap<DimensionIndex,HierarchyQuery> queries;
-    private CountDownLatch latch  ;
-     
-    public DomainHierarchyCompute(DomainHierarchy hierarchy) {
-    	super(hierarchy);
-   
-    	this.hierarchy = hierarchy;
-    	hierarchy.setCompute(this);
-    	try {
-    		// prepare the queries upfront since the ES indexes cannot work until the mapping is initialized, and this is a side effect of the query prep
-			queries = prepareQueries();
-			latch = new CountDownLatch(new HashSet(queries.values()).size()); 
+public class DomainHierarchyCompute extends DomainHierarchyQueryGenerator implements CancellableCallable<Boolean> {
+	static final Logger logger = LoggerFactory.getLogger(DomainHierarchyCompute.class);
+
+	private List<Future<Boolean>> jobs;
+	private HashMap<DimensionIndex, Future<Boolean>> jobLookup;
+	private DomainHierarchy hierarchy;
+	private CountDownLatch latch;
+
+	public DomainHierarchyCompute(DomainHierarchy hierarchy) {
+		super(hierarchy);
+
+		this.hierarchy = hierarchy;
+		hierarchy.setCompute(this);
+		try {
+			// prepare the queries upfront since the ES indexes cannot work
+			// until the mapping is initialized, and this is a side effect of
+			// the query prep
+			prepareQueries();
+			latch = new CountDownLatch(new HashSet(queries.values()).size());
 		} catch (ScopeException | SQLScopeException e) {
             // unable to run any query
             // need to provide some feedback to the user ?
@@ -82,7 +79,12 @@ implements CancellableCallable<Boolean> {
         jobLookup = new HashMap<>();
     }
     
-    
+	public void computeEagerIndexes() {
+		for (DimensionIndex di : this.eagerIndexing) {
+			this.computeIndex(di);
+		}
+	}
+
     public boolean  computeIndex(DimensionIndex index){
     	if (this.hierarchy.getState()==DomainHierarchy.State.CANCELLED) {
     		// if prepareQueries() fails...

@@ -216,6 +216,7 @@ public class DomainHierarchyManager {
 		// store the computing order with the created domains
 		for( DomainHierarchy h  : creator.getTodo()){
 			 DomainHierarchyCompute compute = new DomainHierarchyCompute(h) ;
+			 compute.computeEagerIndexes();
 		}	
 		
 		return hierarchy;
