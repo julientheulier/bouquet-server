@@ -23,6 +23,7 @@
  *******************************************************************************/
 package com.squid.kraken.v4.core.analysis.scope;
 
+import java.util.List;
 import java.util.concurrent.ExecutionException;
 
 import com.squid.core.database.model.Column;
@@ -136,21 +137,12 @@ public class SpaceScope extends AnalysisScope {
             }
             // dimension
             try {
-	            for (Axis axis : space.A()) {
-	            	DimensionIndex index = axis.getIndex();
-	            	if (index!=null) {
-	            		Dimension dimension = index.getDimension();
-	            		if (dimension!=null && dimension.getOid().equals(name)) {
-		                	// KRKN-107 : if it's a sub-domain, don't link through the dimension
-		                    if (!axis.getDefinitionSafe().getImageDomain().isInstanceOf(IDomain.OBJECT)) {
-		                    	return axis;
-		                    } else {
-		                    	return axis;
-		                    	//throw new ScopeException("dimension '"+index.getDimensionName()+"' definition has invalid type OBJECT");
-		                    }
-		                }
-	            	}
-	            }
+            	List<Dimension> dimensions = space.getUniverse().getDomainHierarchy(space.getDomain()).getDimensions(space.getUniverse().getContext());
+            	for (Dimension dimension : dimensions) {
+            		if (dimension!=null && dimension.getOid().equals(name)) {
+            			return space.A(dimension);
+            		}
+            	}
             } catch (InterruptedException | ComputingException e) {
             	// ignore
             }
