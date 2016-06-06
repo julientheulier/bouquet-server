@@ -54,25 +54,18 @@ public class CustomerInfo implements HasAccessRights, HasChildren  {
 	
 	private String AWSClientId;
 	
-	
     transient private List<User> users;
-
     
     transient private List<UserGroup> userGroups;
-
     
     transient private List<Client> clients;
-
     
     transient private List<Project> projects;
-    
-    
+      
     transient private List<Shortcut> shortcuts;
-    
-    
+   
     transient private List<State> states;
-	
-    
+
     private Set<AccessRight> accessRights;
 	
     private Role userRole;
@@ -183,9 +176,12 @@ public class CustomerInfo implements HasAccessRights, HasChildren  {
 	public void setStates(List<State> states) {
 		this.states = states;
 	}
-
 	
-    @Override
+    public List<BookmarkFolder> getBookmarkfolders() {
+    	return Collections.<BookmarkFolder> emptyList();
+	}
+
+	@Override
     public Set<AccessRight> getAccessRights() {
         if (accessRights == null) {
             accessRights = new HashSet<AccessRight>();
