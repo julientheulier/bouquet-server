@@ -272,57 +272,7 @@ public class ExpressionSuggestionHandler {
 							}
 					}
 				}
-				/*for (List<IDomain> type : poly) {
-					if (type.size() == 0) { //not null just empty
-						ExpressionSuggestionItem item =
-								new ExpressionSuggestionItem(
-										opDef.getSymbol() + "(" + ")",
-										ObjectType.FORMULA,
-										computeValueTypeFromImage(opDef.computeImageDomain(type)));
-						if (item.getValueType() != ValueType.ERROR) {
-							if (proposals.size() < PROPOSAL_MAX_SIZE) {
-								proposals.add(item);
-							}
-						}
-					}
-					List<List> replacement = new ArrayList();
-					for (IDomain domain : type) {
-						List list_candidate = new ArrayList();
-						for (ExpressionAST expression : definitions) {
-							if (expression != null) {
-								//Expression expression = actualScope.createReferringExpression(object);
-								if (expression != null) {
-									if (expression.getImageDomain().isInstanceOf(domain)) {
-										list_candidate.add(expression);
-									}
-								}
-							}
-						}
-						replacement.add(list_candidate);
-					}
 
-					// replacement.size == opDef.getParamCount() or at least it should in some cases.
-					int nb_parameters = replacement.size();
-					Random rand = new Random();
-					String suggestion = replacement.get(0).get(rand.nextInt(replacement.get(0).size())).toString();
-
-					for(int i = 1; i<nb_parameters;i++){
-						suggestion += "," + replacement.get(i).get(rand.nextInt(replacement.get(i).size()));
-					}
-					//replacement+=expression.prettyPrint();
-
-					ExpressionSuggestionItem item = new ExpressionSuggestionItem(
-							opDef.getSymbol() + "(" + suggestion + ")",
-							ObjectType.FORMULA,
-							computeValueTypeFromImage(opDef.computeImageDomain(type)));
-
-					if (item.getValueType() != ValueType.ERROR) {
-						if (proposals.size() < PROPOSAL_MAX_SIZE) {
-							proposals.add(item);
-						}
-					}
-
-				}*/
 			} catch (ScopeException e) {
 				//ignoring
 			}
