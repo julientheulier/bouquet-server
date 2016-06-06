@@ -719,7 +719,7 @@ public class ESIndexFacade implements IESIndexFacade {
 			for (Map<String, Object> row : intermediateRes) {
 				boolean rowOk = true;
 				// special case : numeric ID and only one token
-				if ((mappings.get(idFieldname + "_raw").type == ESTypeMapping.DOUBLE) && (tokens.length == 1)) {
+				if (mappings.containsKey(idFieldname + "_raw" ) && (mappings.get(idFieldname + "_raw").type == ESTypeMapping.DOUBLE) && (tokens.length == 1)) {
 					String val = row.get(idFieldname + "_raw").toString();
 					rowOk = val.toLowerCase().equals(tokens[0].toLowerCase());
 				} else {
