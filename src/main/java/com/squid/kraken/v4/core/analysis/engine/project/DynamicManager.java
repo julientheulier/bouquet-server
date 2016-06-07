@@ -464,8 +464,8 @@ public class DynamicManager {
 	public void loadDomainDynamicContent(Space space, DomainContent content) {
 		Universe univ = space.getUniverse();
 		Domain domain = space.getDomain();
-		boolean isDOmainLegacyMode = domain.getInternalVersion()==null;// check if the domain is in legacy mode (i.e. default is to hide dynamic)
-		boolean domainInternalDefautDynamic = isDOmainLegacyMode?true:false;// if legacy mode, hide dynamic object is the default
+		boolean isDomainLegacyMode = domain.getInternalVersion()==null;// check if the domain is in legacy mode (i.e. default is to hide dynamic)
+		boolean domainInternalDefautDynamic = isDomainLegacyMode?true:false;// if legacy mode, hide dynamic object is the default
 		HashSet<Column> coverage = new HashSet<Column>();// list column already available through defined dimensions
 		HashSet<ExpressionAST> metricCoverage = new HashSet<ExpressionAST>();
 		HashSet<Space> neighborhood = new HashSet<Space>();
@@ -605,7 +605,7 @@ public class DynamicManager {
 			    			DimensionPK id = new DimensionPK(domain.getId(), digest(prefix+expr));
 			    			if (!ids.contains(id.getDimensionId())) {
 				    			String name = ref.getReferenceName();
-				    			if (isDOmainLegacyMode) {
+				    			if (isDomainLegacyMode) {
 					    			name = checkName(">"+name,checkName);
 				    			} else {
 				    				// this is the new naming convention for sub-domains

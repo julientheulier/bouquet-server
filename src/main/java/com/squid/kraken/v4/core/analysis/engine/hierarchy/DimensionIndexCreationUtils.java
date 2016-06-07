@@ -37,6 +37,7 @@ import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
 import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.core.expression.visitor.ExtractOutcomes;
+import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.Dimension.Type;
 
 public class DimensionIndexCreationUtils {
@@ -67,6 +68,9 @@ public class DimensionIndexCreationUtils {
     }
     
     public static List<DimensionIndex> createProxyIndexes(Space space, DomainHierarchy hierarchy, Axis source) throws ComputingException, ScopeException, InterruptedException{
+    	// check legacy mode
+    	Domain domain = space.getDomain();
+    	boolean isDomainLegacyMode = domain.getInternalVersion()==null;
     	List<DimensionIndex> result = new ArrayList<DimensionIndex>();
     	List<DimensionIndex> indexes = hierarchy.getDimensionIndexes();
         HashMap<DimensionIndex, DimensionIndex> parenting = new HashMap<>();
@@ -81,7 +85,9 @@ public class DimensionIndexCreationUtils {
 	            DimensionIndex proxy = new DimensionIndexProxy(source, new_parent, relink, index);
 	            // - default is to concatenate source dimension name and sub dimension name
 	            // - but you can bypass that logic by prefixing the source dimension name with underscore (krkn-110)
-	            if (source.getDimension().getName().startsWith("__")) {
+	            if (!isDomainLegacyMode && source.getDimension().getName().startsWith("__")) {
+	            	proxy.setDimensionName(index.getDimension().getName());
+	            } else if (isDomainLegacyMode && source.getDimension().getName().startsWith("_")) {
 	            	proxy.setDimensionName(index.getDimension().getName());
 	            } else if (source.getDimension().getName().startsWith("_")) {
 	            	proxy.setDimensionName(index.getDimensionName());

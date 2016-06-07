@@ -98,13 +98,19 @@ public class DynamicDomainContentConstructor {
 	}
 
 	public Dimension createDimension(RelationReference ref) {
-		boolean domainInternalDefautDynamic = (domain.getInternalVersion()==null)?true:false;
+		boolean isDomainLegacyMode = domain.getInternalVersion()==null;// check if the domain is in legacy mode (i.e. default is to hide dynamic)
+		boolean domainInternalDefautDynamic = isDomainLegacyMode?true:false;// if legacy mode, hide dynamic object is the default
 		checkName.add(ref.getReferenceName());
 		String expr = ref.prettyPrint()+".$'SELF'";// add the SELF parameter
 		DimensionPK id = new DimensionPK(domain.getId(), digest(prefix+expr));
 		if (!ids.contains(id.getDimensionId())) {
 			String name = ref.getReferenceName();
-			name = checkName(name+" > ",checkName);
+			if (isDomainLegacyMode) {
+				name = checkName(">"+name,checkName);
+			} else {
+				// this is the new naming convention for sub-domains
+				name = checkName(name+" > ",checkName);
+			}
 			Dimension dim = new Dimension(id, name, Type.INDEX, new Expression(expr), domainInternalDefautDynamic);
 			dim.setValueType(ValueType.OBJECT);
 			AccessRightsUtils.getInstance().setAccessRights(univ.getContext(), dim, domain);
