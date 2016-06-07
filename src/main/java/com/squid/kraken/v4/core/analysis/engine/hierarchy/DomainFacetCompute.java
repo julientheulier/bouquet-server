@@ -28,6 +28,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -106,18 +107,28 @@ public class DomainFacetCompute extends FacetBuilder {
     }
     
 	private static final Comparator<Facet> facetsComparator = new Comparator<Facet>() {
+		private String getCleanName(Facet facet) {
+			// Suppress the first ">" if it is a proxy
+			if (facet.isProxy()) {
+				if (facet.getName().startsWith(">")) {
+					return facet.getName().substring(1);
+				}
+			} 
+			// else
+			return facet.getName();
+		}
 		@Override
 		public int compare(Facet o1, Facet o2) {
-			boolean d1 = o1.getDimension().isDynamic();
-			boolean d2 = o2.getDimension().isDynamic();
+			boolean d1 = o1.getDimension().isVisible();
+			boolean d2 = o2.getDimension().isVisible();
 			if (d1==d2) {
-				boolean p1 = o1.isProxy();
-				boolean p2 = o2.isProxy();
+				boolean p1 = o1.isProxy() && o1.isCompositeName();
+				boolean p2 = o2.isProxy() && o2.isCompositeName();
 				if (p1==p2) {
 					boolean s1 = SegmentManager.isSegmentFacet(o1);
 					boolean s2 = SegmentManager.isSegmentFacet(o2);
 					if (s1==s2) {
-						return o1.getName().compareTo(o2.getName());
+						return getCleanName(o1).compareToIgnoreCase(getCleanName(o2));
 					} else if (s1) {
 						return 1;// segment last
 					} else {// if (s2)
@@ -151,6 +162,7 @@ public class DomainFacetCompute extends FacetBuilder {
             DashboardSelection sel) throws ScopeException, InterruptedException, ComputingException {
         DomainHierarchy hierarchy = universe.getDomainHierarchy(domain, true);
         List<Facet> facets = new ArrayList<>();
+        HashSet<String> names = new HashSet<>();
         for (DimensionIndex index : hierarchy.getDimensionIndexes()) {
         	IDomain image = index.getAxis().getDefinitionSafe().getImageDomain();
             if (
@@ -164,7 +176,12 @@ public class DomainFacetCompute extends FacetBuilder {
             	// T70
             	if (index.isVisible())
             	{
-            		facets.add(computeDimensionFacets(domain, index, sel, null, offset, size));
+            		Facet facet = computeDimensionFacets(domain, index, sel, null, offset, size);
+            		if (names.contains(facet.getName())) {
+            			facet.setName(facet.getName()+" ("+index.getDimensionPath()+")");
+            		}
+            		facets.add(facet);
+            		names.add(facet.getName());
             	}
             }
         }
