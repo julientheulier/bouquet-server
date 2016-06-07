@@ -75,6 +75,7 @@ public class SimpleDatabaseManager extends DatabaseManager {
 	}
 
 	protected HikariDataSourceReliable createDatasourceWithConfig(JDBCConfig config) {
+		logger.info("Creating a new datasource for "+ config.getJdbcUrl()+ " " +config.getUsername() );
 		HikariDataSourceReliable ds = new HikariDataSourceReliable(maximumPoolSize);
 		ds.setJdbcUrl(config.getJdbcUrl());
 		ds.setUsername(config.getUsername());
