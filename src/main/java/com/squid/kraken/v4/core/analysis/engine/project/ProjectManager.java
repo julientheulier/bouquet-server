@@ -171,12 +171,16 @@ public class ProjectManager {
 		//
 		Universe universe = new Universe(ctx, project);
 		Space space = universe.S(domain);
-		Table table = space.getTable();
-		String uuid = universe.getTableUUID(table);
-		if (uuid != null) {
-			RedisCacheManager.getInstance().refresh(uuid);
-			// and refresh the table?
-			table.refresh();
+		try {
+			Table table = space.getTable();
+			String uuid = universe.getTableUUID(table);
+			if (uuid != null) {
+				RedisCacheManager.getInstance().refresh(uuid);
+				// and refresh the table?
+				table.refresh();
+			}
+		} catch (ScopeException e) {
+			logger.error("failed to refresh table for domain "+domain, e);
 		}
 		RedisCacheManager.getInstance().refresh(domainPk.toUUID());
 		RedisKey key = RedisCacheManager.getInstance().getKey(domainPk.toUUID());
@@ -542,6 +546,7 @@ public class ProjectManager {
 	}
 	
 	public void invalidate(Project project) throws InterruptedException, ScopeException {
+		ReentrantLock lock = lock(project.getId());
 		// load the list first
 		List<Domain> domains = ProjectManager.INSTANCE.getDomains(ServiceUtils.getInstance().getRootUserContext(project.getId().getCustomerId()), project.getId());
 		// ... then refresh the project
@@ -553,6 +558,7 @@ public class ProjectManager {
 				DomainHierarchyManager.INSTANCE.invalidate(d.getId());		
 			}
 		}
+		lock.unlock();
 	}
 	
 }

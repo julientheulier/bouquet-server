@@ -23,62 +23,50 @@
  *******************************************************************************/
 package com.squid.kraken.v4.model;
 
-import org.mongodb.morphia.annotations.Transient;
-
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.squid.core.domain.IDomain;
-
 @SuppressWarnings("serial")
-public abstract class ExpressionObject<PK extends GenericPK> extends DynamicObject<PK> {
+public class BookmarkFolderPK extends CustomerPK {
 
-    @Transient
-    transient private ValueType valueType = null;
-    
-    @Transient
-    transient private IDomain imageDomain = null;
-	
-	public ExpressionObject() {
-		super();
+	private String bookmarkfolderId;
+
+	public BookmarkFolderPK() {
 	}
 
-	public ExpressionObject(PK id, boolean isDynamic) {
-		super(id, isDynamic);
-		// TODO Auto-generated constructor stub
+	public BookmarkFolderPK(String customerId) {
+		this(customerId, null);
 	}
 
-	public ExpressionObject(PK id, String name, boolean isDynamic) {
-		super(id, name, isDynamic);
-		// TODO Auto-generated constructor stub
+	public BookmarkFolderPK(String customerId, String bookmarkfolderId) {
+		super(customerId);
+		this.bookmarkfolderId = bookmarkfolderId;
 	}
 
-	public ExpressionObject(PK id, String name) {
-		super(id, name);
-		// TODO Auto-generated constructor stub
+	/**
+	 * This is the url-encoded path of the folder
+	 */
+	public String getBookmarkfolderId() {
+		return bookmarkfolderId;
 	}
 
-	public ExpressionObject(PK id) {
-		super(id);
-		// TODO Auto-generated constructor stub
+	public void setBookmarkfolderId(String bookmarkfolderId) {
+		this.bookmarkfolderId = bookmarkfolderId;
 	}
 
-	public abstract Expression getExpression();
+	public String getObjectId() {
+		return bookmarkfolderId;
+	}
 
-	
-	public ValueType getValueType() {
-		return valueType;
+	public void setObjectId(String bookmarkfolderId) {
+		this.bookmarkfolderId = bookmarkfolderId;
 	}
-	
-	public void setValueType(ValueType valueType) {
-		this.valueType = valueType;
+
+	@Override
+	public GenericPK getParent() {
+		return new CustomerPK(getCustomerId());
 	}
-	
-	@JsonIgnore
-	public IDomain getImageDomain() {
-		return imageDomain!=null?imageDomain:IDomain.UNKNOWN;
-	}
-	
-	public void setImageDomain(IDomain imageDomain) {
-		this.imageDomain = imageDomain;
+
+	@Override
+	public void setParent(GenericPK pk) {
+		setCustomerId(((CustomerPK) pk).getCustomerId());
 	}
 
 }

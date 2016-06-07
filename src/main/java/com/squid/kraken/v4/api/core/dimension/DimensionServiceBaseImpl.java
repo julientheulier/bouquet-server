@@ -23,6 +23,7 @@
  *******************************************************************************/
 package com.squid.kraken.v4.api.core.dimension;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
@@ -41,7 +42,6 @@ import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndexProxy;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainHierarchy;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainHierarchyManager;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
-import com.squid.kraken.v4.core.analysis.engine.project.DynamicManager;
 import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.kraken.v4.core.expression.scope.AttributeExpressionScope;
@@ -52,7 +52,9 @@ import com.squid.kraken.v4.model.DimensionPK;
 import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.DomainPK;
 import com.squid.kraken.v4.model.DynamicObject;
+import com.squid.kraken.v4.model.ExpressionObject;
 import com.squid.kraken.v4.model.ExpressionSuggestion;
+import com.squid.kraken.v4.model.Metric;
 import com.squid.kraken.v4.model.Project;
 import com.squid.kraken.v4.model.ProjectPK;
 import com.squid.kraken.v4.persistence.AppContext;
@@ -194,6 +196,7 @@ public class DimensionServiceBaseImpl extends
 	        Dimension old = null;
 	        try {
 	        	old = hierarchy.findDimension(ctx, dimensionPk);
+        		/*
 	        	if (old!=null && !old.isDynamic() && dimension.isDynamic()) {
 	        		// turn the dimension back to dynamic => delete it
 	        		if (DynamicManager.INSTANCE.isNatural(dimension)) {
@@ -204,6 +207,7 @@ public class DimensionServiceBaseImpl extends
 	        		// else
 	        		// let me store it... keep continuing
 	        	}
+	        	*/
 	        } catch (Exception e) {
 	        	// ok, ignore
 	        }
@@ -254,7 +258,8 @@ public class DimensionServiceBaseImpl extends
 			Project project = ProjectManager.INSTANCE.getProject(ctx, dimension.getId().getParent().getParent());
 	        Universe universe = new Universe(ctx, project);
 	        ExpressionAST expr = universe.getParser().parse(domain, dimension);
-	        universe.getParser().analyzeExpression(dimension.getId(), dimension.getExpression(), expr);
+	        Collection<ExpressionObject<?>> references = universe.getParser().analyzeExpression(dimension.getId(), dimension.getExpression(), expr);
+	        universe.getParser().saveReferences(references);
 	        // ok
 			return super.store(ctx, dimension);
 		} catch (ScopeException | ComputingException | InterruptedException e) {

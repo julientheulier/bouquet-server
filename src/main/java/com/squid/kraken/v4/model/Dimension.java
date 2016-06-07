@@ -53,8 +53,10 @@ import com.wordnik.swagger.annotations.ApiModelProperty;
 				@Field(value = "id.dimensionId")}),
 		@Index(fields = { @Field(value = "id.customerId"),
 				@Field(value = "id.projectId"), @Field(value = "id.projectId") }) })
-public class Dimension extends ExpressionObject<DimensionPK> implements Cloneable {
+public class Dimension extends ExpressionObject<DimensionPK> implements Cloneable, HasChildren {
 
+	private static String[] CHILDREN = { "attributes" };
+	
 	// this is a list of conditional dimension - this is an internal type and
 	// should not be used by the meta-model
 	static public enum Type {
@@ -64,7 +66,7 @@ public class Dimension extends ExpressionObject<DimensionPK> implements Cloneabl
 	private Type type;
 
 	private Expression expression;
-
+	
 	@JsonInclude(Include.ALWAYS)
 	private DimensionPK parentId;
 
@@ -75,17 +77,11 @@ public class Dimension extends ExpressionObject<DimensionPK> implements Cloneabl
 	@JsonInclude(JsonInclude.Include.NON_DEFAULT)
 	private List<DimensionOption> options = null;
 
-    @Transient
-    transient private ValueType valueType = null;
-    
-    @Transient
-    transient private IDomain imageDomain = null;
-
     /**
      * Default constructor (required for jaxb).
      */
     public Dimension() {
-        super(null);
+        super();
     }
     
     public Dimension(DimensionPK dimensionId) {
@@ -138,23 +134,6 @@ public class Dimension extends ExpressionObject<DimensionPK> implements Cloneabl
 	public void setExpression(Expression expression) {
 		this.expression = expression;
 	}
-	
-	public ValueType getValueType() {
-		return valueType;
-	}
-	
-	public void setValueType(ValueType valueType) {
-		this.valueType = valueType;
-	}
-	
-	@JsonIgnore
-	public IDomain getImageDomain() {
-		return imageDomain!=null?imageDomain:IDomain.UNKNOWN;
-	}
-	
-	public void setImageDomain(IDomain imageDomain) {
-		this.imageDomain = imageDomain;
-	}
 
 	/**
 	 * Visitor.
@@ -196,9 +175,18 @@ public class Dimension extends ExpressionObject<DimensionPK> implements Cloneabl
 		this.options = options;
 	}
 	
+	public boolean isVisible() {
+		return !isDynamic();
+	}
+	
 	@Override
 	public String toString() {
 		return "Dimension '"+getName()+"'";
+	}
+	
+	@Override
+	public String[] getChildren() {
+		return CHILDREN;
 	}
 
 }

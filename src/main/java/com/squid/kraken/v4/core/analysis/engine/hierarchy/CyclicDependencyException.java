@@ -21,64 +21,43 @@
  * you and Squid Solutions (above licenses and LICENSE.txt included).
  * See http://www.squidsolutions.com/EnterpriseBouquet/
  *******************************************************************************/
-package com.squid.kraken.v4.model;
+package com.squid.kraken.v4.core.analysis.engine.hierarchy;
 
-import org.mongodb.morphia.annotations.Transient;
+/**
+ * @author sergefantino
+ *
+ */
+public class CyclicDependencyException extends RuntimeException {
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.squid.core.domain.IDomain;
-
-@SuppressWarnings("serial")
-public abstract class ExpressionObject<PK extends GenericPK> extends DynamicObject<PK> {
-
-    @Transient
-    transient private ValueType valueType = null;
-    
-    @Transient
-    transient private IDomain imageDomain = null;
-	
-	public ExpressionObject() {
+	public CyclicDependencyException() {
 		super();
-	}
-
-	public ExpressionObject(PK id, boolean isDynamic) {
-		super(id, isDynamic);
 		// TODO Auto-generated constructor stub
 	}
 
-	public ExpressionObject(PK id, String name, boolean isDynamic) {
-		super(id, name, isDynamic);
+	public CyclicDependencyException(String message, Throwable cause, boolean enableSuppression,
+			boolean writableStackTrace) {
+		super(message, cause, enableSuppression, writableStackTrace);
 		// TODO Auto-generated constructor stub
 	}
 
-	public ExpressionObject(PK id, String name) {
-		super(id, name);
+	public CyclicDependencyException(String message, Throwable cause) {
+		super(message, cause);
 		// TODO Auto-generated constructor stub
 	}
 
-	public ExpressionObject(PK id) {
-		super(id);
+	public CyclicDependencyException(String message) {
+		super(message);
 		// TODO Auto-generated constructor stub
 	}
 
-	public abstract Expression getExpression();
+	public CyclicDependencyException(Throwable cause) {
+		super(cause);
+		// TODO Auto-generated constructor stub
+	}
 
-	
-	public ValueType getValueType() {
-		return valueType;
-	}
-	
-	public void setValueType(ValueType valueType) {
-		this.valueType = valueType;
-	}
-	
-	@JsonIgnore
-	public IDomain getImageDomain() {
-		return imageDomain!=null?imageDomain:IDomain.UNKNOWN;
-	}
-	
-	public void setImageDomain(IDomain imageDomain) {
-		this.imageDomain = imageDomain;
-	}
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = -8376736085442786435L;
 
 }

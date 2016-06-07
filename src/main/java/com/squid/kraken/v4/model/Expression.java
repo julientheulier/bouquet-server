@@ -46,7 +46,7 @@ public class Expression implements Serializable {
     private int level = 0;// level of references (0=no model references, 1=at least one indirect reference, ...)
     
     @ApiModelProperty(hidden=true)
-    private Collection<ReferencePK> references2 = null;
+    private Collection<ReferencePK<?>> references2 = null;
     
     public Expression() {
     }
@@ -96,11 +96,11 @@ public class Expression implements Serializable {
 		this.level = level;
 	}
     
-    public Collection<ReferencePK> getReferences() {
+    public Collection<ReferencePK<?>> getReferences() {
 		return references2;
 	}
     
-    public void setReferences(Collection<ReferencePK> references) {
+    public void setReferences(Collection<ReferencePK<?>> references) {
 		this.references2 = references;
 	}
 

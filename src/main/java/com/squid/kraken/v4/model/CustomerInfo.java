@@ -41,7 +41,10 @@ import com.wordnik.swagger.annotations.ApiModelProperty;
 @XmlType(namespace = "http://model.v4.kraken.squid.com")
 @XmlRootElement
 @JsonTypeName("Customer")
-public class CustomerInfo implements HasAccessRights {
+public class CustomerInfo implements HasAccessRights, HasChildren  {
+	
+	private static String[] CHILDREN = { "users", "userGroups", "clients",
+		"projects", "shortcuts" };
 
 	private String id;
 
@@ -51,25 +54,18 @@ public class CustomerInfo implements HasAccessRights {
 	
 	private String AWSClientId;
 	
-	
     transient private List<User> users;
-
     
     transient private List<UserGroup> userGroups;
-
     
     transient private List<Client> clients;
-
     
     transient private List<Project> projects;
-    
-    
+      
     transient private List<Shortcut> shortcuts;
-    
-    
+   
     transient private List<State> states;
-	
-    
+
     private Set<AccessRight> accessRights;
 	
     private Role userRole;
@@ -180,9 +176,12 @@ public class CustomerInfo implements HasAccessRights {
 	public void setStates(List<State> states) {
 		this.states = states;
 	}
-
 	
-    @Override
+    public List<BookmarkFolder> getBookmarkfolders() {
+    	return Collections.<BookmarkFolder> emptyList();
+	}
+
+	@Override
     public Set<AccessRight> getAccessRights() {
         if (accessRights == null) {
             accessRights = new HashSet<AccessRight>();
@@ -205,5 +204,10 @@ public class CustomerInfo implements HasAccessRights {
     @JsonIgnore
 	public void setUserRole(Role role) {
 		this.userRole = role;
+	}
+    
+	@Override
+	public String[] getChildren() {
+		return CHILDREN;
 	}
 }

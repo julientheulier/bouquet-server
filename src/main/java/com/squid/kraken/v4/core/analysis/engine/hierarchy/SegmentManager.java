@@ -24,6 +24,8 @@
 package com.squid.kraken.v4.core.analysis.engine.hierarchy;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.StringTokenizer;
 
@@ -163,6 +165,19 @@ public class SegmentManager {
     			goalFacet.getItems().add(openFilter);
     		}
         }
+        // sort the facet T1275
+        Collections.sort(goalFacet.getItems(), new Comparator<FacetMember>() {
+			@Override
+			public int compare(FacetMember o1, FacetMember o2) {
+				if (o1 instanceof FacetMemberString && o2 instanceof FacetMemberString) {
+					FacetMemberString s1 = (FacetMemberString)o1;
+					FacetMemberString s2 = (FacetMemberString)o2;
+					return s1.getValue().compareTo(s2.getValue());
+				} else {
+					return o1.toString().compareTo(o2.toString());
+				}
+			}
+		});
         // check if there are some conditions in the current selection
         return goalFacet;
     }
