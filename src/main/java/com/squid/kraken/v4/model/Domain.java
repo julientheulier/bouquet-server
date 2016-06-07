@@ -51,10 +51,16 @@ import com.wordnik.swagger.annotations.ApiModelProperty;
 @SuppressWarnings("serial")
 @Indexes({ @Index(fields = { @Field(value = "id.customerId"),
 		@Field(value = "id.projectId"), @Field(value = "id.domainId") }) })
-public class Domain extends DynamicObject<DomainPK> implements Cloneable {
+public class Domain extends DynamicObject<DomainPK> implements Cloneable, HasChildren {
+	
+	public static final int VERSION_1 = 1;// introducing a new dynamic mode, everything selected by default
 
+	private static String[] CHILDREN = { "metrics", "dimensions" };
+	
     private Expression subject;
 
+    @JsonIgnore
+	private Integer internalVersion = null;// internal only, client cannot use this property
     
     @Transient
     transient private List<Metric> metrics;
@@ -70,7 +76,7 @@ public class Domain extends DynamicObject<DomainPK> implements Cloneable {
      * Default constructor (required for jaxb).
      */
     public Domain() {
-        super(null);
+        super();
     }
 
     /**
@@ -91,6 +97,7 @@ public class Domain extends DynamicObject<DomainPK> implements Cloneable {
     public Domain(DomainPK domainId, String name, Expression subject,
 			boolean isDynamic) {
 		super(domainId, name, isDynamic);
+		this.internalVersion = VERSION_1;
 		this.subject = subject;
 	}
 
@@ -164,5 +171,17 @@ public class Domain extends DynamicObject<DomainPK> implements Cloneable {
     public void setOptions(DomainOption options) {
         this.options = options;
     }
+    
+    /**
+	 * @return the internalVersion
+	 */
+	public Integer getInternalVersion() {
+		return internalVersion;
+	}
+    
+	@Override
+	public String[] getChildren() {
+		return CHILDREN;
+	}
 
 }
