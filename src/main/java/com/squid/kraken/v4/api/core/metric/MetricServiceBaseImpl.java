@@ -33,7 +33,6 @@ import com.squid.kraken.v4.api.core.ObjectNotFoundAPIException;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainHierarchy;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainHierarchyManager;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
-import com.squid.kraken.v4.core.analysis.engine.project.DynamicManager;
 import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.kraken.v4.model.Domain;
@@ -122,6 +121,7 @@ public class MetricServiceBaseImpl extends GenericServiceImpl<Metric, MetricPK> 
 	        Metric old = null;
 	        try {
 	        	old = hierarchy.getMetric(ctx, metricPk.getMetricId());
+	        	/*
 	        	if (!old.isDynamic() && metric.isDynamic()) {
 	        		// turn the dimension back to dynamic => delete it
 	        		if (DynamicManager.INSTANCE.isNatural(metric)) {
@@ -132,6 +132,7 @@ public class MetricServiceBaseImpl extends GenericServiceImpl<Metric, MetricPK> 
 	        		// else
 	        		// let me store it... keep continuing
 	        	}
+	        	*/
 	        } catch (Exception e) {
 	        	// ok, ignore
 	        }
@@ -161,7 +162,17 @@ public class MetricServiceBaseImpl extends GenericServiceImpl<Metric, MetricPK> 
 			Project project = ProjectManager.INSTANCE.getProject(ctx, metric.getId().getParent().getParent());
 	        Universe universe = new Universe(ctx, project);
 	        ExpressionAST expr = universe.getParser().parse(domain, metric);
-	        universe.getParser().analyzeExpression(metric.getId(), metric.getExpression(), expr);
+	        Collection<ExpressionObject<?>> references = universe.getParser().analyzeExpression(metric.getId(), metric.getExpression(), expr);
+	        for (ExpressionObject<?> ref : references) {
+	        	if (ref.isInternalDynamic()) {
+	        		ref.setDynamic(false);// make it concrete
+	        		if (ref instanceof Dimension) {
+	        			ref = DAOFactory.getDAOFactory().getDAO(Dimension.class).create(ctx, (Dimension)ref);
+	        		} else if (ref instanceof Metric) {
+	        			ref = DAOFactory.getDAOFactory().getDAO(Metric.class).create(ctx, (Metric)ref);
+	        		}
+	        	}
+	        }
 	        // ok
 			return super.store(ctx, metric);
 		} catch (ScopeException | ComputingException | InterruptedException e) {
