@@ -259,16 +259,7 @@ public class DimensionServiceBaseImpl extends
 	        Universe universe = new Universe(ctx, project);
 	        ExpressionAST expr = universe.getParser().parse(domain, dimension);
 	        Collection<ExpressionObject<?>> references = universe.getParser().analyzeExpression(dimension.getId(), dimension.getExpression(), expr);
-	        for (ExpressionObject<?> ref : references) {
-	        	if (ref.isInternalDynamic()) {
-	        		ref.setDynamic(false);// make it concrete
-	        		if (ref instanceof Dimension) {
-	        			ref = DAOFactory.getDAOFactory().getDAO(Dimension.class).create(ctx, (Dimension)ref);
-	        		} else if (ref instanceof Metric) {
-	        			ref = DAOFactory.getDAOFactory().getDAO(Metric.class).create(ctx, (Metric)ref);
-	        		}
-	        	}
-	        }
+	        universe.getParser().saveReferences(references);
 	        // ok
 			return super.store(ctx, dimension);
 		} catch (ScopeException | ComputingException | InterruptedException e) {

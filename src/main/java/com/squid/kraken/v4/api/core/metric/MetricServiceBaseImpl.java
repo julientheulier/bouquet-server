@@ -23,6 +23,7 @@
  *******************************************************************************/
 package com.squid.kraken.v4.api.core.metric;
 
+import java.util.Collection;
 import java.util.List;
 
 import com.squid.core.expression.ExpressionAST;
@@ -35,9 +36,11 @@ import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainHierarchyManager
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
+import com.squid.kraken.v4.model.Dimension;
 import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.DomainPK;
 import com.squid.kraken.v4.model.DynamicObject;
+import com.squid.kraken.v4.model.ExpressionObject;
 import com.squid.kraken.v4.model.Metric;
 import com.squid.kraken.v4.model.MetricExt;
 import com.squid.kraken.v4.model.MetricPK;
@@ -163,16 +166,7 @@ public class MetricServiceBaseImpl extends GenericServiceImpl<Metric, MetricPK> 
 	        Universe universe = new Universe(ctx, project);
 	        ExpressionAST expr = universe.getParser().parse(domain, metric);
 	        Collection<ExpressionObject<?>> references = universe.getParser().analyzeExpression(metric.getId(), metric.getExpression(), expr);
-	        for (ExpressionObject<?> ref : references) {
-	        	if (ref.isInternalDynamic()) {
-	        		ref.setDynamic(false);// make it concrete
-	        		if (ref instanceof Dimension) {
-	        			ref = DAOFactory.getDAOFactory().getDAO(Dimension.class).create(ctx, (Dimension)ref);
-	        		} else if (ref instanceof Metric) {
-	        			ref = DAOFactory.getDAOFactory().getDAO(Metric.class).create(ctx, (Metric)ref);
-	        		}
-	        	}
-	        }
+	        universe.getParser().saveReferences(references);
 	        // ok
 			return super.store(ctx, metric);
 		} catch (ScopeException | ComputingException | InterruptedException e) {
