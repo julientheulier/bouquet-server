@@ -36,7 +36,6 @@ import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.ExpressionRef;
 import com.squid.core.expression.parser.ParseException;
 import com.squid.core.expression.parser.TokenMgrError;
-import com.squid.kraken.v4.api.core.ServiceUtils;
 import com.squid.kraken.v4.core.expression.scope.AttributeExpressionScope;
 import com.squid.kraken.v4.core.expression.scope.DimensionExpressionScope;
 import com.squid.core.expression.scope.ExpressionDiagnostic;
@@ -478,6 +477,23 @@ public class Parser {
     		// ignore
     	}
     	return Optional.absent();// not found
+    }
+    
+    /**
+     * check the reference list and make sure the dynamic ones are persisted
+     * @param references
+     */
+    public void saveReferences(Collection<ExpressionObject<?>> references) {
+    	for (ExpressionObject<?> ref : references) {
+        	if (ref.isInternalDynamic()) {
+        		ref.setDynamic(false);// make it concrete
+        		if (ref instanceof Dimension) {
+        			ref = DAOFactory.getDAOFactory().getDAO(Dimension.class).create(universe.getContext(), (Dimension)ref);
+        		} else if (ref instanceof Metric) {
+        			ref = DAOFactory.getDAOFactory().getDAO(Metric.class).create(universe.getContext(), (Metric)ref);
+        		}
+        	}
+        }
     }
 
 }
