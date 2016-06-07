@@ -464,7 +464,8 @@ public class DynamicManager {
 	public void loadDomainDynamicContent(Space space, DomainContent content) {
 		Universe univ = space.getUniverse();
 		Domain domain = space.getDomain();
-		boolean domainInternalDefautDynamic = (domain.getInternalVersion()==null)?true:false;
+		boolean isDOmainLegacyMode = domain.getInternalVersion()==null;// check if the domain is in legacy mode (i.e. default is to hide dynamic)
+		boolean domainInternalDefautDynamic = isDOmainLegacyMode?true:false;// if legacy mode, hide dynamic object is the default
 		HashSet<Column> coverage = new HashSet<Column>();// list column already available through defined dimensions
 		HashSet<ExpressionAST> metricCoverage = new HashSet<ExpressionAST>();
 		HashSet<Space> neighborhood = new HashSet<Space>();
@@ -604,7 +605,12 @@ public class DynamicManager {
 			    			DimensionPK id = new DimensionPK(domain.getId(), digest(prefix+expr));
 			    			if (!ids.contains(id.getDimensionId())) {
 				    			String name = ref.getReferenceName();
-				    			name = checkName(name+" > ",checkName);
+				    			if (isDOmainLegacyMode) {
+					    			name = checkName(">"+name,checkName);
+				    			} else {
+				    				// this is the new naming convention for sub-domains
+					    			name = checkName(name+" > ",checkName);
+				    			}
 				    			Dimension dim = new Dimension(id, name, Type.INDEX, new Expression(expr), domainInternalDefautDynamic);
 								dim.setValueType(ValueType.OBJECT);
 								dim.setImageDomain(ref.getImageDomain());
