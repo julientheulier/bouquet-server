@@ -52,21 +52,15 @@ import com.wordnik.swagger.annotations.ApiModelProperty;
 @Indexes({ @Index(fields = { @Field(value = "id.customerId"),
 		@Field(value = "id.projectId"), @Field(value = "id.domainId") }) })
 public class Domain extends DynamicObject<DomainPK> implements Cloneable, HasChildren {
-<<<<<<< HEAD
 	
 	public static final int VERSION_1 = 1;// introducing a new dynamic mode, everything selected by default
-=======
->>>>>>> branch 'develop' of https://github.com/openbouquet/bouquet-server
 
 	private static String[] CHILDREN = { "metrics", "dimensions" };
 	
     private Expression subject;
-<<<<<<< HEAD
 
     @JsonIgnore
 	private Integer internalVersion = null;// internal only, client cannot use this property
-=======
->>>>>>> branch 'develop' of https://github.com/openbouquet/bouquet-server
     
     @Transient
     transient private List<Metric> metrics;
@@ -177,7 +171,6 @@ public class Domain extends DynamicObject<DomainPK> implements Cloneable, HasChi
         this.options = options;
     }
     
-<<<<<<< HEAD
     /**
 	 * @return the internalVersion
 	 */
@@ -185,8 +178,6 @@ public class Domain extends DynamicObject<DomainPK> implements Cloneable, HasChi
 		return internalVersion;
 	}
     
-=======
->>>>>>> branch 'develop' of https://github.com/openbouquet/bouquet-server
 	@Override
 	public String[] getChildren() {
 		return CHILDREN;
