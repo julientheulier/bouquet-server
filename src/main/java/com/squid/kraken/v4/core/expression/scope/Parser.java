@@ -48,15 +48,23 @@ import com.squid.kraken.v4.core.expression.scope.ProjectExpressionScope;
 import com.squid.kraken.v4.core.expression.scope.RelationExpressionScope;
 import com.squid.kraken.v4.core.expression.visitor.ExtractReferences;
 import com.squid.core.expression.scope.ScopeException;
+import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainHierarchy;
+import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainHierarchyManager;
+import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
+import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
 import com.squid.kraken.v4.core.analysis.universe.Property;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.kraken.v4.model.Attribute;
 import com.squid.kraken.v4.model.Dimension;
+import com.squid.kraken.v4.model.DimensionPK;
 import com.squid.kraken.v4.model.Domain;
+import com.squid.kraken.v4.model.DomainPK;
 import com.squid.kraken.v4.model.Expression;
 import com.squid.kraken.v4.model.ExpressionObject;
 import com.squid.kraken.v4.model.GenericPK;
 import com.squid.kraken.v4.model.Metric;
+import com.squid.kraken.v4.model.MetricPK;
+import com.squid.kraken.v4.model.ProjectPK;
 import com.squid.kraken.v4.model.ReferenceDimensionPK;
 import com.squid.kraken.v4.model.ReferenceMetricPK;
 import com.squid.kraken.v4.model.ReferencePK;
@@ -338,9 +346,10 @@ public class Parser {
 	 * Analyze the formula using the given parsed expression and update the formula private fields accordingly
 	 * @param expression
 	 * @param expr
+	 * @return 
 	 * @throws ScopeException
 	 */
-	public void analyzeExpression(GenericPK id, Expression formula, ExpressionAST expression) throws ScopeException {
+	public Collection<ExpressionObject<?>> analyzeExpression(GenericPK id, Expression formula, ExpressionAST expression) throws ScopeException {
         ExtractReferences visitor = new ExtractReferences();
 		List<ExpressionRef> references = visitor.apply(expression);
         String internal = rewriteExpressionValue(formula.getValue(), expression, references);
@@ -352,8 +361,7 @@ public class Parser {
         int level = computeReferenceTree(expression, references);
         formula.setLevel(level);
         // compute references
-        Collection<ReferencePK> IDs = new ArrayList<>();
-        Collection<ExpressionObject<?>> objects = new ArrayList<>();
+        Collection<ExpressionObject<?>> objects = new HashSet<>();
         for (ExpressionRef expr : references) {
 			Object ref = expr.getReference();
 			if (ref!=null && ref instanceof Property) {
@@ -361,22 +369,29 @@ public class Parser {
 				ExpressionObject<?> object = property.getExpressionObject();
 				if (object!=null) {
 					objects.add(object);
-					ReferencePK refPk = reference(object);
-					if (refPk!=null) {
-						IDs.add(refPk);
-					}
 				}
 			}
         }
-        if (!IDs.isEmpty()) {
-        	formula.setReferences(IDs);
-        	// check for cyclic dependencies
+        if (!objects.isEmpty()) {
+        	// check for cyclic dependencies and compute the transitive closure
         	Collection<ExpressionObject<?>> closure = null;
     		Collection<ExpressionObject<?>> transitiveClosure = objects;
         	do {
         		closure = transitiveClosure;
         		transitiveClosure = transitiveClosure(id, closure);
-        	} while (closure.size()>transitiveClosure.size());
+        	} while (closure.size()<transitiveClosure.size());
+        	// update reference list
+            Collection<ReferencePK<?>> IDs = new HashSet<>();
+            for (ExpressionObject<?> object : transitiveClosure) {
+				ReferencePK<?> refPk = reference(object);
+				if (refPk!=null) {
+					IDs.add(refPk);
+				}
+            }
+        	formula.setReferences(IDs);
+            return transitiveClosure;
+        } else {
+        	return objects;
         }
 	}
 	
@@ -394,12 +409,12 @@ public class Parser {
 	}
 
 	private Collection<? extends ExpressionObject<?>> resolve(
-			Collection<ReferencePK> collection) {
+			Collection<ReferencePK<?>> collection) {
 		if (collection==null) {
 			return Collections.emptyList();
 		}
 		Collection<ExpressionObject<?>> objects = new ArrayList<>();
-		for (ReferencePK reference : collection) {
+		for (ReferencePK<?> reference : collection) {
 			Optional<? extends ExpressionObject<?>> object = resolve(reference);
 			if (object.isPresent()) {
 				objects.add(object.get());
@@ -408,7 +423,7 @@ public class Parser {
 		return objects;
 	}
 	
-	private ReferencePK reference(ExpressionObject<? extends GenericPK> object) {
+	private ReferencePK<?> reference(ExpressionObject<? extends GenericPK> object) {
 		if (object instanceof Metric) {
 			return new ReferenceMetricPK(((Metric)object).getId());
 		}
@@ -419,14 +434,50 @@ public class Parser {
 		return null;
 	}
 
-	private Optional<? extends ExpressionObject<?>> resolve(ReferencePK ref) {
+	private Optional<? extends ExpressionObject<?>> resolve(ReferencePK<?> ref) {
 		if (ref instanceof ReferenceDimensionPK) {
-			return DAOFactory.getDAOFactory().getDAO(Dimension.class).read(ServiceUtils.getInstance().getRootUserContext(universe.getContext()), ((ReferenceDimensionPK)ref).getReference());
+			return findDimension(((ReferenceDimensionPK)ref).getReference());
 		} else if (ref instanceof ReferenceMetricPK) {
-			return DAOFactory.getDAOFactory().getDAO(Metric.class).read(ServiceUtils.getInstance().getRootUserContext(universe.getContext()), ((ReferenceMetricPK)ref).getReference());
+			return findMetric(((ReferenceMetricPK)ref).getReference());
 		} else {
 			return null;
 		}
 	}
+
+    public Optional<Dimension> findDimension(DimensionPK pk) {
+    	try {
+			DomainPK domainPk = pk.getParent();
+			ProjectPK projectPk = domainPk.getParent();
+	    	// T70
+	        Domain domain = ProjectManager.INSTANCE.getDomain(universe.getContext(), domainPk);
+	    	DomainHierarchy domainHierarchy = DomainHierarchyManager.INSTANCE.getHierarchy(projectPk, domain, true);
+	    	for (Dimension dimension : domainHierarchy.getDimensions()) {
+    			if (dimension.getId().equals(pk)) {
+    				return Optional.of(dimension);
+    			}
+	    	}
+    	} catch (ScopeException | ComputingException | InterruptedException e) {
+    		// ignore
+    	}
+    	return Optional.absent();// not found
+    }
+    
+    public Optional<Metric> findMetric(MetricPK pk) {
+    	try {
+			DomainPK domainPk = pk.getParent();
+			ProjectPK projectPk = domainPk.getParent();
+	    	// T70
+	        Domain domain = ProjectManager.INSTANCE.getDomain(universe.getContext(), domainPk);
+	    	DomainHierarchy domainHierarchy = DomainHierarchyManager.INSTANCE.getHierarchy(projectPk, domain, true);
+	    	for (Metric metric : domainHierarchy.getMetrics()) {
+	    		if (metric.getId().equals(pk)) {
+    				return Optional.of(metric);
+    			}
+	    	}
+    	} catch (ScopeException | ComputingException | InterruptedException e) {
+    		// ignore
+    	}
+    	return Optional.absent();// not found
+    }
 
 }
