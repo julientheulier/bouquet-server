@@ -45,6 +45,7 @@ import com.squid.core.jdbc.vendor.VendorSupportRegistry;
 import com.squid.kraken.v4.api.core.APIException;
 import com.squid.kraken.v4.api.core.EmailHelperImpl;
 import com.squid.kraken.v4.api.core.ServiceUtils;
+import com.squid.kraken.v4.api.core.bookmark.BookmarkFolderServiceRest;
 import com.squid.kraken.v4.api.core.client.ClientServiceRest;
 import com.squid.kraken.v4.api.core.connection.ConnectionServiceRest;
 import com.squid.kraken.v4.api.core.internalAnalysisJob.InternalAnalysisJobServiceRest;
@@ -124,6 +125,14 @@ public class CustomerServiceRest {
 
 	@Path("/usergroups")
 	@ApiOperation(value = "Gets UserGroups")
+	public UserGroupServiceRest getUserGroupServiceDeprecated(
+			@Context HttpServletRequest request) {
+		AppContext userContext = getUserContext(request);
+		return new UserGroupServiceRest(userContext);
+	}
+	
+	@Path("/userGroups")
+	@ApiOperation(value = "Gets UserGroups")
 	public UserGroupServiceRest getUserGroupService(
 			@Context HttpServletRequest request) {
 		AppContext userContext = getUserContext(request);
@@ -151,6 +160,14 @@ public class CustomerServiceRest {
 			@Context HttpServletRequest request) {
 		AppContext userContext = getUserContext(request);
 		return new ShortcutServiceRest(userContext);
+	}
+	
+	@Path("/bookmarkfolders")
+	@ApiOperation(value = "Gets bookmarkFolders")
+	public BookmarkFolderServiceRest getBookmarkFolderService(
+			@Context HttpServletRequest request) {
+		AppContext userContext = getUserContext(request);
+		return new BookmarkFolderServiceRest(userContext);
 	}
 
 
