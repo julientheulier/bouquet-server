@@ -81,8 +81,20 @@ public class DimensionIndexCreationUtils {
 	            DimensionIndex proxy = new DimensionIndexProxy(source, new_parent, relink, index);
 	            // - default is to concatenate source dimension name and sub dimension name
 	            // - but you can bypass that logic by prefixing the source dimension name with underscore (krkn-110)
-	            if (!source.getDimension().getName().startsWith("_")) {
+	            if (source.getDimension().getName().startsWith("__")) {
+	            	proxy.setDimensionName(index.getDimension().getName());
+	            } else if (source.getDimension().getName().startsWith("_")) {
+	            	proxy.setDimensionName(index.getDimensionName());
+	            } else {
+	            	// default is to concat the subdomain with the target name
 	            	proxy.setDimensionName(source.getDimension().getName() + " " + index.getDimensionName());
+	            	proxy.setCompositeName(true);// it's composite - UI can manage it independently
+	            }
+	            // update the path
+	            if (index.getDimensionPath().equals("")) {
+	            	proxy.setDimensionPath(getCleanName(source.getDimension().getName()));
+	            } else {
+	            	proxy.setDimensionPath(index.getDimensionPath()+"/"+getCleanName(source.getDimension().getName()));
 	            }
 	            parenting.put(index, proxy);
 	 //           logger.info("adding proxy " + proxy.toString());
@@ -90,9 +102,19 @@ public class DimensionIndexCreationUtils {
         	}
         }
         return result;
-    	
     }
     
+    private static String getCleanName(String dimensionName) {
+    	if (dimensionName.startsWith(">")) {
+    		return dimensionName.substring(1);
+    	} else if (dimensionName.startsWith("__")) {
+    		return dimensionName.substring(2);
+    	} else if (dimensionName.startsWith("_")) {
+    		return dimensionName.substring(1);
+    	} else {
+    		return dimensionName;
+    	}
+    }
     
     public static DimensionIndex createConstantIndex(DimensionIndex parent, Axis axis, IDomain type)  {
 //    	logger.info("create constant index for " +axis.toString());
