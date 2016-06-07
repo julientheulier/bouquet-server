@@ -62,6 +62,7 @@ import com.squid.core.sql.render.ISkinFeatureSupport;
 import com.squid.kraken.v4.KrakenConfig;
 import com.squid.kraken.v4.api.core.AccessRightsUtils;
 import com.squid.kraken.v4.core.analysis.engine.cartography.Cartography;
+import com.squid.kraken.v4.core.analysis.engine.hierarchy.CyclicDependencyException;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainContent;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.core.analysis.universe.Space;
@@ -463,6 +464,7 @@ public class DynamicManager {
 	public void loadDomainDynamicContent(Space space, DomainContent content) {
 		Universe univ = space.getUniverse();
 		Domain domain = space.getDomain();
+		boolean domainInternalDefautDynamic = (domain.getInternalVersion()==null)?true:false;
 		HashSet<Column> coverage = new HashSet<Column>();// list column already available through defined dimensions
 		HashSet<ExpressionAST> metricCoverage = new HashSet<ExpressionAST>();
 		HashSet<Space> neighborhood = new HashSet<Space>();
@@ -540,9 +542,6 @@ public class DynamicManager {
     			}
         	}
         }
-		//
-		// try to recover failed ones
-		
         //
         try {
             // exclude keys
@@ -579,7 +578,7 @@ public class DynamicManager {
 					if (!ids.contains(id.getDimensionId())) {
 						Type type = Type.INDEX;
 						String name = checkName(normalizeObjectName(col.getName()),checkName);
-						Dimension dim = new Dimension(id, name, type, new Expression(expr),true);
+						Dimension dim = new Dimension(id, name, type, new Expression(expr), domainInternalDefautDynamic);
 						dim.setImageDomain(col.getTypeDomain());
 						dim.setValueType(computeValueType(col.getTypeDomain()));
 						AccessRightsUtils.getInstance().setAccessRights(univ.getContext(), dim, domain);
@@ -605,8 +604,8 @@ public class DynamicManager {
 			    			DimensionPK id = new DimensionPK(domain.getId(), digest(prefix+expr));
 			    			if (!ids.contains(id.getDimensionId())) {
 				    			String name = ref.getReferenceName();
-				    			name = checkName(">"+name,checkName);
-				    			Dimension dim = new Dimension(id, name, Type.INDEX, new Expression(expr), true);
+				    			name = checkName(name+" > ",checkName);
+				    			Dimension dim = new Dimension(id, name, Type.INDEX, new Expression(expr), domainInternalDefautDynamic);
 								dim.setValueType(ValueType.OBJECT);
 								dim.setImageDomain(ref.getImageDomain());
 								AccessRightsUtils.getInstance().setAccessRights(univ.getContext(), dim, domain);
@@ -630,7 +629,7 @@ public class DynamicManager {
 	            if (!ids.contains(metricId.getMetricId())) {// check for natural definition
 	            	String name = "COUNT "+domain.getName();
 	            	name = checkName(name, checkName);
-	            	Metric metric = new Metric(metricId, name, expr, true);
+	            	Metric metric = new Metric(metricId, name, expr, domainInternalDefautDynamic);
 					AccessRightsUtils.getInstance().setAccessRights(univ.getContext(), metric, domain);
 	            	content.add(metric);
 	            	checkName.add(name);
@@ -647,7 +646,7 @@ public class DynamicManager {
 		    	            if (!ids.contains(metricId.getMetricId())) {// check for natural definition
 		    	            	String name = "SUM "+normalizeObjectName(col.getName());
 		    	            	name = checkName(name, checkName);
-			                	Metric metric = new Metric(metricId, name, expr, true);
+			                	Metric metric = new Metric(metricId, name, expr, domainInternalDefautDynamic);
 								AccessRightsUtils.getInstance().setAccessRights(univ.getContext(), metric, domain);
 			                	content.add(metric);
 			                	checkName.add(name);
@@ -656,6 +655,33 @@ public class DynamicManager {
 		        	}
 	        	}
 	        }
+			//
+			// try to recover failed ones
+			for (ExpressionObject<?> object : failed) {
+				try {
+					if (object.getExpression() != null) {
+			        	if (object instanceof Dimension) {
+			        		// handle Dimension
+			        		Dimension dimension = (Dimension)object;
+			        		ExpressionAST expr = parseResilient(univ, domain, dimension, scope);
+		    				scope.add(object);
+		    				IDomain image = expr.getImageDomain();
+		    				dimension.setImageDomain(image);
+		    				dimension.setValueType(computeValueType(image));
+			        	} else if (object instanceof Metric) {
+			        		// handle Metric
+			        		Metric metric = (Metric)object;
+				        	ExpressionAST expr = parseResilient(univ, domain, metric, scope);
+		    				scope.add(object);
+		    				IDomain image = expr.getImageDomain();
+		    				metric.setImageDomain(image);
+		    				metric.setValueType(computeValueType(image));
+			        	}
+					}
+				} catch (ScopeException | CyclicDependencyException e) {
+					// set as permanent error
+				}
+			}
 	        //
 	        // select a Period if needed
 			boolean isFact = isFactDomain(univ.getContext(), domain.getId());
@@ -718,6 +744,8 @@ public class DynamicManager {
 				}
 			}
 			return root.getParser().parse(domain, dimension, scope);
+		} catch (CyclicDependencyException e) {
+			throw new ScopeException("Unable to parse Dimension "+dimension+" because of unresolved cyclic dependency", e);
 		} catch (ScopeException e) {
 			if (dimension.getExpression().getInternal()!=null) {
 				try {
