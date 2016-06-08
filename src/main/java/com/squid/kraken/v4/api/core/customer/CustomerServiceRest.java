@@ -125,6 +125,14 @@ public class CustomerServiceRest {
 
 	@Path("/usergroups")
 	@ApiOperation(value = "Gets UserGroups")
+	public UserGroupServiceRest getUserGroupServiceDeprecated(
+			@Context HttpServletRequest request) {
+		AppContext userContext = getUserContext(request);
+		return new UserGroupServiceRest(userContext);
+	}
+	
+	@Path("/userGroups")
+	@ApiOperation(value = "Gets UserGroups")
 	public UserGroupServiceRest getUserGroupService(
 			@Context HttpServletRequest request) {
 		AppContext userContext = getUserContext(request);

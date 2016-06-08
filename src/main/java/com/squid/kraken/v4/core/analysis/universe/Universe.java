@@ -275,12 +275,6 @@ public class Universe extends Physics {
 		}
 	}
 
-	/*
-	public DimensionHierarchy getHierarchy(Domain domain) {
-		return gb.getHierarchy(domain);
-	}
-	*/
-
 	public Measure measure(String expression) throws ScopeException {
 		UniverseScope scope = new UniverseScope(this);
 		ExpressionAST expr = scope.parseExpression(expression);

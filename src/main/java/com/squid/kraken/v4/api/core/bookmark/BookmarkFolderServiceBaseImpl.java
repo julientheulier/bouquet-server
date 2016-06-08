@@ -28,12 +28,14 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import org.apache.commons.codec.binary.Base64;
+
 import com.squid.kraken.v4.api.core.ObjectNotFoundAPIException;
 import com.squid.kraken.v4.model.Bookmark;
 import com.squid.kraken.v4.model.BookmarkFolder;
+import com.squid.kraken.v4.model.BookmarkFolder.BookmarkLink;
 import com.squid.kraken.v4.model.BookmarkFolderPK;
 import com.squid.kraken.v4.model.BookmarkPK;
-import com.squid.kraken.v4.model.BookmarkFolder.BookmarkLink;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DAOFactory;
 import com.squid.kraken.v4.persistence.dao.BookmarkDAO;
@@ -54,15 +56,23 @@ public class BookmarkFolderServiceBaseImpl {
 	private BookmarkFolderServiceBaseImpl() {
 	}
 
-	private String buildBookmarksPath(AppContext ctx, String path) {
+	/**
+	 * Build a decoded path.
+	 * 
+	 * @param ctx
+	 * @param pathBase64
+	 *            a base64 encoded path or null
+	 * @return decoded path or current user path
+	 */
+	private String buildBookmarksPath(AppContext ctx, String pathBase64) {
 		String fullPath;
-		if (path == null) {
+		if (pathBase64 == null) {
 			// get my bookmarks
 			String myPath = Bookmark.SEPARATOR + Bookmark.Folder.USER
 					+ Bookmark.SEPARATOR + ctx.getUser().getOid();
 			fullPath = myPath;
 		} else {
-			fullPath = path;
+			fullPath = new String(Base64.decodeBase64(pathBase64));
 		}
 		return fullPath;
 	}
@@ -78,11 +88,13 @@ public class BookmarkFolderServiceBaseImpl {
 		}
 	}
 
-	public BookmarkFolder read(AppContext ctx, String path) {
+	public BookmarkFolder read(AppContext ctx, String pathBase64) {
 		BookmarkFolder bf = new BookmarkFolder();
-		String fullPath = buildBookmarksPath(ctx, path);
-		bf.setId(new BookmarkFolderPK(ctx.getCustomerId(), fullPath));
-		if (path != null) {
+		String fullPath = buildBookmarksPath(ctx, pathBase64);
+		String bookmarkFolderOid = Base64.encodeBase64URLSafeString(fullPath
+				.getBytes());
+		bf.setId(new BookmarkFolderPK(ctx.getCustomerId(), bookmarkFolderOid));
+		if (pathBase64 != null) {
 			bf.setName(buildFolderName(ctx, fullPath));
 		}
 		List<Bookmark> bookmarks = getBookmarks(ctx, fullPath);
@@ -102,9 +114,9 @@ public class BookmarkFolderServiceBaseImpl {
 		return bf;
 	}
 
-	public List<BookmarkFolder> readFolders(AppContext ctx, String path) {
+	public List<BookmarkFolder> readFolders(AppContext ctx, String pathBase64) {
 		List<BookmarkFolder> bfList = new ArrayList<BookmarkFolder>();
-		String fullPath = buildBookmarksPath(ctx, path);
+		String fullPath = buildBookmarksPath(ctx, pathBase64);
 		List<Bookmark> bookmarks = getBookmarks(ctx, fullPath);
 
 		// compute the folders
@@ -134,13 +146,16 @@ public class BookmarkFolderServiceBaseImpl {
 		// build the BookmarkFolder list
 		for (String s : folders) {
 			String folderPath = fullPath + Bookmark.SEPARATOR + s;
-			BookmarkFolder bf = new BookmarkFolder(new BookmarkFolderPK(ctx.getCustomerId(), folderPath));
+			String bookmarkFolderOid = Base64
+					.encodeBase64URLSafeString(folderPath.getBytes());
+			BookmarkFolder bf = new BookmarkFolder(new BookmarkFolderPK(
+					ctx.getCustomerId(), bookmarkFolderOid));
 			bf.setName(buildFolderName(ctx, folderPath));
 			bfList.add(bf);
 		}
 		return bfList;
 	}
-	
+
 	private String buildFolderName(AppContext ctx, String fullPath) {
 		// set the name
 		String userPath = buildBookmarksPath(ctx, null);

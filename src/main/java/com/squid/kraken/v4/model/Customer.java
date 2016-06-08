@@ -219,6 +219,10 @@ public class Customer extends PersistentBaseImpl<CustomerPK> implements HasChild
 	public void setStates(List<State> states) {
 		this.states = states;
 	}
+	
+    public List<BookmarkFolder> getBookmarkfolders() {
+    	return Collections.<BookmarkFolder> emptyList();
+	}
 
 	public String getAWSClientId() {
 		return AWSClientId;

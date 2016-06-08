@@ -73,7 +73,8 @@ public class FacetBuilder {
 		Facet resultFacet = new Facet();
 		// TODO better way of localizing
 		resultFacet.setDimension(index.getDimension());
-		resultFacet.setProxy(index  instanceof DimensionIndexProxy);
+		resultFacet.setProxy(index instanceof DimensionIndexProxy);
+		resultFacet.setCompositeName(index.isCompositeName());
 		// override the dimension name
 		resultFacet.setName(index.getDimensionName());
 		String id = index.getAxis().prettyPrint();

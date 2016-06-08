@@ -24,6 +24,7 @@
 package com.squid.kraken.v4.core.analysis.engine.hierarchy;
 
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -68,6 +69,10 @@ public class DomainHierarchyQueryGenerator {
 	private static final Logger logger = LoggerFactory.getLogger(DomainHierarchyQueryGenerator.class);
 	
 	private DomainHierarchy hierarchy;
+	
+	protected HashMap<DimensionIndex,HierarchyQuery> queries;
+	
+	protected ArrayList<DimensionIndex> eagerIndexing;
 
 	public DomainHierarchyQueryGenerator(DomainHierarchy hierarchy) {
 		this.hierarchy = hierarchy;
@@ -83,9 +88,9 @@ public class DomainHierarchyQueryGenerator {
 	 * @throws ScopeException
 	 * 
 	 */
-	public HashMap<DimensionIndex,HierarchyQuery> prepareQueries() throws ScopeException,
+	public void prepareQueries() throws ScopeException,
 			SQLScopeException {
-		return prepareQueries(hierarchy.getRoot(), hierarchy.getStructure());
+		 prepareQueries(hierarchy.getRoot(), hierarchy.getStructure());
 	}
 
 	/**
@@ -100,10 +105,11 @@ public class DomainHierarchyQueryGenerator {
 	 * @throws SQLScopeException
 	 * @throws DatabaseServiceException
 	 */
-	protected HashMap<DimensionIndex,HierarchyQuery> prepareQueries(Space space,
+	protected  void prepareQueries(Space space,
 			List<List<DimensionIndex>> hierarchies) throws ScopeException,
 			SQLScopeException {
-		HashMap<DimensionIndex, HierarchyQuery> queries = new HashMap<DimensionIndex,HierarchyQuery>();
+		this.queries = new HashMap<DimensionIndex,HierarchyQuery>();
+		this.eagerIndexing = new ArrayList<DimensionIndex>();
 		
 		HierarchyQuery main_query = null;
 		HierarchyQuery continuous_query = null;
@@ -138,8 +144,8 @@ public class DomainHierarchyQueryGenerator {
 
 						if (needRefresh(hierarchy, renderedQuery)) {
 							logger.debug(" adding  "+ renderedQuery);
-							queries.put(root, continuous_query);// add it in the
-																// first place
+							this.queries.put(root, continuous_query);
+							this.eagerIndexing.add(root);							
 						}
 					}
 
@@ -174,7 +180,7 @@ public class DomainHierarchyQueryGenerator {
 						}
 
 						if (needRefresh(hierarchy, renderedQuery)) {
-							queries.put(dm.getDimensionIndex(), range_query);// add it in the first
+							this.queries.put(dm.getDimensionIndex(), range_query);// add it in the first
 														// place
 							logger.debug(" adding  "+ renderedQuery);
 						}
@@ -213,7 +219,7 @@ public class DomainHierarchyQueryGenerator {
 						String dis = "" ; 
 
 						for (DimensionIndex di : hierarchy){
-							queries.put(di, main_query);
+							this.queries.put(di, main_query);
 							dis+= di.getDimensionName() + " ";
 						}
 						logger.debug(dis +"\nadding  "+ renderedQuery);
@@ -224,7 +230,7 @@ public class DomainHierarchyQueryGenerator {
 
 						String dis = "" ; 
 						for (DimensionIndex di : hierarchy){
-							queries.put(di, main_query);
+							this.queries.put(di, main_query);
 							dis+= di.getDimensionName() + " ";
 						}
 						logger.debug(dis +"\nadding  "+ renderedQuery);
@@ -253,8 +259,6 @@ public class DomainHierarchyQueryGenerator {
 				}
 			}
 		}
-
-		return queries;
 	}
 
 	/**

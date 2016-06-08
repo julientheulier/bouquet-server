@@ -40,6 +40,9 @@ public class BookmarkFolderPK extends CustomerPK {
 		this.bookmarkfolderId = bookmarkfolderId;
 	}
 
+	/**
+	 * This is the url-encoded path of the folder
+	 */
 	public String getBookmarkfolderId() {
 		return bookmarkfolderId;
 	}

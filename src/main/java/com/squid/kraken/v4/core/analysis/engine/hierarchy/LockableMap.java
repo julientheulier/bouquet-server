@@ -74,7 +74,7 @@ public class LockableMap<KEY, VALUE>  extends ConcurrentHashMap<KEY, VALUE> {
 			return lock(key, 0);
 		} catch (InterruptedException e) {
 			// we never get there
-			throw new RuntimeException("impossible exception",e);
+			throw new CyclicDependencyException("Cyclic dependency detected", e);
 		}
 	}
 	
