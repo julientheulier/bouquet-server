@@ -306,11 +306,41 @@ public class ExpressionSuggestionHandler {
 	private ExpressionSuggestionItem createItem(String suggestion, ExpressionAST expr) {
 		//TODO handle description escpaially for domain's suggestion.
 		if (expr instanceof ExpressionRef && !(expr instanceof ParameterReference)) {
-			return new ExpressionSuggestionItem(
-					((ExpressionRef) expr).getReferenceName(),
-					suggestion,
-					computeObjectType(expr),
-					computeValueType(expr));
+			if(expr instanceof TableReference){
+				return new ExpressionSuggestionItem(
+						((ExpressionRef) expr).getReferenceName(),
+						((TableReference) expr).getDescription(),
+						suggestion,
+						computeObjectType(expr),
+						computeValueType(expr));
+			}else if(expr instanceof DomainReference)  {
+                return new ExpressionSuggestionItem(
+                        ((ExpressionRef) expr).getReferenceName(),
+                        ((DomainReference) expr).getDescription(),
+                        suggestion,
+                        computeObjectType(expr),
+                        computeValueType(expr));
+            }else if(expr instanceof RelationReference)  {
+                return new ExpressionSuggestionItem(
+                        ((ExpressionRef) expr).getReferenceName(),
+                        ((RelationReference) expr).getDescription(),
+                        suggestion,
+                        computeObjectType(expr),
+                        computeValueType(expr));
+            }else if(expr instanceof ColumnReference)  {
+                return new ExpressionSuggestionItem(
+                        ((ExpressionRef) expr).getReferenceName(),
+                        ((ColumnReference) expr).getDescription(),
+                        suggestion,
+                        computeObjectType(expr),
+                        computeValueType(expr));
+            }else {
+				return new ExpressionSuggestionItem(
+						((ExpressionRef) expr).getReferenceName(),
+						suggestion,
+						computeObjectType(expr),
+						computeValueType(expr));
+			}
 		} else {
 			return new ExpressionSuggestionItem(
 					suggestion,
@@ -319,14 +349,14 @@ public class ExpressionSuggestionHandler {
 		}
 	}
 
-    /*
-    private ExpressionSuggestionItem createItemLink(String suggestion, ExpressionAST expr) {
-        return new ExpressionSuggestionItem(
-        		suggestion,
-        		computeObjectType(expr),
-        		ValueType.LINK);
-    }
-    */
+        /*
+        private ExpressionSuggestionItem createItemLink(String suggestion, ExpressionAST expr) {
+            return new ExpressionSuggestionItem(
+                    suggestion,
+                    computeObjectType(expr),
+                    ValueType.LINK);
+        }
+        */
 
 	private ObjectType computeObjectType(ExpressionAST expr) {
 		if (expr instanceof TableReference) {
