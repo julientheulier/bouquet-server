@@ -196,7 +196,7 @@ public class ProjectServiceBaseImpl extends GenericServiceImpl<Project, ProjectP
 	        ProjectExpressionScope scope = new ProjectExpressionScope(universe);
 	        ExpressionSuggestionHandler handler = new ExpressionSuggestionHandler(scope);
 	        if (offset == null) {
-	            offset = expression.length();
+	            offset = expression.length()+1;
 	        }
 	        return handler.getSuggestion(expression, offset);
     	} catch (ScopeException e) {
@@ -248,7 +248,7 @@ public class ProjectServiceBaseImpl extends GenericServiceImpl<Project, ProjectP
     }
 
 	public ExpressionSuggestion getRelationSuggestion(AppContext ctx,
-			String projectId, String leftId, String rightId, String expression, int offset) {
+			String projectId, String leftId, String rightId, String expression, Integer offset) {
 	    
 	    if ((leftId == null) || leftId.isEmpty() || (rightId == null) || rightId.isEmpty()) {
 	        ExpressionSuggestion error = new ExpressionSuggestion();
@@ -268,8 +268,8 @@ public class ProjectServiceBaseImpl extends GenericServiceImpl<Project, ProjectP
             Universe universe = new Universe(ctx, project);
 	        RelationExpressionScope scope = new RelationExpressionScope(universe, left, right);
 	        ExpressionSuggestionHandler handler = new ExpressionSuggestionHandler(scope);
-	        if (offset == 0) {
-	            offset = expression.length();
+	        if (offset == null) {
+	            offset = expression.length()+1;
 	        }
 	        return handler.getSuggestion(expression, offset);
         } catch (ScopeException e) {
