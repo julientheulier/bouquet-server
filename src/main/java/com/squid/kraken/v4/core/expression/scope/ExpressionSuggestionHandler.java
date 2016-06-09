@@ -112,7 +112,7 @@ public class ExpressionSuggestionHandler {
 
 	public ExpressionSuggestion getSuggestion(String expression, int offset) {
 		ExpressionSuggestion result = new ExpressionSuggestion();
-		boolean isParseSubExpression = offset > 0 && offset < expression.length();
+		boolean isParseSubExpression = offset > 0 && offset <= expression.length();
 		String expressionToParse = isParseSubExpression ? expression.substring(0, offset - 1) : expression;
 		Exception error = parseExpression(expressionToParse, result);
 		result.setDefinitions(new ArrayList<String>());// patch client app problem if null
