@@ -27,13 +27,11 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 import org.apache.commons.codec.digest.DigestUtils;
 
 import com.squid.kraken.v4.core.analysis.model.DashboardAnalysis;
-import com.squid.kraken.v4.core.analysis.model.DashboardSelection;
 import com.squid.kraken.v4.core.analysis.model.DomainSelection;
 import com.squid.kraken.v4.core.analysis.model.ExpressionInput;
 import com.squid.kraken.v4.core.analysis.model.GroupByAxis;
@@ -43,11 +41,13 @@ import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.kraken.v4.model.Domain;
 
 /**
- * Prototype: this class allow to define an analysis signature to intelligently reuse cached matrix
+ * AnalysisSignature is an object that store information require to check if a new analysis can be derived from the cache.
+ * For example it computes various signature (hash) that encode the analysis axes, measures, filters.
+ * If two analysis signatures are compatible, that means it worth performing additional checks in order to know if there is a Match
  * @author sergefantino
  *
  */
-public class AnalysisSignature {
+public class AnalysisSmartCacheSignature {
 	
 	private DashboardAnalysis analysis;
 	private MeasureGroup measures;
@@ -56,14 +56,24 @@ public class AnalysisSignature {
 	private String filtersSignature = null;
 	private String hash;
 	
+	private String SQL;
+	
 	private Set<Axis> axes = null;
-	private int rowCount;
+	private int rowCount = -1;// default to -1 meaning the resultset is not yet available (being computed)
 
-	public AnalysisSignature(DashboardAnalysis analysis, MeasureGroup measures, String SQL) {
+	public AnalysisSmartCacheSignature(DashboardAnalysis analysis, MeasureGroup measures, String SQL) {
 		super();
 		this.analysis = analysis;
 		this.measures = measures;
+		this.SQL = SQL;
 		this.hash = DigestUtils.sha256Hex(SQL);
+	}
+	
+	/**
+	 * @return the sQL
+	 */
+	public String getSQL() {
+		return SQL;
 	}
 	
 	/**
@@ -90,10 +100,7 @@ public class AnalysisSignature {
 	/**
 	 * @return the axesSignature
 	 */
-	public String getAxesSignature(Universe universe) {
-		if (axesSignature==null) {
-			axesSignature = computeConstantSignature(universe, analysis);
-		}
+	public String getAxesSignature() {
 		return axesSignature;
 	}
 	
@@ -103,12 +110,19 @@ public class AnalysisSignature {
 	public Set<Axis> getAxes() {
 		return axes;
 	}
+	
+	/**
+	 * @param axesSignature the axesSignature to set
+	 */
+	public void setAxesSignature(Universe universe) {
+		this.axesSignature = computeAxesSignature(universe);
+	}
 
 	/**
 	 * @param analysis 
 	 * @return
 	 */
-	private String computeConstantSignature(Universe universe, DashboardAnalysis analysis) {
+	protected String computeAxesSignature(Universe universe) {
 		//
 		// add the customer ID / project ID
 		StringBuilder signature = new StringBuilder();
@@ -166,36 +180,29 @@ public class AnalysisSignature {
 	/**
 	 * @return the axesSignature
 	 */
-	public String getFiltersSignature(Universe universe) {
-		if (filtersSignature==null) {
-			filtersSignature = computeFiltersSignature(universe, analysis.getSelection());
-		}
+	public String getFiltersSignature() {
 		return filtersSignature;
 	}
 	
-	protected String computeFiltersSignature(Universe universe, DashboardSelection selection) {
-		if (selection.isEmpty()) {
-			return "#EMPTY#";
-		} else {
-			return computeFiltersSignature(universe, selection.getFilters());
-		}
+	/**
+	 * @param filtersSignature the filtersSignature to set
+	 */
+	public void setFiltersSignature(String filtersSignature) {
+		this.filtersSignature = filtersSignature;
+	}
+
+	/**
+	 * @param rowCount
+	 */
+	public void setRowCount(int rowCount) {
+		this.rowCount = rowCount;
 	}
 	
-	protected String computeFiltersSignature(Universe universe, List<Axis> filters) {
-		// sort the domains
-		StringBuilder signature = new StringBuilder();
-		Collections.sort(filters, new Comparator<Axis>() {
-			@Override
-			public int compare(Axis o1, Axis o2) {
-				return o1.getId().compareTo(o2.getId());
-			}
-		});
-		for (Axis axis : filters) {
-			String hash = DigestUtils.sha256Hex(axis.getId());
-			signature.append("#").append(hash);
-		}
-		//
-		return signature.toString();
+	/**
+	 * @return the rowCount
+	 */
+	public int getRowCount() {
+		return rowCount;
 	}
 	
 	@Override
@@ -214,27 +221,13 @@ public class AnalysisSignature {
 			return false;
 		if (getClass() != obj.getClass())
 			return false;
-		AnalysisSignature other = (AnalysisSignature) obj;
+		AnalysisSmartCacheSignature other = (AnalysisSmartCacheSignature) obj;
 		if (hash == null) {
 			if (other.hash != null)
 				return false;
 		} else if (!hash.equals(other.hash))
 			return false;
 		return true;
-	}
-
-	/**
-	 * @param rowCount
-	 */
-	public void setRowCount(int rowCount) {
-		this.rowCount = rowCount;
-	}
-	
-	/**
-	 * @return the rowCount
-	 */
-	public int getRowCount() {
-		return rowCount;
 	}
 
 }
