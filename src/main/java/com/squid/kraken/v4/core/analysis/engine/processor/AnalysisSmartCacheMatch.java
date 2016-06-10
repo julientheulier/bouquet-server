@@ -30,16 +30,21 @@ import com.squid.kraken.v4.core.analysis.model.DashboardAnalysis;
 import com.squid.kraken.v4.core.analysis.model.MeasureGroup;
 
 /**
- * Information to handle a match
+ * AnalysisSmartCacheMatch is an object that provide information required to process a Smart Cache Match.
+ * If we found a match, we also need to record the transformation to apply to the cached matrix in order to actually answer the requested analysis.
  * @author sergefantino
  *
  */
 public class AnalysisSmartCacheMatch {
 	
-	private AnalysisSignature signature;
+	private AnalysisSmartCacheSignature signature;
 	private List<DataMatrixTransform> postProcessing = new ArrayList<>();
 	
-	public AnalysisSmartCacheMatch(AnalysisSignature signature) {
+	/**
+	 * create a match for the given original analysis
+	 * @param signature is the original analysis that generated the cache content
+	 */
+	public AnalysisSmartCacheMatch(AnalysisSmartCacheSignature signature) {
 		super();
 		this.signature = signature;
 	}
@@ -47,7 +52,7 @@ public class AnalysisSmartCacheMatch {
 	/**
 	 * @return the signature
 	 */
-	public AnalysisSignature getSignature() {
+	public AnalysisSmartCacheSignature getSignature() {
 		return signature;
 	}
 	
