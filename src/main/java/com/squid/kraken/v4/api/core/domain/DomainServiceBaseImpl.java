@@ -155,7 +155,7 @@ public class DomainServiceBaseImpl extends GenericServiceImpl<Domain, DomainPK> 
 	}
 
 	public ExpressionSuggestion getDimensionSuggestion(AppContext ctx,
-			String projectId, String domainId, String dimensionId, String expression, int offset) {
+			String projectId, String domainId, String dimensionId, String expression, Integer offset) {
 		//
 		if (expression == null) {
 			expression = "";
@@ -172,8 +172,8 @@ public class DomainServiceBaseImpl extends GenericServiceImpl<Domain, DomainPK> 
 					universe, domain, dimension);
 			ExpressionSuggestionHandler handler = new ExpressionSuggestionHandler(
 					scope);
-			if (offset == 0) {
-				offset = expression.length();
+			if (offset == null) {
+				offset = expression.length()+1;
 			}
 			return handler.getSuggestion(expression, offset);
 		} catch (ScopeException | ComputingException | InterruptedException e) {
