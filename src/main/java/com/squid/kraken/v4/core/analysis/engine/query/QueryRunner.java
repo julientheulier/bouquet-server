@@ -58,7 +58,7 @@ public class QueryRunner {
 		this.jobId = jobId;
 	}
 
-	public void run() throws ComputingException {
+	public void run() throws ComputingException, NotInCacheException {
 		try {
 
 			Project project = query.getUniverse().asRootUserContext().getProject();
