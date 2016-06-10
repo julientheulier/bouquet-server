@@ -26,7 +26,6 @@ package com.squid.kraken.v4.core.analysis.engine.processor;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -37,7 +36,6 @@ import org.apache.commons.codec.digest.DigestUtils;
 import com.squid.core.domain.IDomain;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.scope.ScopeException;
-import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionMember;
 import com.squid.kraken.v4.core.analysis.model.DashboardAnalysis;
 import com.squid.kraken.v4.core.analysis.model.DashboardSelection;
@@ -49,7 +47,7 @@ import com.squid.kraken.v4.core.analysis.universe.Measure;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
 
 /**
- * The SmartCache allow to store AnalysisSignature and retrieve compatible analysis
+ * The SmartCache allow to store AnalysisSignature object and retrieve compatible analysis from the cache to reuse
  * @author sergefantino
  *
  */
@@ -59,46 +57,47 @@ public class AnalysisSmartCache {
 
 	// simple set to control if a qeury is in the smart cache with no need to compute its key
 	private Set<String> contains = new HashSet<>();
-	
+
 	// the structured lookup sets
-	private Map<String, Map<String, Set<AnalysisSignature>>> lookup = new ConcurrentHashMap<>();
+	private Map<String, Map<String, Map<AnalysisSmartCacheSignature, AnalysisSmartCacheSignature>>> lookup = new ConcurrentHashMap<>();
 
 	private AnalysisSmartCache() {
 		//
 	}
 	
 	/**
-	 * Check if an Analysis match the incoming signature
-	 * @param model
+	 * Check if an existing cache entry matches the given analysis signature request
+	 * @param universe: this analysis universe
+	 * @param request: the analysis signature we are looking to match
 	 * @return
 	 */
-	public AnalysisSmartCacheMatch checkMatch(Universe universe, AnalysisSignature signature) {
+	public AnalysisSmartCacheMatch checkMatch(Universe universe, AnalysisSmartCacheRequest request) {
 		// check same axis
-		Map<String, Set<AnalysisSignature>> sameAxes = lookup.get(signature.getAxesSignature(universe));
+		Map<String, Map<AnalysisSmartCacheSignature, AnalysisSmartCacheSignature>> sameAxes = lookup.get(request.getAxesSignature());
 		if (sameAxes!=null) {
 			// check same filters
-			Set<AnalysisSignature> sameFilters = sameAxes.get(signature.getFiltersSignature(universe));
-			if (sameFilters!=null) {
-				AnalysisSmartCacheMatch match = checkMatch(null, signature, sameFilters);
+			Map<AnalysisSmartCacheSignature, AnalysisSmartCacheSignature> sameFiltersCandidates = sameAxes.get(request.getFiltersSignature());
+			if (sameFiltersCandidates!=null) {
+				AnalysisSmartCacheMatch match = checkMatchMany(null, request, sameFiltersCandidates);
 				if (match!=null) {
 					return match;
 				}
 			}
 			// try to generalize the search ?
-			Collection<Axis> filters = signature.getAnalysis().getSelection().getFilters();
+			Collection<Axis> filters = request.getAnalysis().getSelection().getFilters();
 			if (filters.size()>1) {
 				// let try by excluding one filter at a time?
 				for (Axis filter : filters) {
 					HashSet<Axis> filterMinusOne = new HashSet<>(filters);
 					filterMinusOne.remove(filter);
-					String sign1 = signature.computeFiltersSignature(universe, new ArrayList<>(filterMinusOne));
-					sameFilters = sameAxes.get(sign1);
-					if (sameFilters!=null) {
-						AnalysisSmartCacheMatch match = checkMatch(filterMinusOne, signature, sameFilters);
+					String sign1 = request.computeFiltersSignature(universe, new ArrayList<>(filterMinusOne));
+					sameFiltersCandidates = sameAxes.get(sign1);
+					if (sameFiltersCandidates!=null) {
+						AnalysisSmartCacheMatch match = checkMatchMany(filterMinusOne, request, sameFiltersCandidates);
 						if (match!=null) {
 							try {
 								DashboardSelection softFilters = new DashboardSelection();
-								softFilters.add(filter, signature.getAnalysis().getSelection().getMembers(filter));
+								softFilters.add(filter, request.getAnalysis().getSelection().getMembers(filter));
 								// add the post-processing
 								match.addPostProcessing(new DataMatrixTransformSoftFilter(softFilters));
 								return match;
@@ -115,20 +114,22 @@ public class AnalysisSmartCache {
 	}
 	
 	/**
-	 * @param filterMinusOne
-	 * @param signature
-	 * @param sameFilters
+	 * Check if the analysis with signature can match at least one candidate; if true will return a AnalysisMatch
+	 * Hypothesis: all candidates have the same filter signature as the request
+	 * @param restrict : if not empty only the filter that belongs to it will be taken into account. This may be used to generalize a match
+	 * @param request : the analysis signature we are looking to match
+	 * @param sameFiltersCandidates : a set of candidates to match - note that they all have the same filter signature as the candidate
 	 * @return
 	 */
-	private AnalysisSmartCacheMatch checkMatch(Set<Axis> restrict, AnalysisSignature signature,
-			Set<AnalysisSignature> sameFilters) {
+	private AnalysisSmartCacheMatch checkMatchMany(Set<Axis> restrict, AnalysisSmartCacheRequest request,
+			Map<AnalysisSmartCacheSignature, AnalysisSmartCacheSignature> sameFiltersCandidates) {
 		// iter to check if we found a compatible query
-		for (AnalysisSignature candidate : sameFilters) {
-			if (signature.getMeasures().getKPIs().size() <= candidate.getMeasures().getKPIs().size()) {
-				AnalysisSmartCacheMatch match = new AnalysisSmartCacheMatch(candidate);
-				if (equals(restrict, signature, candidate, match)) {
+		for (AnalysisSmartCacheSignature candidate : sameFiltersCandidates.keySet()) {
+			if (request.getMeasures().getKPIs().size() <= candidate.getMeasures().getKPIs().size()) {
+				AnalysisSmartCacheMatch match = checkMatchSingle(restrict, request, candidate);
+				if (match!=null) {
 					// check the measures
-					Set<Measure> o1 = new HashSet<>(signature.getMeasures().getKPIs());
+					Set<Measure> o1 = new HashSet<>(request.getMeasures().getKPIs());
 					Set<Measure> o2 = new HashSet<>(candidate.getMeasures().getKPIs());
 					if (o2.containsAll(o1)) {
 						// hide not requested metrics
@@ -136,19 +137,19 @@ public class AnalysisSmartCache {
 							match.addPostProcessing(new DataMatrixTransformHideColumns<Measure>(o2));
 						}
 						// sort
-						if (signature.getAnalysis().hasOrderBy()) {
-							if (!signature.getAnalysis().getOrders().equals(match.getAnalysis().getOrders())) {
-								match.addPostProcessing(new DataMatrixTransformOrderBy(signature.getAnalysis().getOrders()));
+						if (request.getAnalysis().hasOrderBy()) {
+							if (!request.getAnalysis().getOrders().equals(match.getAnalysis().getOrders())) {
+								match.addPostProcessing(new DataMatrixTransformOrderBy(request.getAnalysis().getOrders()));
 							}
 						}
 						// limit
-						if (signature.getAnalysis().hasLimit()) {
-							long ending = signature.getAnalysis().getLimit();
-							if (signature.getAnalysis().hasOffset()) {
-								ending += signature.getAnalysis().getOffset();
+						if (request.getAnalysis().hasLimit()) {
+							long ending = request.getAnalysis().getLimit();
+							if (request.getAnalysis().hasOffset()) {
+								ending += request.getAnalysis().getOffset();
 							}
 							if (ending<match.getSignature().getRowCount()) {
-								match.addPostProcessing(new DataMatrixTransformTruncate(signature.getAnalysis().getLimit(), signature.getAnalysis().getOffset()));
+								match.addPostProcessing(new DataMatrixTransformTruncate(request.getAnalysis().getLimit(), request.getAnalysis().getOffset()));
 							}
 						}
 						return match;
@@ -161,43 +162,40 @@ public class AnalysisSmartCache {
 	}
 		
 	/**
-	 * compare 2 selection knowing they have the same signatures
-	 * @param restrict 
-	 * @param signature
-	 * @param candidate
-	 * @param match2 
-	 * @return
+	 * Check if the request signature can match the candidate; if true will return a AnalysisMatch
+	 * @param restrict : if not empty only the filter that belongs to it will be taken into account. This may be used to generalize a match
+	 * @param request : the analysis signature we are looking to match
+	 * @param candidate : the candidate for matching
+	 * @return a match that tracks required postProcessing or null if it's not a match
 	 */
-	private boolean equals(Set<Axis> restrict, AnalysisSignature signature, AnalysisSignature candidate, AnalysisSmartCacheMatch match) {
+	private AnalysisSmartCacheMatch checkMatchSingle(Set<Axis> restrict, AnalysisSmartCacheRequest request, AnalysisSmartCacheSignature candidate) {
 		// check filter values
-		ArrayList<DataMatrixTransform> postProcessing = new ArrayList<>();
-		for (DomainSelection ds : signature.getAnalysis().getSelection().get()) {
+		AnalysisSmartCacheMatch match = new AnalysisSmartCacheMatch(candidate);
+		for (DomainSelection ds : request.getAnalysis().getSelection().get()) {
 			for (Axis filter : ds.getFilters()) {
 				if (restrict==null || restrict.contains(filter)) {
-					if (!equals(ds, filter, signature, candidate, postProcessing)) {
-						return false;
+					if (!checkMatchFilter(ds, filter, request, candidate, match)) {
+						return null;
 					}
 				}
 			}
 		}
 		// the same ? yes because we already know they have the same filters !
-		for (DataMatrixTransform transform : postProcessing) {
-			match.addPostProcessing(transform);
-		}
-		return true;
+		return match;
 	}
 	
 	/**
-	 * @param ds 
-	 * @param filter
-	 * @param signature
-	 * @param candidate
-	 * @param postProcessing
+	 * Check if the analysis with signature can match the candidate on a given filter/axis. Matching may imply performing some postProcessing to restrict the output.
+	 * @param selection : the domain selection (we use it to retrieve the filter members)
+	 * @param filter : the filter to check against
+	 * @param request : the analysis signature we are looking to match
+	 * @param candidate : the candidate for matching
+	 * @param match : the current match state to add postProcessing if needed
 	 * @return
 	 */
-	private boolean equals(DomainSelection ds, Axis filter, AnalysisSignature signature, AnalysisSignature candidate,
-			ArrayList<DataMatrixTransform> postProcessing) {
-		Collection<DimensionMember> original = ds.getMembers(filter);
+	private boolean checkMatchFilter(DomainSelection selection, Axis filter, AnalysisSmartCacheRequest request, AnalysisSmartCacheSignature candidate,
+			AnalysisSmartCacheMatch match) {
+		Collection<DimensionMember> original = selection.getMembers(filter);
 		Collection<DimensionMember> candidates = candidate.getAnalysis().getSelection().getMembers(filter);
 		// check for a perfect match
 		if (original.size()==candidates.size()) {
@@ -231,7 +229,7 @@ public class AnalysisSmartCache {
 								DashboardSelection softFilters = new DashboardSelection();
 								softFilters.add(filter, original);
 								// add the post-processing
-								postProcessing.add(new DataMatrixTransformSoftFilter(softFilters));
+								match.addPostProcessing(new DataMatrixTransformSoftFilter(softFilters));
 								return true;
 							} catch (ScopeException e) {
 								return false;
@@ -251,7 +249,7 @@ public class AnalysisSmartCache {
 				DashboardSelection softFilters = new DashboardSelection();
 				softFilters.add(filter, original);
 				// add the post-processing
-				postProcessing.add(new DataMatrixTransformSoftFilter(softFilters));
+				match.addPostProcessing(new DataMatrixTransformSoftFilter(softFilters));
 				return true;
 			} catch (ScopeException e) {
 				return false;
@@ -263,32 +261,55 @@ public class AnalysisSmartCache {
 	}
 
 	/**
-	 * Store the signature
+	 * @param universe
+	 * @param signature
+	 */
+	public boolean remove(AnalysisSmartCacheRequest request) {
+		Map<String, Map<AnalysisSmartCacheSignature, AnalysisSmartCacheSignature>> sameAxes = lookup.get(request.getAxesSignature());
+		if (sameAxes!=null) {
+			Map<AnalysisSmartCacheSignature, AnalysisSmartCacheSignature> sameFilters = sameAxes.get(request.getFiltersSignature());
+			if (sameFilters!=null) {
+				if (!sameFilters.containsKey(request.getKey())) {
+					AnalysisSmartCacheSignature check = sameFilters.remove(request.getKey());
+					return check!=null;
+				}
+			}
+		}
+		// else
+		return false;
+	}
+
+	/**
+	 * Store the signature in the Smart Cache
+	 * 
+	 * Note that as a side effect the put() method is also responsible for initializing the cache structure. The structure is as follow:
+	 * - a HashMap at the outermost level that stores the analysis "space": project, domain, axes and measures requested.
+	 * - which contains a HashMap that stores the analysis "filters" : the ordered list of filters involved in the analysis
+	 * - which contains a HashMap that stores the actual signatures
 	 * @param signature
 	 * @param dm 
 	 */
-	public boolean put(Universe universe, AnalysisSignature signature, DataMatrix dm) {
-		Map<String, Set<AnalysisSignature>> sameAxes = lookup.get(signature.getAxesSignature(universe));
+	public boolean put(AnalysisSmartCacheRequest request) {
+		Map<String, Map<AnalysisSmartCacheSignature, AnalysisSmartCacheSignature>> sameAxes = lookup.get(request.getAxesSignature());
 		if (sameAxes==null) {
-			sameAxes = new HashMap<>();
-			lookup.put(signature.getAxesSignature(universe), sameAxes);
+			sameAxes = new ConcurrentHashMap<>();// create the filters map
+			lookup.put(request.getAxesSignature(), sameAxes);
 		}
-		Set<AnalysisSignature> sameFilters = sameAxes.get(signature.getFiltersSignature(universe));
+		Map<AnalysisSmartCacheSignature, AnalysisSmartCacheSignature> sameFilters = sameAxes.get(request.getFiltersSignature());
 		if (sameFilters==null) {
-			sameFilters = new HashSet<>();
-			sameAxes.put(signature.getFiltersSignature(universe), sameFilters);
+			sameFilters = new ConcurrentHashMap<>();// create the signature set
+			sameAxes.put(request.getFiltersSignature(), sameFilters);
 		}
-		if (!sameFilters.contains(signature)) {
-			signature.setRowCount(dm!=null?dm.getRowCount():-1);// if no DM is provided, set to -1 so we can test if it is a temporary signature
-			sameFilters.add(signature);
+		if (!sameFilters.containsKey(request.getKey())) {
+			sameFilters.put(request.getKey(), request.getKey());
 		}
 		//
-		return contains.add(signature.getHash());
+		return contains.add(request.getKey().getHash());
 	}
 
 	/**
 	 * Check if the given SQL query is in the smart-cache
-	 * @param sQL
+	 * @param SQL query
 	 * @return
 	 */
 	public boolean contains(String SQL) {
@@ -297,15 +318,15 @@ public class AnalysisSmartCache {
 	}
 
 	/**
-	 * copied from AnalysisCompute
-	 * @param join
+	 * copied from AnalysisCompute: check if there is a compatible groupByAxis in the analysis for this axis
+	 * @param axis
 	 * @param from
 	 * @return
 	 */
-	private GroupByAxis findGroupingJoin(Axis join, DashboardAnalysis from) {
+	private GroupByAxis findGroupingJoin(Axis axis, DashboardAnalysis from) {
 		DateExpressionAssociativeTransformationExtractor checker = new DateExpressionAssociativeTransformationExtractor();
-		ExpressionAST naked1 = checker.eval(join.getDimension()!=null?join.getReference():join.getDefinitionSafe());
-		IDomain d1 = join.getDefinitionSafe().getImageDomain();
+		ExpressionAST naked1 = checker.eval(axis.getDimension()!=null?axis.getReference():axis.getDefinitionSafe());
+		IDomain d1 = axis.getDefinitionSafe().getImageDomain();
 		for (GroupByAxis groupBy : from.getGrouping()) {
 			IDomain d2 = groupBy.getAxis().getDefinitionSafe().getImageDomain();
 			if (d1.isInstanceOf(IDomain.TEMPORAL) && d2.isInstanceOf(IDomain.TEMPORAL)) {
@@ -315,7 +336,7 @@ public class AnalysisSmartCache {
 				if (naked1.equals(naked2)) {
 					return groupBy;
 				}
-			} else if (join.equals(groupBy.getAxis())) {
+			} else if (axis.equals(groupBy.getAxis())) {
 				return groupBy;
 			}
 		}
