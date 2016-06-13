@@ -116,6 +116,8 @@ public class DomainHierarchy {
 		return genKey;
 	}
 
+	
+	
 	private DomainContent getContent() {
 		try {
 			return ProjectManager.INSTANCE.getDomainContent(root);
@@ -338,13 +340,12 @@ public class DomainHierarchy {
 	protected void cancel() {
 		if (compute != null) {
 			logger.info("Cancelling computing hierarchy for domain " + root);
-			compute.cancel();
-			try {
+			/*compute			try {
 				compute.isDone(10000);// wait 10s
 			} catch (TimeoutException | InterruptedException | ExecutionException e) {
 				logger.error("failed to cancel computing the hierarchy for domain '" + root
 						+ "' in less than 10s... concurrent indexing may occur");
-			}
+			} */
 		}
 	}
 

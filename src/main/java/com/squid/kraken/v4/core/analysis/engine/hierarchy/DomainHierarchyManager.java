@@ -23,7 +23,6 @@
  *******************************************************************************/
 package com.squid.kraken.v4.core.analysis.engine.hierarchy;
 
-import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.ReentrantLock;
@@ -60,8 +59,6 @@ public class DomainHierarchyManager {
 	public static final DomainHierarchyManager INSTANCE = new DomainHierarchyManager();
 
 	private LockableMap<DomainPK, DomainHierarchy> hierarchies = new LockableMap<DomainPK, DomainHierarchy>();
-
-
 	
 	private DomainHierarchyManager() {
 		//
@@ -162,6 +159,8 @@ public class DomainHierarchyManager {
 			ReentrantLock lock = null;
 			try {
 				DomainHierarchy check = null;
+				
+				DomainHierarchyCompute oldCompute = null ;
 				if (hierarchy != null && !hierarchy.isValid()) {
 					lock = hierarchies.lock(domain.getId(), timeoutMs);// need to make invalidate & compute atomic
 					// double check
@@ -175,6 +174,7 @@ public class DomainHierarchyManager {
 						if (hierarchy!=null) {
 							logger.info("invalidated hierarchy for domain "+domain.getName()+" with version "+hierarchy.getVersion());
 							hierarchy.cancel();// kill me please (but make sure it's me)
+							oldCompute = hierarchy.getCompute();
 							hierarchy = null;
 						} else {
 							return hierarchy;
@@ -188,7 +188,7 @@ public class DomainHierarchyManager {
 					// check race condition
 					hierarchy = hierarchies.get(domain.getId());
 					if (hierarchy == null) {
-						hierarchy = createHierarchy(projectPk, domain);
+						hierarchy = createHierarchy(projectPk, domain, oldCompute );
 					}
 					return hierarchy;
 				}
@@ -203,7 +203,7 @@ public class DomainHierarchyManager {
 	
 	
 	
-	private DomainHierarchy createHierarchy(ProjectPK projectPk, Domain domain) throws ScopeException, InterruptedException {
+	private DomainHierarchy createHierarchy(ProjectPK projectPk, Domain domain, DomainHierarchyCompute oldCompute) throws ScopeException, InterruptedException {
 		//
 		// escalate context as root
 		AppContext rootctx = ServiceUtils.getInstance().getRootUserContext(projectPk.getCustomerId());
@@ -215,7 +215,7 @@ public class DomainHierarchyManager {
 
 		// store the computing order with the created domains
 		for( DomainHierarchy h  : creator.getTodo()){
-			 DomainHierarchyCompute compute = new DomainHierarchyCompute(h) ;
+			 DomainHierarchyCompute compute = new DomainHierarchyCompute(h, oldCompute) ;
 			 compute.computeEagerIndexes();
 		}	
 		

@@ -62,21 +62,27 @@ public class ExecuteHierarchyQuery implements CancellableCallable<Boolean> {
 
 	static final Logger logger = LoggerFactory.getLogger(ExecuteHierarchyQuery.class);
 
-	private CountDownLatch countdown;
 	private HierarchyQuery query;
 
 	private ExecuteQueryTask executeQueryTask;
 
-	public ExecuteHierarchyQuery(CountDownLatch countDown, HierarchyQuery query) {
-		this.countdown = countDown;
+	public State state;
+	
+	public ExecuteHierarchyQuery(HierarchyQuery query) {
 		this.query = query;
+		this.state = State.NEW;
 	}
 
+	public enum State{
+		NEW, ONGOING, DONE, CANCELLED, ERROR 
+	};
+	
 	private volatile boolean abort = false;// make sure this callable will stop
 											// working
 
 	public void cancel() {
 		abort = true;
+		this.state = State.CANCELLED;
 		if (executeQueryTask != null) {
 			executeQueryTask.cancel();
 		}
@@ -84,6 +90,8 @@ public class ExecuteHierarchyQuery implements CancellableCallable<Boolean> {
 
 	public Boolean call() throws Exception {
 		//
+
+		this.state=State.ONGOING;
 		ExecutionManager.INSTANCE.registerTask(this);
 		//
 		List<DimensionMapping> dx_map = query.getDimensionMapping();
@@ -97,9 +105,7 @@ public class ExecuteHierarchyQuery implements CancellableCallable<Boolean> {
 			executeQueryTask = ds.getDBManager().createExecuteQueryTask(SQL);
 			executeQueryTask.setWorkerId("front");
 			executeQueryTask.prepare();
-			this.countdown.countDown();
-			;// now ok to count-down because the query is already in the queue
-			this.countdown = null;// clear the count-down
+
 			item = executeQueryTask.call();// calling the query in the same
 											// thread
 			ResultSet result = item.getResultSet();
@@ -254,8 +260,10 @@ public class ExecuteHierarchyQuery implements CancellableCallable<Boolean> {
 					+ this.getClass().getName());
 
 			//
+			this.state = State.DONE;
 			return true;
 		} catch (Exception e) {
+			this.state = State.ERROR;
 			for (DimensionMapping m : dx_map) {
 				m.getDimensionIndex().setPermanentError(e.getMessage());
 			}
@@ -273,10 +281,7 @@ public class ExecuteHierarchyQuery implements CancellableCallable<Boolean> {
 				} catch (Exception e) {
 					// swallow the exception
 				}
-			// update the latch
-			if (this.countdown != null)
-				this.countdown.countDown();
-			//
+
 			// unregister
 			ExecutionManager.INSTANCE.unregisterTask(this);
 		}
