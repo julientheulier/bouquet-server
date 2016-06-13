@@ -308,13 +308,12 @@ public class AnalysisSmartCache {
 	}
 
 	/**
-	 * Check if the given SQL query is in the smart-cache
-	 * @param SQL query
+	 * Check if the given request is in the smart-cache
+	 * @param request query
 	 * @return
 	 */
-	public boolean contains(String SQL) {
-		String hash = DigestUtils.sha256Hex(SQL);
-		return contains.contains(hash);
+	public boolean contains(AnalysisSmartCacheRequest request) {
+		return contains.contains(request.getKey().getHash());
 	}
 
 	/**

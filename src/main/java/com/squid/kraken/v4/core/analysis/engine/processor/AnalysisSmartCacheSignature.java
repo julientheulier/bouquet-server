@@ -66,7 +66,7 @@ public class AnalysisSmartCacheSignature {
 		this.analysis = analysis;
 		this.measures = measures;
 		this.SQL = SQL;
-		this.hash = DigestUtils.sha256Hex(SQL);
+		this.hash = DigestUtils.sha256Hex(analysis.getUniverse().getProject().getId().toUUID()+"-"+SQL);
 	}
 	
 	/**

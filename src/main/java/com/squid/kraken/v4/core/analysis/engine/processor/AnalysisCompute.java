@@ -579,7 +579,7 @@ public class AnalysisCompute {
 					request.setRowCount(dm);// record the resultset size - so we know the resultset should be available
 					if (dm.isFromCache()) {
 						// from cache, but is it still in the smartCache ?
-						if (!AnalysisSmartCache.INSTANCE.contains(SQL)) {
+						if (!AnalysisSmartCache.INSTANCE.contains(request)) {
 							AnalysisSmartCache.INSTANCE.put(request);
 							logger.info("put analysis in Smart Cache");
 						}
