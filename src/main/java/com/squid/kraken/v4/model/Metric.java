@@ -49,7 +49,7 @@ public class Metric extends ExpressionObject<MetricPK> implements Cloneable {
      * Default constructor (required for jaxb).
      */
     public Metric() {
-        super(null);
+        super();
     }
     
     public Metric(MetricPK metricId) {
@@ -59,7 +59,7 @@ public class Metric extends ExpressionObject<MetricPK> implements Cloneable {
     public Metric(MetricPK metricId, String name, Expression expression) {
     	this(metricId, name, expression, false);
     }
-
+    
     public Metric(MetricPK metricId, String name, Expression expression, boolean isDynamic) {
         super(metricId, name, isDynamic);
         this.expression = expression;

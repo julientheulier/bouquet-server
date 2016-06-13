@@ -62,8 +62,7 @@ import com.wordnik.swagger.models.auth.OAuth2Definition;
 @SuppressWarnings("serial")
 public class CXFServletService extends CXFNonSpringJaxrsServlet {
 
-	private static final Logger logger = LoggerFactory
-			.getLogger(CXFServletService.class);
+	private static final Logger logger = LoggerFactory.getLogger(CXFServletService.class);
 
 	@Override
 	public void init(ServletConfig config) throws ServletException {
@@ -88,15 +87,10 @@ public class CXFServletService extends CXFNonSpringJaxrsServlet {
 		if (facets.contains("front")) {
 			// init the API
 			logger.info("Facet: Front");
-			servletConf.setJaxrsServiceClassesParam(CustomerServiceRest.class
-					.getName()
-					+ ","
-					+ AdminServiceRest.class.getName()
-					+ ","
-					+ "com.wordnik.swagger.jaxrs.listing.ApiListingResource");
+			servletConf.setJaxrsServiceClassesParam(CustomerServiceRest.class.getName() + ","
+					+ AdminServiceRest.class.getName() + "," + "com.wordnik.swagger.jaxrs.listing.ApiListingResource");
 		} else {
-			servletConf.setJaxrsServiceClassesParam(CacheInitPoint.class
-					.getName());
+			servletConf.setJaxrsServiceClassesParam(CacheInitPoint.class.getName());
 		}
 
 		initSwagger(config);
@@ -107,12 +101,11 @@ public class CXFServletService extends CXFNonSpringJaxrsServlet {
 		//
 
 		long ts_end = System.currentTimeMillis();
-		
-		logger.info("\n"+
-		"  _                 _                         \n"
-		+" / \\ ._   _  ._    |_)  _       _.      _ _|_ \n"
-		+" \\_/ |_) (/_ | |   |_) (_) |_| (_| |_| (/_ |_ \n"
-		+"     |                           |            ");  
+
+		logger.info("\n" + "  _                 _                         \n"
+				+ " / \\ ._   _  ._    |_)  _       _.      _ _|_ \n"
+				+ " \\_/ |_) (/_ | |   |_) (_) |_| (_| |_| (/_ |_ \n"
+				+ "     |                           |            ");
 
 		logger.info("Initialization complete in " + (ts_end - ts_start) + "ms");
 	}
@@ -133,17 +126,16 @@ public class CXFServletService extends CXFNonSpringJaxrsServlet {
 
 		// get the version for war Manifest
 		String version = null;
-		InputStream input = getServletContext().getResourceAsStream(
-				"/META-INF/MANIFEST.MF");
+		InputStream input = getServletContext().getResourceAsStream("/META-INF/MANIFEST.MF");
 		if (input != null) {
 			try {
 				Manifest manifest = new Manifest(input);
 				Attributes mainAttribs = manifest.getMainAttributes();
 				version = "{";
-				version += " \"build\" : \""+mainAttribs.getValue("Built-Date") + " ("
+				version += " \"build\" : \"" + mainAttribs.getValue("Built-Date") + " ("
 						+ mainAttribs.getValue("Revision") + ")";
 				version += "\",";
-				version += " \"version\" :  \""+mainAttribs.getValue("Version");
+				version += " \"version\" :  \"" + mainAttribs.getValue("Version");
 				version += "\"}";
 			} catch (IOException e) {
 				e.printStackTrace();
@@ -155,26 +147,25 @@ public class CXFServletService extends CXFNonSpringJaxrsServlet {
 		try {
 			String configFile = System.getProperty("kraken.cache.config.json");
 			String krakenConfigV2file = System.getProperty("bouquet.config.file");
-			
-			if(configFile== null && krakenConfigV2file == null){
+
+			if (configFile == null && krakenConfigV2file == null) {
 				conf = RedisCacheConfig.getDefault();
-				
-			} else{
-				if (krakenConfigV2file != null){
+
+			} else {
+				if (krakenConfigV2file != null) {
 					KrakenConfigV2 krakenConf = KrakenConfigV2.loadFromjson(krakenConfigV2file);
-					if (krakenConf.getCache() != null){ 
+					if (krakenConf.getCache() != null) {
 						conf = krakenConf.getCache();
-					}else{
+					} else {
 						conf = RedisCacheConfig.getDefault();
 					}
-			
-				}else {
+
+				} else {
 					logger.info(configFile);
-					conf = RedisCacheConfig.loadFromjson(System
-							.getProperty("kraken.cache.config.json"));
+					conf = RedisCacheConfig.loadFromjson(System.getProperty("kraken.cache.config.json"));
 					logger.info(conf.getAppName());
 				}
-			}	
+			}
 		} catch (IOException e) {
 			e.printStackTrace();
 			conf = RedisCacheConfig.getDefault();
@@ -190,7 +181,7 @@ public class CXFServletService extends CXFNonSpringJaxrsServlet {
 		CacheInitPoint cache = CacheInitPoint.INSTANCE;
 		cache.start(conf, facets);
 		DriversService.initDriver();
-		
+
 		// DimensionStoreManagerFactory initialization
 		try {
 			String embeddedValue = KrakenConfig.getProperty("elastic.local", "true");
@@ -198,8 +189,7 @@ public class CXFServletService extends CXFNonSpringJaxrsServlet {
 			ESIndexFacadeConfiguration esConfig = new ESIndexFacadeConfiguration(embedded, null);
 			DimensionStoreManagerFactory.init(esConfig);
 		} catch (Exception e) {
-			logger.error("Failed to initialized DImensionStore with error: "
-					+ e.toString());
+			logger.error("Failed to initialized DImensionStore with error: " + e.toString());
 			throw new ServletException(e);
 		}
 
@@ -217,26 +207,23 @@ public class CXFServletService extends CXFNonSpringJaxrsServlet {
 				serverMode = KrakenConfig.getProperty("kraken.server.mode", "release");
 			}
 			// we don't want to modify release servers.
-			if(serverMode.equals("dev") && System.getProperty("kraken.autocreate")!=null){
-				//Extra safety for prod
-				if(System.getProperty("kraken.autocreate").contains("true")){
+			if (serverMode.equals("dev") && System.getProperty("kraken.autocreate") != null) {
+				// Extra safety for prod
+				if (System.getProperty("kraken.autocreate").contains("true")) {
 					// Checking for previous superusers...
-					if(!ServiceUtils.getInstance().checkforSuperUserRootUserContext()) {
-						String defaultClientURL = KrakenConfig.getProperty(
-								"default.client.url", true);
-						CustomerServiceBaseImpl.getInstance().accessRequest("demo", null, null, null, null,
-								null, null, defaultClientURL, EmailHelperImpl.getInstance());
+					if (!ServiceUtils.getInstance().checkforSuperUserRootUserContext()) {
+						String defaultClientURL = KrakenConfig.getProperty("default.client.url", true);
+						CustomerServiceBaseImpl.getInstance().accessRequest("demo", null, null, null, null, null, null,
+								defaultClientURL, EmailHelperImpl.getInstance());
 					}
 				}
 			}
 		} catch (Exception e) {
-			logger.error("Failed to create a default user with error: "
-					+ e.toString());
+			logger.error("Failed to create a default user with error: " + e.toString());
 			throw new ServletException(e);
 		}
 
-		logger.info("Open Bouquet started with build version : "
-				+ ServiceUtils.getInstance().getBuildVersionString());
+		logger.info("Open Bouquet started with build version : " + ServiceUtils.getInstance().getBuildVersionString());
 	}
 
 	public void initSwagger(ServletConfig config) throws ServletException {
@@ -244,22 +231,17 @@ public class CXFServletService extends CXFNonSpringJaxrsServlet {
 		scanner.setResourcePackage("com.squid.kraken.v4.api.core.customer");
 		ScannerFactory.setScanner(scanner);
 
-		Info info = new Info().title("Bouquet").version("4.2")
-				.description("This is Bouquet API");
+		Info info = new Info().title("Bouquet").version("4.2").description("This is Bouquet API");
 
 		ServletContext context = config.getServletContext();
-		String basePath = "/"
-				+ KrakenConfig.getProperty("kraken.ws.api", "release") + "/"
+		String basePath = "/" + KrakenConfig.getProperty("kraken.ws.api", "release") + "/"
 				+ KrakenConfig.getProperty("kraken.ws.version", "v4.2");
 		Swagger swagger = new Swagger().info(info).basePath(basePath);
-
-		String oauthEndpoint = KrakenConfig.getProperty(
-				"kraken.oauth.endpoint",
+		logger.info("Swagger base path " + basePath);
+		String oauthEndpoint = KrakenConfig.getProperty("kraken.oauth.endpoint",
 				"https://api.squidsolutions.com/release/auth/oauth");
-		swagger.securityDefinition(
-				"kraken_auth",
-				new OAuth2Definition().implicit(oauthEndpoint).scope("access",
-						"Access protected resources"));
+		swagger.securityDefinition("kraken_auth",
+				new OAuth2Definition().implicit(oauthEndpoint).scope("access", "Access protected resources"));
 
 		context.setAttribute("swagger", swagger);
 	}

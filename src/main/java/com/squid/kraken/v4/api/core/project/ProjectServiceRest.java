@@ -380,7 +380,7 @@ public class ProjectServiceRest extends BaseServiceRest {
 	public ExpressionSuggestion getDomainSuggestion(
 			@PathParam("projectId") String projectId,
 			@QueryParam("expression") String expression,
-			@QueryParam("offset") int offset) {
+			@QueryParam("offset") Integer offset) {
 		return delegate.getDomainSuggestion(userContext, projectId, expression,
 				offset);
 	}

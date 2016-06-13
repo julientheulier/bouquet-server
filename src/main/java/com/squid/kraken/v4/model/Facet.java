@@ -67,6 +67,8 @@ public class Facet implements Serializable {
     // if the facet is actually a proxy to another dimension
     private boolean isProxy = false;
     
+    private boolean isCompositeName = false;
+    
     private int size;
 
     /**
@@ -217,6 +219,19 @@ public class Facet implements Serializable {
     
     public void setProxy(boolean isProxy) {
 		this.isProxy = isProxy;
+	}
+    
+    /**
+     * @Return True if the facet name is a composite name based on the proxy names, False if it is the name of the Dimension
+	 *
+	 */
+	public boolean isCompositeName() {
+		return isCompositeName;
+	}
+	
+	
+	public void setCompositeName(boolean isCompositeName) {
+		this.isCompositeName = isCompositeName;
 	}
 
     public int getTotalSize() {

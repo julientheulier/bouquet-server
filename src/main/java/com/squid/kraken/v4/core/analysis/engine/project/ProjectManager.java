@@ -171,12 +171,16 @@ public class ProjectManager {
 		//
 		Universe universe = new Universe(ctx, project);
 		Space space = universe.S(domain);
-		Table table = space.getTable();
-		String uuid = universe.getTableUUID(table);
-		if (uuid != null) {
-			RedisCacheManager.getInstance().refresh(uuid);
-			// and refresh the table?
-			table.refresh();
+		try {
+			Table table = space.getTable();
+			String uuid = universe.getTableUUID(table);
+			if (uuid != null) {
+				RedisCacheManager.getInstance().refresh(uuid);
+				// and refresh the table?
+				table.refresh();
+			}
+		} catch (ScopeException e) {
+			logger.error("failed to refresh table for domain "+domain, e);
 		}
 		RedisCacheManager.getInstance().refresh(domainPk.toUUID());
 		RedisKey key = RedisCacheManager.getInstance().getKey(domainPk.toUUID());

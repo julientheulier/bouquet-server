@@ -184,6 +184,9 @@ public class Cartography {
 	}
 	
 	public Type computeType(Space space) {
+		if (space.getParent()==null) {
+			return Type.ONE_ONE;// actually it's not a path but it's equivalent
+		}
 		Domain source = space.getRoot();
 		Domain target = space.getDomain();
 		List<Path> paths = getPaths(source.getId(), target.getId());

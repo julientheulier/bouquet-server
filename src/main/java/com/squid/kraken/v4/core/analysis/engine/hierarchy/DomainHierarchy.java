@@ -160,10 +160,15 @@ public class DomainHierarchy {
 		List<Dimension> filtered = new ArrayList<Dimension>();
 		for (Dimension dim : getContent().getDimensions()) {
 			if (hasRole(ctx, dim)) {
-				filtered.add(cloneWithRole(ctx, dim));
+				Dimension clone = cloneWithRole(ctx, dim);
+				filtered.add(clone);
 			}
 		}
 		return filtered;
+	}
+
+	public List<Dimension> getDimensions() {
+		return Collections.unmodifiableList(getContent().getDimensions());
 	}
 
 	/**
@@ -232,7 +237,8 @@ public class DomainHierarchy {
 		List<Metric> filtered = new ArrayList<Metric>();
 		for (Metric metric : getContent().getMetrics()) {
 			if (hasRole(ctx, metric)) {
-				filtered.add(cloneWithRole(ctx, metric));
+				Metric clone = cloneWithRole(ctx, metric);
+				filtered.add(clone);
 			}
 		}
 		return filtered;
