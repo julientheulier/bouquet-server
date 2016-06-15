@@ -123,9 +123,9 @@ public class CompareMerger extends JoinMerger {
 						float rightf = ((Number)rightValue).floatValue();
 						// compute the growth in %
 						if (rightf!=0) {
-							float growth = ((float)Math.round(((leftf-rightf)/rightf)*10000))/100;
-							String output = (growth>0?"+":"")+String.format("%.2f", growth)+"%";
-							merged.rawrow[pos] = output;
+							float growth = (leftf-rightf)*100/rightf;
+							//String output = String.format("%+.2f%%", growth);
+							merged.rawrow[pos] = growth;
 						}
 					}
 				}
@@ -144,8 +144,9 @@ public class CompareMerger extends JoinMerger {
 			if (computeGrowth) {
 				// add the growth definition...
 				Measure growth = new Measure(left.getKPIs().get(i));
-				growth.setOriginType(OriginType.COMPARETO);
-				growth.setName(growth.getName() + " [growth%]");
+				growth.setOriginType(OriginType.GROWTH);
+				growth.setName(growth.getName() + " [growth]");
+				growth.setFormat("%+.2f%%");
 				merge.getKPIs().add(growth);
 			}
 		}

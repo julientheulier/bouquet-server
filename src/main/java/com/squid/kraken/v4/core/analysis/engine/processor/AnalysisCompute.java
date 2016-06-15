@@ -273,13 +273,6 @@ public class AnalysisCompute {
 				}
 			}
 		}
-		// copy metrics
-		for (Measure kpi : currentAnalysis.getKpis()) {
-			Measure compareToKpi = new Measure(kpi);
-			compareToKpi.setOriginType(OriginType.COMPARETO);
-			compareToKpi.setName(kpi.getName() + " [compare]");
-			compareToAnalysis.add(compareToKpi);
-		}
 		// copy stuff
 		if (currentAnalysis.hasLimit())
 			compareToAnalysis.limit(currentAnalysis.getLimit());
@@ -292,11 +285,20 @@ public class AnalysisCompute {
 		compareToAnalysis.setOrders(currentAnalysis.getOrders());
 		// copy the selection and replace with compare filters
 		DashboardSelection pastSelection = new DashboardSelection(presentSelection);
+		String compareToWhat = "";
 		for (Axis filter : compare.getFilters()) {
 			pastSelection.clear(filter);
 			pastSelection.add(filter, compare.getMembers(filter));
 			if (joinAxis != null && compareAxis(filter, joinAxis)) {
 				pastInterval = computeMinMax(compare.getMembers(filter));
+			}
+			//
+			IntervalleObject isInterval = computeMinMax(compare.getMembers(filter));
+			if (!compareToWhat.equals("")) compareToWhat += " and ";
+			if (isInterval!=null) {
+				compareToWhat += isInterval.toString();
+			} else {
+				compareToWhat += "["+(compare.getMembers(filter)).toString()+"]";
 			}
 		}
 		compareToAnalysis.setSelection(pastSelection);
@@ -304,6 +306,14 @@ public class AnalysisCompute {
 			compareToAnalysis.setBeyondLimit(compareBeyondLimit);
 			// use the present selection to compute
 			compareToAnalysis.setBeyodLimitSelection(presentSelection);
+		}
+		// copy metrics (do it after in order to be able to use the pastInterval)
+		for (Measure kpi : currentAnalysis.getKpis()) {
+			Measure compareToKpi = new Measure(kpi);
+			compareToKpi.setOriginType(OriginType.COMPARETO);
+			compareToKpi.setName(kpi.getName() + " [compare]");
+			compareToKpi.setDescription(kpi.getName()+" comparison on "+compareToWhat);
+			compareToAnalysis.add(compareToKpi);
 		}
 		//
 		// compute present & past in //

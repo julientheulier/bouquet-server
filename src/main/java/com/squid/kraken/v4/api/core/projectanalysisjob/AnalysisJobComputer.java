@@ -142,7 +142,7 @@ public class AnalysisJobComputer implements JobComputer<ProjectAnalysisJob, Proj
 					(stop - start), job.getId().getProjectId());
 			queryLog.setError(false);
 			PerfDB.INSTANCE.save(queryLog);
-			DataTable res = datamatrix.toDataTable(ctx, maxResults, startIndex, false);
+			DataTable res = datamatrix.toDataTable(ctx, maxResults, startIndex, false, job.getOptionKeys());
 			logger.debug("Is result set in REDIS complete? " + res.getFullset());
 			return res;
 		}
