@@ -124,7 +124,7 @@ public class CompareMerger extends JoinMerger {
 						// compute the growth in %
 						if (rightf!=0) {
 							float growth = ((float)Math.round(((leftf-rightf)/rightf)*10000))/100;
-							String output = (growth>0?"+":"")+growth+"%";
+							String output = (growth>0?"+":"")+String.format("%.2f", growth)+"%";
 							merged.rawrow[pos] = output;
 						}
 					}

@@ -25,6 +25,7 @@ package com.squid.kraken.v4.core.analysis.model;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.sql.render.IOrderByPiece.ORDERING;
@@ -53,6 +54,8 @@ public class DashboardAnalysis extends Dashboard {
 	private List<GroupByAxis> beyondLimit = new ArrayList<>();
 	// T0126 & T1042: in case of beyondLimit + compareTo we need to use a different selection for computing the limit subquery
 	private DashboardSelection beyodLimitSelection = null;
+	
+	private Map<String, Object> optionKeys = null;
 	
 	private boolean lazy = false;
 	
@@ -151,6 +154,17 @@ public class DashboardAnalysis extends Dashboard {
     public boolean hasOffset() {
         return offset!=null;
     }
+    
+    public Object getOption(String key) {
+    	return optionKeys!=null?optionKeys.get(key):null;
+    }
+    
+    /**
+	 * @param optionKeys the optionKeys to set
+	 */
+	public void setOptionKeys(Map<String, Object> optionKeys) {
+		this.optionKeys = optionKeys;
+	}
     
     public void lazy(boolean lazy){
     	this.lazy = lazy;
