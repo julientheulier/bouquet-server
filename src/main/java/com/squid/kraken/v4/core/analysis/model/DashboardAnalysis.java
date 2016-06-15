@@ -56,6 +56,7 @@ public class DashboardAnalysis extends Dashboard {
 	private DashboardSelection beyodLimitSelection = null;
 	
 	private Map<String, Object> optionKeys = null;
+	public static final String COMPUTE_GROWTH_OPTION_KEY = "computeGrowth";// true|false flag to enable computing the growth percentage when performing a compareTo analysis
 	
 	private boolean lazy = false;
 	
