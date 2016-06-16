@@ -325,7 +325,9 @@ public class AnalysisCompute {
 			//
 			final Period offset = computeOffset(present, joinAxis, presentInterval, pastInterval);
 			//
-			CompareMerger merger = new CompareMerger(present, past, mergeOrder, joinAxis, offset);
+			Object computeGrowthOption = currentAnalysis.getOption(DashboardAnalysis.COMPUTE_GROWTH_OPTION_KEY);
+			boolean computeGrowth = computeGrowthOption!=null && computeGrowthOption.equals(true);
+			CompareMerger merger = new CompareMerger(present, past, mergeOrder, joinAxis, offset, computeGrowth);
 			DataMatrix debug = merger.merge(false);
 			// apply the original order by directive (T1039)
 			debug.orderBy(originalOrders);

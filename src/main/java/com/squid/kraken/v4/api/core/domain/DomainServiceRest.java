@@ -148,7 +148,7 @@ public class DomainServiceRest extends BaseServiceRest {
 			@PathParam("domainId") String domainId,
 			@QueryParam("dimensionId") String dimensionId,
 			@QueryParam("expression") String expression,
-			@QueryParam("offset") int offset) {
+			@QueryParam("offset") Integer offset) {
 		return delegate.getDimensionSuggestion(userContext, projectId,
 				domainId, dimensionId, expression, offset);
 	}
@@ -173,7 +173,7 @@ public class DomainServiceRest extends BaseServiceRest {
 			@PathParam("domainId") String domainId,
 			@QueryParam("metricId") String metricId,
 			@QueryParam("expression") String expression,
-			@QueryParam("offset") int offset) {
+			@QueryParam("offset") Integer offset) {
 		return delegate.getMetricSuggestion(userContext, projectId, domainId, metricId,
 				expression, offset);
 	}

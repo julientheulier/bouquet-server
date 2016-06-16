@@ -470,6 +470,11 @@ public class AnalysisJobComputer implements JobComputer<ProjectAnalysisJob, Proj
 				}
 			}
 		}
+		
+		// handles option keys
+		if (job.getOptionKeys()!=null) {
+			dash.setOptionKeys(job.getOptionKeys());
+		}
 
 		// check
 		if (dash.getGrouping().isEmpty() && dash.getGroups().isEmpty()) {

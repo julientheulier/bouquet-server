@@ -169,7 +169,7 @@ public class Merger {
 		}
 	}
 	
-	protected IndirectionRow createDefaultIndirectionRow() {
+	protected IndirectionRow createDefaultIndirectionRow() throws ScopeException {
 		return createDefaultIndirectionRow(left.getAxes().size(),left.getDataSize()+right.getDataSize());
 	}
 	
@@ -189,7 +189,7 @@ public class Merger {
 		return new IndirectionRow(null, axesIndir, dataIndir);
 	}
 
-	public DataMatrix merge(boolean sortInput) {
+	public DataMatrix merge(boolean sortInput) throws ScopeException {
 		// need to work on sorted data
 		List<IndirectionRow> this_rows = sortInput?left.sortRows():left.getRows();
 		List<IndirectionRow> that_rows = sortInput?right.sortRows():right.getRows();

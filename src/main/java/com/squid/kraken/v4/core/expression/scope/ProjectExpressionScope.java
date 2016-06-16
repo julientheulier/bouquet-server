@@ -47,15 +47,13 @@ public class ProjectExpressionScope extends DefaultScope {
 
 	@Override
 	public ExpressionScope applyExpression(ExpressionAST first) throws ScopeException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new ScopeException("cannot apply the expression "+first.prettyPrint()+"");
 	}
 
 	@Override
 	public IdentifierType lookupIdentifierType(String image)
 			throws ScopeException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new ScopeException("cannot lookup the image "+image+"");
 	}
 
 	@Override
