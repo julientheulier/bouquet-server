@@ -27,20 +27,17 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.squid.core.concurrent.CancellableCallable;
 import com.squid.core.concurrent.ExecutionManager;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.core.sql.model.SQLScopeException;
-import com.squid.core.sql.render.RenderingException;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex.Status;
 import com.squid.kraken.v4.core.analysis.engine.query.HierarchyQuery;
 import com.squid.kraken.v4.core.analysis.engine.query.mapping.DimensionMapping;
@@ -55,8 +52,8 @@ import com.squid.kraken.v4.model.DimensionPK;
 public class DomainHierarchyCompute extends DomainHierarchyQueryGenerator {
 	static final Logger logger = LoggerFactory.getLogger(DomainHierarchyCompute.class);
 
-	private List<Future<Boolean>> jobs;
-	private HashMap<DimensionPK, Future<Boolean>> jobLookup;
+	private List<Future<ExecuteHierarchyQueryResult>> jobs;
+	private HashMap<DimensionPK, Future<ExecuteHierarchyQueryResult>> jobLookup;
 	private DomainHierarchy hierarchy;
 
 	public DomainHierarchyCompute(DomainHierarchy hierarchy) {
@@ -85,10 +82,10 @@ public class DomainHierarchyCompute extends DomainHierarchyQueryGenerator {
 
 		if (legacy != null && !legacy.jobs.isEmpty()) {
 			HashMap<DimensionPK, HierarchyQuery> trimmedQueries = new HashMap<DimensionPK, HierarchyQuery>();
-			HashSet<Future<Boolean>> validOngoingJobs = new HashSet<Future<Boolean>>();
+			HashSet<Future<ExecuteHierarchyQueryResult>> validOngoingJobs = new HashSet<Future<ExecuteHierarchyQueryResult>>();
 
 			for (DimensionPK dpk : this.queries.keySet()) {
-				Future<Boolean> job = legacy.jobLookup.get(dpk);
+				Future<ExecuteHierarchyQueryResult> job = legacy.jobLookup.get(dpk);
 				if ((job != null) && (!job.isDone())
 						&& (this.SQLQueryPerDimensionPK.get(dpk).equals(legacy.SQLQueryPerDimensionPK.get(dpk)))) {
 					// ongoing queries that are still valid
@@ -103,7 +100,7 @@ public class DomainHierarchyCompute extends DomainHierarchyQueryGenerator {
 			this.jobs.addAll(validOngoingJobs);
 			
 			// cancel obsoletes jobs
-			for(Future<Boolean>  job : legacy.jobs){
+			for(Future<ExecuteHierarchyQueryResult>  job : legacy.jobs){
 				if (! validOngoingJobs.contains(job) ){
 					job.cancel(true);
 				}
@@ -146,7 +143,7 @@ public class DomainHierarchyCompute extends DomainHierarchyQueryGenerator {
 			}
 		}
 		String customerId = hq.getSelect().getUniverse().getProject().getCustomerId();
-		Future<Boolean> future = ExecutionManager.INSTANCE.submit(customerId, new ExecuteHierarchyQuery(hq));
+		Future<ExecuteHierarchyQueryResult> future = ExecutionManager.INSTANCE.submit(customerId, new ExecuteHierarchyQuery(hq));
 		// keep an eye on it
 		jobs.add(future);
 		for (DimensionMapping m : hq.getDimensionMapping()) {
@@ -177,7 +174,7 @@ public class DomainHierarchyCompute extends DomainHierarchyQueryGenerator {
 				return false;
 			long start = System.currentTimeMillis();
 			long elapse = 0;
-			for (Future<Boolean> job : jobs) {
+			for (Future<ExecuteHierarchyQueryResult> job : jobs) {
 				if (!job.isDone()) {
 					if (timeoutMs == null) {
 						job.get();
@@ -206,7 +203,7 @@ public class DomainHierarchyCompute extends DomainHierarchyQueryGenerator {
 			return true;
 		if (jobLookup == null)
 			return false;
-		Future<Boolean> job = jobLookup.get(index.getDimension().getId());
+		Future<ExecuteHierarchyQueryResult> job = jobLookup.get(index.getDimension().getId());
 		if (job == null)
 			return false;
 		if (!job.isDone()) {
@@ -217,6 +214,10 @@ public class DomainHierarchyCompute extends DomainHierarchyQueryGenerator {
 			} else {
 				return false;
 			}
+			
+		}else{
+			ExecuteHierarchyQueryResult res = job.get();
+			res.waitForIndexationCompletion(index, 5);
 		}
 		return (index.getStatus() == Status.DONE || index.getStatus() == Status.ERROR);
 	}
@@ -226,7 +227,7 @@ public class DomainHierarchyCompute extends DomainHierarchyQueryGenerator {
 	 */
 	public void cancel() {
 		if (jobs != null) {
-			for (Future<Boolean> job : jobs) {
+			for (Future<ExecuteHierarchyQueryResult> job : jobs) {
 				job.cancel(false);
 			}
 		}
