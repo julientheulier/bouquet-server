@@ -89,7 +89,7 @@ public class DomainHierarchyCompute extends DomainHierarchyQueryGenerator {
 				if ((job != null) && (!job.isDone())
 						&& (this.SQLQueryPerDimensionPK.get(dpk).equals(legacy.SQLQueryPerDimensionPK.get(dpk)))) {
 					// ongoing queries that are still valid
-					logger.info("Reusing ongoing querie for dimension " + dpk);
+					logger.info("Reusing ongoing query for dimension " + dpk);
 					this.jobLookup.put(dpk, job);
 					validOngoingJobs.add(job);
 				} else {

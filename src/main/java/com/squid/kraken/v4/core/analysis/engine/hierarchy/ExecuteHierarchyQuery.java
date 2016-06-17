@@ -95,7 +95,9 @@ public class ExecuteHierarchyQuery implements CancellableCallable<ExecuteHierarc
 	public ExecuteHierarchyQueryResult call() throws Exception {
 		//
 		
-		ExecuteHierarchyQueryResult res = new ExecuteHierarchyQueryResult();
+		HashMap<DimensionIndex, String> lastIndexedDimension  =  new HashMap<DimensionIndex, String>();
+		HashMap<DimensionIndex, String> lastIndexedCorrelation = new HashMap<DimensionIndex, String>();
+
 		
 		this.state=State.ONGOING;
 		ExecutionManager.INSTANCE.registerTask(this);
@@ -217,10 +219,10 @@ public class ExecuteHierarchyQuery implements CancellableCallable<ExecuteHierarc
 				if (rowBuffer.size() == bufferCommitSize) {
 
 					// commit the index buffers
-					this.flushDimensionBuffer(dx_map, indexBuffer, res.lastIndexedDimension, wait);
+					this.flushDimensionBuffer(dx_map, indexBuffer, lastIndexedDimension, wait);
 					// map the correlation
 					this.flushCorrelationBuffer(dx_map, hierarchies_pos, hierarchies_type, rowBuffer, indexBuffer,
-							res.lastIndexedCorrelation, wait);
+							lastIndexedCorrelation, wait);
 
 					// only check ES state for the first batch
 					if (wait) {
@@ -237,23 +239,22 @@ public class ExecuteHierarchyQuery implements CancellableCallable<ExecuteHierarc
 			if (!rowBuffer.isEmpty()) {
 				// check ES state for the last batch
 				// commit the index buffers
-				this.flushDimensionBuffer(dx_map, indexBuffer, res.lastIndexedDimension, true);
+				this.flushDimensionBuffer(dx_map, indexBuffer, lastIndexedDimension, true);
 				// map the correlation
 				this.flushCorrelationBuffer(dx_map, hierarchies_pos, hierarchies_type, rowBuffer, indexBuffer,
-						res.lastIndexedCorrelation, true);
+						lastIndexedCorrelation, true);
 			}
 
 			item.close();
  
-			/*
 			// check and set Indexes status
-			this.waitForIndexationCompletion(res.lastIndexedDimension, res.lastIndexedCorrelation, 5);
+			this.waitForIndexationCompletion(lastIndexedDimension, lastIndexedCorrelation, 5);
 			// check also empty dimensionIndexes
 			for (DimensionIndex index : indexes) {
-				if (!res.lastIndexedDimension.containsKey(index) && !res.lastIndexedCorrelation.containsKey(index)) {
+				if (!lastIndexedDimension.containsKey(index) && !lastIndexedCorrelation.containsKey(index)) {
 					index.setDone();
 				}
-			} */
+			} 
 
 			
 			
@@ -267,7 +268,8 @@ public class ExecuteHierarchyQuery implements CancellableCallable<ExecuteHierarc
 
 			//
 			this.state = State.DONE;
-			return res;
+			return 	 new ExecuteHierarchyQueryResult(lastIndexedDimension, lastIndexedCorrelation );
+
 		} catch (Exception e) {
 			this.state = State.ERROR;
 			for (DimensionMapping m : dx_map) {
@@ -292,11 +294,39 @@ public class ExecuteHierarchyQuery implements CancellableCallable<ExecuteHierarc
 			ExecutionManager.INSTANCE.unregisterTask(this);
 		}
 	}
+	
+	private void waitForIndexationCompletion(HashMap<DimensionIndex, String> lastIndexedDimension,
+			HashMap<DimensionIndex, String> lastIndexedCorrelation, int timeOutInSec) {
+
+		try {
+			Thread.sleep(timeOutInSec * 1000);
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		for (DimensionIndex di : lastIndexedCorrelation.keySet()) {
+			if (!di.isCorrelationIndexationDone(lastIndexedCorrelation.get(di))) {
+				logger.info("timeout during correlation indexing " + di.getDimensionName());
+				di.setPermanentError("timeout during correlation indexing");
+			}
+		}
+
+		for (DimensionIndex di : lastIndexedDimension.keySet()) {
+			if (di.isDimensionIndexationDone(lastIndexedDimension.get(di))) {
+				logger.info("indexing  ok " + di.getDimensionName());
+				di.setDone();
+			} else {
+				logger.info("timeout during  indexing " + di.getDimensionName());
+				di.setPermanentError("timeout during indexing");
+			}
+		}
+
+	}
 
 
-
-	private HashMap<DimensionPK, String> flushDimensionBuffer(List<DimensionMapping> dx_map,
-			ArrayList<DimensionMember>[] indexBuffer, HashMap<DimensionPK, String> lastIndexed, boolean wait)
+	private void flushDimensionBuffer(List<DimensionMapping> dx_map,
+			ArrayList<DimensionMember>[] indexBuffer, HashMap<DimensionIndex, String> lastIndexed, boolean wait)
 					throws IndexationException {
 
 		int j = 0;
@@ -309,18 +339,17 @@ public class ExecuteHierarchyQuery implements CancellableCallable<ExecuteHierarc
 																						// initialized
 				String id = m.getDimensionIndex().index(indexBuffer[j], wait);
 				if (wait) {
-					lastIndexed.put(m.getDimensionIndex().getDimension().getId(), id);
+					lastIndexed.put(m.getDimensionIndex(), id);
 				}
 			}
 			j++;
 		}
-		return lastIndexed;
 	}
 
-	private HashMap<DimensionPK, String> flushCorrelationBuffer(List<DimensionMapping> dx_map,
+	private void flushCorrelationBuffer(List<DimensionMapping> dx_map,
 			Map<DimensionIndex, List<Integer>> hierarchies_pos,
 			Map<DimensionIndex, List<DimensionIndex>> hierarchies_type, ArrayList<DimensionMember[]> rowBuffer,
-			ArrayList<DimensionMember>[] indexBuffer, HashMap<DimensionPK, String> lastIndexed, boolean wait)
+			ArrayList<DimensionMember>[] indexBuffer, HashMap<DimensionIndex, String> lastIndexed, boolean wait)
 					throws IndexationException {
 
 		for (Entry<DimensionIndex, List<Integer>> entry : hierarchies_pos.entrySet()) {
@@ -335,11 +364,10 @@ public class ExecuteHierarchyQuery implements CancellableCallable<ExecuteHierarc
 				}
 				String id = entry.getKey().indexCorrelations(hierarchies_type.get(entry.getKey()), batch, wait);
 				if (wait) {
-					lastIndexed.put(entry.getKey().getDimension().getId(), id);
+					lastIndexed.put(entry.getKey(), id);
 				}
 			}
 		}
-		return lastIndexed;
 	}
 
 }
