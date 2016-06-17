@@ -832,12 +832,9 @@ public class DataMatrix {
 	 * @return
 	 */
 	private boolean checkApplyFormat(Map<String, Object> options) {
-		return true;
-		/*
 		if (options==null) return false;
 		Object option = options.get("applyFormat");
 		return option!=null?option.equals(true):false;
-		*/
 	}
 
 	private DataType getDataType(Axis axis) {
