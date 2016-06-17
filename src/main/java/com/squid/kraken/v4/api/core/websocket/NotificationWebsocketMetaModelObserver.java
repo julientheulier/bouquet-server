@@ -30,6 +30,17 @@ import javax.websocket.Session;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.squid.kraken.v4.api.core.AccessRightsUtils;
+import com.squid.kraken.v4.model.AccessRight.Role;
+import com.squid.kraken.v4.model.AccessTokenPK;
+import com.squid.kraken.v4.model.Persistent;
+import com.squid.kraken.v4.model.ProjectAnalysisJob;
+import com.squid.kraken.v4.model.ProjectAnalysisJobPK;
+import com.squid.kraken.v4.model.ProjectFacetJob;
+import com.squid.kraken.v4.model.ProjectFacetJobPK;
+import com.squid.kraken.v4.model.State;
+import com.squid.kraken.v4.model.StatePK;
+import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DataStoreEvent;
 import com.squid.kraken.v4.persistence.DataStoreEventObserver;
 
@@ -56,11 +67,47 @@ public class NotificationWebsocketMetaModelObserver implements
 
 	@Override
 	public void notifyEvent(DataStoreEvent event) {
-		logger.debug(event.toString());
-		Set<Session> sessions = NotificationWebsocket.getSessions();
-		for (Session s : sessions) {
-			s.getAsyncRemote().sendText(event.toString());
+		if (acceptEvent(event)) {
+			Persistent<?> sourceEvent = (Persistent<?>) event.getSource();
+			DataStoreEvent eventOut = null;
+			Set<Session> sessions = NotificationWebsocket.getSessions();
+			for (Session s : sessions) {
+				// check access rights
+				AppContext ctx = (AppContext) s.getUserProperties().get("ctx");
+				if (AccessRightsUtils.getInstance().hasRole(ctx, sourceEvent,
+						Role.READ)) {
+					if (eventOut == null) {
+						// only send out the source event id (not to expose
+						// private properties)
+						eventOut = new DataStoreEvent(null,
+								sourceEvent.getId(), event.getType());
+					}
+					s.getAsyncRemote().sendObject(eventOut);
+				}
+			}
 		}
+	}
+
+	private boolean acceptEvent(DataStoreEvent event) {
+		Object origin = event.getOrigin();
+		Object sourceEvent = event.getSource();
+		if (origin == sourceEvent || origin == null) {
+			// shortcut to avoid loosing too much time with stuff we don't mind
+			if (sourceEvent instanceof ProjectFacetJob
+					|| sourceEvent instanceof ProjectFacetJobPK
+					|| sourceEvent instanceof ProjectAnalysisJob
+					|| sourceEvent instanceof ProjectAnalysisJobPK
+					|| sourceEvent instanceof State
+					|| sourceEvent instanceof StatePK
+					|| sourceEvent instanceof AccessTokenPK) {
+				// just in case...
+				return false;
+			} else if (sourceEvent instanceof Persistent) {
+				return true;
+			}
+		}
+		// else
+		return false;
 	}
 
 }

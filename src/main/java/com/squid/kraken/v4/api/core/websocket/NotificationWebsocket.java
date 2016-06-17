@@ -25,93 +25,104 @@
 package com.squid.kraken.v4.api.core.websocket;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
+import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Set;
 
 import javax.websocket.OnClose;
 import javax.websocket.OnError;
 import javax.websocket.OnMessage;
 import javax.websocket.OnOpen;
-import javax.websocket.PongMessage;
 import javax.websocket.Session;
 import javax.websocket.server.ServerEndpoint;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.squid.kraken.v4.api.core.InvalidCredentialsAPIException;
+import com.squid.kraken.v4.api.core.ServiceUtils;
+import com.squid.kraken.v4.api.core.customer.TokenExpiredException;
+import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.runtime.CXFServletService;
 
-@ServerEndpoint(value="/notification")
+@ServerEndpoint(value = "/notification", encoders = { DataStoreEventJSONCoder.class })
 public class NotificationWebsocket {
-	
-	private static final Logger logger = LoggerFactory.getLogger(CXFServletService.class);
+
+	private static final Logger logger = LoggerFactory
+			.getLogger(CXFServletService.class);
 	private static final Set<Session> sessions = new HashSet<Session>();
-	
-	public NotificationWebsocket() {
-	}
-	
+
 	static public Set<Session> getSessions() {
-		return sessions;
+		return Collections.unmodifiableSet(sessions);
+	}
+
+	public NotificationWebsocket() {
 	}
 
 	@OnOpen
-    public void onOpen(Session session) throws IOException {
-		sessions.add(session);
-		logger.debug("Session added with ID : "+session.getId());
-        session.getBasicRemote().sendText("onOpen");
-    }
+	public void onOpen(Session session) throws IOException {
+		// check for an auth token
+		String queryString = session.getQueryString();
+		if (queryString != null) {
+			Map<String, String> splitQuery = splitQuery(queryString);
+			String tokenId = splitQuery.get(ServiceUtils.TOKEN_PARAM);
+			try {
+				AppContext userContext = ServiceUtils.getInstance().getUserContext(tokenId);
+				// set the use context
+				session.getUserProperties().put("ctx", userContext);
+			} catch (TokenExpiredException e) {
+				throw new InvalidCredentialsAPIException(e.getMessage(), false);
+			}
+			// keep this session
+			sessions.add(session);
+			logger.debug("Session added with ID : " + session.getId());
+		} else {
+			logger.debug("Session rejected with ID : " + session.getId());
+			throw new InvalidCredentialsAPIException("missing auth token", false);
+		}
+	}
 
-    @OnError
-    public void onError(Throwable t) {
-        t.printStackTrace();
-    }
+	@OnError
+	public void onError(Throwable t) {
+		t.printStackTrace();
+	}
 
-    @OnClose
-    public void onClose(Session session) {
-    	sessions.remove(session);
-    }
-	
+	@OnClose
+	public void onClose(Session session) {
+		sessions.remove(session);
+	}
 
-    @OnMessage
-    public void echoTextMessage(Session session, String msg, boolean last) {
-        try {
-            if (session.isOpen()) {
-            	logger.debug("Message received from Session with ID : "+session.getId());
-                session.getBasicRemote().sendText(msg, last);
-            }
-        } catch (IOException e) {
-            try {
-                session.close();
-            } catch (IOException e1) {
-                // Ignore
-            }
-        }
-    }
+	@OnMessage
+	public void echoTextMessage(Session session, String msg, boolean last) {
+		try {
+			if (session.isOpen()) {
+				logger.debug("Message received from Session with ID : "
+						+ session.getId());
+				session.getBasicRemote().sendText(msg, last);
+			}
+		} catch (IOException e) {
+			try {
+				session.close();
+			} catch (IOException e1) {
+				// Ignore
+			}
+		}
+	}
 
-    @OnMessage
-    public void echoBinaryMessage(Session session, ByteBuffer bb,
-            boolean last) {
-        try {
-            if (session.isOpen()) {
-                session.getBasicRemote().sendBinary(bb, last);
-            }
-        } catch (IOException e) {
-            try {
-                session.close();
-            } catch (IOException e1) {
-                // Ignore
-            }
-        }
-    }
+	public Map<String, String> splitQuery(String query)
+			throws UnsupportedEncodingException {
+		Map<String, String> query_pairs = new LinkedHashMap<String, String>();
+		String[] pairs = query.split("&");
+		for (String pair : pairs) {
+			int idx = pair.indexOf("=");
+			query_pairs.put(URLDecoder.decode(pair.substring(0, idx), "UTF-8"),
+					URLDecoder.decode(pair.substring(idx + 1), "UTF-8"));
+		}
+		return query_pairs;
+	}
 
-    /**
-     * Process a received pong. This is a NO-OP.
-     *
-     * @param pm    Ignored.
-     */
-    @OnMessage
-    public void echoPongMessage(PongMessage pm) {
-        // NO-OP
-    }
 }
