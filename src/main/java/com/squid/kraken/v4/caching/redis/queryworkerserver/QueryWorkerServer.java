@@ -91,9 +91,8 @@ public class QueryWorkerServer implements IQueryWorkerServer {
 		logger.info("New Query Worker " + this.host + " " + this.port);
 	}
 
-
 	public void start() {
-		logger.info("Starting query worker " + this.host + " " + this.port );
+		logger.info("Starting query worker " + this.host + " " + this.port);
 		redis = RedisCacheProxy.getInstance(new ServerID(this.REDIS_SERVER_HOST, this.REDIS_SERVER_PORT));
 	}
 
@@ -127,7 +126,7 @@ public class QueryWorkerServer implements IQueryWorkerServer {
 			item = exec.call();
 
 			RawMatrixStreamExecRes serializedRes = RawMatrix.streamExecutionItemToByteArray(item, limit);
-			logger.info("limit " + limit + ", linesProcessed " + serializedRes.getNbLines() + " hasMore:"
+			logger.debug("limit " + limit + ", linesProcessed " + serializedRes.getNbLines() + " hasMore:"
 					+ serializedRes.hasMore());
 			if (!serializedRes.hasMore()) {
 				try {
