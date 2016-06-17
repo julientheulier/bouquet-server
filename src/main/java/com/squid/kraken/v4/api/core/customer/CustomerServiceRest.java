@@ -520,7 +520,11 @@ public class CustomerServiceRest {
 				first = false;
 			}
 			res += "{\"" + plugin.getVendorId() + "\" : \""
-					+ plugin.getVendorVersion() + "\"}";
+					+ plugin.getVendorVersion() + "\"";
+			res += ",\"vendorId\":\"" + plugin.getVendorId() + "\"";
+			res += ",\"version\":\"" + plugin.getVendorVersion() + "\"";
+			res += ",\"jdbcTemplate\":" + plugin.getJdbcUrlTemplate();
+			res +=  "}";
 		}
 		res += "]";
 		CoreVersion version = new CoreVersion();

@@ -25,6 +25,7 @@ package com.squid.kraken.v4.model;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlRootElement;
@@ -55,7 +56,7 @@ public class Project extends LzPersistentBaseImpl<ProjectPK> implements
 		HasConfig, Cloneable, HasChildren {
 	
 	private static String[] CHILDREN = { "domains", "relations", "bookmarks" };
-
+	
 	private String dbUrl;
 
 	private String dbUser;
@@ -82,6 +83,8 @@ public class Project extends LzPersistentBaseImpl<ProjectPK> implements
 	@Transient
 	private Integer dbPasswordLength;
 
+	private String dbVendorId;
+	private Map<String, String> dbArguments;
 
 	/**
 	 * Default constructor (required for jaxb).
@@ -142,6 +145,27 @@ public class Project extends LzPersistentBaseImpl<ProjectPK> implements
 	public Persistent<?> getParentObject(AppContext ctx) {
 		return DAOFactory.getDAOFactory().getDAO(Customer.class)
 				.readNotNull(ctx, new CustomerPK(id.getCustomerId()));
+	}
+
+	@ApiModelProperty(value = "The DataBase vendor ID to use for connecting")
+	public String getDbVendorId() {
+		return dbVendorId;
+	}
+	
+	/**
+	 * @param dbVendorId the dbVendorId to set
+	 */
+	public void setDbVendorId(String dbVendorId) {
+		this.dbVendorId = dbVendorId;
+	}
+
+	@ApiModelProperty(value = "The DataBase JDBC URL arguments")
+	public Map<String, String> getDbArguments() {
+		return dbArguments;
+	}
+	
+	public void setDbArguments(Map<String, String> arguments) {
+		this.dbArguments = arguments;
 	}
 
 	@ApiModelProperty(value = "The DataBase JDBC URL (requires WRITE role to view)", position = 1)
