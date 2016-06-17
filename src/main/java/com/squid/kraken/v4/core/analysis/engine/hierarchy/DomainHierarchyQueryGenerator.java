@@ -62,6 +62,7 @@ import com.squid.kraken.v4.core.database.impl.DatasourceDefinition;
 import com.squid.kraken.v4.model.Attribute;
 import com.squid.kraken.v4.model.Dimension;
 import com.squid.kraken.v4.model.Dimension.Type;
+import com.squid.kraken.v4.model.DimensionPK;
 import com.squid.kraken.v4.model.Domain;
 
 public class DomainHierarchyQueryGenerator {
@@ -70,10 +71,13 @@ public class DomainHierarchyQueryGenerator {
 	
 	private DomainHierarchy hierarchy;
 	
-	protected HashMap<DimensionIndex,HierarchyQuery> queries;
+	protected HashMap<DimensionPK,HierarchyQuery> queries;
 	
-	protected ArrayList<DimensionIndex> eagerIndexing;
+	protected ArrayList<DimensionPK> eagerIndexing;
 
+	protected HashMap<DimensionPK, String> SQLQueryPerDimensionPK;
+
+	
 	public DomainHierarchyQueryGenerator(DomainHierarchy hierarchy) {
 		this.hierarchy = hierarchy;
 	}
@@ -108,9 +112,10 @@ public class DomainHierarchyQueryGenerator {
 	protected  void prepareQueries(Space space,
 			List<List<DimensionIndex>> hierarchies) throws ScopeException,
 			SQLScopeException {
-		this.queries = new HashMap<DimensionIndex,HierarchyQuery>();
-		this.eagerIndexing = new ArrayList<DimensionIndex>();
-		
+		this.queries = new HashMap<DimensionPK,HierarchyQuery>();
+		this.eagerIndexing = new ArrayList<DimensionPK>();
+		SQLQueryPerDimensionPK = new HashMap<DimensionPK, String>();
+
 		HierarchyQuery main_query = null;
 		HierarchyQuery continuous_query = null;
 		Domain domain = space.getDomain();
@@ -144,8 +149,8 @@ public class DomainHierarchyQueryGenerator {
 
 						if (needRefresh(hierarchy, renderedQuery)) {
 							logger.debug(" adding  "+ renderedQuery);
-							this.queries.put(root, continuous_query);
-							this.eagerIndexing.add(root);							
+							this.queries.put(root.getDimension().getId(), continuous_query);
+							this.eagerIndexing.add(root.getDimension().getId());							
 						}
 					}
 
@@ -180,7 +185,7 @@ public class DomainHierarchyQueryGenerator {
 						}
 
 						if (needRefresh(hierarchy, renderedQuery)) {
-							this.queries.put(dm.getDimensionIndex(), range_query);// add it in the first
+							this.queries.put(dm.getDimensionIndex().getDimension().getId(), range_query);// add it in the first
 														// place
 							logger.debug(" adding  "+ renderedQuery);
 						}
@@ -219,7 +224,7 @@ public class DomainHierarchyQueryGenerator {
 						String dis = "" ; 
 
 						for (DimensionIndex di : hierarchy){
-							this.queries.put(di, main_query);
+							this.queries.put(di.getDimension().getId(), main_query);
 							dis+= di.getDimensionName() + " ";
 						}
 						logger.debug(dis +"\nadding  "+ renderedQuery);
@@ -230,13 +235,23 @@ public class DomainHierarchyQueryGenerator {
 
 						String dis = "" ; 
 						for (DimensionIndex di : hierarchy){
-							this.queries.put(di, main_query);
+							this.queries.put(di.getDimension().getId(), main_query);
 							dis+= di.getDimensionName() + " ";
 						}
 						logger.debug(dis +"\nadding  "+ renderedQuery);
 
 					}
 				}
+				
+				for (  DimensionPK di : queries.keySet()){
+					try {
+						this.SQLQueryPerDimensionPK.put(di, queries.get(di).render());
+					} catch (RenderingException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+				}
+				
 				//SFA: what's the point?
 				/*
 				if (root.getDimension().getType() == Type.CONTINUOUS) {
