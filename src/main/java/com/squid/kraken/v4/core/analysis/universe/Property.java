@@ -38,7 +38,8 @@ public interface Property {
 	public enum OriginType {
 		USER, 		// created by the user
 		ROLLUP, 	// created by the rollup analysis
-		COMPARETO	// created by the compareTo analysis
+		COMPARETO,	// created by the compareTo analysis
+		GROWTH		// create by the compareTo analysis to compute the metric growth
 	};
     
     /**
@@ -73,5 +74,9 @@ public interface Property {
 	 * @return
 	 */
 	public OriginType getOriginType();
+	
+	public String getDescription();
+	
+	public String getFormat();
 
 }

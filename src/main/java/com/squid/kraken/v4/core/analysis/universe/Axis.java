@@ -58,6 +58,10 @@ public class Axis implements Property {
 	private ExpressionAST def_cache;// cache the axis definition
 	
 	private OriginType originType = OriginType.USER; // default to User type
+
+	private String description = null;
+	private String format = null;
+	
 	/**
 	 * copy constructor
 	 * @param copy
@@ -156,6 +160,36 @@ public class Axis implements Property {
         	}
         }
     }
+	
+	/* (non-Javadoc)
+	 * @see com.squid.kraken.v4.core.analysis.universe.Property#getDescription()
+	 */
+	@Override
+	public String getDescription() {
+		return this.description!=null?this.description:(this.dimension!=null?this.dimension.getDescription():null);
+	}
+	
+	/**
+	 * @param description the description to set
+	 */
+	public void setDescription(String description) {
+		this.description = description;
+	}
+	
+	/* (non-Javadoc)
+	 * @see com.squid.kraken.v4.core.analysis.universe.Property#getFormat()
+	 */
+	@Override
+	public String getFormat() {
+		return this.format;
+	}
+	
+	/**
+	 * @param format the format to set
+	 */
+	public void setFormat(String format) {
+		this.format = format;
+	}
 	
 	public String getId() {
 		return ID;

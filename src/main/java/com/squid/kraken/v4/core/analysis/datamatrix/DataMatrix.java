@@ -23,6 +23,7 @@
  *******************************************************************************/
 package com.squid.kraken.v4.core.analysis.datamatrix;
 
+import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -30,6 +31,7 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IllegalFormatException;
 import java.util.List;
 import java.util.Map;
 
@@ -662,13 +664,47 @@ public class DataMatrix {
     	return rows;
     }
     
+    private String computeFormat(Property px, ExtendedType type) {
+    	if (px.getFormat()!=null) {
+    		return px.getFormat();
+    	} else {
+    		return computeFormat(type);
+    	}
+    }
+
+	/**
+	 * @param type
+	 * @return
+	 */
+	private String computeFormat(ExtendedType type) {
+		IDomain image = type.getDomain();
+		if (image.isInstanceOf(IDomain.TIMESTAMP)) {
+			return "%tY-%<tm-%<tdT%<tH:%<tM:%<tS.%<tLZ";
+		}
+		if (image.isInstanceOf(IDomain.NUMERIC)) {
+			if (type.getDataType()==Types.INTEGER) {
+				return "%,d";
+			}
+			if (type.getDataType()==Types.NUMERIC && type.getScale()>0) {
+				return "%,."+type.getScale()+"f";
+			}
+		}
+		// else
+		return null;
+	}
+	
+	public DataTable toDataTable(AppContext ctx, Integer maxResults, Integer startIndex, boolean replaceNullValues) throws ComputingException {
+	    return toDataTable(ctx, maxResults, startIndex, replaceNullValues, null);
+	}
+
 	/**
 	 * convert the DataMatrix in a DataTable format that we can exchange through the API
 	 * @param ctx
+	 * @param map 
 	 * @return
 	 * @throws ComputingException 
 	 */
-    public DataTable toDataTable(AppContext ctx, Integer maxResults, Integer startIndex, boolean replaceNullValues) throws ComputingException {
+    public DataTable toDataTable(AppContext ctx, Integer maxResults, Integer startIndex, boolean replaceNullValues, Map<String, Object> options) throws ComputingException {
         DataTable table = new DataTable();
         
         List<AxisValues> axes = this.getAxes();
@@ -693,6 +729,8 @@ public class DataMatrix {
                     Col col = new Col(dim.getId(), m.getAxis().getName(), colExtType, Col.Role.DOMAIN);
                     col.setDefinition(m.getAxis().prettyPrint());
                     col.setOriginType(m.getAxis().getOriginType());
+                    col.setDescription(m.getAxis().getDescription());
+                    col.setFormat(computeFormat(m.getAxis(),colExtType));
                     header.add(col);
 	            } else {
 	                String def = m.getAxis().getDefinitionSafe().prettyPrint();
@@ -705,6 +743,8 @@ public class DataMatrix {
 	                Col col = new Col(pk, name, colExtType, Col.Role.DOMAIN);
 	                if (def!=null) col.setDefinition(m.getAxis().prettyPrint());
                     col.setOriginType(m.getAxis().getOriginType());
+                    col.setDescription(m.getAxis().getDescription());
+                    col.setFormat(computeFormat(m.getAxis(),colExtType));
 	                header.add(col);
 	            }
             }
@@ -716,9 +756,12 @@ public class DataMatrix {
 			Col col = new Col(metric!=null?metric.getId():null, m.getName(), type, Col.Role.DATA);
             col.setDefinition(m.prettyPrint());
             col.setOriginType(m.getOriginType());
+            col.setDescription(m.getDescription());
+            col.setFormat(computeFormat(m,type));
             header.add(col);
         }
         // export data
+        boolean applyFormat = checkApplyFormat(options);
         List<DataTable.Row> tableRows = table.getRows();
         int axes_count = getAxes().size();
         int kpi_count = getKPIs().size();
@@ -739,19 +782,35 @@ public class DataMatrix {
 	            for (int i = 0; i < axes_count; i++) {
 	            	AxisValues m = axes.get(i);
 	            	if (m.isVisible()) {
+            			String format = header.get(colIdx).getFormat();
 	            		Object value = row.getAxisValue(i);
 	            		if ((value == null ) && replaceNullValues){	                	
 	            			values[colIdx++] = "";
-	            		}else{
+	            		} else {
+	            			if (applyFormat && value!=null && format!=null) {
+	            				try {
+	            					value = String.format(format, value);
+	            				} catch (IllegalFormatException e) {
+	            					// ignore
+	            				}
+	            			}
 	            			values[colIdx++] = value;
 	            		}
 	            	}
 	            }
 	            for (int i = 0; i < kpi_count; i++) {
 	                Object value = row.getDataValue(i);
+        			String format = header.get(colIdx).getFormat();
 	                if ((value == null ) && replaceNullValues){	                	
 	                	values[colIdx++] = "";
 	                }else{
+            			if (applyFormat && value!=null && format!=null) {
+            				try {
+            					value = String.format(format, value);
+            				} catch (IllegalFormatException e) {
+            					// ignore
+            				}
+            			}
 	                	values[colIdx++] = value;
 	                }
 	            }
@@ -768,7 +827,17 @@ public class DataMatrix {
         return table;
     }
     
-    private DataType getDataType(Axis axis) {
+    /**
+	 * @param options
+	 * @return
+	 */
+	private boolean checkApplyFormat(Map<String, Object> options) {
+		if (options==null) return false;
+		Object option = options.get("applyFormat");
+		return option!=null?option.equals(true):false;
+	}
+
+	private DataType getDataType(Axis axis) {
 		ExpressionAST expr = axis.getDefinitionSafe();
         IDomain image = expr.getImageDomain();
         if (image.isInstanceOf(IDomain.DATE)) {
