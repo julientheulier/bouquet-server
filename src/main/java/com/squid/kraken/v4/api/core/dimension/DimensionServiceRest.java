@@ -44,6 +44,7 @@ import com.squid.kraken.v4.model.Dimension;
 import com.squid.kraken.v4.model.DimensionPK;
 import com.squid.kraken.v4.model.DomainPK;
 import com.squid.kraken.v4.model.ExpressionSuggestion;
+import com.squid.kraken.v4.model.ValueType;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.wordnik.swagger.annotations.Api;
 import com.wordnik.swagger.annotations.ApiOperation;
@@ -158,9 +159,10 @@ public class DimensionServiceRest extends BaseServiceRest {
 			@PathParam("domainId") String domainId,
 			@PathParam("dimensionId") String dimensionId,
 			@QueryParam("expression") String expression,
-			@QueryParam("offset") int offset) {
+			@QueryParam("offset") int offset,
+			@QueryParam("filterType") ValueType filterType) {
 		return delegate.getAttributeSuggestion(userContext, projectId,
-				domainId, dimensionId, expression, offset);
+				domainId, dimensionId, expression, offset, filterType);
 	}
 
 	@Path("{"+PARAM_NAME+"}"+"/attributes")
