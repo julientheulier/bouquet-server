@@ -33,8 +33,8 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Enumeration;
 import java.util.HashMap;
-import java.util.Map;
 import java.util.List;
+import java.util.Map;
 import java.util.StringTokenizer;
 import java.util.TimeZone;
 import java.util.regex.Matcher;
@@ -46,7 +46,6 @@ import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.xml.bind.DatatypeConverter;
 
-import com.squid.kraken.v4.api.core.user.UserServiceBaseImpl;
 import org.apache.commons.lang3.StringUtils;
 import org.bson.types.ObjectId;
 import org.slf4j.Logger;
@@ -58,6 +57,7 @@ import com.squid.kraken.v4.api.core.customer.StateServiceBaseImpl;
 import com.squid.kraken.v4.api.core.customer.TokenExpiredException;
 import com.squid.kraken.v4.api.core.projectanalysisjob.AnalysisJobServiceBaseImpl;
 import com.squid.kraken.v4.api.core.projectfacetjob.FacetJobServiceBaseImpl;
+import com.squid.kraken.v4.api.core.user.UserServiceBaseImpl;
 import com.squid.kraken.v4.core.analysis.engine.cache.MetaModelObserver;
 import com.squid.kraken.v4.model.AccessToken;
 import com.squid.kraken.v4.model.AccessTokenPK;
@@ -303,6 +303,31 @@ public class ServiceUtils {
 					isNoErrorEnabled(request));
 		}
 		return locale;
+	}
+	
+	public AppContext getUserContext(String tokenId) throws TokenExpiredException {
+		AccessToken token = null;
+		AppContext ctx = null;
+
+		// retrieve the token
+		if (tokenId != null) {
+			token = getToken(tokenId);
+		}
+
+		// retrieve the User
+		AppContext root = ServiceUtils.getInstance().getRootUserContext(
+				token.getCustomerId());
+		User user = DAOFactory
+				.getDAOFactory()
+				.getDAO(User.class)
+				.readNotNull(
+						root,
+						new UserPK(token.getCustomerId(), token.getUserId()));
+
+		// build the context
+		AppContext.Builder ctxb = new AppContext.Builder(token, user);
+		ctx = ctxb.build();
+		return ctx;
 	}
 
 	/**
