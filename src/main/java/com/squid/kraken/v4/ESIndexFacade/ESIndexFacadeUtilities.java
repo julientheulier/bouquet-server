@@ -54,6 +54,8 @@ public class ESIndexFacadeUtilities {
 
 	public static final String not_analyzed = "not_analyzed";
 	public static final String not_analyzedSuffix = "."+ not_analyzed;
+
+	public static final String sortKey = "sortKey";
 	
 	
 	
@@ -245,7 +247,7 @@ public class ESIndexFacadeUtilities {
 		if ((mappings!=null) && (mappings.containsKey(resultType))){
 			ESMapping map = mappings.get(resultType) ;
 			if (map.index.equals(ESIndexMapping.BOTH) && map.type.equals(ESTypeMapping.STRING)){
-				return resultType +not_analyzedSuffix;
+				return ESIndexFacadeUtilities.sortKey;
 			}else{
 				return resultType;
 			}	
