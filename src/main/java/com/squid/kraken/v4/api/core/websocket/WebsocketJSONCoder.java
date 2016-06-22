@@ -21,16 +21,53 @@
  * you and Squid Solutions (above licenses and LICENSE.txt included).
  * See http://www.squidsolutions.com/EnterpriseBouquet/
  *******************************************************************************/
-package com.squid.kraken.v4.model;
+package com.squid.kraken.v4.api.core.websocket;
 
-public enum ObjectType {
-	TABLE,
-	COLUMN,
-	FOREIGNKEY,
-	RELATION,
-	DOMAIN,
-	DIMENSION,
-	METRIC,
-	FORMULA,
-	FUNCTION
+import java.io.IOException;
+import java.io.Reader;
+import java.io.Writer;
+
+import javax.websocket.DecodeException;
+import javax.websocket.Decoder;
+import javax.websocket.EncodeException;
+import javax.websocket.Encoder;
+import javax.websocket.EndpointConfig;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+public class WebsocketJSONCoder<T> implements Encoder.TextStream<T>,
+		Decoder.TextStream<T> {
+
+	private Class<T> _type;
+
+	// ObjectMapper is not thread safe
+	private ThreadLocal<ObjectMapper> _mapper = new ThreadLocal<ObjectMapper>() {
+
+		@Override
+		protected ObjectMapper initialValue() {
+			return new ObjectMapper();
+		}
+	};
+
+	@Override
+	public void init(EndpointConfig endpointConfig) {
+
+	}
+
+	@Override
+	public void encode(T object, Writer writer) throws EncodeException,
+			IOException {
+		_mapper.get().writeValue(writer, object);
+	}
+
+	@Override
+	public T decode(Reader reader) throws DecodeException, IOException {
+		return _mapper.get().readValue(reader, _type);
+	}
+
+	@Override
+	public void destroy() {
+
+	}
+
 }

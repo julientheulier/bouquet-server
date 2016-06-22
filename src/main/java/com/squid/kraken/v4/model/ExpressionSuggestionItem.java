@@ -84,7 +84,7 @@ public class ExpressionSuggestionItem {
 		this.objectType = objectType;
 		this.valueType = valueType;
 	}
-    
+
     public ExpressionSuggestionItem(String suggestion,
 			ObjectType objectType, ValueType valueType) {
     	this.suggestion = suggestion;

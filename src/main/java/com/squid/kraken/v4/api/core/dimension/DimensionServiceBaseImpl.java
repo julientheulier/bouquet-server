@@ -27,6 +27,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
+import com.squid.kraken.v4.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,16 +48,6 @@ import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.kraken.v4.core.expression.scope.AttributeExpressionScope;
 import com.squid.kraken.v4.core.expression.scope.ExpressionSuggestionHandler;
 import com.squid.kraken.v4.model.AccessRight.Role;
-import com.squid.kraken.v4.model.Dimension;
-import com.squid.kraken.v4.model.DimensionPK;
-import com.squid.kraken.v4.model.Domain;
-import com.squid.kraken.v4.model.DomainPK;
-import com.squid.kraken.v4.model.DynamicObject;
-import com.squid.kraken.v4.model.ExpressionObject;
-import com.squid.kraken.v4.model.ExpressionSuggestion;
-import com.squid.kraken.v4.model.Metric;
-import com.squid.kraken.v4.model.Project;
-import com.squid.kraken.v4.model.ProjectPK;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DAOFactory;
 import com.squid.kraken.v4.persistence.dao.DimensionDAO;
@@ -133,7 +124,7 @@ public class DimensionServiceBaseImpl extends
 
 	public ExpressionSuggestion getAttributeSuggestion(AppContext ctx,
 			String projectId, String domainId, String dimensionId,
-			String expression, int offset) {
+			String expression, int offset, ValueType filterType) {
 		//
 		ProjectPK projectPk = new ProjectPK(ctx.getCustomerId(), projectId);
 		Project project = ((ProjectDAO) factory.getDAO(Project.class)).read(
@@ -150,7 +141,7 @@ public class DimensionServiceBaseImpl extends
 			if (offset == 0) {
 				offset = expression.length();
 			}
-			return handler.getSuggestion(expression, offset);
+			return handler.getSuggestion(expression, offset, filterType);
 		} catch (ScopeException e) {
 			ExpressionSuggestion error = new ExpressionSuggestion();
 			error.setValidateMessage(e.getLocalizedMessage());

@@ -85,6 +85,10 @@ public class DomainReference extends ExpressionRef {
 		return this.reference;
 	}
 
+	public String getDescription() {
+		return this.reference.getDescription();
+	}
+
 	@Override
 	public boolean equals(Object obj) {
 		if (this == obj) {

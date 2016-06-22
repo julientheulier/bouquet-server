@@ -43,7 +43,9 @@ import javax.ws.rs.core.Response;
 import com.google.common.base.Optional;
 import com.squid.core.database.impl.DatabaseServiceException;
 import com.squid.core.database.model.Database;
+import com.squid.core.domain.OperatorUndefinedType;
 import com.squid.core.domain.operators.IntrinsicOperators;
+import com.squid.core.domain.operators.ListContentAssistEntry;
 import com.squid.core.domain.operators.OperatorDefinition;
 import com.squid.core.domain.operators.OperatorScope;
 import com.squid.core.expression.scope.ScopeException;
@@ -60,18 +62,7 @@ import com.squid.kraken.v4.api.core.relation.RelationServiceRest;
 import com.squid.kraken.v4.api.core.simpleanalysisjob.SimpleAnalysisJobServiceRest;
 import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
 import com.squid.kraken.v4.core.database.impl.DatabaseServiceImpl;
-import com.squid.kraken.v4.model.AccessRight;
-import com.squid.kraken.v4.model.Annotation;
-import com.squid.kraken.v4.model.AnnotationList;
-import com.squid.kraken.v4.model.AnnotationPK;
-import com.squid.kraken.v4.model.Domain;
-import com.squid.kraken.v4.model.DomainOption;
-import com.squid.kraken.v4.model.DomainPK;
-import com.squid.kraken.v4.model.ExpressionSuggestion;
-import com.squid.kraken.v4.model.GenericPK;
-import com.squid.kraken.v4.model.Persistent;
-import com.squid.kraken.v4.model.Project;
-import com.squid.kraken.v4.model.ProjectPK;
+import com.squid.kraken.v4.model.*;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DAOFactory;
 import com.squid.kraken.v4.persistence.dao.ProjectDAO;
@@ -162,16 +153,19 @@ public class ProjectServiceRest extends BaseServiceRest {
 				for (OperatorDefinition opDef: OperatorScope.getDefault().getRegisteredOperators()){
 					if(opDef.getExtendedID().contains(IntrinsicOperators.INTRINSIC_EXTENDED_ID)){
 						res 	+= "{" + opDef.getName() + ":";
-						if(opDef.getListContentAssistEntry()!=null){
-							res+=opDef.getListContentAssistEntry().toString();
-						}
-						res += "}";
+							ListContentAssistEntry contentAssist = opDef.getListContentAssistEntry();
+							if(contentAssist !=null){
+								res+=opDef.getListContentAssistEntry().toString();
+							}
+							res += "}";
 					}else{
 						res+= "{" + opDef.getExtendedID() + ":";
-						if(opDef.getListContentAssistEntry()!=null){
-							res+=opDef.getListContentAssistEntry().toString();
-						}
-						res+= "}";
+							ListContentAssistEntry contentAssist = opDef.getListContentAssistEntry();
+							if(contentAssist !=null){
+								res+=opDef.getListContentAssistEntry().toString();
+							}
+							res += "}";
+
 					}
 				}
 				res += "}";
@@ -380,9 +374,10 @@ public class ProjectServiceRest extends BaseServiceRest {
 	public ExpressionSuggestion getDomainSuggestion(
 			@PathParam("projectId") String projectId,
 			@QueryParam("expression") String expression,
-			@QueryParam("offset") Integer offset) {
+			@QueryParam("offset") Integer offset,
+			@QueryParam("filterType") ValueType filterType) {
 		return delegate.getDomainSuggestion(userContext, projectId, expression,
-				offset);
+				offset, filterType);
 	}
 
 	@Path("{"+PARAM_NAME+"}"+"/schemas-suggestion")
@@ -418,13 +413,14 @@ public class ProjectServiceRest extends BaseServiceRest {
 	@GET
 	@ApiOperation(value = "Gets suggestions for Relations")
 	public ExpressionSuggestion getRelationSuggestion(
-			@PathParam("projectId") String projectId,
-			@QueryParam("leftDomainId") String leftDomainId,
-			@QueryParam("rightDomainId") String rightDomainId,
-			@QueryParam("expression") String expression,
-			@QueryParam("offset") int offset) {
-		return delegate.getRelationSuggestion(userContext, projectId,
-				leftDomainId, rightDomainId, expression, offset);
+            @PathParam("projectId") String projectId,
+            @QueryParam("leftDomainId") String leftDomainId,
+            @QueryParam("rightDomainId") String rightDomainId,
+            @QueryParam("expression") String expression,
+            @QueryParam("offset") int offset,
+            @QueryParam("filterType") ValueType filterType) {
+            return delegate.getRelationSuggestion(userContext, projectId,
+				leftDomainId, rightDomainId, expression, offset, filterType);
 	}
 
 	// annotations
