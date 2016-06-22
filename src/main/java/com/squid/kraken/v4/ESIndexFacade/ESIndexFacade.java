@@ -255,6 +255,17 @@ public class ESIndexFacade implements IESIndexFacade {
 			mappingBuilder.startObject();
 			mappingBuilder.startObject(mappingName);
 			mappingBuilder.startObject("properties");
+			//add sorting field 
+			if (idFieldName !=null){
+			ESMapping idMapping = mapping.get(idFieldName);
+			if ( idMapping!= null && idMapping.getType().equals("string")){
+				mappingBuilder.startObject(ESIndexFacadeUtilities.sortKey);
+				mappingBuilder.field("index", "not_analyzed");
+				mappingBuilder.field("type", idMapping.getType());
+				mappingBuilder.field("doc_values", true);
+				mappingBuilder.endObject();
+			}
+			}
 			for (String k : mapping.keySet()) {
 				ESMapping map = mapping.get(k);
 				if (map.index == ESIndexMapping.BOTH) {
@@ -322,79 +333,7 @@ public class ESIndexFacade implements IESIndexFacade {
 		}
 	}
 
-	/*
-	 * private boolean createMapping(String domainName, String mappingName,
-	 * String idFieldName, HashMap<String, ESMapping> mapping) throws
-	 * ESIndexFacadeException { try {
-	 * 
-	 * logger.info("create mapping for " + mapping.toString()); XContentBuilder
-	 * mappingBuilder = XContentFactory.jsonBuilder();
-	 * 
-	 * mappingBuilder.startObject(); mappingBuilder.startObject(mappingName);
-	 * mappingBuilder.startObject("properties"); for (String k :
-	 * mapping.keySet()) { ESMapping map = mapping.get(k); if ((idFieldName !=
-	 * null) && (k.equals(idFieldName))) { if (map.index == ESIndexMapping.BOTH)
-	 * {
-	 * 
-	 * mappingBuilder.startObject(k); if (map.getType().equals("string")){
-	 * mappingBuilder.field("analyzer", "my_ngram_analyzer"); }
-	 * mappingBuilder.field("type", map.getType());
-	 * mappingBuilder.startObject("fields"); mappingBuilder
-	 * .startObject(ESIndexFacadeUtilities.not_analyzed);
-	 * mappingBuilder.field("index", "not_analyzed");
-	 * mappingBuilder.field("type", map.getType());
-	 * mappingBuilder.field("doc_values", true); mappingBuilder.endObject();
-	 * mappingBuilder.endObject(); mappingBuilder.endObject();
-	 * 
-	 * } else if (map.index == ESIndexMapping.NOT_ANALYZED) {
-	 * mappingBuilder.startObject(k); if (map.getType().equals("string")){
-	 * mappingBuilder.field("index", "not_analyzed"); }
-	 * mappingBuilder.field("type", map.getType()); //
-	 * mappingBuilder.field("doc_values", true); mappingBuilder.endObject(); }
-	 * else { // analyzed or no indication mappingBuilder.startObject(k);
-	 * mappingBuilder.field("type", map.getType()); if
-	 * (map.getType().equals("string")){ mappingBuilder.field("index",
-	 * "analyzed"); mappingBuilder.field("analyzer", "my_ngram_analyzer"); }
-	 * mappingBuilder.endObject(); } } else { if (map.index ==
-	 * ESIndexMapping.BOTH) {
-	 * 
-	 * mappingBuilder.startObject(k); if (map.getType().equals("string")){
-	 * mappingBuilder.field("analyzer", "my_ngram_analyzer"); }
-	 * mappingBuilder.field("type", map.getType());
-	 * mappingBuilder.startObject("fields"); mappingBuilder
-	 * .startObject(ESIndexFacadeUtilities.not_analyzed);
-	 * mappingBuilder.field("index", "not_analyzed");
-	 * mappingBuilder.field("type", map.getType()); mappingBuilder.endObject();
-	 * mappingBuilder.endObject(); mappingBuilder.endObject();
-	 * 
-	 * } else if (map.index == ESIndexMapping.NOT_ANALYZED) {
-	 * mappingBuilder.startObject(k);
-	 * 
-	 * if (map.getType().equals("string")){ mappingBuilder.field("index",
-	 * "not_analyzed"); } mappingBuilder.field("type", map.getType());
-	 * mappingBuilder.endObject(); } else { // analyzed or no indication
-	 * mappingBuilder.startObject(k); mappingBuilder.field("type",
-	 * map.getType()); if (map.getType().equals("string")){
-	 * mappingBuilder.field("analyzer", "my_ngram_analyzer");
-	 * mappingBuilder.field("index", "analyzed"); }else{
-	 * if(map.getType().equals("date")){ mappingBuilder.field("format",
-	 * "dateOptionalTime"); } } mappingBuilder.endObject(); } } }
-	 * 
-	 * mappingBuilder.endObject(); mappingBuilder.endObject();
-	 * mappingBuilder.endObject();
-	 * 
-	 * logger.info("Mapping\n" + mappingBuilder.string());
-	 * 
-	 * PutMappingResponse resp = client.admin().indices()
-	 * .preparePutMapping(domainName).setType(mappingName)
-	 * .setSource(mappingBuilder).execute().actionGet();
-	 * 
-	 * if (!resp.isAcknowledged()) { return false; }
-	 * 
-	 * return true; } catch (MergeMappingException e) { logger.error(
-	 * "ES mapping failed: cannot merge: ", e); return false; } catch (Exception
-	 * e) { logger.error("ES mapping failed: ", e); return false; } }
-	 */
+
 
 	public enum MappingState {
 		EXISTSEQUAL, EXISTSDIFFERENT, DOESNOTEXIST, ERROR
@@ -424,6 +363,32 @@ public class ESIndexFacade implements IESIndexFacade {
 		LinkedHashMap<String, Object> properties = (LinkedHashMap<String, Object>) existingMapping.get("properties");
 		logger.debug("current mappings : " + properties.toString());
 
+		if (idFieldName !=null){
+			ESMapping idMapping= mapping.get(idFieldName);
+			if (idMapping!=null && idMapping.getType().equals("string") ){
+				if (mapping.keySet().size() +1 != properties.keySet().size()) {
+					logger.debug("a different set of properties");
+					return MappingState.EXISTSDIFFERENT;
+				}else{
+					Map<String, Object> property = (Map<String, Object>) properties.get(ESIndexFacadeUtilities.sortKey);
+					if (property == null){
+						logger.debug(" no mapping found ES side for sortKey");
+						return MappingState.EXISTSDIFFERENT;
+					}else{
+						if ( !property.get("type").equals("string") 
+							|| !"not_analyzed".equals(property.get("index"))
+							|| property.get("doc_values")== null
+							|| !property.get("doc_values").equals(true) )	{
+							logger.debug("  wrong mapping for sortKey");
+	
+							return MappingState.EXISTSDIFFERENT;
+		
+						}
+					}
+				}		
+			}
+		
+		}
 		if (mapping.keySet().size() != properties.keySet().size()) {
 			logger.debug("a different set of properties");
 			return MappingState.EXISTSDIFFERENT;

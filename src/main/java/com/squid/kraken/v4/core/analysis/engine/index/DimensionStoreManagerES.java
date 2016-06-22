@@ -47,7 +47,7 @@ public class DimensionStoreManagerES implements IDimensionStoreManager {
 
     private static final Logger logger = LoggerFactory.getLogger(DimensionStoreManagerES.class);
     
-    public static final String ES_VERSION = "V5"; // this is a constant that identify the ES mapping version; it can be updated to force ES index invalidation when upgrading the mapping.
+    public static final String ES_VERSION = "V6"; // this is a constant that identify the ES mapping version; it can be updated to force ES index invalidation when upgrading the mapping.
  
     
     private static final String indexKeyPrefix = "IDX/";
