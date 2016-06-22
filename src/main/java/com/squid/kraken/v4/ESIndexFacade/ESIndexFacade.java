@@ -363,19 +363,33 @@ public class ESIndexFacade implements IESIndexFacade {
 		LinkedHashMap<String, Object> properties = (LinkedHashMap<String, Object>) existingMapping.get("properties");
 		logger.debug("current mappings : " + properties.toString());
 
+		
+		if(idFieldName !=null
+			&& mapping.get(idFieldName) !=null
+			&& mapping.get(idFieldName).getType().equals("string")
+			&& mapping.keySet().size() +1 != properties.keySet().size() ) {
+			logger.debug("a different set of properties");
+			return MappingState.EXISTSDIFFERENT;
+		}
+		else
+			{
+			if (mapping.keySet().size() != properties.keySet().size()) {
+				logger.debug("a different set of properties");
+				return MappingState.EXISTSDIFFERENT;
+			} 
+		}
+		
+		
+		
 		if (idFieldName !=null){
 			ESMapping idMapping= mapping.get(idFieldName);
 			if (idMapping!=null && idMapping.getType().equals("string") ){
-				if (mapping.keySet().size() +1 != properties.keySet().size()) {
-					logger.debug("a different set of properties");
+				Map<String, Object> property = (Map<String, Object>) properties.get(ESIndexFacadeUtilities.sortKey);
+				if (property == null){
+					logger.debug(" no mapping found ES side for sortKey");
 					return MappingState.EXISTSDIFFERENT;
 				}else{
-					Map<String, Object> property = (Map<String, Object>) properties.get(ESIndexFacadeUtilities.sortKey);
-					if (property == null){
-						logger.debug(" no mapping found ES side for sortKey");
-						return MappingState.EXISTSDIFFERENT;
-					}else{
-						if ( !property.get("type").equals("string") 
+					if ( !property.get("type").equals("string") 
 							|| !"not_analyzed".equals(property.get("index"))
 							|| property.get("doc_values")== null
 							|| !property.get("doc_values").equals(true) )	{
@@ -388,11 +402,8 @@ public class ESIndexFacade implements IESIndexFacade {
 				}		
 			}
 		
-		}
-		if (mapping.keySet().size() != properties.keySet().size()) {
-			logger.debug("a different set of properties");
-			return MappingState.EXISTSDIFFERENT;
-		} else {
+
+	
 			for (String fieldName : mapping.keySet()) {
 
 				ESMapping map = mapping.get(fieldName);
@@ -420,6 +431,7 @@ public class ESIndexFacade implements IESIndexFacade {
 						return MappingState.EXISTSDIFFERENT;
 					}
 
+					if (map.getType().equals(ESMapping.ESTypeMapping.STRING)){
 					Map<String, Object> fields = (Map<String, Object>) property.get("fields");
 
 					if (fields == null || fields.keySet().size() != 1
@@ -437,6 +449,7 @@ public class ESIndexFacade implements IESIndexFacade {
 							&& (naField.get("doc_values") == null || !naField.get("doc_values").equals(true))) {
 						logger.debug("wrong id field");
 						return MappingState.EXISTSDIFFERENT;
+					}
 					}
 
 				} else if (map.index == ESIndexMapping.NOT_ANALYZED) {
@@ -485,7 +498,7 @@ public class ESIndexFacade implements IESIndexFacade {
 					}
 				}
 			}
-		}
+		
 		return MappingState.EXISTSEQUAL;
 	}
 
@@ -643,7 +656,7 @@ public class ESIndexFacade implements IESIndexFacade {
 			srb.setFrom(from);
 			srb.setSize(nbRes);
 			srb.addSort(SortBuilders.fieldSort(ESIndexFacadeUtilities.getSortingFieldName(sortingFieldName, mappings)));
-			// logger.info(srb.toString());
+		//	 logger.info(srb.toString());
 			SearchResponse resp = srb.execute().actionGet();
 
 			ArrayList<Map<String, Object>> res = new ArrayList<Map<String, Object>>();
@@ -691,7 +704,8 @@ public class ESIndexFacade implements IESIndexFacade {
 					for (String token : tokens) {
 						boolean okOneToken = false;
 						for (String key : row.keySet()) {
-
+							if (key.equals(ESIndexFacadeUtilities.sortKey))
+								continue;
 							if (mappings.get(key).type == ESTypeMapping.STRING) {
 								String val = (String) row.get(key);
 								if (val.toLowerCase().contains(token.toLowerCase())) {
