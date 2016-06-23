@@ -746,11 +746,14 @@ public class ESIndexFacade implements IESIndexFacade {
 			String[] tokens, int from, int nbResults, HashMap<String, ESMapping> mappings)
 					throws ESIndexFacadeException {
 
+		
+		boolean useSortKey  = false;
 		BoolQueryBuilder andQuery = QueryBuilders.boolQuery();
 		if (tokens.length == 1) {
 			String filter = tokens[0];
 			if (filter.length() == 1) {
 				andQuery = ESIndexFacadeUtilities.matchOnSubstringAnyField(filter, mappings, true);
+				useSortKey = true;
 			} else {
 				andQuery = ESIndexFacadeUtilities.matchOnSubstringAnyField(filter, mappings, false);
 			}
@@ -764,6 +767,9 @@ public class ESIndexFacade implements IESIndexFacade {
 
 		// apply the search to the right index on the dimensionType
 		SearchRequestBuilder srb = client.prepareSearch(domainName).setTypes(dimensionName).setQuery(andQuery);
+		if (useSortKey){
+			srb.addSort(SortBuilders.fieldSort(ESIndexFacadeUtilities.sortKey)) ;
+		}
 		srb.setSize(nbResults);
 		srb.setFrom(from);
 
