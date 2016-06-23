@@ -364,20 +364,15 @@ public class ESIndexFacade implements IESIndexFacade {
 		logger.debug("current mappings : " + properties.toString());
 
 		
-		if(idFieldName !=null
-			&& mapping.get(idFieldName) !=null
-			&& mapping.get(idFieldName).getType().equals("string")
-			&& mapping.keySet().size() +1 != properties.keySet().size() ) {
+		logger.debug(mapping.toString());
+		
+		int sk =  (idFieldName !=null) &&(mapping.get(idFieldName) !=null)&&  ( mapping.get(idFieldName).getType().equals("string"))?1:0;
+			
+		if (mapping.keySet().size() +sk != properties.keySet().size()) {
 			logger.debug("a different set of properties");
 			return MappingState.EXISTSDIFFERENT;
-		}
-		else
-			{
-			if (mapping.keySet().size() != properties.keySet().size()) {
-				logger.debug("a different set of properties");
-				return MappingState.EXISTSDIFFERENT;
-			} 
-		}
+		} 
+
 		
 		
 		
@@ -655,7 +650,7 @@ public class ESIndexFacade implements IESIndexFacade {
 			SearchRequestBuilder srb = client.prepareSearch(domainName).setTypes(dimensionName).setQuery(query);
 			srb.setFrom(from);
 			srb.setSize(nbRes);
-			srb.addSort(SortBuilders.fieldSort(ESIndexFacadeUtilities.getSortingFieldName(sortingFieldName, mappings)));
+			srb.addSort(SortBuilders.fieldSort(ESIndexFacadeUtilities.getSortingFieldName(sortingFieldName, mappings, false)));
 		//	 logger.info(srb.toString());
 			SearchResponse resp = srb.execute().actionGet();
 
@@ -951,7 +946,7 @@ public class ESIndexFacade implements IESIndexFacade {
 		srb.setSize(nbResults);
 		srb.setFrom(from);
 
-		String sortingFieldName = ESIndexFacadeUtilities.getSortingFieldName(resultType, mappings);
+		String sortingFieldName = ESIndexFacadeUtilities.getSortingFieldName(resultType, mappings, true);
 
 		srb.addSort(SortBuilders.fieldSort(sortingFieldName));
 		SearchResponse resp = srb.execute().actionGet();
@@ -1110,7 +1105,7 @@ public class ESIndexFacade implements IESIndexFacade {
 		SearchRequestBuilder srb = client.prepareSearch(domainName).setTypes(dimensionName).setQuery(orBoolQuery);
 		srb.setSize(nbResults);
 		srb.setFrom(from);
-		srb.addSort(SortBuilders.fieldSort(ESIndexFacadeUtilities.getSortingFieldName(sortingFieldName, mappings)));
+		srb.addSort(SortBuilders.fieldSort(ESIndexFacadeUtilities.getSortingFieldName(sortingFieldName, mappings, true)));
 
 		SearchResponse resp = srb.execute().actionGet();
 
@@ -1128,7 +1123,7 @@ public class ESIndexFacade implements IESIndexFacade {
 		srb.setSize(nbResults);
 		srb.setFrom(from);
 
-		srb.addSort(SortBuilders.fieldSort(ESIndexFacadeUtilities.getSortingFieldName(sortingFieldName, mappings)));
+		srb.addSort(SortBuilders.fieldSort(ESIndexFacadeUtilities.getSortingFieldName(sortingFieldName, mappings, true)));
 
 		SearchResponse resp = srb.execute().actionGet();
 

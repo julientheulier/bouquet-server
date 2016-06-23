@@ -215,7 +215,7 @@ public class ESIndexFacadeUtilities {
 			ESMapping map = mappings.get(filteredType) ;
 			
 			if (map.index== ESIndexMapping.BOTH || map.index== ESIndexMapping.NOT_ANALYZED){
-				 TermFilterBuilder tf = FilterBuilders.termFilter(getSortingFieldName(filteredType, mappings), val);
+				 TermFilterBuilder tf = FilterBuilders.termFilter(getSortingFieldName(filteredType, mappings, true), val);
 				 query=  QueryBuilders.filteredQuery( QueryBuilders.matchAllQuery(), tf);				
 			}else{
 				query = QueryBuilders.matchQuery(filteredType, val);
@@ -243,11 +243,16 @@ public class ESIndexFacadeUtilities {
 		return res;	
 	}
 	
-	public static String getSortingFieldName(String resultType, HashMap<String, ESMapping> mappings){
+	public static String getSortingFieldName(String resultType, HashMap<String, ESMapping> mappings, boolean isCorrelation){
 		if ((mappings!=null) && (mappings.containsKey(resultType))){
 			ESMapping map = mappings.get(resultType) ;
 			if (map.index.equals(ESIndexMapping.BOTH) && map.type.equals(ESTypeMapping.STRING)){
-				return ESIndexFacadeUtilities.sortKey;
+				if (isCorrelation)
+					return resultType +not_analyzedSuffix;
+				else
+					return ESIndexFacadeUtilities.sortKey;
+
+				
 			}else{
 				return resultType;
 			}	
