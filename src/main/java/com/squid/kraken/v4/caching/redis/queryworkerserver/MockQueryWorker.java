@@ -24,7 +24,9 @@
 package com.squid.kraken.v4.caching.redis.queryworkerserver;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
+import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -71,8 +73,7 @@ public class MockQueryWorker implements IQueryWorkerServer {
 	}
 
 	@Override
-	public int fetch(String k, String SQLQuery, String jobId, String RSjdbcURL, String username, String pwd, int ttl,
-			long limit) {
+	public int fetch(QueryWorkerJobRequest request) {
 		RawMatrix res = new RawMatrix();
 		int id = -1;
 		synchronized (this) {
@@ -95,9 +96,9 @@ public class MockQueryWorker implements IQueryWorkerServer {
 		} catch (InterruptedException e) {
 			return -1;
 		}
-		boolean ok = redis.put(k, res);
-		if (ok && ttl > 0)
-			redis.setTTL(k, ttl);
+		boolean ok = redis.put(request.getKey(), res);
+		if (ok && request.getTTL() > 0)
+			redis.setTTL(request.getKey(), request.getTTL());
 		return id;
 	}
 
@@ -113,6 +114,23 @@ public class MockQueryWorker implements IQueryWorkerServer {
 
 	@Override
 	public boolean isQueryOngoing(String k) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+	
+	/* (non-Javadoc)
+	 * @see com.squid.kraken.v4.caching.redis.queryworkerserver.IQueryWorkerServer#getOngoingQueries()
+	 */
+	@Override
+	public List<QueryWorkerJobStatus> getOngoingQueries(String customerId) {
+		return Collections.emptyList();
+	}
+	
+	/* (non-Javadoc)
+	 * @see com.squid.kraken.v4.caching.redis.queryworkerserver.IQueryWorkerServer#cancelOngoingQuery(java.lang.String, java.lang.String)
+	 */
+	@Override
+	public boolean cancelOngoingQuery(String customerId, String key) {
 		// TODO Auto-generated method stub
 		return false;
 	}

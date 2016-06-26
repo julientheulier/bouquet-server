@@ -23,55 +23,44 @@
  *******************************************************************************/
 package com.squid.kraken.v4.caching.redis.queryworkerserver;
 
-import java.util.List;
+import com.squid.kraken.v4.core.database.impl.ExecuteQueryTask;
 
-import javax.ws.rs.GET;
-import javax.ws.rs.Path;
-import javax.ws.rs.QueryParam;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-public class QueryWorkerRestService {
-
-	private IQueryWorkerServer serv;
-
-	static final Logger logger = LoggerFactory.getLogger(QueryWorkerRestService.class);
-
-	public QueryWorkerRestService(IQueryWorkerServer s) {
-		logger.info(" new Query Worker Rest");
-		this.serv = s;
-	}
-
-	@GET
-	@Path("/fetch")
-	public int fetch(@QueryParam("request") QueryWorkerJobRequest request) throws InterruptedException {
-		return this.serv.fetch(request);
-	}
-
-	@GET
-	@Path("/hello")
-	public String hello() {
-		return serv.hello();
-	}
-
-	@GET
-	@Path("/load")
-	public int getLoad() {
-		return this.serv.getLoad();
-	}
-
-	@GET
-	@Path("/ongoing")
-	public boolean fetch(@QueryParam("key") String key, @QueryParam("sqlquery") String SQLQuery)
-			throws InterruptedException {
-		return this.serv.isQueryOngoing(key);
+/**
+ * A simple wrapper to keep track of the job
+ * @author sergefantino
+ *
+ */
+public class QueryWorkerJob {
+	
+	private QueryWorkerJobRequest request;
+	private ExecuteQueryTask job;
+	
+	private long start;
+	
+	public QueryWorkerJob(QueryWorkerJobRequest request, ExecuteQueryTask job) {
+		super();
+		this.request = request;
+		this.job = job;
+		this.start = System.currentTimeMillis();
 	}
 	
-	@GET
-	@Path("/queries")
-	public List<QueryWorkerJobStatus> queries(@QueryParam("customerId") String customerId) {
-		return this.serv.getOngoingQueries(customerId);
+	public QueryWorkerJobStatus getStatus() {
+		long elapse = System.currentTimeMillis() - start;
+		return new QueryWorkerJobStatus(
+				request.getUserID(), 
+				request.getProjectPK(), 
+				request.getKey(), 
+				job.getID(), 
+				request.getSQLQuery(),
+				start,
+				elapse);
+	}
+
+	/**
+	 * @return
+	 */
+	public void cancel() {
+		job.cancel();
 	}
 
 }
