@@ -59,7 +59,7 @@ public class NativeRollupStrategy extends BaseRollupStrategy {
 	@Override
 	public SQLScript generateScript() throws SQLScopeException {
 		try {
-			OperatorDefinition grouping_id = OperatorScope.getDefault().lookupByExtendedID(GroupingIDOperatorDefinition.ID);
+			OperatorDefinition grouping_id = OperatorScope.getDefault().lookupByID(GroupingIDOperatorDefinition.ID);
 			OperatorDefinition grouping = OperatorScope.getDefault().lookupByExtendedID(GroupingOperatorDefinition.ID);	   
 			if (grouping_id==null) {
 				throw new RenderingException("undefined function GROUPING_ID");
