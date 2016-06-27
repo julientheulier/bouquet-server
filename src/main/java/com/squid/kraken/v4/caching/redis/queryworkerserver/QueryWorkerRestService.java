@@ -23,6 +23,8 @@
  *******************************************************************************/
 package com.squid.kraken.v4.caching.redis.queryworkerserver;
 
+import java.util.List;
+
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.QueryParam;
@@ -43,11 +45,8 @@ public class QueryWorkerRestService {
 
 	@GET
 	@Path("/fetch")
-	public int fetch(@QueryParam("key") String key, @QueryParam("sqlquery") String SQLQuery,
-			@QueryParam("jobid") String jobId, @QueryParam("jdbc") String RSjdbcURL,
-			@QueryParam("user") String username, @QueryParam("pwd") String pwd, @QueryParam("ttl") int ttl,
-			@QueryParam("limit") long limit) throws InterruptedException {
-		return this.serv.fetch(key, SQLQuery, jobId, RSjdbcURL, username, pwd, ttl, limit);
+	public int fetch(@QueryParam("request") QueryWorkerJobRequest request) throws InterruptedException {
+		return this.serv.fetch(request);
 	}
 
 	@GET
@@ -67,6 +66,12 @@ public class QueryWorkerRestService {
 	public boolean fetch(@QueryParam("key") String key, @QueryParam("sqlquery") String SQLQuery)
 			throws InterruptedException {
 		return this.serv.isQueryOngoing(key);
+	}
+	
+	@GET
+	@Path("/queries")
+	public List<QueryWorkerJobStatus> queries(@QueryParam("customerId") String customerId) {
+		return this.serv.getOngoingQueries(customerId);
 	}
 
 }

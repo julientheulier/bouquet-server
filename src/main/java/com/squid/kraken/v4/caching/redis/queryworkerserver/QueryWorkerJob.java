@@ -21,42 +21,46 @@
  * you and Squid Solutions (above licenses and LICENSE.txt included).
  * See http://www.squidsolutions.com/EnterpriseBouquet/
  *******************************************************************************/
-package com.squid.kraken.v4.model;
+package com.squid.kraken.v4.caching.redis.queryworkerserver;
 
-@SuppressWarnings("serial")
-public class MetricExt extends Metric {
-	
-	private String definition;
-	
-	private boolean visible;
+import com.squid.kraken.v4.core.database.impl.ExecuteQueryTask;
 
-	public MetricExt(Metric metric, String definition, boolean visible) {
-		super(metric.getId());
-		setAccessRights(metric.getAccessRights());
-		setDynamic(metric.isDynamic());
-		setExpression(metric.getExpression());
-		setName(metric.getName());
-		setDescription(metric.getDescription());
-		setObjectType(metric.getObjectType());
-		setUserRole(metric.getUserRole());
-		this.definition = definition;
-		this.visible = visible;
+/**
+ * A simple wrapper to keep track of the job
+ * @author sergefantino
+ *
+ */
+public class QueryWorkerJob {
+	
+	private QueryWorkerJobRequest request;
+	private ExecuteQueryTask job;
+	
+	private long start;
+	
+	public QueryWorkerJob(QueryWorkerJobRequest request, ExecuteQueryTask job) {
+		super();
+		this.request = request;
+		this.job = job;
+		this.start = System.currentTimeMillis();
 	}
 	
+	public QueryWorkerJobStatus getStatus() {
+		long elapse = System.currentTimeMillis() - start;
+		return new QueryWorkerJobStatus(
+				request.getUserID(), 
+				request.getProjectPK(), 
+				request.getKey(), 
+				job.getID(), 
+				request.getSQLQuery(),
+				start,
+				elapse);
+	}
+
 	/**
-	 * this is a formula that the application can use to safely reference the metric
 	 * @return
 	 */
-	public String getDefinition() {
-		return definition;
+	public void cancel() {
+		job.cancel();
 	}
-	
-	/**
-	 * check if the metric is visible for selection
-	 * @return
-	 */
-	public boolean isVisible() {
-		return visible;
-	}
-	
+
 }

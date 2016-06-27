@@ -170,6 +170,14 @@ public class CustomerServiceRest {
 		return new BookmarkFolderServiceRest(userContext);
 	}
 
+	
+	@Path("/queries")
+	@ApiOperation(value = "Gets ongoing queries")
+	public QueriesServiceRest getQueriesService(
+			@Context HttpServletRequest request) {
+		AppContext userContext = getUserContext(request);
+		return new QueriesServiceRest(userContext);
+	}
 
 	@Path("/internalanalysisjobs")
 	@ApiOperation(value = "Gets internal analysis jobs")

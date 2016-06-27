@@ -23,6 +23,10 @@
  *******************************************************************************/
 package com.squid.kraken.v4.caching.redis.queryworkerserver;
 
+import java.util.List;
+
+import javax.ws.rs.core.GenericType;
+
 import org.apache.cxf.jaxrs.client.WebClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,28 +51,20 @@ public class MockQueryWorkerStub implements IQueryWorkerServer {
 	}
 
 	@Override
-	public int fetch(String k, String SQLQuery, String jobId, String RSjdbcURL, String username, String pwd, int ttl,
-			long limit) {
+	public int fetch(QueryWorkerJobRequest request) {
 		if (logger.isDebugEnabled()) {
-			logger.debug((k));
+			logger.debug((request.getKey()));
 		}
 		if (logger.isDebugEnabled()) {
-			logger.debug((SQLQuery));
+			logger.debug((request.getSQLQuery()));
 		}
-
 		WebClient client = WebClient.create(baseURL);
 		client.path("fetch");
-		client.query("sqlquery", SQLQuery);
-		client.query("jobid", jobId);
-		client.query("key", k);
-		client.query("jdbc", RSjdbcURL);
-		client.query("pwd", pwd);
-		client.query("ttl", ttl);
-		client.query("limit", limit);
-
+		client.query("request", request);
 		int res = client.get(Integer.class);
 		return res;
 	}
+
 
 	@Override
 	public void start() {
@@ -96,6 +92,29 @@ public class MockQueryWorkerStub implements IQueryWorkerServer {
 		WebClient client = WebClient.create(baseURL);
 		client.path("ongoing");
 		client.query("key", k);
+		boolean res = client.get(Boolean.class);
+		return res;
+	}
+	
+	@Override
+	public List<QueryWorkerJobStatus> getOngoingQueries(String customerId) {
+		WebClient client = WebClient.create(baseURL);
+		client.path("queries");
+		client.query("customerId", customerId);
+		GenericType<List<QueryWorkerJobStatus>> type = new GenericType<List<QueryWorkerJobStatus>>() {};
+		List<QueryWorkerJobStatus> res = client.get(type);
+		return res;
+	}
+	
+	/* (non-Javadoc)
+	 * @see com.squid.kraken.v4.caching.redis.queryworkerserver.IQueryWorkerServer#cancelOngoingQuery(java.lang.String, java.lang.String)
+	 */
+	@Override
+	public boolean cancelOngoingQuery(String customerId, String key) {
+		WebClient client = WebClient.create(baseURL);
+		client.path("cancel");
+		client.query("customerId",  customerId);
+		client.query("key",  key);
 		boolean res = client.get(Boolean.class);
 		return res;
 	}

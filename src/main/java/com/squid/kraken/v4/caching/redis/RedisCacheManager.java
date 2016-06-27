@@ -42,6 +42,8 @@ import com.squid.kraken.v4.caching.redis.generationalkeysserver.IGenerationalKey
 import com.squid.kraken.v4.caching.redis.generationalkeysserver.RedisKey;
 import com.squid.kraken.v4.caching.redis.queriesserver.IQueriesServer;
 import com.squid.kraken.v4.caching.redis.queriesserver.QueriesServerFactory;
+import com.squid.kraken.v4.caching.redis.queryworkerserver.QueryWorkerJobRequest;
+import com.squid.kraken.v4.model.ProjectPK;
 
 public class RedisCacheManager implements IRedisCacheManager {
 
@@ -93,7 +95,8 @@ public class RedisCacheManager implements IRedisCacheManager {
 
 	}
 
-	public RawMatrix getData(String SQLQuery, List<String> dependencies, String jobId, String RSjdbcURL,
+	@Override
+	public RawMatrix getData(String userID, ProjectPK projectPK, String SQLQuery, List<String> dependencies, String jobId, String RSjdbcURL,
 			String username, String pwd, int TTLinSec, long limit) throws InterruptedException {
 		// generate the key by adding projectID and SQL
 		String k = buildCacheKey(SQLQuery, dependencies);
@@ -103,7 +106,7 @@ public class RedisCacheManager implements IRedisCacheManager {
 			logger.debug("cache hit for key = " + k);
 			res.setFromCache(true);
 		} else {
-			int queryNum = this.fetch(k, SQLQuery, jobId, RSjdbcURL, username, pwd, TTLinSec, limit);
+			int queryNum = this.fetch(userID, projectPK, k, SQLQuery, jobId, RSjdbcURL, username, pwd, TTLinSec, limit);
 			if (queryNum == -1) {
 				logger.info(
 						"failed to fetch result for job :" + jobId + "\nSQLQuery:\n " + SQLQuery + "\nfetch failed");
@@ -147,7 +150,8 @@ public class RedisCacheManager implements IRedisCacheManager {
 		}
 	}
 
-	public RedisCacheValue getRedisCacheValue(String SQLQuery, List<String> dependencies, String jobId,
+	@Override
+	public RedisCacheValue getRedisCacheValue(String userID, ProjectPK projectPK, String SQLQuery, List<String> dependencies, String jobId,
 			String RSjdbcURL, String username, String pwd, int TTLinSec, long limit) throws InterruptedException {
 		String k = buildCacheKey(SQLQuery, dependencies);
 		RedisCacheValue val = this.redis.getRawOrList(k);
@@ -164,7 +168,7 @@ public class RedisCacheManager implements IRedisCacheManager {
 				return val;
 			}
 		}
-		int queryId = this.fetch(k, SQLQuery, jobId, RSjdbcURL, username, pwd, TTLinSec, limit);
+		int queryId = this.fetch(userID, projectPK, k, SQLQuery, jobId, RSjdbcURL, username, pwd, TTLinSec, limit);
 		if (queryId == -1) {
 			logger.info("failed to fetch result for job :" + jobId + "\nSQLQuery:\n " + SQLQuery + "\nfetch failed");
 			return null;
@@ -304,14 +308,20 @@ public class RedisCacheManager implements IRedisCacheManager {
 		return this.redis.inCache(key);
 	}
 
-	private int fetch(String k, String SQLQuery, String jobId, String RSjdbcURL, String username, String pwd, int ttl,
+	private int fetch(String userID, ProjectPK projectPK, String k, String SQLQuery, String jobId, String RSjdbcURL, String username, String pwd, int ttl,
 			long limit) throws InterruptedException {
-		return this.queriesServ.fetch(k, SQLQuery, jobId, RSjdbcURL, username, pwd, ttl, limit);
+		QueryWorkerJobRequest request = new QueryWorkerJobRequest(userID, projectPK, k, SQLQuery, jobId, RSjdbcURL, username, pwd, ttl, limit);
+		return this.queriesServ.fetch(request);
 	}
 
 	public RawMatrix getRawMatrix(String k) {
 		RawMatrix r = this.redis.getRawMatrix(k);
 		return r;
+	}
+	
+	@Override
+	public IQueriesServer getQueryServer() {
+		return queriesServ;
 	}
 
 }

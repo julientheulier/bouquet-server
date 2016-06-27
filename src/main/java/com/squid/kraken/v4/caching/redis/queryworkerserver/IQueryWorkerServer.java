@@ -23,10 +23,11 @@
  *******************************************************************************/
 package com.squid.kraken.v4.caching.redis.queryworkerserver;
 
-public interface IQueryWorkerServer {
+import java.util.List;
 
-	public int fetch(String k, String SQLQuery, String jobId, String RSjdbcURL, String username, String pwd, int TTL,
-			long limit);
+public interface IQueryWorkerServer {
+	
+	public int fetch(QueryWorkerJobRequest request);
 
 	public void start();
 
@@ -35,4 +36,16 @@ public interface IQueryWorkerServer {
 	public String hello();
 
 	public boolean isQueryOngoing(String k);
+
+	/**
+	 * return the list of ongoing queries for this worker
+	 * @return
+	 */
+	List<QueryWorkerJobStatus> getOngoingQueries(String customerId);
+
+	/**
+	 * @param key
+	 * @return
+	 */
+	boolean cancelOngoingQuery(String customerId, String key);
 }

@@ -25,6 +25,7 @@ package com.squid.kraken.v4.caching.redis.queriesserver;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -37,7 +38,9 @@ import com.squid.kraken.v4.caching.redis.RedisCacheConfig;
 import com.squid.kraken.v4.caching.redis.RedisCacheException;
 import com.squid.kraken.v4.caching.redis.ServerID;
 import com.squid.kraken.v4.caching.redis.queryworkerserver.IQueryWorkerServer;
+import com.squid.kraken.v4.caching.redis.queryworkerserver.QueryWorkerJobStatus;
 import com.squid.kraken.v4.caching.redis.queryworkerserver.QueryWorkerFactory;
+import com.squid.kraken.v4.caching.redis.queryworkerserver.QueryWorkerJobRequest;
 
 public class QueriesServer implements IQueriesServer {
 
@@ -126,10 +129,9 @@ public class QueriesServer implements IQueriesServer {
 	}
 
 	@Override
-	public int fetch(String key, String SQLQuery, String jobId, String RSjdbcURL, String username, String pwd, int ttl,
-			long limit) {
+	public int fetch(QueryWorkerJobRequest request) {
 		if (logger.isDebugEnabled()) {
-			logger.debug(("fetching job " + jobId));
+			logger.debug(("fetching job " + request.getJobId()));
 		}
 		Future<Integer> processingQuery;
 		boolean isFirst = false;
@@ -139,7 +141,7 @@ public class QueriesServer implements IQueriesServer {
 		if (this.debug)
 			executorKey = "debug";
 		else
-			executorKey = RSjdbcURL;
+			executorKey = request.getJdbcURL();
 
 		synchronized (this.executors) {
 			executor = this.executors.get(executorKey);
@@ -150,19 +152,18 @@ public class QueriesServer implements IQueriesServer {
 		}
 
 		synchronized (this.ongoingQueries) {
-			processingQuery = this.ongoingQueries.get(key);
+			processingQuery = this.ongoingQueries.get(request.getKey());
 			if (processingQuery == null) {
 				if (logger.isDebugEnabled()) {
-					logger.debug(("new query " + SQLQuery));
+					logger.debug(("new query " + request.getSQLQuery()));
 				}
 				isFirst = true;
-				CallableFetch cf = new CallableFetch(key, SQLQuery, jobId, this.getNextWorker(), RSjdbcURL, username,
-						pwd, ttl, limit);
+				CallableFetch cf = new CallableFetch(request, this.getNextWorker());
 				processingQuery = (Future<Integer>) executor.submit(cf);
-				this.ongoingQueries.put(key, processingQuery);
+				this.ongoingQueries.put(request.getKey(), processingQuery);
 			} else {
 				if (logger.isDebugEnabled()) {
-					logger.debug(("ongoing query " + SQLQuery));
+					logger.debug(("ongoing query " + request.getSQLQuery()));
 				}
 			}
 		}
@@ -175,18 +176,13 @@ public class QueriesServer implements IQueriesServer {
 			if (e.getCause() != null && e.getCause() instanceof RedisCacheException) {
 				throw (RedisCacheException) e.getCause();
 			} else {
-				throw new RedisCacheException(e.getLocalizedMessage());// don't
-																		// really
-																		// need
-																		// the
-																		// stack
-																		// trace
-																		// here
+				// do't really need the stack trace here
+				throw new RedisCacheException(e.getLocalizedMessage());
 			}
 		} finally {
 			if (isFirst || failed) {
 				synchronized (this.ongoingQueries) {
-					this.ongoingQueries.remove(key);
+					this.ongoingQueries.remove(request.getKey());
 				}
 			}
 		}
@@ -200,6 +196,26 @@ public class QueriesServer implements IQueriesServer {
 				return true;
 			}
 		}
+		return false;
+	}
+
+	@Override
+	public List<QueryWorkerJobStatus> getOngoingQueries(String customerId) {
+		ArrayList<QueryWorkerJobStatus> queries = new ArrayList<>();
+		for (IQueryWorkerServer worker : this.workers) {
+			queries.addAll(worker.getOngoingQueries(customerId));
+		}
+		return queries;
+	}
+	
+	@Override
+	public boolean cancelOngoingQuery(String customerId, String key) {
+		for (IQueryWorkerServer worker : this.workers) {
+			if (worker.cancelOngoingQuery(customerId, key)) {
+				return true;
+			}
+		}
+		// else
 		return false;
 	}
 

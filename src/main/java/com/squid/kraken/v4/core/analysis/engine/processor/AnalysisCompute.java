@@ -144,8 +144,7 @@ public class AnalysisCompute {
 		if (groups.isEmpty()) {
 			SimpleQuery query = this.genSimpleQuery(analysis);
 			PreviewWriter qw = new PreviewWriter();
-
-			QueryRunner runner = new QueryRunner(query, analysis.isLazy(), qw, analysis.getJobId());
+			QueryRunner runner = new QueryRunner(universe.getContext(), query, analysis.isLazy(), qw, analysis.getJobId());
 			runner.run();
 			
 			DataMatrix dm = qw.getDataMatrix();
@@ -482,7 +481,7 @@ public class AnalysisCompute {
 
 			PreviewWriter qw = new PreviewWriter();
 
-			QueryRunner runner = new QueryRunner(query, analysis.isLazy(), qw, analysis.getJobId());
+			QueryRunner runner = new QueryRunner(universe.getContext(), query, analysis.isLazy(), qw, analysis.getJobId());
 			runner.run();
 
 			DataMatrix dm = qw.getDataMatrix();
@@ -565,7 +564,7 @@ public class AnalysisCompute {
 					e.printStackTrace();
 				}
 
-				QueryRunner runner = new QueryRunner(query, lazy, writer, analysis.getJobId());
+				QueryRunner runner = new QueryRunner(universe.getContext(), query, lazy, writer, analysis.getJobId());
 				runner.run();
 				
 			} else {
@@ -580,7 +579,7 @@ public class AnalysisCompute {
 				//
 				SimpleQuery query = genAnalysisQueryWithSoftFiltering(analysis, group, false, false, null, null);
 				//
-				QueryRunner runner = new QueryRunner(query, lazy, writer, analysis.getJobId());
+				QueryRunner runner = new QueryRunner(universe.getContext(), query, lazy, writer, analysis.getJobId());
 				runner.run();
 
 			}
