@@ -49,151 +49,182 @@ import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionMember;
 
 public class ESIndexFacadeUtilities {
 
-	
 	static final Logger logger = LoggerFactory.getLogger(ESIndexFacadeUtilities.class);
 
 	public static final String not_analyzed = "not_analyzed";
-	public static final String not_analyzedSuffix = "."+ not_analyzed;
+	public static final String not_analyzedSuffix = "." + not_analyzed;
 
 	public static final String sortKey = "sortKey";
-	
-	
-	
-//	private static final String[] specialChar = {"+", "-", "=", "&&", "||", ">", "<", "!", 
-	//	"(",  ")", "{", "}", "[", "]", "^", "\"",  "~",  "*", "?", ":", "\\", "/" };
+
+	// private static final String[] specialChar = {"+", "-", "=", "&&", "||",
+	// ">", "<", "!",
+	// "(", ")", "{", "}", "[", "]", "^", "\"", "~", "*", "?", ":", "\\", "/" };
 	// char \ has to be processed first
-	private static final String[] specialChar = {"+", "-", "=", "&&", "||", ">", "<", "!", 
-		"(",  ")", "{", "}", "[", "]", "^", "\"",  "~",  "*", "?", ":", "/" };
-	
-	public enum InequalityRelation{
+	private static final String[] specialChar = { "+", "-", "=", "&&", "||", ">", "<", "!", "(", ")", "{", "}", "[",
+			"]", "^", "\"", "~", "*", "?", ":", "/" };
+
+	public enum InequalityRelation {
 		LESS, LESSEQUAL, GREATER, GREATEREQUAL
 	}
 
-	public static HashMap<String, Object> buildSourceIDs(List<String> types,
-			List<DimensionMember> ids, HashMap<String, ESMapping> mappings) {
+	public static HashMap<String, Object> buildSourceIDs(List<String> types, List<DimensionMember> ids,
+			HashMap<String, ESMapping> mappings) {
 		HashMap<String, Object> source = new HashMap<String, Object>();
 
 		for (int i = 0; i < types.size(); i++) {
-		    DimensionMember id = ids.get(i);
-			if (id!=null){ 
+			DimensionMember id = ids.get(i);
+			if (id != null) {
 				source.put(types.get(i), id.getID());
 			}
 		}
-		return source; 
+		return source;
 	}
 
-	
-	public static String escapeQueryStringQuery(String toEscape){
-		String res =toEscape ; 
-		res= res.replace("\\", "\\\\");
-		for (String s : specialChar){
-			res = res.replace(s, "\\"+s);
+	public static String escapeQueryStringQuery(String toEscape) {
+		String res = toEscape;
+		res = res.replace("\\", "\\\\");
+		for (String s : specialChar) {
+			res = res.replace(s, "\\" + s);
 		}
 		return res;
 	}
-	
-	public static IdsQueryBuilder getIdsQuery(String  dimensionName, Collection<String> ids){
+
+	public static IdsQueryBuilder getIdsQuery(String dimensionName, Collection<String> ids) {
 		IdsQueryBuilder idsQuery = QueryBuilders.idsQuery(dimensionName);
 		for (String id : ids) {
 			idsQuery.addIds(id);
 		}
 		return idsQuery;
 	}
-	
-	public static BoolQueryBuilder queryStringOnSubstringAnyField( String substring,HashMap<String, ESMapping> mappings)
-	{
-		BoolQueryBuilder orQuery  = QueryBuilders.boolQuery();
+
+	public static BoolQueryBuilder queryStringOnSubstringAnyField(String substring,
+			HashMap<String, ESMapping> mappings) {
+		BoolQueryBuilder orQuery = QueryBuilders.boolQuery();
 		orQuery.minimumNumberShouldMatch(1);
-		for(String fieldname : mappings.keySet()){
+		for (String fieldname : mappings.keySet()) {
 			QueryBuilder query = queryStringOnSubstringOneField(substring, fieldname, mappings);
 			if (query != null)
-			orQuery.should(query);
+				orQuery.should(query);
 		}
-		return orQuery ;
-	}
-	
-	public static QueryBuilder queryStringOnSubstringOneField( String substring, String fieldname, HashMap<String, ESMapping> mappings)
-	{
-		ESMapping map = mappings.get(fieldname) ;
-		if (map.type == ESTypeMapping.STRING){
-				String filterVal = escapeQueryStringQuery(substring);
-			 	QueryStringQueryBuilder a = QueryBuilders.queryString("*"+filterVal+"*")  ;
-			 	a.analyzeWildcard(true);
-			 	a.field(fieldname);// do not use not_analyzedSuffix because it is case-sensitive
-			 	a.allowLeadingWildcard(true);
-			return a;			
-		}else
-			return null;
-	}
-	
-	public static QueryBuilder filterOnFirstCharOneField( String prefix ,String fieldname,  HashMap<String, ESMapping> mappings){
-		
-		ESMapping map = mappings.get(fieldname) ;
-		if (map.type == ESTypeMapping.STRING){		
-			PrefixFilterBuilder prefixFilter = FilterBuilders.prefixFilter(fieldname +not_analyzedSuffix, prefix) ;
-			QueryBuilder q = QueryBuilders.constantScoreQuery(prefixFilter);			
-			return q;			
-		}else
-			return null;		
-	}
-	
-	
-	public static BoolQueryBuilder matchOnSubstringAnyField( String substring,HashMap<String, ESMapping> mappings, boolean firstChar)
-	{
-		BoolQueryBuilder orQuery  = QueryBuilders.boolQuery();
-		orQuery.minimumNumberShouldMatch(1);
-		for(String fieldname : mappings.keySet()){
-			QueryBuilder query ;
-			if (firstChar){
-				if (mappings.get(fieldname).type == ESTypeMapping.STRING){	
-					BoolQueryBuilder firstCharQuery = QueryBuilders.boolQuery();
-					firstCharQuery.minimumNumberShouldMatch(1);
-					firstCharQuery.should(filterOnFirstCharOneField(substring.toLowerCase(), fieldname, mappings)); 
-					firstCharQuery.should(filterOnFirstCharOneField(substring.toUpperCase(), fieldname, mappings)); 
-					query = firstCharQuery; 
-				}else{
-					query = null;
-				}
-			}
-			else{
-				query= matchOnSubstringOneField(substring, fieldname, mappings);
-			}
-			if (query != null)
-			orQuery.should(query);
-		}
-		return orQuery ;
+		return orQuery;
 	}
 
-	public static QueryBuilder matchOnSubstringOneField(String substring, String fieldname, HashMap<String, ESMapping> mappings){
-		ESMapping map = mappings.get(fieldname) ;
-		if (map.type == ESTypeMapping.STRING){
-			 	QueryBuilder a  = QueryBuilders.matchQuery(fieldname , substring); 
-			return a;			
-		}else
+	public static QueryBuilder queryStringOnSubstringOneField(String substring, String fieldname,
+			HashMap<String, ESMapping> mappings) {
+		ESMapping map = mappings.get(fieldname);
+		if (map.type == ESTypeMapping.STRING) {
+			String filterVal = escapeQueryStringQuery(substring);
+			QueryStringQueryBuilder a = QueryBuilders.queryString("*" + filterVal + "*");
+			a.analyzeWildcard(true);
+			a.field(fieldname);// do not use not_analyzedSuffix because it is
+								// case-sensitive
+			a.allowLeadingWildcard(true);
+			return a;
+		} else
 			return null;
-		
 	}
-	
-	
-	public static BoolQueryBuilder combineMatchQuerySubstringAnyField(String substring,HashMap<String, ESMapping> mappings){
-		
-		BoolQueryBuilder orQuery  = QueryBuilders.boolQuery();
+
+	public static QueryBuilder filterOnFirstCharOneField(String prefix, String fieldname,
+			HashMap<String, ESMapping> mappings) {
+
+		ESMapping map = mappings.get(fieldname);
+		if (map.type == ESTypeMapping.STRING) {
+			PrefixFilterBuilder prefixFilter = FilterBuilders.prefixFilter(fieldname + not_analyzedSuffix, prefix);
+			QueryBuilder q = QueryBuilders.constantScoreQuery(prefixFilter);
+			return q;
+		} else
+			return null;
+	}
+
+	public static QueryBuilder filterOnNumericField(String strNum, String fieldname,
+			HashMap<String, ESMapping> mappings) {
+
+		ESMapping map = mappings.get(fieldname);
+		if (map.type == ESTypeMapping.DOUBLE) {
+			double toDouble;
+			try {
+				toDouble = Double.parseDouble(strNum);
+			} catch (NumberFormatException e) {
+				return null;
+			}
+			TermFilterBuilder termFilter = FilterBuilders.termFilter(fieldname, toDouble);
+			QueryBuilder q = QueryBuilders.constantScoreQuery(termFilter);
+			return q;
+
+		} else {
+			if (map.type == ESTypeMapping.LONG) {
+				long toLong;
+				try {
+					toLong = Long.parseLong(strNum);
+				} catch (NumberFormatException e) {
+					return null;
+				}
+
+				TermFilterBuilder termFilter = FilterBuilders.termFilter(fieldname, toLong);
+				QueryBuilder q = QueryBuilders.constantScoreQuery(termFilter);
+				return q;
+
+			} else
+				return null;
+		}
+	}
+
+	public static BoolQueryBuilder matchOnSubstringAnyField(String substring, HashMap<String, ESMapping> mappings,
+			boolean firstChar) {
+		BoolQueryBuilder orQuery = QueryBuilders.boolQuery();
 		orQuery.minimumNumberShouldMatch(1);
-		for(String fieldname : mappings.keySet()){
+		for (String fieldname : mappings.keySet()) {
+			QueryBuilder query;
+			if (firstChar) {
+				if (mappings.get(fieldname).type == ESTypeMapping.STRING) {
+					BoolQueryBuilder firstCharQuery = QueryBuilders.boolQuery();
+					firstCharQuery.minimumNumberShouldMatch(1);
+					firstCharQuery.should(filterOnFirstCharOneField(substring.toLowerCase(), fieldname, mappings));
+					firstCharQuery.should(filterOnFirstCharOneField(substring.toUpperCase(), fieldname, mappings));
+					query = firstCharQuery;
+				} else {
+					query = null;
+				}
+			} else {
+				query = matchOnSubstringOneField(substring, fieldname, mappings);
+			}
+			if (query != null)
+				orQuery.should(query);
+		}
+		return orQuery;
+	}
+
+	public static QueryBuilder matchOnSubstringOneField(String substring, String fieldname,
+			HashMap<String, ESMapping> mappings) {
+		ESMapping map = mappings.get(fieldname);
+		if (map.type == ESTypeMapping.STRING) {
+			QueryBuilder a = QueryBuilders.matchQuery(fieldname, substring);
+			return a;
+		} else
+			return null;
+
+	}
+
+	public static BoolQueryBuilder combineMatchQuerySubstringAnyField(String substring,
+			HashMap<String, ESMapping> mappings) {
+
+		BoolQueryBuilder orQuery = QueryBuilders.boolQuery();
+		orQuery.minimumNumberShouldMatch(1);
+		for (String fieldname : mappings.keySet()) {
 			QueryBuilder queryMatch = matchOnSubstringOneField(substring, fieldname, mappings);
 			QueryBuilder queryString = queryStringOnSubstringOneField(substring, fieldname, mappings);
 
-			if ((queryMatch != null) && (queryString!=null)){
+			if ((queryMatch != null) && (queryString != null)) {
 				BoolQueryBuilder andQuery = QueryBuilders.boolQuery();
 				andQuery.must(queryMatch);
 				andQuery.must(queryString);
 				orQuery.should(andQuery);
 			}
 		}
-		return orQuery ;
-		
+		return orQuery;
+
 	}
-	
+
 	public static String prettyPrintHit(SearchHit[] hits) {
 
 		String res = "";
@@ -207,79 +238,84 @@ public class ESIndexFacadeUtilities {
 		return res;
 	}
 
+	public static QueryBuilder filterOnField(String filteredType, String val, HashMap<String, ESMapping> mappings) {
 
-	public static QueryBuilder filterOnField(String filteredType, String val, HashMap<String, ESMapping> mappings ){
-		
 		QueryBuilder query;
-		if ((mappings!=null) && (mappings.containsKey(filteredType))){
-			ESMapping map = mappings.get(filteredType) ;
-			
-			if (map.index== ESIndexMapping.BOTH || map.index== ESIndexMapping.NOT_ANALYZED){
-				 TermFilterBuilder tf = FilterBuilders.termFilter(getSortingFieldName(filteredType, mappings), val);
-				 query=  QueryBuilders.filteredQuery( QueryBuilders.matchAllQuery(), tf);				
-			}else{
+		if ((mappings != null) && (mappings.containsKey(filteredType))) {
+			ESMapping map = mappings.get(filteredType);
+
+			if (map.index == ESIndexMapping.BOTH || map.index == ESIndexMapping.NOT_ANALYZED) {
+				TermFilterBuilder tf = FilterBuilders.termFilter(getSortingFieldName(filteredType, mappings, true),
+						val);
+				query = QueryBuilders.filteredQuery(QueryBuilders.matchAllQuery(), tf);
+			} else {
 				query = QueryBuilders.matchQuery(filteredType, val);
-			}	
-		}else{
+			}
+		} else {
 			query = QueryBuilders.matchQuery(filteredType, val);
 		}
-		
+
 		return query;
 	}
 
-	public static QueryBuilder filterOnType(String dimensionName){
+	public static QueryBuilder filterOnType(String dimensionName) {
 		TypeFilterBuilder typeFilter = FilterBuilders.typeFilter(dimensionName);
-		QueryBuilder csqb = QueryBuilders.filteredQuery( QueryBuilders.matchAllQuery(), typeFilter);
+		QueryBuilder csqb = QueryBuilders.filteredQuery(QueryBuilders.matchAllQuery(), typeFilter);
 		return csqb;
 	}
 
-	
-	public static ArrayList<Map<String, Object>> getSourceFromHits(SearchHit[] hits){
+	public static ArrayList<Map<String, Object>> getSourceFromHits(SearchHit[] hits) {
 		ArrayList<Map<String, Object>> res = new ArrayList<Map<String, Object>>();
 		for (SearchHit hit : hits) {
 			res.add(hit.getSource());
-			if(logger.isDebugEnabled()){logger.debug((hit.getSourceAsString() + " " + hit.getScore()));}
+			if (logger.isDebugEnabled()) {
+				logger.debug((hit.getSourceAsString() + " " + hit.getScore()));
+			}
 		}
-		return res;	
+		return res;
 	}
-	
-	public static String getSortingFieldName(String resultType, HashMap<String, ESMapping> mappings){
-		if ((mappings!=null) && (mappings.containsKey(resultType))){
-			ESMapping map = mappings.get(resultType) ;
-			if (map.index.equals(ESIndexMapping.BOTH) && map.type.equals(ESTypeMapping.STRING)){
-				return ESIndexFacadeUtilities.sortKey;
-			}else{
+
+	public static String getSortingFieldName(String resultType, HashMap<String, ESMapping> mappings,
+			boolean isCorrelation) {
+		if ((mappings != null) && (mappings.containsKey(resultType))) {
+			ESMapping map = mappings.get(resultType);
+			if (map.index.equals(ESIndexMapping.BOTH) && map.type.equals(ESTypeMapping.STRING)) {
+				if (isCorrelation)
+					return resultType + not_analyzedSuffix;
+				else
+					return ESIndexFacadeUtilities.sortKey;
+
+			} else {
 				return resultType;
-			}	
-		}else{
+			}
+		} else {
 			return resultType;
 		}
 	}
-	
-	
-	public static QueryBuilder compareToThreshold(String fieldName, Object threshold, InequalityRelation binRel ){
-		RangeFilterBuilder  rfb = FilterBuilders.rangeFilter(fieldName);
-		switch(binRel){
-		case LESS :
+
+	public static QueryBuilder compareToThreshold(String fieldName, Object threshold, InequalityRelation binRel) {
+		RangeFilterBuilder rfb = FilterBuilders.rangeFilter(fieldName);
+		switch (binRel) {
+		case LESS:
 			rfb.lt(threshold);
 			break;
-		case LESSEQUAL :
+		case LESSEQUAL:
 			rfb.lte(threshold);
 			break;
 		case GREATER:
 			rfb.gt(threshold);
-			break;		
-		case GREATEREQUAL :
+			break;
+		case GREATEREQUAL:
 			rfb.gte(threshold);
 			break;
-		}		
-		return  QueryBuilders.constantScoreQuery(rfb);
+		}
+		return QueryBuilders.constantScoreQuery(rfb);
 	}
-	
-	public static QueryBuilder withinRange(String fieldName, Object lowerLimit, Object upperLimit){	
-		RangeFilterBuilder  rfb = FilterBuilders.rangeFilter(fieldName);
+
+	public static QueryBuilder withinRange(String fieldName, Object lowerLimit, Object upperLimit) {
+		RangeFilterBuilder rfb = FilterBuilders.rangeFilter(fieldName);
 		rfb.gte(lowerLimit);
 		rfb.lte(upperLimit);
-		return QueryBuilders.constantScoreQuery(rfb);		
+		return QueryBuilders.constantScoreQuery(rfb);
 	}
 }
