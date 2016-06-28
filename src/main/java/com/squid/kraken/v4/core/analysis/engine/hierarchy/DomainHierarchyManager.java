@@ -23,6 +23,8 @@
  *******************************************************************************/
 package com.squid.kraken.v4.core.analysis.engine.hierarchy;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.ReentrantLock;
@@ -32,6 +34,7 @@ import org.slf4j.LoggerFactory;
 
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.api.core.ServiceUtils;
+import com.squid.kraken.v4.caching.redis.queryworkerserver.QueryWorkerJobStatus;
 import com.squid.kraken.v4.core.analysis.engine.index.DimensionStoreManagerFactory;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
@@ -273,5 +276,20 @@ public class DomainHierarchyManager {
 			return null;
 		}
 	}
+	
+	public List<QueryWorkerJobStatus> getOngoingQueries(String customerId){
+		
+		ArrayList<QueryWorkerJobStatus> result= new ArrayList<QueryWorkerJobStatus>();
+		for(DomainHierarchy hierarchy : this.hierarchies.values()){
+			DomainHierarchyCompute compute = hierarchy.getCompute();
+			if (compute  != null){
+				
+				result.addAll(compute.getOngoingQueriesStatus(customerId));				
+			}			
+		}
+		return result ;
+		
+	};
+
 
 }

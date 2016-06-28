@@ -39,6 +39,7 @@ import com.squid.core.concurrent.CancellableCallable;
 import com.squid.core.concurrent.ExecutionManager;
 import com.squid.core.jdbc.engine.IExecutionItem;
 import com.squid.core.jdbc.formatter.IJDBCDataFormatter;
+import com.squid.kraken.v4.caching.redis.queryworkerserver.QueryWorkerJobStatus;
 import com.squid.kraken.v4.core.analysis.datamatrix.AxisValues;
 import com.squid.kraken.v4.core.analysis.engine.index.IndexationException;
 import com.squid.kraken.v4.core.analysis.engine.query.HierarchyQuery;
@@ -78,12 +79,13 @@ public class ExecuteHierarchyQuery implements CancellableCallable<ExecuteHierarc
 	}
 
 	public enum State{
-		NEW, ONGOING, DONE, CANCELLED, ERROR 
+		NEW, ONGOING_EXECUTION, ONGOING_INDEXING , DONE, CANCELLED, ERROR 
 	};
 	
 	private volatile boolean abort = false;// make sure this callable will stop
 											// working
 
+	
 	public void cancel() {
 		abort = true;
 		this.state = State.CANCELLED;
@@ -91,7 +93,18 @@ public class ExecuteHierarchyQuery implements CancellableCallable<ExecuteHierarc
 			executeQueryTask.cancel();
 		}
 	}
+	
+	public boolean isOngoing(){
+		return this.state==State.ONGOING || this.state ==State.NEW;
+	}
+	
 
+	public QueryWorkerJobStatus getStatus(){
+		QueryWorkerJobStatus status = new QueryWorkerJobStatus();
+		
+		return status;
+	}
+	
 	public ExecuteHierarchyQueryResult call() throws Exception {
 		//
 		

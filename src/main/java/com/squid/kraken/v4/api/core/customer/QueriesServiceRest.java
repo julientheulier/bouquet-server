@@ -170,4 +170,7 @@ public class QueriesServiceRest extends BaseServiceRest {
 		return false;
 	}
 	
+	public List<QueryWorkerJobStatus> getOngoingQueries(String customerId);
+
+	
 }

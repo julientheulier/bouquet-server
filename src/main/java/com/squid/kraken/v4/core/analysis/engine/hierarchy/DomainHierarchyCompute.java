@@ -38,6 +38,7 @@ import org.slf4j.LoggerFactory;
 import com.squid.core.concurrent.ExecutionManager;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.core.sql.model.SQLScopeException;
+import com.squid.kraken.v4.caching.redis.queryworkerserver.QueryWorkerJobStatus;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex.Status;
 import com.squid.kraken.v4.core.analysis.engine.query.HierarchyQuery;
 import com.squid.kraken.v4.core.analysis.engine.query.mapping.DimensionMapping;
@@ -56,6 +57,8 @@ public class DomainHierarchyCompute extends DomainHierarchyQueryGenerator {
 	private HashMap<DimensionPK, Future<ExecuteHierarchyQueryResult>> jobLookup;
 	private DomainHierarchy hierarchy;
 
+	private List<ExecuteHierarchyQuery> ongoingQueries;
+	
 	public DomainHierarchyCompute(DomainHierarchy hierarchy) {
 		super(hierarchy);
 
@@ -75,6 +78,7 @@ public class DomainHierarchyCompute extends DomainHierarchyQueryGenerator {
 
 		jobs = new ArrayList<>();
 		jobLookup = new HashMap<>();
+		ongoingQueries=  new ArrayList<ExecuteHierarchyQuery>();
 	}
 
 	public DomainHierarchyCompute(DomainHierarchy hierarchy, DomainHierarchyCompute legacy) {
@@ -127,7 +131,7 @@ public class DomainHierarchyCompute extends DomainHierarchyQueryGenerator {
 		this.hierarchy.setState(DomainHierarchy.State.STARTED);
 
 		HierarchyQuery hq;
-		synchronized (this.queries) {
+		synchronized (this.queries) {  
 			hq = this.queries.remove(index);
 			if (hq == null) {
 				return true;
@@ -233,5 +237,18 @@ public class DomainHierarchyCompute extends DomainHierarchyQueryGenerator {
 		}
 	}
 
+	public List<QueryWorkerJobStatus> getOngoingQueriesStatus(String customerId){
+		
+		ArrayList<QueryWorkerJobStatus> res = new 	ArrayList<QueryWorkerJobStatus>();
+		for(ExecuteHierarchyQuery ehq : this.ongoingQueries ){
+			if (ehq.isOngoing())
+			{
+				res.add(ehq.getStatus());
+			}else{
+				this.ongoingQueries.remove(ehq);
+			}			
+		}
+		return res ;
+	}
 
 }
