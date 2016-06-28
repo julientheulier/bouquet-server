@@ -23,6 +23,7 @@
  *******************************************************************************/
 package com.squid.kraken.v4.model;
 
+import java.util.Collections;
 import java.util.List;
 
 import javax.xml.bind.annotation.XmlType;
@@ -77,6 +78,14 @@ public class BookmarkFolder implements HasChildren {
 	@Override
 	public String[] getChildren() {
 		return CHILDREN;
+	}
+	
+	/*
+	 * Stupid getter for Backbone nested model.
+	 * @return empty list
+	 */
+	public List<BookmarkFolder> getFolders() {
+		return Collections.<BookmarkFolder> emptyList();
 	}
 	
 	/**
