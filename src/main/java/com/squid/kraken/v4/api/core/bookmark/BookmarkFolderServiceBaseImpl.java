@@ -148,9 +148,7 @@ public class BookmarkFolderServiceBaseImpl {
 			String folderPath = fullPath + Bookmark.SEPARATOR + s;
 			String bookmarkFolderOid = Base64
 					.encodeBase64URLSafeString(folderPath.getBytes());
-			BookmarkFolder bf = new BookmarkFolder(new BookmarkFolderPK(
-					ctx.getCustomerId(), bookmarkFolderOid));
-			bf.setName(buildFolderName(ctx, folderPath));
+			BookmarkFolder bf = read(ctx, bookmarkFolderOid);
 			bfList.add(bf);
 		}
 		return bfList;
