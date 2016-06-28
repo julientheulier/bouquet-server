@@ -77,10 +77,10 @@ public class BookmarkFolderServiceBaseImpl {
 		return fullPath;
 	}
 
-	private List<Bookmark> getBookmarks(AppContext ctx, String path) {
+	private List<Bookmark> getBookmarks(AppContext ctx, String path, boolean isRoot) {
 		List<Bookmark> bookmarks = ((BookmarkDAO) factory
 				.getDAO(Bookmark.class)).findByPath(ctx, path);
-		if (bookmarks.size() == 0) {
+		if ((bookmarks.size() == 0) && (!isRoot)) {
 			throw new ObjectNotFoundAPIException("No folder found for path : "
 					+ path, ctx.isNoError());
 		} else {
@@ -97,7 +97,7 @@ public class BookmarkFolderServiceBaseImpl {
 		if (pathBase64 != null) {
 			bf.setName(buildFolderName(ctx, fullPath));
 		}
-		List<Bookmark> bookmarks = getBookmarks(ctx, fullPath);
+		List<Bookmark> bookmarks = getBookmarks(ctx, fullPath, pathBase64 == null);
 		// build the folder content
 		List<BookmarkLink> bmList = new ArrayList<BookmarkLink>();
 		for (Bookmark o : bookmarks) {
@@ -117,7 +117,7 @@ public class BookmarkFolderServiceBaseImpl {
 	public List<BookmarkFolder> readFolders(AppContext ctx, String pathBase64) {
 		List<BookmarkFolder> bfList = new ArrayList<BookmarkFolder>();
 		String fullPath = buildBookmarksPath(ctx, pathBase64);
-		List<Bookmark> bookmarks = getBookmarks(ctx, fullPath);
+		List<Bookmark> bookmarks = getBookmarks(ctx, fullPath, pathBase64 == null);
 
 		// compute the folders
 		List<BookmarkPK> pkList = new ArrayList<BookmarkPK>();
