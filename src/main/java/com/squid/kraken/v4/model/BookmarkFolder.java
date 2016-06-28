@@ -26,7 +26,10 @@ package com.squid.kraken.v4.model;
 import java.util.Collections;
 import java.util.List;
 
+import javax.xml.bind.annotation.XmlTransient;
 import javax.xml.bind.annotation.XmlType;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
  * A BookmarkFolder is specific object used to navigate through folders defined in Bookmarks and
@@ -74,6 +77,16 @@ public class BookmarkFolder implements HasChildren {
 	public void setBookmarks(List<BookmarkLink> bookmarks) {
 		this.bookmarks = bookmarks;
 	}
+	
+    @XmlTransient
+    @JsonProperty
+    public String getOid() {
+    	if (id != null) {
+    		return id.getObjectId();
+    	} else {
+    		return null;
+    	}
+    }
 
 	@Override
 	public String[] getChildren() {
