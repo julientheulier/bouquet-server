@@ -59,8 +59,8 @@ public class BookmarkFolderServiceRest extends BaseServiceRest {
 	@GET
 	@Path("")
 	@ApiOperation(value = "Get My Bookmarks")
-	public BookmarkFolder read() {
-		return delegate.read(userContext, null);
+	public List<BookmarkFolder> read() {
+		return delegate.readFolders(userContext, null);
 	}
 
 	@GET
