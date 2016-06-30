@@ -38,18 +38,22 @@ import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValue;
 import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValuesList;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.model.Project;
+import com.squid.kraken.v4.model.ProjectPK;
+import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.writers.QueryWriter;
 
 public class QueryRunner {
 
 	static final Logger logger = LoggerFactory.getLogger(QueryRunner.class);
 
+	private AppContext ctx;
 	private BaseQuery query;
 	private QueryWriter writer;
 	private String jobId;
 	private boolean lazy;
 
-	public QueryRunner(BaseQuery query, boolean lazy, QueryWriter writer, String jobId) {
+	public QueryRunner(AppContext ctx, BaseQuery query, boolean lazy, QueryWriter writer, String jobId) {
+		this.ctx = ctx;
 		this.query = query;
 		this.lazy = lazy;
 		this.writer = writer;
@@ -100,7 +104,8 @@ public class QueryRunner {
 				throw new NotInCacheException("Lazy query, analysis " + jobId + " not in cache");
 			} else {
 				// compute
-				result = RedisCacheManager.getInstance().getRedisCacheValue(sql, deps, jobId, url, user, pwd, -2,
+				ProjectPK projectPK = project.getId();
+				result = RedisCacheManager.getInstance().getRedisCacheValue(ctx.getUser().getOid(), projectPK, sql, deps, jobId, url, user, pwd, -2,
 						query.getSelect().getStatement().getLimitValue());
 				if (result == null) {
 					throw new ComputingException("Failed to compute or retrieve the matrix for job " + jobId);
