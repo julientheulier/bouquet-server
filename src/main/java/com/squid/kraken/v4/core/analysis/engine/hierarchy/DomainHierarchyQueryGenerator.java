@@ -304,10 +304,9 @@ public class DomainHierarchyQueryGenerator {
 	 * @throws ScopeException
 	 * @throws DatabaseServiceException
 	 */
-	protected IntervalleObject computeContinuousStatistic(DimensionIndex root)
-			throws ScopeException {
+	protected IntervalleObject computeContinuousStatistic(DimensionIndex root) {
 		try {
-			ExpressionAST def = root.getAxis().getDefinition();
+			ExpressionAST def = root.getAxis().getDefinitionSafe();
 			if (def instanceof ColumnReference) {
 				Column column = ((ColumnReference) def).getColumn();
 				Universe universe = root.getAxis().getParent().getUniverse();
@@ -436,6 +435,10 @@ public class DomainHierarchyQueryGenerator {
 			HierarchyQuery select, DimensionIndex index) {
 		//
 		try {
+			if (index.getStatus() == Status.ERROR){
+				return false;
+			}
+	
 			Dimension d = index.getDimension();
 			ExpressionAST definition = DimensionIndexCreationUtils
 					.getDefinition(index.getAxis());
@@ -465,9 +468,9 @@ public class DomainHierarchyQueryGenerator {
 				// for continuous dimension we want to compute the min/max
 				Axis axis = index.getAxis();
 				Measure min = axis.getParent().M(
-						ExpressionMaker.MIN(axis.getDefinition()));
+						ExpressionMaker.MIN(axis.getDefinitionSafe()));
 				Measure max = axis.getParent().M(
-						ExpressionMaker.MAX(axis.getDefinition()));
+						ExpressionMaker.MAX(axis.getDefinitionSafe()));
 				MeasureMapping kxmin = select.select(min);
 				MeasureMapping kxmax = select.select(max);
 				select.add(kxmin, kxmax, domain, index);
@@ -494,6 +497,8 @@ public class DomainHierarchyQueryGenerator {
 	protected boolean needRefresh(List<DimensionIndex> hierarchy, String query) {
 		boolean res = false;
 		for (DimensionIndex index : hierarchy) {
+			if (index.getStatus() == Status.ERROR)
+				continue;
 			index.initStore(query);
 			if (index.getStatus() == Status.STALE) {
 				logger.info("Dimension"  + index.getDimensionName() + "index needs refresh")  ;
