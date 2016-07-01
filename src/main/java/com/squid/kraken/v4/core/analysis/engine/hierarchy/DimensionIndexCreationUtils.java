@@ -31,6 +31,7 @@ import com.squid.core.domain.DomainConstant;
 import com.squid.core.domain.IConstantValueDomain;
 import com.squid.core.domain.IDomain;
 import com.squid.core.expression.ExpressionAST;
+import com.squid.core.expression.UndefinedExpression;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.core.analysis.engine.index.DimensionStoreException;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
@@ -54,6 +55,13 @@ public class DimensionIndexCreationUtils {
     }
     
     public static DimensionIndex createIndex(DimensionIndex parent, Axis axis, IDomain type) throws InterruptedException, DimensionStoreException {
+
+    	ExpressionAST def = axis.getDefinitionSafe();
+    	if (def instanceof UndefinedExpression){
+    		UndefinedExpression undef =(UndefinedExpression) def;
+    		return createInvalidIndex(parent, axis, undef.getMalformedValue() + " " + undef.getErrorMessage());    		
+    	}
+    	
     	if (type.isInstanceOf(IDomain.CONDITIONAL) && parent==null) {
             return createConditionalIndex(parent, axis, type);
         } else if (type.isInstanceOf(DomainConstant.DOMAIN)) {
