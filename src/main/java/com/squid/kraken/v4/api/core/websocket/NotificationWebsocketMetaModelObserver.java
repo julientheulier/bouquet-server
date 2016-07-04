@@ -29,6 +29,7 @@ import javax.websocket.Session;
 
 import com.squid.kraken.v4.api.core.AccessRightsUtils;
 import com.squid.kraken.v4.model.AccessRight.Role;
+import com.squid.kraken.v4.model.AccessToken;
 import com.squid.kraken.v4.model.AccessTokenPK;
 import com.squid.kraken.v4.model.Persistent;
 import com.squid.kraken.v4.model.ProjectAnalysisJob;
@@ -98,6 +99,7 @@ public class NotificationWebsocketMetaModelObserver implements
 					|| sourceEvent instanceof ProjectAnalysisJobPK
 					|| sourceEvent instanceof State
 					|| sourceEvent instanceof StatePK
+					|| sourceEvent instanceof AccessToken
 					|| sourceEvent instanceof AccessTokenPK) {
 				// just in case...
 				return false;
