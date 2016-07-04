@@ -25,6 +25,7 @@
 package com.squid.kraken.v4.api.core.websocket;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.util.Collections;
@@ -32,10 +33,11 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
+import javax.websocket.EncodeException;
 import javax.websocket.OnClose;
 import javax.websocket.OnError;
-import javax.websocket.OnMessage;
 import javax.websocket.OnOpen;
 import javax.websocket.Session;
 import javax.websocket.server.ServerEndpoint;
@@ -49,7 +51,7 @@ import com.squid.kraken.v4.api.core.customer.TokenExpiredException;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.runtime.CXFServletService;
 
-@ServerEndpoint(value = "/notification", encoders = { DataStoreEventJSONCoder.class })
+@ServerEndpoint(value = "/notification", encoders = { SerializableWebsocketJSONCoder.class })
 public class NotificationWebsocket {
 
 	private static final Logger logger = LoggerFactory
@@ -70,16 +72,23 @@ public class NotificationWebsocket {
 		if (queryString != null) {
 			Map<String, String> splitQuery = splitQuery(queryString);
 			String tokenId = splitQuery.get(ServiceUtils.TOKEN_PARAM);
+			// create a new context with a new session id
+			String bouquetSessionId = UUID.randomUUID().toString();
 			try {
-				AppContext userContext = ServiceUtils.getInstance().getUserContext(tokenId);
-				// set the use context
+				AppContext userContext = ServiceUtils.getInstance().buildUserContext(tokenId, bouquetSessionId);
+				// update the session
 				session.getUserProperties().put("ctx", userContext);
 			} catch (TokenExpiredException e) {
 				throw new InvalidCredentialsAPIException(e.getMessage(), false);
 			}
 			// keep this session
 			sessions.add(session);
-			logger.debug("Session added with ID : " + session.getId());
+			logger.debug("Session added with ID : " + session.getId() + " uuid : "+bouquetSessionId);
+			try {
+				session.getBasicRemote().sendObject(new WelcomeMessage(bouquetSessionId));
+			} catch (EncodeException e) {
+				e.printStackTrace();
+			}
 		} else {
 			logger.debug("Session rejected with ID : " + session.getId());
 			throw new InvalidCredentialsAPIException("missing auth token", false);
@@ -96,23 +105,6 @@ public class NotificationWebsocket {
 		sessions.remove(session);
 	}
 
-	@OnMessage
-	public void echoTextMessage(Session session, String msg, boolean last) {
-		try {
-			if (session.isOpen()) {
-				logger.debug("Message received from Session with ID : "
-						+ session.getId());
-				session.getBasicRemote().sendText(msg, last);
-			}
-		} catch (IOException e) {
-			try {
-				session.close();
-			} catch (IOException e1) {
-				// Ignore
-			}
-		}
-	}
-
 	public Map<String, String> splitQuery(String query)
 			throws UnsupportedEncodingException {
 		Map<String, String> query_pairs = new LinkedHashMap<String, String>();
@@ -123,6 +115,20 @@ public class NotificationWebsocket {
 					URLDecoder.decode(pair.substring(idx + 1), "UTF-8"));
 		}
 		return query_pairs;
+	}
+	
+	@SuppressWarnings("serial")
+	public static class WelcomeMessage implements Serializable {
+		private final String bouquetSessionId;
+
+		public WelcomeMessage(String bouquetSessionId) {
+			super();
+			this.bouquetSessionId = bouquetSessionId;
+		}
+
+		public String getBouquetSessionId() {
+			return bouquetSessionId;
+		}
 	}
 
 }

@@ -31,6 +31,8 @@ import com.squid.kraken.v4.model.CustomerPK;
 import com.squid.kraken.v4.model.User;
 
 public class AppContext {
+	
+	public final static String HEADER_BOUQUET_SESSIONID = "X-Bouquet-Session-Id";
 
     private final CustomerPK customerPk;
 
@@ -51,6 +53,8 @@ public class AppContext {
     private final boolean deepRead;
     
     private final List<String> options;
+    
+    private final String sessionId;
 
     public AppContext(Builder b) {
         this.customerPk = b.customerPk;
@@ -63,6 +67,7 @@ public class AppContext {
         this.deepRead = b.deepRead;
         this.clientId = b.clientId;
         this.options = b.options;
+        this.sessionId = b.sessionId;
     }
 
     public String getCustomerId() {
@@ -133,6 +138,14 @@ public class AppContext {
 		return options;
 	}
 
+    /**
+     * Session Id received from the X-Bouquet-Session-Id request header
+     * @return
+     */
+	public String getSessionId() {
+		return sessionId;
+	}
+
 	@Override
     public String toString() {
         return "AppContext [customerId=" + customerPk.getCustomerId() + ", dryRun=" + dryRun + ", locale=" + locale
@@ -160,6 +173,8 @@ public class AppContext {
         private boolean deepRead = false;
         
         private List<String> options;
+        
+        private String sessionId;
         
         /**
          * Anomynous (no user) context.
@@ -251,6 +266,10 @@ public class AppContext {
         public Builder setOptions(List<String> options) {
 			this.options = options;
 			return this;
+		}
+
+		public void setSessionId(String sessionId) {
+			this.sessionId = sessionId;
 		}
         
     }

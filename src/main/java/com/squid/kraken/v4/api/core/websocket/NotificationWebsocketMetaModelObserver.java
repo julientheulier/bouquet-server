@@ -27,9 +27,6 @@ import java.util.Set;
 
 import javax.websocket.Session;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.squid.kraken.v4.api.core.AccessRightsUtils;
 import com.squid.kraken.v4.model.AccessRight.Role;
 import com.squid.kraken.v4.model.AccessTokenPK;
@@ -42,6 +39,7 @@ import com.squid.kraken.v4.model.State;
 import com.squid.kraken.v4.model.StatePK;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DataStoreEvent;
+import com.squid.kraken.v4.persistence.DataStoreEvent.Emitter;
 import com.squid.kraken.v4.persistence.DataStoreEventObserver;
 
 /**
@@ -49,9 +47,6 @@ import com.squid.kraken.v4.persistence.DataStoreEventObserver;
  */
 public class NotificationWebsocketMetaModelObserver implements
 		DataStoreEventObserver {
-
-	private static final Logger logger = LoggerFactory
-			.getLogger(NotificationWebsocketMetaModelObserver.class);
 
 	private static NotificationWebsocketMetaModelObserver instance;
 
@@ -79,10 +74,14 @@ public class NotificationWebsocketMetaModelObserver implements
 					if (eventOut == null) {
 						// only send out the source event id (not to expose
 						// private properties)
-						eventOut = new DataStoreEvent(null,
-								sourceEvent.getId(), event.getType());
+						eventOut = new DataStoreEvent(event.getEmitter(), null,
+								sourceEvent.getId(), event.getType(), event.isExternal());
 					}
-					s.getAsyncRemote().sendObject(eventOut);
+					// do not send back events to emitter
+					Emitter emitter = event.getEmitter();
+					if (emitter == null || (!ctx.getSessionId().equals(event.getEmitter().getSessionId()))) {
+						s.getAsyncRemote().sendObject(eventOut);
+					}
 				}
 			}
 		}

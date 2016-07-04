@@ -23,34 +23,55 @@
  *******************************************************************************/
 package com.squid.kraken.v4.persistence;
 
+import java.io.Serializable;
+
+import com.squid.kraken.v4.model.User;
+
 /**
  * An Event triggered when an object is updated/created/deleted.<br>
  * The 'source' object is the modified object instance.<br>
  */
-public class DataStoreEvent {
+@SuppressWarnings("serial")
+public class DataStoreEvent implements Serializable {
 
     static public enum Type {
         CREATION, UPDATE, DELETE, INVALIDATE
     };
+    
+	private static Emitter buildEmitter(AppContext context) {
+		String userId = null;
+		String sessionId = context.getSessionId();
+        User user = context.getUser();
+        if (user != null) {
+        	userId = user.getOid();
+        }
+        return new Emitter(userId, sessionId);
+	}
 
 	private Object origin;
     private final Object source;
     private final boolean isExternal;
     private final Type type;
+    private final Emitter emitter;
 
-    public DataStoreEvent(Object source, Type eventType) {
-    	this(null, source, eventType);
+    public DataStoreEvent(AppContext context, Object source, Type eventType) {
+    	this(context, null, source, eventType);
     }
 
-    public DataStoreEvent(Object origin, Object source, Type eventType) {
-    	this(origin, source, eventType, false);
+    public DataStoreEvent(AppContext context, Object origin, Object source, Type eventType) {
+    	this(context, origin, source, eventType, false);
     }
     
-    public DataStoreEvent(Object origin, Object source, Type eventType, boolean isExternal) {
+    public DataStoreEvent(AppContext context, Object origin, Object source, Type eventType, boolean isExternal) {
+        this(buildEmitter(context), origin, source, eventType, false);
+    }
+    
+    public DataStoreEvent(Emitter emitter, Object origin, Object source, Type eventType, boolean isExternal) {
     	this.origin = origin;
         this.source = source;
         this.type = eventType;
         this.isExternal = isExternal;
+        this.emitter = emitter;
     }
 
     public Object getOrigin() {
@@ -73,6 +94,10 @@ public class DataStoreEvent {
     public boolean isExternal() {
     	return isExternal;
     }
+
+	public Emitter getEmitter() {
+		return emitter;
+	}
 
 	@Override
 	public int hashCode() {
@@ -109,6 +134,22 @@ public class DataStoreEvent {
 		if (type != other.type)
 			return false;
 		return true;
+	}
+	
+	static public class Emitter {
+		private final String userId;
+		private final String sessionId;
+		public Emitter(String userId, String sessionId) {
+			super();
+			this.userId = userId;
+			this.sessionId = sessionId;
+		}
+		public String getUserId() {
+			return userId;
+		}
+		public String getSessionId() {
+			return sessionId;
+		}
 	}
     
 }

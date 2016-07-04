@@ -42,7 +42,7 @@ public class InvalidationVisitor extends ReverseModelVisitor {
 
 	@Override
     public void visitElement(Persistent<?> object) {
-        DataStoreEventBus.getInstance().publishEvent(new DataStoreEvent(origin.getId(), object.getId(), DataStoreEvent.Type.INVALIDATE));
+        DataStoreEventBus.getInstance().publishEvent(new DataStoreEvent(ctx, origin.getId(), object.getId(), DataStoreEvent.Type.INVALIDATE));
     }
 
 }

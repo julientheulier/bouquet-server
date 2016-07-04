@@ -136,7 +136,7 @@ public class GlobalEventPublisher implements DataStoreEventObserver {
       }
       if (pk != null) {
         // insert a new event
-        GlobalDataStoreEvent devent = new GlobalDataStoreEvent(pk,
+        GlobalDataStoreEvent devent = new GlobalDataStoreEvent(event.getEmitter(), pk,
             event.getType(), System.currentTimeMillis(), serverUUID);
         MongoDBHelper.getDatastore().save(devent);
       }
@@ -196,7 +196,7 @@ public class GlobalEventPublisher implements DataStoreEventObserver {
             if (doc.getSourceId() != null) {
               // Publish the event to the DataStoreEventBus
               eventBus.publishEvent(
-                  new DataStoreEvent(null, doc.getSourceId(),
+                  new DataStoreEvent(doc.getEmitter(),null, doc.getSourceId(),
                   doc.getType(), true));
             }
           }
@@ -229,7 +229,7 @@ public class GlobalEventPublisher implements DataStoreEventObserver {
       Iterator<GlobalDataStoreEvent> it = query.tail();
       if (!it.hasNext()) {
         // init the cursor by inserting an empty event
-        GlobalDataStoreEvent devent = new GlobalDataStoreEvent(null,
+        GlobalDataStoreEvent devent = new GlobalDataStoreEvent(null, null,
             null, ts + 10, null);
         MongoDBHelper.getDatastore().save(devent);
       }
