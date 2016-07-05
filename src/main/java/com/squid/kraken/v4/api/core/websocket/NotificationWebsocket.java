@@ -46,6 +46,9 @@ import javax.websocket.server.ServerEndpoint;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.collect.HashMultimap;
+import com.google.common.collect.Multimaps;
+import com.google.common.collect.SetMultimap;
 import com.squid.kraken.v4.api.core.InvalidCredentialsAPIException;
 import com.squid.kraken.v4.api.core.ServiceUtils;
 import com.squid.kraken.v4.api.core.customer.TokenExpiredException;
@@ -57,10 +60,15 @@ public class NotificationWebsocket {
 
 	private static final Logger logger = LoggerFactory
 			.getLogger(CXFServletService.class);
-	private static final Set<Session> sessions = new HashSet<Session>();
+	private static final Set<Session> sessions = Collections.synchronizedSet(new HashSet<Session>());
+	private static final SetMultimap<String, Session> sessionsByToken = HashMultimap.create();
 
 	static public Set<Session> getSessions() {
 		return Collections.unmodifiableSet(sessions);
+	}
+	
+	static public Set<Session> getSessionsByToken(String tokenId) {
+		return sessionsByToken.get(tokenId);
 	}
 
 	public NotificationWebsocket() {
@@ -85,6 +93,7 @@ public class NotificationWebsocket {
 			}
 			// keep this session
 			sessions.add(session);
+			Multimaps.synchronizedSetMultimap(sessionsByToken).put(tokenId, session);
 			logger.debug("Session added with ID : " + session.getId()
 					+ " uuid : " + bouquetSessionId);
 		} else {
@@ -102,6 +111,8 @@ public class NotificationWebsocket {
 	@OnClose
 	public void onClose(Session session) {
 		sessions.remove(session);
+		AppContext userContext = (AppContext) session.getUserProperties().get("ctx");
+		sessionsByToken.remove(userContext.getToken().getOid(), session);
 	}
 
 	@OnMessage
@@ -116,7 +127,7 @@ public class NotificationWebsocket {
 					logger.debug("Welcome session : " + session.getId()
 							+ " uuid : " + bouquetSessionId);
 					session.getBasicRemote().sendObject(
-							new WelcomeMessage(bouquetSessionId));
+							new SessionMessage(bouquetSessionId));
 				} catch (EncodeException e) {
 					e.printStackTrace();
 				}
@@ -143,17 +154,28 @@ public class NotificationWebsocket {
 	}
 
 	@SuppressWarnings("serial")
-	public static class WelcomeMessage implements Serializable {
+	public static class SessionMessage implements Serializable {
 		private final String bouquetSessionId;
+		private final boolean logout;
 
-		public WelcomeMessage(String bouquetSessionId) {
+		public SessionMessage(String bouquetSessionId) {
+			this(bouquetSessionId, false);
+		}
+		
+		public SessionMessage(String bouquetSessionId, boolean logout) {
 			super();
 			this.bouquetSessionId = bouquetSessionId;
+			this.logout = logout;
 		}
 
 		public String getBouquetSessionId() {
 			return bouquetSessionId;
 		}
+
+		public boolean isLogout() {
+			return logout;
+		}
+		
 	}
 
 }

@@ -27,7 +27,11 @@ import java.util.Set;
 
 import javax.websocket.Session;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.squid.kraken.v4.api.core.AccessRightsUtils;
+import com.squid.kraken.v4.api.core.websocket.NotificationWebsocket.SessionMessage;
 import com.squid.kraken.v4.model.AccessRight.Role;
 import com.squid.kraken.v4.model.AccessToken;
 import com.squid.kraken.v4.model.AccessTokenPK;
@@ -41,6 +45,7 @@ import com.squid.kraken.v4.model.StatePK;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DataStoreEvent;
 import com.squid.kraken.v4.persistence.DataStoreEvent.Emitter;
+import com.squid.kraken.v4.persistence.DataStoreEvent.Type;
 import com.squid.kraken.v4.persistence.DataStoreEventObserver;
 
 /**
@@ -48,6 +53,9 @@ import com.squid.kraken.v4.persistence.DataStoreEventObserver;
  */
 public class NotificationWebsocketMetaModelObserver implements
 		DataStoreEventObserver {
+	
+	private static final Logger logger = LoggerFactory
+			.getLogger(NotificationWebsocketMetaModelObserver.class);
 
 	private static NotificationWebsocketMetaModelObserver instance;
 
@@ -63,28 +71,73 @@ public class NotificationWebsocketMetaModelObserver implements
 
 	@Override
 	public void notifyEvent(DataStoreEvent event) {
-		if (acceptEvent(event)) {
-			Persistent<?> sourceEvent = (Persistent<?>) event.getSource();
-			DataStoreEvent eventOut = null;
-			Set<Session> sessions = NotificationWebsocket.getSessions();
-			for (Session s : sessions) {
-				// check access rights
-				AppContext ctx = (AppContext) s.getUserProperties().get("ctx");
-				if (AccessRightsUtils.getInstance().hasRole(ctx, sourceEvent,
-						Role.READ)) {
-					if (eventOut == null) {
-						// only send out the source event id (not to expose
-						// private properties)
-						eventOut = new DataStoreEvent(event.getEmitter(), null,
-								sourceEvent.getId(), event.getType(), event.isExternal());
+		try {
+			if (acceptEvent(event)) {
+				Object sourceEvent = event.getSource();
+				if ((event.getType() == Type.DELETE)
+						&& ((sourceEvent instanceof AccessToken) || (sourceEvent instanceof AccessTokenPK))) {
+					// handle logout events
+					String tokenId;
+					if (sourceEvent instanceof AccessToken) {
+						tokenId = ((AccessToken) sourceEvent).getOid();
+					} else {
+						tokenId = ((AccessTokenPK) sourceEvent).getTokenId();
 					}
-					// do not send back events to emitter
-					Emitter emitter = event.getEmitter();
-					if (emitter == null || (!ctx.getSessionId().equals(event.getEmitter().getSessionId()))) {
-						s.getAsyncRemote().sendObject(eventOut);
+					Set<Session> sessions = NotificationWebsocket
+							.getSessionsByToken(tokenId);
+					// send logout message to all corresponding sessions
+					for (Session s : sessions) {
+						if (s.isOpen()) {
+							Emitter emitter = event.getEmitter();
+							SessionMessage message = new SessionMessage(
+									emitter.getSessionId(), true);
+							send(null, emitter, s, message);
+						}
+					}
+				} else {
+					if (sourceEvent instanceof Persistent<?>) {
+						Persistent<?> source = (Persistent<?>) sourceEvent;
+						DataStoreEvent eventOut = null;
+						Set<Session> sessions = NotificationWebsocket.getSessions();
+						for (Session s : sessions) {
+							if (s.isOpen()) {
+								// check access rights
+								AppContext ctx = (AppContext) s.getUserProperties()
+										.get("ctx");
+								if (AccessRightsUtils.getInstance().hasRole(ctx,
+										source, Role.READ)) {
+									if (eventOut == null) {
+										// only send out the source event id (not to
+										// expose
+										// private properties)
+										eventOut = new DataStoreEvent(
+												event.getEmitter(), null,
+												source.getId(), event.getType(),
+												event.isExternal());
+									}
+									// send the event
+									send(ctx, event.getEmitter(), s, eventOut);
+								}
+							}
+						}
 					}
 				}
 			}
+		} catch (Exception e) {
+			// global exception catching to avoid failure in operations
+			logger.warn("notifyEvent failed for event : "+event, e);
+		}
+	}
+
+	private void send(AppContext ctx, Emitter emitter, Session s, Object object) {
+		if (ctx == null) {
+			ctx = (AppContext) s.getUserProperties().get("ctx");
+		}
+		// do not send back events to emitter
+		if (emitter == null
+				|| (!ctx.getSessionId().equals(emitter.getSessionId()))) {
+			// send
+			s.getAsyncRemote().sendObject(object);
 		}
 	}
 
@@ -98,12 +151,10 @@ public class NotificationWebsocketMetaModelObserver implements
 					|| sourceEvent instanceof ProjectAnalysisJob
 					|| sourceEvent instanceof ProjectAnalysisJobPK
 					|| sourceEvent instanceof State
-					|| sourceEvent instanceof StatePK
-					|| sourceEvent instanceof AccessToken
-					|| sourceEvent instanceof AccessTokenPK) {
+					|| sourceEvent instanceof StatePK) {
 				// just in case...
 				return false;
-			} else if (sourceEvent instanceof Persistent) {
+			} else {
 				return true;
 			}
 		}
