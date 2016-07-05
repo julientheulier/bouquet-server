@@ -38,6 +38,7 @@ import java.util.UUID;
 import javax.websocket.EncodeException;
 import javax.websocket.OnClose;
 import javax.websocket.OnError;
+import javax.websocket.OnMessage;
 import javax.websocket.OnOpen;
 import javax.websocket.Session;
 import javax.websocket.server.ServerEndpoint;
@@ -75,7 +76,8 @@ public class NotificationWebsocket {
 			// create a new context with a new session id
 			String bouquetSessionId = UUID.randomUUID().toString();
 			try {
-				AppContext userContext = ServiceUtils.getInstance().buildUserContext(tokenId, bouquetSessionId);
+				AppContext userContext = ServiceUtils.getInstance()
+						.buildUserContext(tokenId, bouquetSessionId);
 				// update the session
 				session.getUserProperties().put("ctx", userContext);
 			} catch (TokenExpiredException e) {
@@ -83,15 +85,12 @@ public class NotificationWebsocket {
 			}
 			// keep this session
 			sessions.add(session);
-			logger.debug("Session added with ID : " + session.getId() + " uuid : "+bouquetSessionId);
-			try {
-				session.getBasicRemote().sendObject(new WelcomeMessage(bouquetSessionId));
-			} catch (EncodeException e) {
-				e.printStackTrace();
-			}
+			logger.debug("Session added with ID : " + session.getId()
+					+ " uuid : " + bouquetSessionId);
 		} else {
 			logger.debug("Session rejected with ID : " + session.getId());
-			throw new InvalidCredentialsAPIException("missing auth token", false);
+			throw new InvalidCredentialsAPIException("missing auth token",
+					false);
 		}
 	}
 
@@ -105,6 +104,32 @@ public class NotificationWebsocket {
 		sessions.remove(session);
 	}
 
+	@OnMessage
+	public void onMessage(Session session, String msg, boolean last) {
+		try {
+			if (session.isOpen()) {
+				// send back the welcome message
+				try {
+					AppContext userContext = (AppContext) session
+							.getUserProperties().get("ctx");
+					String bouquetSessionId = userContext.getSessionId();
+					logger.debug("Welcome session : " + session.getId()
+							+ " uuid : " + bouquetSessionId);
+					session.getBasicRemote().sendObject(
+							new WelcomeMessage(bouquetSessionId));
+				} catch (EncodeException e) {
+					e.printStackTrace();
+				}
+			}
+		} catch (IOException e) {
+			try {
+				session.close();
+			} catch (IOException e1) {
+				// Ignore
+			}
+		}
+	}
+
 	public Map<String, String> splitQuery(String query)
 			throws UnsupportedEncodingException {
 		Map<String, String> query_pairs = new LinkedHashMap<String, String>();
@@ -116,7 +141,7 @@ public class NotificationWebsocket {
 		}
 		return query_pairs;
 	}
-	
+
 	@SuppressWarnings("serial")
 	public static class WelcomeMessage implements Serializable {
 		private final String bouquetSessionId;
