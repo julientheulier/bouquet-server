@@ -48,6 +48,8 @@ import com.wordnik.swagger.annotations.ApiModelProperty;
 @SuppressWarnings("serial")
 public class Customer extends PersistentBaseImpl<CustomerPK> implements HasChildren {
 	
+	static public enum AUTH_MODE { BYPASS, OAUTH, NONE };
+	
 	private static String[] CHILDREN = { "users", "userGroups", "clients",
 			"projects", "shortcuts" };
 
@@ -58,6 +60,8 @@ public class Customer extends PersistentBaseImpl<CustomerPK> implements HasChild
     private String MD5Salt;
     
     private String AWSClientId;
+    
+    private AUTH_MODE authMode = AUTH_MODE.OAUTH;
 
 	
     @Transient
@@ -235,6 +239,14 @@ public class Customer extends PersistentBaseImpl<CustomerPK> implements HasChild
 	@Override
 	public String[] getChildren() {
 		return CHILDREN;
+	}
+
+	public AUTH_MODE getAuthMode() {
+		return authMode;
+	}
+
+	public void setAuthMode(AUTH_MODE authMode) {
+		this.authMode = authMode;
 	}
 
 }
