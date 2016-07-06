@@ -3,6 +3,7 @@ package com.squid.kraken.v4.export;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
+import java.io.UnsupportedEncodingException;
 import java.sql.SQLException;
 import java.util.concurrent.ExecutionException;
 
@@ -26,13 +27,11 @@ import com.squid.kraken.v4.model.DataTable;
 
 public class ExportSourceWriterVelocity implements ExportSourceWriter {
 
-	static final Logger logger = LoggerFactory
-			.getLogger(ExportSourceWriterVelocity.class);
+	static final Logger logger = LoggerFactory.getLogger(ExportSourceWriterVelocity.class);
 
 	private String templateDecoded;
-	QueryMapper qm ;
-	
-	
+	QueryMapper qm;
+
 	public ExportSourceWriterVelocity(String templateDecoded) {
 		this.templateDecoded = templateDecoded;
 	}
@@ -44,40 +43,40 @@ public class ExportSourceWriterVelocity implements ExportSourceWriter {
 			ExecutionItemStructExportSource src = new ExecutionItemStructExportSource(item);
 			return this.writeStructExportSource(src, outputStream);
 		} catch (ComputingException | SQLException e1) {
-			logger.info(" error "  + e1.getMessage());
+			logger.info(" error " + e1.getMessage());
 			return -1;
 		}
 	}
 
 	@Override
 	public long write(RawMatrix matrix, OutputStream out) {
-		if (qm == null){
+		if (qm == null) {
 			return -1;
-		}else{
-			RawMatrixStructExportSource src = new RawMatrixStructExportSource(matrix, qm) ;
-			return this.writeStructExportSource(src, out);	
+		} else {
+			RawMatrixStructExportSource src = new RawMatrixStructExportSource(matrix, qm);
+			return this.writeStructExportSource(src, out);
 		}
-		
-		
+
 	}
 
 	@Override
 	public long write(DataMatrix matrix, OutputStream out) {
-        throw new UnsupportedOperationException();			
+		throw new UnsupportedOperationException();
 	}
 
 	@Override
 	public long write(DataTable matrix, OutputStream out) {
 		DataTableStructExportSource src = new DataTableStructExportSource(matrix);
-		return this.writeStructExportSource(src, out);	
+		return this.writeStructExportSource(src, out);
 	}
 
-	private long writeStructExportSource(IStructExportSource src,
-			OutputStream os) {
+	private long writeStructExportSource(IStructExportSource src, OutputStream os) {
 
 		VelocityEngine engine = new VelocityEngine();
 		engine.setProperty(RuntimeConstants.RUNTIME_LOG_LOGSYSTEM_CLASS,
 				"org.apache.velocity.runtime.log.NullLogChute");
+		engine.setProperty(RuntimeConstants.INPUT_ENCODING, "UTF-8");
+		engine.setProperty(RuntimeConstants.OUTPUT_ENCODING, "UTF-8");
 		VelocityContext context = new VelocityContext();
 		EscapeTool escapeTool = new EscapeTool();
 		DateTool dateTool = new DateTool();
@@ -88,11 +87,16 @@ public class ExportSourceWriterVelocity implements ExportSourceWriter {
 		context.put("date", dateTool);
 		context.put("tab", "\t");
 		context.put("newline", "\n");
-		OutputStreamWriter writer = new OutputStreamWriter(os);
+		OutputStreamWriter writer = null;
 		try {
+			writer = new OutputStreamWriter(os, "UTF-8");
 			if (!engine.evaluate(context, writer, "test", templateDecoded)) {
 				writeVelocityError(writer, templateDecoded, null);
 			}
+		} catch (UnsupportedEncodingException uee) {
+			writer = new OutputStreamWriter(os);
+			logger.info("Error while evaluating the template", uee);
+			writeVelocityError(writer, templateDecoded, uee);
 		} catch (Exception e) {
 			logger.info("Error while evaluating the template", e);
 			writeVelocityError(writer, templateDecoded, e);
@@ -109,8 +113,7 @@ public class ExportSourceWriterVelocity implements ExportSourceWriter {
 		return 0;
 	}
 
-	private void writeVelocityError(OutputStreamWriter writer, String decoded,
-			Throwable error) {
+	private void writeVelocityError(OutputStreamWriter writer, String decoded, Throwable error) {
 		try {
 			writer.append("<html><body><p>Error while evaluating the template</p>");
 			if (error != null) {
@@ -136,11 +139,11 @@ public class ExportSourceWriterVelocity implements ExportSourceWriter {
 	@Override
 	public long write(RedisCacheValuesList matrix, OutputStream out) {
 		try {
-			if (qm == null){
+			if (qm == null) {
 				return -1;
-			}else{
-				ChunkedRawMatrixStructExportSource src  = new ChunkedRawMatrixStructExportSource(matrix, qm);
-				return this.writeStructExportSource(src, out);	
+			} else {
+				ChunkedRawMatrixStructExportSource src = new ChunkedRawMatrixStructExportSource(matrix, qm);
+				return this.writeStructExportSource(src, out);
 			}
 		} catch (InterruptedException | ExecutionException e) {
 			// TODO Auto-generated catch block
@@ -148,8 +151,9 @@ public class ExportSourceWriterVelocity implements ExportSourceWriter {
 			return -1;
 		}
 	}
-	public void setQueryMapper(QueryMapper qm){
+
+	public void setQueryMapper(QueryMapper qm) {
 		this.qm = qm;
 	}
-	
+
 }

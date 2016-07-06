@@ -257,7 +257,6 @@ public class ServiceUtils {
 		}
 		if (tokenId == null) {
 			// try with Bearer header
-			@SuppressWarnings("unchecked")
 			Enumeration<String> headers = request.getHeaders(AUTHORIZATION);
 			while(headers.hasMoreElements()) {
 				String auth = headers.nextElement();
@@ -305,7 +304,7 @@ public class ServiceUtils {
 		return locale;
 	}
 	
-	public AppContext getUserContext(String tokenId) throws TokenExpiredException {
+	public AppContext buildUserContext(String tokenId, String sessionId) throws TokenExpiredException {
 		AccessToken token = null;
 		AppContext ctx = null;
 
@@ -326,6 +325,7 @@ public class ServiceUtils {
 
 		// build the context
 		AppContext.Builder ctxb = new AppContext.Builder(token, user);
+		ctxb.setSessionId(sessionId);
 		ctx = ctxb.build();
 		return ctx;
 	}

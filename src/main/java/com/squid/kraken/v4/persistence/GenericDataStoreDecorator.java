@@ -81,7 +81,7 @@ public class GenericDataStoreDecorator implements DataStore {
             // in DB
             ds.create(ctx, newInstance);
             // publish
-            DataStoreEventBus.getInstance().publishEvent(new DataStoreEvent(newInstance, DataStoreEvent.Type.CREATION));
+            DataStoreEventBus.getInstance().publishEvent(new DataStoreEvent(ctx, newInstance, DataStoreEvent.Type.CREATION));
         }
         return newInstance;
     }
@@ -98,7 +98,7 @@ public class GenericDataStoreDecorator implements DataStore {
             // in DB
             ds.delete(ctx, type, id);
             // publish
-            DataStoreEventBus.getInstance().publishEvent(new DataStoreEvent(id, DataStoreEvent.Type.DELETE));
+            DataStoreEventBus.getInstance().publishEvent(new DataStoreEvent(ctx, id, DataStoreEvent.Type.DELETE));
         }
     }
 
@@ -165,7 +165,7 @@ public class GenericDataStoreDecorator implements DataStore {
             // in DB
             ds.update(ctx, newInstance);
             // publish
-            DataStoreEventBus.getInstance().publishEvent(new DataStoreEvent(newInstance, DataStoreEvent.Type.UPDATE));
+            DataStoreEventBus.getInstance().publishEvent(new DataStoreEvent(ctx, newInstance, DataStoreEvent.Type.UPDATE));
         }
     }
 

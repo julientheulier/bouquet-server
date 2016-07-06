@@ -68,39 +68,37 @@ import com.squid.kraken.v4.model.Domain;
 public class DomainHierarchyQueryGenerator {
 
 	private static final Logger logger = LoggerFactory.getLogger(DomainHierarchyQueryGenerator.class);
-	
+
 	private DomainHierarchy hierarchy;
-	
-	protected HashMap<DimensionPK,HierarchyQuery> queries;
-	
+
+	protected HashMap<DimensionPK, HierarchyQuery> queries;
+
 	protected ArrayList<DimensionPK> eagerIndexing;
 
 	protected HashMap<DimensionPK, String> SQLQueryPerDimensionPK;
 
-	
 	public DomainHierarchyQueryGenerator(DomainHierarchy hierarchy) {
 		this.hierarchy = hierarchy;
 	}
 
 	/**
-	 * prepare a set of queries to compute the domain hierarchy <li>group the
-	 * dimension by root hierarchy <li>optimize the select complexity if
-	 * possible
+	 * prepare a set of queries to compute the domain hierarchy
+	 * <li>group the dimension by root hierarchy
+	 * <li>optimize the select complexity if possible
 	 * 
 	 * @throws DatabaseServiceException
 	 * @throws SQLScopeException
 	 * @throws ScopeException
 	 * 
 	 */
-	public void prepareQueries() throws ScopeException,
-			SQLScopeException {
-		 prepareQueries(hierarchy.getRoot(), hierarchy.getStructure());
+	public void prepareQueries() throws ScopeException, SQLScopeException {
+		prepareQueries(hierarchy.getRoot(), hierarchy.getStructure());
 	}
 
 	/**
-	 * prepare a set of queries to compute the domain hierarchy <li>group the
-	 * dimension by root hierarchy <li>optimize the select complexity if
-	 * possible
+	 * prepare a set of queries to compute the domain hierarchy
+	 * <li>group the dimension by root hierarchy
+	 * <li>optimize the select complexity if possible
 	 * 
 	 * @param space
 	 * @param hierarchies
@@ -109,10 +107,9 @@ public class DomainHierarchyQueryGenerator {
 	 * @throws SQLScopeException
 	 * @throws DatabaseServiceException
 	 */
-	protected  void prepareQueries(Space space,
-			List<List<DimensionIndex>> hierarchies) throws ScopeException,
-			SQLScopeException {
-		this.queries = new HashMap<DimensionPK,HierarchyQuery>();
+	protected void prepareQueries(Space space, List<List<DimensionIndex>> hierarchies)
+			throws ScopeException, SQLScopeException {
+		this.queries = new HashMap<DimensionPK, HierarchyQuery>();
 		this.eagerIndexing = new ArrayList<DimensionPK>();
 		SQLQueryPerDimensionPK = new HashMap<DimensionPK, String>();
 
@@ -120,84 +117,78 @@ public class DomainHierarchyQueryGenerator {
 		HierarchyQuery continuous_query = null;
 		Domain domain = space.getDomain();
 		for (List<DimensionIndex> hierarchy : hierarchies) {
-	 
-			
+
 			// first handle continuous dimension
 			boolean handling_continuous = false;
 			DimensionIndex root = hierarchy.get(0);
-			if (root.getDimension().getType() == Type.CONTINUOUS) {
-				IntervalleObject innerRange = computeContinuousStatistic(root);
-				if (innerRange == null) {
-					if (continuous_query == null) {
-						continuous_query = new HierarchyQuery(
-								space.getUniverse(), domain);
-						DimensionMapping dm = continuous_query.selectContinuous(
-								domain, root);
-						dm.setOption(DimensionMapping.COMPUTE_INDEX);
-						handling_continuous = true;
-						
-						String renderedQuery;
-						try {
-							renderedQuery = continuous_query.render();
-						} catch (RenderingException e) {
-							logger.error("could no create SQL Query for "
-									+ hierarchy.toString());
-							root.setPermanentError("could no create SQL Query for "
-									+ hierarchy.toString());
-							continue;
+			if (!root.getStatus().equals(Status.ERROR)) {
+				if (root.getDimension().getType() == Type.CONTINUOUS) {
+
+					IntervalleObject innerRange = computeContinuousStatistic(root);
+					if (innerRange == null) {
+						if (continuous_query == null) {
+							continuous_query = new HierarchyQuery(space.getUniverse(), domain);
+							DimensionMapping dm = continuous_query.selectContinuous(domain, root);
+							dm.setOption(DimensionMapping.COMPUTE_INDEX);
+							handling_continuous = true;
+
+							String renderedQuery;
+							try {
+								renderedQuery = continuous_query.render();
+							} catch (RenderingException e) {
+								logger.error("could no create SQL Query for " + hierarchy.toString());
+								root.setPermanentError("could no create SQL Query for " + hierarchy.toString());
+								continue;
+							}
+
+							if (needRefresh(hierarchy, renderedQuery)) {
+								logger.debug(" adding  " + renderedQuery);
+								this.queries.put(root.getDimension().getId(), continuous_query);
+								this.eagerIndexing.add(root.getDimension().getId());
+							}
 						}
 
-						if (needRefresh(hierarchy, renderedQuery)) {
-							logger.debug(" adding  "+ renderedQuery);
-							this.queries.put(root.getDimension().getId(), continuous_query);
-							this.eagerIndexing.add(root.getDimension().getId());							
-						}
-					}
+					} else {
+						// check interval type
+						ExpressionAST min = innerRange.getLowerBoundExpression();
+						ExpressionAST max = innerRange.getUpperBoundExpression();
+						IDomain check = root.getAxis().getDefinitionSafe().getImageDomain();
+						if (min.getImageDomain().isInstanceOf(check) && max.getImageDomain().isInstanceOf(check)) {
+							// we can use the range to optimize the min/max
+							// query,
+							// but it will only work for that index
+							HierarchyQuery range_query = new HierarchyQuery(space.getUniverse(), domain);
+							DimensionMapping dm = range_query.selectContinuous(domain, root);
+							ExpressionAST condition = createRangeExpression(root, innerRange);
+							range_query.where(condition);
+							dm.setOption(DimensionMapping.COMPUTE_INDEX);
+							handling_continuous = true;
+							String renderedQuery;
+							try {
+								renderedQuery = range_query.render();
+							} catch (RenderingException e) {
+								logger.error("could no create SQL Query for " + hierarchy.toString());
+								root.setPermanentError("could no create SQL Query for " + hierarchy.toString());
+								continue;
+							}
 
-				} else {
-					// check interval type
-					ExpressionAST min = innerRange.getLowerBoundExpression();
-					ExpressionAST max = innerRange.getUpperBoundExpression();
-					IDomain check = root.getAxis().getDefinitionSafe()
-							.getImageDomain();
-					if (min.getImageDomain().isInstanceOf(check)
-							&& max.getImageDomain().isInstanceOf(check)) {
-						// we can use the range to optimize the min/max query,
-						// but it will only work for that index
-						HierarchyQuery range_query = new HierarchyQuery(
-								space.getUniverse(), domain);
-						DimensionMapping dm = range_query.selectContinuous(
-								domain, root);
-						ExpressionAST condition = createRangeExpression(root,
-								innerRange);
-						range_query.where(condition);
-						dm.setOption(DimensionMapping.COMPUTE_INDEX);
-						handling_continuous = true;
-						String renderedQuery;
-						try {
-							renderedQuery = range_query.render();
-						} catch (RenderingException e) {
-							logger.error("could no create SQL Query for "
-									+ hierarchy.toString());
-							root.setPermanentError("could no create SQL Query for "
-									+ hierarchy.toString());
-							continue;
-						}
+							if (needRefresh(hierarchy, renderedQuery)) {
+								this.queries.put(dm.getDimensionIndex().getDimension().getId(), range_query);// add
+																												// it
+																												// in
+																												// the
+																												// first
+								// place
+								logger.debug(" adding  " + renderedQuery);
+							}
 
-						if (needRefresh(hierarchy, renderedQuery)) {
-							this.queries.put(dm.getDimensionIndex().getDimension().getId(), range_query);// add it in the first
-														// place
-							logger.debug(" adding  "+ renderedQuery);
 						}
-
 					}
 				}
 			}
-			HierarchyQuery select = new HierarchyQuery(space.getUniverse(),
-					domain);
+			HierarchyQuery select = new HierarchyQuery(space.getUniverse(), domain);
 			select.setOrdering(ORDERING.ASCENT);
-			boolean required = prepareQueryForDimension(domain, select,
-					hierarchy, handling_continuous);
+			boolean required = prepareQueryForDimension(domain, select, hierarchy, handling_continuous);
 			// logger.info("is required ?" + required);
 			if (required) {
 				float estimate = select.getEstimatedComplexity();
@@ -206,44 +197,38 @@ public class DomainHierarchyQueryGenerator {
 				try {
 					renderedQuery = select.render();
 				} catch (RenderingException e) {
-					logger.info("could no create SQL Query for "
-							+ hierarchy.toString());
-					root.setPermanentError("could no create SQL Query for "
-							+ hierarchy.toString());
+					logger.info("could no create SQL Query for " + hierarchy.toString());
+					root.setPermanentError("could no create SQL Query for " + hierarchy.toString());
 					continue;
 				}
 
 				if (needRefresh(hierarchy, renderedQuery)) {
-					if (main_query != null
-							&& main_query.getQuerySize()
-									+ select.getQuerySize() <= 4
+					if (main_query != null && main_query.getQuerySize() + select.getQuerySize() <= 4
 							&& main_query.getEstimatedComplexity() * estimate < 100000) {
 						// merge with the main query instead
-						prepareQueryForDimension(domain, main_query, hierarchy,
-								handling_continuous);
-						String dis = "" ; 
+						prepareQueryForDimension(domain, main_query, hierarchy, handling_continuous);
+						String dis = "";
 
-						for (DimensionIndex di : hierarchy){
+						for (DimensionIndex di : hierarchy) {
 							this.queries.put(di.getDimension().getId(), main_query);
-							dis+= di.getDimensionName() + " ";
+							dis += di.getDimensionName() + " ";
 						}
-						logger.debug(dis +"\nadding  "+ renderedQuery);
-
+						logger.debug(dis + "\nadding  " + renderedQuery);
 
 					} else {
 						main_query = select;
 
-						String dis = "" ; 
-						for (DimensionIndex di : hierarchy){
+						String dis = "";
+						for (DimensionIndex di : hierarchy) {
 							this.queries.put(di.getDimension().getId(), main_query);
-							dis+= di.getDimensionName() + " ";
+							dis += di.getDimensionName() + " ";
 						}
-						logger.debug(dis +"\nadding  "+ renderedQuery);
+						logger.debug(dis + "\nadding  " + renderedQuery);
 
 					}
 				}
-				
-				for (  DimensionPK di : queries.keySet()){
+
+				for (DimensionPK di : queries.keySet()) {
 					try {
 						this.SQLQueryPerDimensionPK.put(di, queries.get(di).render());
 					} catch (RenderingException e) {
@@ -251,23 +236,20 @@ public class DomainHierarchyQueryGenerator {
 						e.printStackTrace();
 					}
 				}
-				
-				//SFA: what's the point?
+
+				// SFA: what's the point?
 				/*
-				if (root.getDimension().getType() == Type.CONTINUOUS) {
-					DimensionMapping dm = main_query.getDimensionMapping(root);
-					if (dm != null)
-						dm.setOption(DimensionMapping.COMPUTE_CORRELATIONS);
-				}
-				*/
+				 * if (root.getDimension().getType() == Type.CONTINUOUS) {
+				 * DimensionMapping dm = main_query.getDimensionMapping(root);
+				 * if (dm != null)
+				 * dm.setOption(DimensionMapping.COMPUTE_CORRELATIONS); }
+				 */
 			}
 
 			// }
 			if (hierarchy.size() > 1) {
 				if (root.getStatus() == Status.ERROR) {
-					logger.info(
-							"Could not initialized Correlation Mapping for \n"
-									+ hierarchy.toString(),
+					logger.info("Could not initialized Correlation Mapping for \n" + hierarchy.toString(),
 							" :\n Root index wih Status ERROR");
 				} else {
 					root.initCorrelationMapping(hierarchy);
@@ -284,13 +266,11 @@ public class DomainHierarchyQueryGenerator {
 	 * @return
 	 * @throws ScopeException
 	 */
-	protected ExpressionAST createRangeExpression(DimensionIndex root,
-			IntervalleObject innerRange) throws ScopeException {
+	protected ExpressionAST createRangeExpression(DimensionIndex root, IntervalleObject innerRange)
+			throws ScopeException {
 		ExpressionAST def = root.getAxis().getDefinition();
-		ExpressionAST lower = ExpressionMaker.LESSOREQUAL(def,
-				innerRange.getLowerBoundExpression());
-		ExpressionAST upper = ExpressionMaker.LESSOREQUAL(
-				innerRange.getUpperBoundExpression(), def);
+		ExpressionAST lower = ExpressionMaker.LESSOREQUAL(def, innerRange.getLowerBoundExpression());
+		ExpressionAST upper = ExpressionMaker.LESSOREQUAL(innerRange.getUpperBoundExpression(), def);
 		return ExpressionMaker.OR(lower, upper);
 	}
 
@@ -304,24 +284,20 @@ public class DomainHierarchyQueryGenerator {
 	 * @throws ScopeException
 	 * @throws DatabaseServiceException
 	 */
-	protected IntervalleObject computeContinuousStatistic(DimensionIndex root)
-			throws ScopeException {
+	protected IntervalleObject computeContinuousStatistic(DimensionIndex root) {
 		try {
-			ExpressionAST def = root.getAxis().getDefinition();
+			ExpressionAST def = root.getAxis().getDefinitionSafe();
 			if (def instanceof ColumnReference) {
 				Column column = ((ColumnReference) def).getColumn();
 				Universe universe = root.getAxis().getParent().getUniverse();
-				DatasourceDefinition ds = DatabaseServiceImpl.INSTANCE
-						.getDatasourceDefinition(universe.getProject());
+				DatasourceDefinition ds = DatabaseServiceImpl.INSTANCE.getDatasourceDefinition(universe.getProject());
 				IDatabaseStatistics stats = ds.getDBManager().getStatistics();
 				if (stats != null) {
 					if (stats.isPartitionTable(column.getTable())) {
 						// if the table is partitioned, apply to each partition
-						PartitionInfo partition = stats.getPartitionInfo(column
-								.getTable());
+						PartitionInfo partition = stats.getPartitionInfo(column.getTable());
 						if (partition.isPartitionKey(column)) {
-							List<PartitionTable> partitions = partition
-									.getPartitionTables();
+							List<PartitionTable> partitions = partition.getPartitionTables();
 							Object lower = null;
 							Object upper = null;
 							for (PartitionTable partitionTable : partitions) {
@@ -335,20 +311,18 @@ public class DomainHierarchyQueryGenerator {
 								 * (colstats!=null) { Object min =
 								 * colstats.getMin(); Object max =
 								 * colstats.getMax(); if (range==null) { range =
-								 * IntervalleObject.createInterval(min, max); } else
-								 * { range = IntervalleObject.merge(range,
-								 * IntervalleObject.createInterval(min, max)); } } }
+								 * IntervalleObject.createInterval(min, max); }
+								 * else { range = IntervalleObject.merge(range,
+								 * IntervalleObject.createInterval(min, max)); }
+								 * } }
 								 */
 								// check if the partition is empty
 								try {
-									ObjectStatistics tableStats = stats
-											.getStatistics(partitionTable
-													.getTable());
+									ObjectStatistics tableStats = stats.getStatistics(partitionTable.getTable());
 									if (tableStats.getSize() > 0) {
 										Object min = partitionTable.getRangeStart();
 										Object max = partitionTable.getRangeEnd();
-										IntervalleObject range = IntervalleObject
-												.createInterval(min, max);
+										IntervalleObject range = IntervalleObject.createInterval(min, max);
 										if (range != null) {
 											// compute the inner range of the
 											// partition
@@ -399,8 +373,7 @@ public class DomainHierarchyQueryGenerator {
 	 * @param indexes
 	 * @return
 	 */
-	protected boolean prepareQueryForDimension(Domain domain,
-			HierarchyQuery select, List<DimensionIndex> indexes,
+	protected boolean prepareQueryForDimension(Domain domain, HierarchyQuery select, List<DimensionIndex> indexes,
 			boolean handling_continuous) {
 		boolean result = false;
 		DimensionIndex root = indexes.get(0);
@@ -410,8 +383,7 @@ public class DomainHierarchyQueryGenerator {
 				if (!needed && index.getStatus() == Status.STALE) {
 					index.setDone();
 				}
-				if (handling_continuous && index == root
-						&& index.getDimension().getType() == Type.CONTINUOUS) {
+				if (handling_continuous && index == root && index.getDimension().getType() == Type.CONTINUOUS) {
 					// we can ignore it
 				} else {
 					result = needed || result;
@@ -432,13 +404,15 @@ public class DomainHierarchyQueryGenerator {
 	 * @throws ScopeException
 	 * @throws SQLScopeException
 	 */
-	protected boolean prepareQueryForDimension(Domain domain,
-			HierarchyQuery select, DimensionIndex index) {
+	protected boolean prepareQueryForDimension(Domain domain, HierarchyQuery select, DimensionIndex index) {
 		//
 		try {
+			if (index.getStatus() == Status.ERROR) {
+				return false;
+			}
+
 			Dimension d = index.getDimension();
-			ExpressionAST definition = DimensionIndexCreationUtils
-					.getDefinition(index.getAxis());
+			ExpressionAST definition = DimensionIndexCreationUtils.getDefinition(index.getAxis());
 			IDomain image = definition.getImageDomain();
 			if (image.isInstanceOf(IDomain.CONDITIONAL)) {// ticket:3014
 				// don't update result yet, no need to run query
@@ -448,15 +422,10 @@ public class DomainHierarchyQueryGenerator {
 			} else if (d.getType().equals(Type.CATEGORICAL)) {
 				//
 				DimensionMapping dmap = select.select(domain, index);
-				select.getSelect()
-						.getStatement()
-						.addComment(
-								"Indexing dimension "
-										+ index.getDimensionName());
+				select.getSelect().getStatement().addComment("Indexing dimension " + index.getDimensionName());
 				//
 				for (Attribute attr : index.getAttributes()) {
-					AttributeMapping attrmap = select.select(domain, index,
-							attr);
+					AttributeMapping attrmap = select.select(domain, index, attr);
 					dmap.putMapping(attr.getId().getAttributeId(), attrmap);
 				}
 				//
@@ -464,18 +433,12 @@ public class DomainHierarchyQueryGenerator {
 			} else if (d.getType().equals(Type.CONTINUOUS)) {
 				// for continuous dimension we want to compute the min/max
 				Axis axis = index.getAxis();
-				Measure min = axis.getParent().M(
-						ExpressionMaker.MIN(axis.getDefinition()));
-				Measure max = axis.getParent().M(
-						ExpressionMaker.MAX(axis.getDefinition()));
+				Measure min = axis.getParent().M(ExpressionMaker.MIN(axis.getDefinitionSafe()));
+				Measure max = axis.getParent().M(ExpressionMaker.MAX(axis.getDefinitionSafe()));
 				MeasureMapping kxmin = select.select(min);
 				MeasureMapping kxmax = select.select(max);
 				select.add(kxmin, kxmax, domain, index);
-				select.getSelect()
-						.getStatement()
-						.addComment(
-								"Indexing dimension "
-										+ index.getDimensionName());
+				select.getSelect().getStatement().addComment("Indexing dimension " + index.getDimensionName());
 				//
 				return true;
 			} else {
@@ -485,8 +448,7 @@ public class DomainHierarchyQueryGenerator {
 		} catch (ScopeException | SQLScopeException e) {
 			// failed to compute the dimension
 			index.setPermanentError(e.getMessage());
-			logger.error("failed to compute dimension "
-					+ index.getAxis().prettyPrint() + " with error: " + e);
+			logger.error("failed to compute dimension " + index.getAxis().prettyPrint() + " with error: " + e);
 			return false;
 		}
 	}
@@ -494,9 +456,11 @@ public class DomainHierarchyQueryGenerator {
 	protected boolean needRefresh(List<DimensionIndex> hierarchy, String query) {
 		boolean res = false;
 		for (DimensionIndex index : hierarchy) {
+			if (index.getStatus() == Status.ERROR)
+				continue;
 			index.initStore(query);
 			if (index.getStatus() == Status.STALE) {
-				logger.info("Dimension"  + index.getDimensionName() + "index needs refresh")  ;
+				logger.info("Dimension" + index.getDimensionName() + "index needs refresh");
 				res = true;
 			}
 		}

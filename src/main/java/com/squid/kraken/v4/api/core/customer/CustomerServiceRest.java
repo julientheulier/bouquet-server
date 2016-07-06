@@ -583,7 +583,10 @@ public class CustomerServiceRest {
 			if (request.getParameter(PARAM_DEEP_READ) != null) {
 				ctxb.setDeepRead(true);
 			}
-
+			String sessionId = request.getHeader(AppContext.HEADER_BOUQUET_SESSIONID);
+			if (sessionId != null) {
+				ctxb.setSessionId(sessionId);
+			}
 			String[] options = request.getParameterValues(PARAM_OPTION);
 			if (options != null) {
 				ctxb.setOptions(Arrays.asList(options));

@@ -25,6 +25,7 @@
 package com.squid.kraken.v4.api.core.websocket;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.util.Collections;
@@ -32,7 +33,9 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
+import javax.websocket.EncodeException;
 import javax.websocket.OnClose;
 import javax.websocket.OnError;
 import javax.websocket.OnMessage;
@@ -43,21 +46,29 @@ import javax.websocket.server.ServerEndpoint;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.collect.HashMultimap;
+import com.google.common.collect.Multimaps;
+import com.google.common.collect.SetMultimap;
 import com.squid.kraken.v4.api.core.InvalidCredentialsAPIException;
 import com.squid.kraken.v4.api.core.ServiceUtils;
 import com.squid.kraken.v4.api.core.customer.TokenExpiredException;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.runtime.CXFServletService;
 
-@ServerEndpoint(value = "/notification", encoders = { DataStoreEventJSONCoder.class })
+@ServerEndpoint(value = "/notification", encoders = { SerializableWebsocketJSONCoder.class })
 public class NotificationWebsocket {
 
 	private static final Logger logger = LoggerFactory
 			.getLogger(CXFServletService.class);
-	private static final Set<Session> sessions = new HashSet<Session>();
+	private static final Set<Session> sessions = Collections.synchronizedSet(new HashSet<Session>());
+	private static final SetMultimap<String, Session> sessionsByToken = HashMultimap.create();
 
 	static public Set<Session> getSessions() {
 		return Collections.unmodifiableSet(sessions);
+	}
+	
+	static public Set<Session> getSessionsByToken(String tokenId) {
+		return sessionsByToken.get(tokenId);
 	}
 
 	public NotificationWebsocket() {
@@ -70,19 +81,25 @@ public class NotificationWebsocket {
 		if (queryString != null) {
 			Map<String, String> splitQuery = splitQuery(queryString);
 			String tokenId = splitQuery.get(ServiceUtils.TOKEN_PARAM);
+			// create a new context with a new session id
+			String bouquetSessionId = UUID.randomUUID().toString();
 			try {
-				AppContext userContext = ServiceUtils.getInstance().getUserContext(tokenId);
-				// set the use context
+				AppContext userContext = ServiceUtils.getInstance()
+						.buildUserContext(tokenId, bouquetSessionId);
+				// update the session
 				session.getUserProperties().put("ctx", userContext);
 			} catch (TokenExpiredException e) {
 				throw new InvalidCredentialsAPIException(e.getMessage(), false);
 			}
 			// keep this session
 			sessions.add(session);
-			logger.debug("Session added with ID : " + session.getId());
+			Multimaps.synchronizedSetMultimap(sessionsByToken).put(tokenId, session);
+			logger.debug("Session added with ID : " + session.getId()
+					+ " uuid : " + bouquetSessionId);
 		} else {
 			logger.debug("Session rejected with ID : " + session.getId());
-			throw new InvalidCredentialsAPIException("missing auth token", false);
+			throw new InvalidCredentialsAPIException("missing auth token",
+					false);
 		}
 	}
 
@@ -94,15 +111,26 @@ public class NotificationWebsocket {
 	@OnClose
 	public void onClose(Session session) {
 		sessions.remove(session);
+		AppContext userContext = (AppContext) session.getUserProperties().get("ctx");
+		sessionsByToken.remove(userContext.getToken().getOid(), session);
 	}
 
 	@OnMessage
-	public void echoTextMessage(Session session, String msg, boolean last) {
+	public void onMessage(Session session, String msg, boolean last) {
 		try {
 			if (session.isOpen()) {
-				logger.debug("Message received from Session with ID : "
-						+ session.getId());
-				session.getBasicRemote().sendText(msg, last);
+				// send back the welcome message
+				try {
+					AppContext userContext = (AppContext) session
+							.getUserProperties().get("ctx");
+					String bouquetSessionId = userContext.getSessionId();
+					logger.debug("Welcome session : " + session.getId()
+							+ " uuid : " + bouquetSessionId);
+					session.getBasicRemote().sendObject(
+							new SessionMessage(bouquetSessionId));
+				} catch (EncodeException e) {
+					e.printStackTrace();
+				}
 			}
 		} catch (IOException e) {
 			try {
@@ -123,6 +151,31 @@ public class NotificationWebsocket {
 					URLDecoder.decode(pair.substring(idx + 1), "UTF-8"));
 		}
 		return query_pairs;
+	}
+
+	@SuppressWarnings("serial")
+	public static class SessionMessage implements Serializable {
+		private final String bouquetSessionId;
+		private final boolean logout;
+
+		public SessionMessage(String bouquetSessionId) {
+			this(bouquetSessionId, false);
+		}
+		
+		public SessionMessage(String bouquetSessionId, boolean logout) {
+			super();
+			this.bouquetSessionId = bouquetSessionId;
+			this.logout = logout;
+		}
+
+		public String getBouquetSessionId() {
+			return bouquetSessionId;
+		}
+
+		public boolean isLogout() {
+			return logout;
+		}
+		
 	}
 
 }
