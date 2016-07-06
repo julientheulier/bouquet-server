@@ -26,6 +26,7 @@ package com.squid.kraken.v4.core.analysis.engine.hierarchy;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -39,7 +40,10 @@ import com.squid.core.concurrent.CancellableCallable;
 import com.squid.core.concurrent.ExecutionManager;
 import com.squid.core.jdbc.engine.IExecutionItem;
 import com.squid.core.jdbc.formatter.IJDBCDataFormatter;
+import com.squid.core.sql.render.RenderingException;
+import com.squid.kraken.v4.caching.redis.RedisCacheManager;
 import com.squid.kraken.v4.caching.redis.queryworkerserver.QueryWorkerJobStatus;
+import com.squid.kraken.v4.caching.redis.queryworkerserver.QueryWorkerJobStatus.Status;
 import com.squid.kraken.v4.core.analysis.datamatrix.AxisValues;
 import com.squid.kraken.v4.core.analysis.engine.index.IndexationException;
 import com.squid.kraken.v4.core.analysis.engine.query.HierarchyQuery;
@@ -52,6 +56,7 @@ import com.squid.kraken.v4.core.sql.SelectUniversal;
 import com.squid.kraken.v4.model.Attribute;
 
 import com.squid.kraken.v4.model.DimensionPK;
+import com.squid.kraken.v4.model.ProjectPK;
 
 
 /**
@@ -73,9 +78,32 @@ public class ExecuteHierarchyQuery implements CancellableCallable<ExecuteHierarc
 
 	
 	
+	// to fill in the Status
+	private int itemId = -1;
+	private long metter_start;
+	private long count  = 0;
+	
+	private String key ;
+	private String SQL ;
+
+	
 	public ExecuteHierarchyQuery(HierarchyQuery query) {
 		this.query = query;
 		this.state = State.NEW;
+	
+		try {
+			this.SQL =  query.render();
+		} catch (RenderingException e) {
+			this.state= State.ERROR;
+		}
+		
+		ArrayList<String> dependencies = new ArrayList<String>();
+		
+		for(DimensionMapping dm : query.getDimensionMapping()){
+			dependencies.add(dm.getDimensionIndex().getDimensionName());
+		}
+				
+		this.key = RedisCacheManager.getInstance().getKey(SQL, dependencies).toString() ;
 	}
 
 	public enum State{
@@ -95,12 +123,33 @@ public class ExecuteHierarchyQuery implements CancellableCallable<ExecuteHierarc
 	}
 	
 	public boolean isOngoing(){
-		return this.state==State.ONGOING || this.state ==State.NEW;
+		return this.state==State.ONGOING_EXECUTION ||  this.state==State.ONGOING_INDEXING || this.state ==State.NEW;
 	}
 	
+	public ArrayList<DimensionPK> getDimensions(){
+		ArrayList<DimensionPK> dimensions = new ArrayList<DimensionPK>();
+		
+		for(DimensionMapping dm : query.getDimensionMapping()){
+			dimensions.add(dm.getDimensionIndex().getDimension().getId());
+		}
+		return dimensions;		
+		
+	}
 
 	public QueryWorkerJobStatus getStatus(){
-		QueryWorkerJobStatus status = new QueryWorkerJobStatus();
+		
+		ProjectPK projectPK = this.query.getUniverse().getProject().getId();
+		
+		long elapse = new Date().getTime() - this.metter_start;
+		
+		QueryWorkerJobStatus.Status jobStatus;
+		if (this.state == State.ONGOING_EXECUTION){
+			jobStatus = QueryWorkerJobStatus.Status.EXECUTING;
+		}else{
+			jobStatus = QueryWorkerJobStatus.Status.INDEXING;	
+		}
+		 
+		QueryWorkerJobStatus status = new QueryWorkerJobStatus(jobStatus,  projectPK,  this.key, this.itemId, SQL, this.count, this.metter_start,  elapse);
 		
 		return status;
 	}
@@ -112,7 +161,7 @@ public class ExecuteHierarchyQuery implements CancellableCallable<ExecuteHierarc
 		HashMap<DimensionIndex, String> lastIndexedCorrelation = new HashMap<DimensionIndex, String>();
 
 		
-		this.state=State.ONGOING;
+		this.state=State.ONGOING_EXECUTION;
 		ExecutionManager.INSTANCE.registerTask(this);
 		//
 		List<DimensionMapping> dx_map = query.getDimensionMapping();
@@ -122,14 +171,16 @@ public class ExecuteHierarchyQuery implements CancellableCallable<ExecuteHierarc
 		try {
 			SelectUniversal select = query.getSelect();
 			DatasourceDefinition ds = select.getDatasource();
-			String SQL = select.render();
 			executeQueryTask = ds.getDBManager().createExecuteQueryTask(SQL);
+			this.itemId = executeQueryTask.getID();
 			executeQueryTask.setWorkerId("front");
 			executeQueryTask.prepare();
 
 			item = executeQueryTask.call();// calling the query in the same
 											// thread
 			ResultSet result = item.getResultSet();
+			this.state=State.ONGOING_INDEXING;
+
 			int bufferCommitSize = result.getFetchSize();
 			//
 			ResultSetMetaData metadata = result.getMetaData();
@@ -162,7 +213,7 @@ public class ExecuteHierarchyQuery implements CancellableCallable<ExecuteHierarc
 				type.add(index);
 			}
 			//
-			long count = 0;
+			 this.count = 0;
 			int maxRecords = -1;
 			DimensionMember[] dedup = new DimensionMember[dx_map.size()];
 			ArrayList<DimensionMember[]> rowBuffer = new ArrayList<>(bufferCommitSize);

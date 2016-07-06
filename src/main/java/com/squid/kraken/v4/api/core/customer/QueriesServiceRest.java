@@ -40,6 +40,7 @@ import com.squid.kraken.v4.api.core.InvalidCredentialsAPIException;
 import com.squid.kraken.v4.api.core.ObjectNotFoundAPIException;
 import com.squid.kraken.v4.caching.redis.RedisCacheManager;
 import com.squid.kraken.v4.caching.redis.queryworkerserver.QueryWorkerJobStatus;
+import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainHierarchyManager;
 import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
 import com.squid.kraken.v4.model.AccessRight.Role;
 import com.squid.kraken.v4.model.Project;
@@ -75,6 +76,7 @@ public class QueriesServiceRest extends BaseServiceRest {
 		// Retrieves all ongoing queries for the current customer
 		String customerId = userContext.getCustomerId();
 		List<QueryWorkerJobStatus> queries = RedisCacheManager.getInstance().getQueryServer().getOngoingQueries(customerId);
+		queries.addAll(DomainHierarchyManager.INSTANCE.getOngoingQueries(customerId)) ;
 		List<QueryWorkerJobStatus> visible = new ArrayList<>();
 		for (QueryWorkerJobStatus query : queries) {
 			ProjectPK projectPK = query.getProjectPK();
@@ -135,6 +137,8 @@ public class QueriesServiceRest extends BaseServiceRest {
 	protected boolean doCancelQuery(String key) {
 		// first check if the query is available
 		String customerId = userContext.getCustomerId();
+		
+		// analysis
 		List<QueryWorkerJobStatus> queries = RedisCacheManager.getInstance().getQueryServer().getOngoingQueries(customerId);
 		for (QueryWorkerJobStatus query : queries) {
 			if (query.getKey().equals(key)) {
@@ -153,6 +157,27 @@ public class QueriesServiceRest extends BaseServiceRest {
 				}
 			}
 		}
+		//hierarchies
+		queries = DomainHierarchyManager.INSTANCE.getOngoingQueries(customerId);
+		for (QueryWorkerJobStatus query : queries) {
+			if (query.getKey().equals(key)) {
+				ProjectPK projectPK = query.getProjectPK();
+				try {
+					Project project = ProjectManager.INSTANCE.getProject(userContext, projectPK);
+					// restrict to privileged user
+					if (checkACL(customerId, project, query)) {
+						// ok, cancel
+						return DomainHierarchyManager.INSTANCE.cancelOngoingQuery(customerId, key);
+					} else {
+						throw new InvalidCredentialsAPIException("user not allowed to cancel query ID="+key, true);
+					}
+				} catch (ScopeException e) {
+					// ignore
+				}
+			}
+		}
+		
+		
 		//
 		throw new ObjectNotFoundAPIException("no query with ID="+key+" found", true);
 	}
@@ -170,7 +195,6 @@ public class QueriesServiceRest extends BaseServiceRest {
 		return false;
 	}
 	
-	public List<QueryWorkerJobStatus> getOngoingQueries(String customerId);
 
 	
 }

@@ -57,6 +57,29 @@ public class QueryWorkerJobStatus {
 	private String elapseTime;
 	
 	/**
+	 * for hierarchyQueries
+	 * @param ustatus
+	 * @param projectPK2
+	 * @param key2
+	 * @param id2
+	 * @param sqlQuery
+	 * @param start time
+	 * @param elapsed tume
+	 */
+	public QueryWorkerJobStatus(Status status, ProjectPK projectPK, String key, int ID, String SQL, long linesRead, long start, long elapse) {
+		this.status = status;
+		this.projectPK = projectPK;
+		this.key = key;
+		this.ID = ID;
+		this.SQL = SQL;
+		this.elapse = elapse;
+		this.lineRead = linesRead;
+		this.elapseTime = DurationFormatUtils.formatDurationHMS(elapse);
+	}
+	
+	
+	
+	/**
 	 * status is executing
 	 * @param userID2
 	 * @param projectPK2

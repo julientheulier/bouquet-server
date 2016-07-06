@@ -87,7 +87,7 @@ public class DomainHierarchyCompute extends DomainHierarchyQueryGenerator {
 		if (legacy != null && !legacy.jobs.isEmpty()) {
 			HashMap<DimensionPK, HierarchyQuery> trimmedQueries = new HashMap<DimensionPK, HierarchyQuery>();
 			HashSet<Future<ExecuteHierarchyQueryResult>> validOngoingJobs = new HashSet<Future<ExecuteHierarchyQueryResult>>();
-
+				
 			for (DimensionPK dpk : this.queries.keySet()) {
 				Future<ExecuteHierarchyQueryResult> job = legacy.jobLookup.get(dpk);
 				if ((job != null) && (!job.isDone())
@@ -237,13 +237,31 @@ public class DomainHierarchyCompute extends DomainHierarchyQueryGenerator {
 		}
 	}
 
+	public boolean cancel(String key){
+		
+		for (ExecuteHierarchyQuery query : ongoingQueries ) {
+			if (query.getStatus().getKey().equals(key)){
+					
+				Future<ExecuteHierarchyQueryResult> toCancel = this.jobLookup.get(query.getDimensions().get(0)) ;
+				toCancel.cancel(false);
+				return true;
+			}					
+		}		
+		return false;
+	}
+	
+	
 	public List<QueryWorkerJobStatus> getOngoingQueriesStatus(String customerId){
 		
 		ArrayList<QueryWorkerJobStatus> res = new 	ArrayList<QueryWorkerJobStatus>();
 		for(ExecuteHierarchyQuery ehq : this.ongoingQueries ){
 			if (ehq.isOngoing())
 			{
-				res.add(ehq.getStatus());
+				QueryWorkerJobStatus jobStatus = ehq.getStatus()	;
+				
+				if (jobStatus.getProjectPK().getCustomerId().equals(customerId)){
+					res.add(ehq.getStatus());
+				}
 			}else{
 				this.ongoingQueries.remove(ehq);
 			}			

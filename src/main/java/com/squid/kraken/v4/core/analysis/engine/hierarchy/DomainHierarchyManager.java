@@ -282,8 +282,7 @@ public class DomainHierarchyManager {
 		ArrayList<QueryWorkerJobStatus> result= new ArrayList<QueryWorkerJobStatus>();
 		for(DomainHierarchy hierarchy : this.hierarchies.values()){
 			DomainHierarchyCompute compute = hierarchy.getCompute();
-			if (compute  != null){
-				
+			if (compute  != null){				
 				result.addAll(compute.getOngoingQueriesStatus(customerId));				
 			}			
 		}
@@ -291,5 +290,19 @@ public class DomainHierarchyManager {
 		
 	};
 
+	
+	public boolean cancelOngoingQuery(String customerId, String key){
+		
+		for(DomainHierarchy hierarchy : this.hierarchies.values()){
+			DomainHierarchyCompute compute = hierarchy.getCompute();
+			if (compute  != null){				
+				if (compute.cancel(key)){
+					return true;
+				}					
+			}
+	
+		}
+		return false;
+	}
 
 }
