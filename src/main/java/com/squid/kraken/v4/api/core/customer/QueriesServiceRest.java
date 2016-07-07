@@ -100,6 +100,7 @@ public class QueriesServiceRest extends BaseServiceRest {
 		// first check if the query is available
 		String customerId = userContext.getCustomerId();
 		List<QueryWorkerJobStatus> queries = RedisCacheManager.getInstance().getQueryServer().getOngoingQueries(customerId);
+		queries.addAll(DomainHierarchyManager.INSTANCE.getOngoingQueries(customerId)) ;
 		for (QueryWorkerJobStatus query : queries) {
 			if (query.getKey().equals(key)) {
 				ProjectPK projectPK = query.getProjectPK();
