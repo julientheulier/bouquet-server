@@ -33,6 +33,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.squid.kraken.v4.config.KrakenConfigV2;
+import com.squid.kraken.v4.model.Customer.AUTH_MODE;
 
 //import com.squid.kraken.v4.KrakenConfigV2.MailConfig;
 
@@ -185,6 +186,7 @@ public class KrakenConfig {
 
 					props.setProperty("elastic.local", Boolean.toString(confV2.getElasticLocal()));
 					props.setProperty("feature.dynamic", Boolean.toString(confV2.getFeatureDynamic()));
+					props.setProperty("authMode", confV2.getAuthMode().toString());
 
 					if (confV2.getEHCachePath() != null) {
 						props.setProperty("ehcache.path", confV2.getEHCachePath());
@@ -230,6 +232,10 @@ public class KrakenConfig {
 			logger.warn("Could not load Kraken config file for stream : " + in, e);
 		}
 
+	}
+	
+	public static AUTH_MODE getAuthMode() {
+		return AUTH_MODE.valueOf(KrakenConfig.getProperty("authMode", AUTH_MODE.BYPASS.toString()));
 	}
 
 }
