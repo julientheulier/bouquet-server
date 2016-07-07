@@ -218,8 +218,9 @@ public class CXFServletService extends CXFNonSpringJaxrsServlet {
 					// Checking for previous superusers...
 					if (!ServiceUtils.getInstance().checkforSuperUserRootUserContext()) {
 						String defaultClientURL = KrakenConfig.getProperty("default.client.url", true);
-						CustomerServiceBaseImpl.getInstance().accessRequest("demo", null, null, null, null, null, null,
-								defaultClientURL, EmailHelperImpl.getInstance());
+						CustomerServiceBaseImpl.getInstance()
+								.accessRequestDemo(defaultClientURL,
+										EmailHelperImpl.getInstance());
 					}
 				}
 			}
