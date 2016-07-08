@@ -36,6 +36,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import com.squid.kraken.v4.model.AccessRight.Role;
+import com.squid.kraken.v4.model.Customer.AUTH_MODE;
 import com.wordnik.swagger.annotations.ApiModelProperty;
 
 @XmlType(namespace = "http://model.v4.kraken.squid.com")
@@ -69,6 +70,8 @@ public class CustomerInfo implements HasAccessRights, HasChildren  {
     private Set<AccessRight> accessRights;
 	
     private Role userRole;
+    
+    private AUTH_MODE authMode = AUTH_MODE.OAUTH;
 
 	public CustomerInfo() {
 	}
@@ -79,6 +82,7 @@ public class CustomerInfo implements HasAccessRights, HasChildren  {
 		this.defaultLocale = customer.getDefaultLocale();
 		this.id = customer.getOid();
 		this.accessRights = customer.getAccessRights();
+		this.authMode = customer.getAuthMode();
 	}
 
 	/**
@@ -209,5 +213,13 @@ public class CustomerInfo implements HasAccessRights, HasChildren  {
 	@Override
 	public String[] getChildren() {
 		return CHILDREN;
+	}
+	
+	public AUTH_MODE getAuthMode() {
+		return authMode;
+	}
+
+	public void setAuthMode(AUTH_MODE authMode) {
+		this.authMode = authMode;
 	}
 }

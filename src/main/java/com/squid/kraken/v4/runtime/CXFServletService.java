@@ -35,10 +35,6 @@ import javax.servlet.ServletConfig;
 import javax.servlet.ServletContext;
 import javax.servlet.ServletException;
 
-import com.squid.kraken.v4.api.core.EmailHelperImpl;
-import com.squid.kraken.v4.api.core.GlobalEventPublisher;
-import com.squid.kraken.v4.api.core.customer.CustomerServiceBaseImpl;
-
 import org.apache.cxf.jaxrs.servlet.CXFNonSpringJaxrsServlet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,16 +42,19 @@ import org.slf4j.LoggerFactory;
 import com.squid.core.velocity.VelocityTemplateManager;
 import com.squid.kraken.v4.KrakenConfig;
 import com.squid.kraken.v4.ESIndexFacade.ESIndexFacadeConfiguration;
+import com.squid.kraken.v4.api.core.EmailHelperImpl;
 import com.squid.kraken.v4.api.core.ServiceUtils;
 import com.squid.kraken.v4.api.core.customer.AdminServiceRest;
+import com.squid.kraken.v4.api.core.customer.CustomerServiceBaseImpl;
 import com.squid.kraken.v4.api.core.customer.CustomerServiceRest;
 import com.squid.kraken.v4.api.core.websocket.NotificationWebsocketMetaModelObserver;
-import com.squid.kraken.v4.caching.redis.RedisCacheConfig;
 import com.squid.kraken.v4.caching.redis.CacheInitPoint;
+import com.squid.kraken.v4.caching.redis.RedisCacheConfig;
 import com.squid.kraken.v4.caching.redis.RedisCacheManager;
 import com.squid.kraken.v4.config.KrakenConfigV2;
 import com.squid.kraken.v4.core.analysis.engine.index.DimensionStoreManagerFactory;
 import com.squid.kraken.v4.core.database.impl.DriversService;
+import com.squid.kraken.v4.model.Customer.AUTH_MODE;
 import com.squid.kraken.v4.persistence.DataStoreEventBus;
 import com.wordnik.swagger.config.ScannerFactory;
 import com.wordnik.swagger.jaxrs.config.ReflectiveJaxrsScanner;
@@ -219,14 +218,20 @@ public class CXFServletService extends CXFNonSpringJaxrsServlet {
 					// Checking for previous superusers...
 					if (!ServiceUtils.getInstance().checkforSuperUserRootUserContext()) {
 						String defaultClientURL = KrakenConfig.getProperty("default.client.url", true);
-						CustomerServiceBaseImpl.getInstance().accessRequest("demo", null, null, null, null, null, null,
-								defaultClientURL, EmailHelperImpl.getInstance());
+						CustomerServiceBaseImpl.getInstance()
+								.accessRequestDemo(defaultClientURL,
+										EmailHelperImpl.getInstance());
 					}
 				}
 			}
 		} catch (Exception e) {
 			logger.error("Failed to create a default user with error: " + e.toString());
 			throw new ServletException(e);
+		}
+		
+		AUTH_MODE authMode = KrakenConfig.getAuthMode();
+		if (authMode != AUTH_MODE.OAUTH) {
+			logger.warn("AUTH MODE set to "+authMode);
 		}
 
 		logger.info("Open Bouquet started with build version : " + ServiceUtils.getInstance().getBuildVersionString());

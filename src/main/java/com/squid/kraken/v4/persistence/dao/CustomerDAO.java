@@ -23,7 +23,10 @@
  *******************************************************************************/
 package com.squid.kraken.v4.persistence.dao;
 
-import java.util.HashSet; 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import com.squid.kraken.v4.api.core.AccessRightsUtils;
@@ -38,10 +41,20 @@ import com.squid.kraken.v4.persistence.DataStoreEvent;
 
 public class CustomerDAO extends
 		AccessRightsPersistentDAO<Customer, CustomerPK> {
+	
+    private List<Customer> findAllCache = Collections.synchronizedList(new ArrayList<Customer>());
 
 	public CustomerDAO(DataStore ds) {
 		super(Customer.class, ds);
 	}
+	
+    public List<Customer> findAll(AppContext app) {
+    	if (findAllCache.isEmpty()) {
+    		List<Customer> find = ds.find(app, type, null, null);
+    		this.findAllCache.addAll(find);
+    	}
+    	return findAllCache;
+    }
 
 	@Override
 	public Customer create(AppContext ctx, Customer newInstance) {
@@ -90,12 +103,14 @@ public class CustomerDAO extends
 			// deletion
 			id = (CustomerPK) event.getSource();
 			instanceCache.remove(id);
+			findAllCache.clear();
 		}
 		if (event.getSource() instanceof Customer) {
 			// creation or update
 			Customer source = (Customer) event.getSource();
 			id = source.getId();
 			instanceCache.put(id, source);
+			findAllCache.clear();
 		}
 	}
 

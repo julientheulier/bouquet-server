@@ -84,11 +84,11 @@ public class CustomerServiceRest {
 		return instance;
 	}
 
-	static public final String PARAM_REFRESH = "refresh";
+	static private final String PARAM_REFRESH = "refresh";
 
-	static public final String PARAM_DEEP_READ = "deepread";
+	static private final String PARAM_DEEP_READ = "deepread";
 
-	static public final String PARAM_OPTION = "option";
+	static private final String PARAM_OPTION = "option";
 
 	private CustomerServiceBaseImpl delegate = CustomerServiceBaseImpl
 			.getInstance();

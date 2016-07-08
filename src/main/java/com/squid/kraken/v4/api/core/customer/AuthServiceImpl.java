@@ -33,10 +33,8 @@ import java.security.spec.KeySpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
 import java.util.Arrays;
-import org.apache.commons.codec.binary.Base64;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -44,6 +42,7 @@ import java.util.concurrent.TimeUnit;
 
 import javax.mail.MessagingException;
 
+import org.apache.commons.codec.binary.Base64;
 import org.jose4j.jwt.JwtClaims;
 import org.jose4j.jwt.MalformedClaimException;
 import org.jose4j.jwt.consumer.InvalidJwtException;
@@ -149,7 +148,7 @@ public class AuthServiceImpl extends
 			String redirectUrl, String login, String password)
 			throws DuplicateUserException {
 		User user = auth(ctx, clientId, redirectUrl, login, password);
-		return createToken(user.getCustomerId(), clientId, user.getId()
+		return ServiceUtils.getInstance().createToken(user.getCustomerId(), clientId, user.getId()
 				.getUserId(), System.currentTimeMillis(), ServiceUtils
 				.getInstance().getTokenExpirationPeriodMillis(), null, null);
 	}
@@ -319,7 +318,7 @@ public class AuthServiceImpl extends
 		}
 
 		// create a new access token
-		AccessToken token = createToken(codeToken.getCustomerId(), clientId,
+		AccessToken token = ServiceUtils.getInstance().createToken(codeToken.getCustomerId(), clientId,
 				codeToken.getUserId(), System.currentTimeMillis(), ServiceUtils
 						.getInstance().getTokenExpirationPeriodMillis(), null, null);
 		
@@ -358,7 +357,7 @@ public class AuthServiceImpl extends
 		}
 
 		// create a new access token
-		AccessToken token = createToken(refreshToken.getCustomerId(), clientId,
+		AccessToken token = ServiceUtils.getInstance().createToken(refreshToken.getCustomerId(), clientId,
 				refreshToken.getUserId(), System.currentTimeMillis(), ServiceUtils
 						.getInstance().getTokenExpirationPeriodMillis(), null, null);
 		token.setRefreshToken(refreshToken.getOid());
@@ -404,7 +403,7 @@ public class AuthServiceImpl extends
 			
 			// create the token
 			String userId = jwtContext.getJwtClaims().getSubject();
-			AccessToken token = createToken(customerId, clientId,
+			AccessToken token = ServiceUtils.getInstance().createToken(customerId, clientId,
 					userId, System.currentTimeMillis(), ServiceUtils
 							.getInstance().getTokenExpirationPeriodMillis(), null, null);
 			return token;
@@ -610,7 +609,7 @@ public class AuthServiceImpl extends
 
 			// createToken
 			if (clientPk != null) {
-				AccessToken token = createToken(custId, clientPk, user.getId()
+				AccessToken token = ServiceUtils.getInstance().createToken(custId, clientPk, user.getId()
 						.getUserId(), System.currentTimeMillis(), ServiceUtils
 						.getInstance().getResetPasswordTokenExpirationPeriodMillis(),
 						AccessToken.Type.RESET_PWD, null);
@@ -664,50 +663,14 @@ public class AuthServiceImpl extends
 
 	}
 
-	/**
-	 * Create a new Token.
-	 * 
-	 * @param clientPk
-	 * @param userId
-	 * @param creationTimestamp
-	 *            custom creation date or current date if <tt>null</tt>
-	 * @param validityMillis
-	 *            the token validity in milliseconds.
-	 * @param token
-	 *            type (or null)
-	 * @return an AccessToken
-	 */
-	private AccessToken createToken(String customerId, ClientPK clientPk,
-			String userId, Long creationTimestamp, Long validityMillis,
-			AccessToken.Type type, String refreshTokenId) {
-		AppContext rootContext = ServiceUtils.getInstance().getRootUserContext(
-				customerId);
-		Long exp = null;
-		if (validityMillis != null) {
-			exp = (creationTimestamp == null) ? System.currentTimeMillis()
-					: creationTimestamp;
-			exp += validityMillis;
-		}
-		AccessTokenPK tokenId = new AccessTokenPK(UUID.randomUUID().toString());
-		String clientId = clientPk == null ? null : clientPk.getClientId();
-		AccessToken newToken = new AccessToken(tokenId, customerId, clientId,
-				exp);
-		newToken.setUserId(userId);
-		newToken.setType(type);
-		newToken.setRefreshToken(refreshTokenId);
-		AccessToken token = DAOFactory.getDAOFactory()
-				.getDAO(AccessToken.class).create(rootContext, newToken);
-		return token;
-	}
-	
 	private AccessToken createRefreshToken(String customerId, ClientPK clientPk,
 			String userId) {
-		return createToken(customerId, clientPk, userId, System.currentTimeMillis(), null, Type.REFRESH, null);
+		return ServiceUtils.getInstance().createToken(customerId, clientPk, userId, System.currentTimeMillis(), null, Type.REFRESH, null);
 	}
 	
 	private AccessToken createAuthCode(String customerId, ClientPK clientPk,
 			String userId, String refreshTokenId) {
-		return createToken(customerId, clientPk, userId, System.currentTimeMillis(), ServiceUtils
+		return ServiceUtils.getInstance().createToken(customerId, clientPk, userId, System.currentTimeMillis(), ServiceUtils
 				.getInstance().getTokenExpirationPeriodMillis(), Type.CODE, refreshTokenId);
 	}
 

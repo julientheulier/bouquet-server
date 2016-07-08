@@ -24,7 +24,6 @@
 package com.squid.kraken.v4.config;
 
 import java.io.File;
-
 import java.io.IOException;
 
 import org.slf4j.Logger;
@@ -33,6 +32,7 @@ import org.slf4j.LoggerFactory;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.squid.kraken.v4.caching.redis.RedisCacheConfig;
+import com.squid.kraken.v4.model.Customer.AUTH_MODE;
 
 public class KrakenConfigV2 {
 
@@ -60,6 +60,8 @@ public class KrakenConfigV2 {
 	public String krakenOAuthEndpoint;
 
 	public String EHCachePath;
+	
+	public AUTH_MODE authMode = AUTH_MODE.BYPASS;
 
 	public String getKrakenWSVersion() {
 		return krakenWSVersion;
@@ -176,6 +178,14 @@ public class KrakenConfigV2 {
 
 	public void setEHCachePath(String eHCachePath) {
 		EHCachePath = eHCachePath;
+	}
+
+	public AUTH_MODE getAuthMode() {
+		return authMode;
+	}
+
+	public void setAuthMode(AUTH_MODE authMode) {
+		this.authMode = authMode;
 	}
 
 	public static KrakenConfigV2 loadFromjson(String filename) throws IOException {
