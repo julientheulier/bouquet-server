@@ -25,6 +25,7 @@ package com.squid.kraken.v4.api.core.projectanalysisjob;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.util.List;
 import java.util.Set;
@@ -282,7 +283,12 @@ public class AnalysisJobServiceRest extends BaseServiceRest {
 			@Override
 			public void write(OutputStream os) throws IOException, WebApplicationException {
 				try {
-					final String urlDecoded = URLDecoder.decode(decoded, "UTF-8");
+					String urlDecoded = null;
+					try {
+						urlDecoded = URLDecoder.decode(decoded, "UTF-8");
+					} catch (UnsupportedEncodingException uee) {
+						urlDecoded = decoded;
+					}
 					ExportSourceWriterVelocity writer = new ExportSourceWriterVelocity(urlDecoded);
 					delegate.writeResults(os, userContext, job, 1000, timeout, true, maxResults, startIndex, lazy, null,
 							null, writer);
