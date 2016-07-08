@@ -76,7 +76,7 @@ public class LString extends PersistentBaseImpl<LStringPK> {
     }
 
     public Persistent<?> getParentObject(AppContext ctx) {
-        return DAOFactory.getDAOFactory().getDAO(Customer.class).readNotNull(ctx, new CustomerPK(id.getCustomerId()));
+        return DAOFactory.getDAOFactory().getDAO(Customer.class).readNotNull(ctx, new CustomerPK(ctx.getCustomerId()));
     }
     
 }

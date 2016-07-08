@@ -150,7 +150,7 @@ public class Client extends PersistentBaseImpl<ClientPK> implements HasConfig {
 	@Override
 	public Persistent<?> getParentObject(AppContext ctx) {
 		return DAOFactory.getDAOFactory().getDAO(Customer.class)
-				.readNotNull(ctx, new CustomerPK(id.getCustomerId()));
+				.readNotNull(ctx, new CustomerPK(ctx.getCustomerId()));
 	}
 
 	@ApiModelProperty(position = 1)

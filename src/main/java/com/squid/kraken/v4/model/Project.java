@@ -144,7 +144,7 @@ public class Project extends LzPersistentBaseImpl<ProjectPK> implements
 	@Override
 	public Persistent<?> getParentObject(AppContext ctx) {
 		return DAOFactory.getDAOFactory().getDAO(Customer.class)
-				.readNotNull(ctx, new CustomerPK(id.getCustomerId()));
+				.readNotNull(ctx, new CustomerPK(ctx.getCustomerId()));
 	}
 
 	@ApiModelProperty(value = "The DataBase vendor ID to use for connecting")
