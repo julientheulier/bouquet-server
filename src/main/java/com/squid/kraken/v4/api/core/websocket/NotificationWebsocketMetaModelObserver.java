@@ -137,7 +137,12 @@ public class NotificationWebsocketMetaModelObserver implements
 		if (emitter == null
 				|| (!ctx.getSessionId().equals(emitter.getSessionId()))) {
 			// send
-			s.getAsyncRemote().sendObject(object);
+			try {
+				s.getAsyncRemote().sendObject(object);
+			} catch (IllegalStateException e) {
+				// T1562 getAsyncRemote appears not to be thread-safe but I prefer to ignore than locking
+				logger.info("Message sending failed : "+e.getMessage());
+			}
 		}
 	}
 
