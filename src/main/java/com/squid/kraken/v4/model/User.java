@@ -149,7 +149,7 @@ public class User extends PersistentBaseImpl<UserPK> {
 	@Override
 	public Persistent<?> getParentObject(AppContext ctx) {
 		return DAOFactory.getDAOFactory().getDAO(Customer.class)
-				.readNotNull(ctx, new CustomerPK(id.getCustomerId()));
+				.readNotNull(ctx, new CustomerPK(ctx.getCustomerId()));
 	}
 
 	public String getEmail() {
