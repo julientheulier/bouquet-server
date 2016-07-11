@@ -286,7 +286,7 @@ public class AnalysisJobServiceRest extends BaseServiceRest {
 					String urlDecoded = null;
 					try {
 						urlDecoded = URLDecoder.decode(decoded, "UTF-8");
-					} catch (UnsupportedEncodingException uee) {
+					} catch (IllegalArgumentException | UnsupportedEncodingException iauee) {
 						urlDecoded = decoded;
 					}
 					ExportSourceWriterVelocity writer = new ExportSourceWriterVelocity(urlDecoded);
