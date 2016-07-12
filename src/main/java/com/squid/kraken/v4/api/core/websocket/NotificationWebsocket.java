@@ -52,21 +52,23 @@ import com.google.common.collect.SetMultimap;
 import com.squid.kraken.v4.api.core.InvalidCredentialsAPIException;
 import com.squid.kraken.v4.api.core.ServiceUtils;
 import com.squid.kraken.v4.api.core.customer.TokenExpiredException;
+import com.squid.kraken.v4.model.AccessToken;
+import com.squid.kraken.v4.model.User;
+import com.squid.kraken.v4.model.UserPK;
 import com.squid.kraken.v4.persistence.AppContext;
-import com.squid.kraken.v4.runtime.CXFServletService;
+import com.squid.kraken.v4.persistence.DAOFactory;
 
 @ServerEndpoint(value = "/notification", encoders = { SerializableWebsocketJSONCoder.class })
 public class NotificationWebsocket {
 
-	private static final Logger logger = LoggerFactory
-			.getLogger(CXFServletService.class);
+	private static final Logger logger = LoggerFactory.getLogger(NotificationWebsocket.class);
 	private static final Set<Session> sessions = Collections.synchronizedSet(new HashSet<Session>());
 	private static final SetMultimap<String, Session> sessionsByToken = HashMultimap.create();
 
 	static public Set<Session> getSessions() {
 		return Collections.unmodifiableSet(sessions);
 	}
-	
+
 	static public Set<Session> getSessionsByToken(String tokenId) {
 		return sessionsByToken.get(tokenId);
 	}
@@ -75,62 +77,54 @@ public class NotificationWebsocket {
 	}
 
 	@OnOpen
-	public void onOpen(Session session) throws IOException {
+	public void onOpen(Session session) throws IOException, EncodeException {
 		// check for an auth token
+		String tokenId = null;
 		String queryString = session.getQueryString();
 		if (queryString != null) {
 			Map<String, String> splitQuery = splitQuery(queryString);
-			String tokenId = splitQuery.get(ServiceUtils.TOKEN_PARAM);
-			// create a new context with a new session id
-			String bouquetSessionId = UUID.randomUUID().toString();
-			try {
-				AppContext userContext = ServiceUtils.getInstance()
-						.buildUserContext(tokenId, bouquetSessionId);
-				// update the session
-				session.getUserProperties().put("ctx", userContext);
-			} catch (TokenExpiredException e) {
-				throw new InvalidCredentialsAPIException(e.getMessage(), false);
-			}
+			tokenId = splitQuery.get(ServiceUtils.TOKEN_PARAM);
+		}
+		// create a new context with a new session id
+		String bouquetSessionId = UUID.randomUUID().toString();
+		try {
+			AppContext userContext = buildUserContext(tokenId, bouquetSessionId);
+			// update the session
+			session.getUserProperties().put("ctx", userContext);
 			// keep this session
 			sessions.add(session);
 			Multimaps.synchronizedSetMultimap(sessionsByToken).put(tokenId, session);
-			logger.debug("Session added with ID : " + session.getId()
-					+ " uuid : " + bouquetSessionId);
-		} else {
-			logger.debug("Session rejected with ID : " + session.getId());
-			throw new InvalidCredentialsAPIException("missing auth token",
-					false);
+			logger.info("Session added with ID : " + session.getId() + " uuid : " + bouquetSessionId);
+		} catch (TokenExpiredException | InvalidCredentialsAPIException e) {
+			// send a logout message
+			logger.info("Invalid or expired token : " + tokenId);
+			session.getBasicRemote().sendObject(new SessionMessage(bouquetSessionId, true, true));
 		}
 	}
 
 	@OnError
 	public void onError(Throwable t) {
-		t.printStackTrace();
+		logger.info(t.getMessage(), t);
 	}
 
 	@OnClose
 	public void onClose(Session session) {
 		sessions.remove(session);
 		AppContext userContext = (AppContext) session.getUserProperties().get("ctx");
-		sessionsByToken.remove(userContext.getToken().getOid(), session);
+		if ((userContext != null) && (userContext.getToken() != null)) {
+			sessionsByToken.remove(userContext.getToken().getOid(), session);
+		}
 	}
 
 	@OnMessage
-	public void onMessage(Session session, String msg, boolean last) {
+	public void onMessage(Session session, String msg, boolean last) throws EncodeException {
 		try {
 			if (session.isOpen()) {
 				// send back the welcome message
-				try {
-					AppContext userContext = (AppContext) session
-							.getUserProperties().get("ctx");
-					String bouquetSessionId = userContext.getSessionId();
-					logger.debug("Welcome session : " + session.getId()
-							+ " uuid : " + bouquetSessionId);
-					session.getBasicRemote().sendObject(
-							new SessionMessage(bouquetSessionId));
-				} catch (EncodeException e) {
-					e.printStackTrace();
-				}
+				AppContext userContext = (AppContext) session.getUserProperties().get("ctx");
+				String bouquetSessionId = userContext.getSessionId();
+				logger.debug("Welcome session : " + session.getId() + " uuid : " + bouquetSessionId);
+				session.getBasicRemote().sendObject(new SessionMessage(bouquetSessionId));
 			}
 		} catch (IOException e) {
 			try {
@@ -141,8 +135,7 @@ public class NotificationWebsocket {
 		}
 	}
 
-	public Map<String, String> splitQuery(String query)
-			throws UnsupportedEncodingException {
+	public Map<String, String> splitQuery(String query) throws UnsupportedEncodingException {
 		Map<String, String> query_pairs = new LinkedHashMap<String, String>();
 		String[] pairs = query.split("&");
 		for (String pair : pairs) {
@@ -157,15 +150,17 @@ public class NotificationWebsocket {
 	public static class SessionMessage implements Serializable {
 		private final String bouquetSessionId;
 		private final boolean logout;
+		private final boolean expired;
 
 		public SessionMessage(String bouquetSessionId) {
-			this(bouquetSessionId, false);
+			this(bouquetSessionId, false, false);
 		}
-		
-		public SessionMessage(String bouquetSessionId, boolean logout) {
+
+		public SessionMessage(String bouquetSessionId, boolean logout, boolean expired) {
 			super();
 			this.bouquetSessionId = bouquetSessionId;
 			this.logout = logout;
+			this.expired = expired;
 		}
 
 		public String getBouquetSessionId() {
@@ -175,7 +170,32 @@ public class NotificationWebsocket {
 		public boolean isLogout() {
 			return logout;
 		}
-		
+
+		public boolean isExpired() {
+			return expired;
+		}
+	}
+
+	public static AppContext buildUserContext(String tokenId, String sessionId) throws TokenExpiredException {
+		AccessToken token = null;
+		AppContext ctx = null;
+
+		// retrieve the token
+		token = ServiceUtils.getInstance().getToken(tokenId);
+		if (token == null) {
+			throw new InvalidCredentialsAPIException("Invalid token", false);
+		} else {
+			// retrieve the User
+			AppContext root = ServiceUtils.getInstance().getRootUserContext(token.getCustomerId());
+			User user = DAOFactory.getDAOFactory().getDAO(User.class).readNotNull(root,
+					new UserPK(token.getCustomerId(), token.getUserId()));
+
+			// build the context
+			AppContext.Builder ctxb = new AppContext.Builder(token, user);
+			ctxb.setSessionId(sessionId);
+			ctx = ctxb.build();
+			return ctx;
+		}
 	}
 
 }

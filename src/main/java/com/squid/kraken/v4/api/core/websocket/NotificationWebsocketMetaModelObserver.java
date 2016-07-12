@@ -90,7 +90,7 @@ public class NotificationWebsocketMetaModelObserver implements
 						if (s.isOpen()) {
 							Emitter emitter = event.getEmitter();
 							SessionMessage message = new SessionMessage(
-									emitter.getSessionId(), true);
+									emitter.getSessionId(), true, false);
 							send(null, emitter, s, message);
 						}
 					}

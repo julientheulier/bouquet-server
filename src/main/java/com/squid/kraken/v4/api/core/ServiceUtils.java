@@ -387,32 +387,6 @@ public class ServiceUtils {
 		}
 		return locale;
 	}
-	
-	public AppContext buildUserContext(String tokenId, String sessionId) throws TokenExpiredException {
-		AccessToken token = null;
-		AppContext ctx = null;
-
-		// retrieve the token
-		if (tokenId != null) {
-			token = getToken(tokenId);
-		}
-
-		// retrieve the User
-		AppContext root = ServiceUtils.getInstance().getRootUserContext(
-				token.getCustomerId());
-		User user = DAOFactory
-				.getDAOFactory()
-				.getDAO(User.class)
-				.readNotNull(
-						root,
-						new UserPK(token.getCustomerId(), token.getUserId()));
-
-		// build the context
-		AppContext.Builder ctxb = new AppContext.Builder(token, user);
-		ctxb.setSessionId(sessionId);
-		ctx = ctxb.build();
-		return ctx;
-	}
 
 	/**
 	 * Perform API init cleanup tasks. To be executed when starting.
