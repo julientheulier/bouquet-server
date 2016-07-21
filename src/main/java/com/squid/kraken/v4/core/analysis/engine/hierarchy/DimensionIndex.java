@@ -208,7 +208,8 @@ public class DimensionIndex {
 	 * @return
 	 */
 	public boolean isVisible() {
-		return getDomain().isDynamic() || dimension.isVisible();
+		// T1623
+		return true;
 	}
 	
 	protected Domain getDomain() {
