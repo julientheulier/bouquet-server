@@ -211,7 +211,12 @@ public class DomainHierarchyCompute extends DomainHierarchyQueryGenerator {
 			return true;
 		if (jobLookup == null)
 			return false;
-		Future<ExecuteHierarchyQueryResult> job = jobLookup.get(index.getDimension().getId()).getJob();
+		
+		ExecuteHierarchyQuery ehq = jobLookup.get(index.getDimension().getId());
+		if (ehq == null)
+			return false;
+		
+		Future<ExecuteHierarchyQueryResult> job = ehq.getJob();
 		if (job == null)
 			return false;
 		if (!job.isDone()) {
