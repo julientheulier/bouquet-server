@@ -903,7 +903,7 @@ public class ESIndexFacade implements IESIndexFacade {
 	private SearchResponse partialFilterHierarchyByFirstChar(String domainName, String hierarchyName, String resultType,
 			HashMap<String, ArrayList<String>> filterVal, String prefix, int from, int nbResults,
 			HashMap<String, ESMapping> mappings) {
-
+		
 		TypeFilterBuilder typeFilter = FilterBuilders.typeFilter(hierarchyName);
 
 		BoolQueryBuilder andBoolQuery = this.buildFilterHierarchyOnValues(filterVal, mappings);
@@ -916,7 +916,6 @@ public class ESIndexFacade implements IESIndexFacade {
 				.setQuery(QueryBuilders.filteredQuery(andBoolQuery, typeFilter));
 		srb.setSize(nbResults);
 		srb.setFrom(from);
-		logger.info(srb.toString());
 
 		SearchResponse resp = srb.execute().actionGet();
 		return resp;
@@ -1002,10 +1001,14 @@ public class ESIndexFacade implements IESIndexFacade {
 			HashMap<String, ArrayList<String>> filterVal, String substring, int from, int nbResults,
 			HashMap<String, ESMapping> mappings) throws ESIndexFacadeException {
 		try {
+			
+			logger.info("getN results , filter= " + substring);
 			int totalResults = 0;
 			long totalHits = -1;
 			LinkedHashSet<String> results = new LinkedHashSet<>();
 			HierarchiesSearchResult res = new HierarchiesSearchResult();
+			
+			int stepSize = nbResults *100;
 
 			boolean ok = false;
 			int currentFrom = from;
@@ -1017,16 +1020,16 @@ public class ESIndexFacade implements IESIndexFacade {
 
 				if (substring == null) {
 					resp = this.partialFilterHierarchyByMemberValues(domainName, hierarchyName, resultType, filterVal,
-							currentFrom, nbResults, mappings);
+							currentFrom, stepSize, mappings);
 
 				} else {
 					if (map.type.equals(ESTypeMapping.STRING)) {
 						if (substring.length() == 1) {
 							resp = this.partialFilterHierarchyByFirstChar(domainName, hierarchyName, resultType,
-									filterVal, substring, currentFrom, nbResults, mappings);
+									filterVal, substring, currentFrom, stepSize, mappings);
 						} else {
 							resp = this.partialFilterHierarchyByMemberValuesAndSubstring(domainName, hierarchyName,
-									resultType, filterVal, substring, currentFrom, nbResults, mappings);
+									resultType, filterVal, substring, currentFrom, stepSize, mappings);
 						}
 					} else {
 						if (map.type.equals(ESTypeMapping.DOUBLE)) {
@@ -1039,7 +1042,7 @@ public class ESIndexFacade implements IESIndexFacade {
 
 							if (isNumeric) {
 								resp = this.partialFilterHierarchyByMemberValuesAndExactNumeric(domainName,
-										hierarchyName, resultType, filterVal, substring, currentFrom, nbResults,
+										hierarchyName, resultType, filterVal, substring, currentFrom, stepSize,
 										mappings);
 							} else {
 								resp = null;
@@ -1056,7 +1059,7 @@ public class ESIndexFacade implements IESIndexFacade {
 
 								if (isNumeric) {
 									resp = this.partialFilterHierarchyByMemberValuesAndExactNumeric(domainName,
-											hierarchyName, resultType, filterVal, substring, currentFrom, nbResults,
+											hierarchyName, resultType, filterVal, substring, currentFrom, stepSize,
 											mappings);
 								} else {
 									resp = null;
@@ -1077,18 +1080,18 @@ public class ESIndexFacade implements IESIndexFacade {
 
 					totalResults += resp.getHits().getHits().length;
 
-					int incr = 0;
+//					int incr = 0;
 					for (SearchHit hit : resp.getHits().getHits()) {
 						Object value = hit.getSource().get(resultType);
 						if (value != null) {
-							if ((substring != null) && !(value.toString().toLowerCase().contains(substring))) {
+							if ((substring != null) && !(value.toString().toLowerCase().contains(substring.toLowerCase()))) {
 								continue;
 							}
 							if (results.add(value.toString())) {
 								if (logger.isDebugEnabled()) {
 									logger.debug(("score " + value.toString() + " " + hit.getScore()));
 								}
-								incr++;
+//								incr++;
 							}
 						}
 					}
@@ -1097,12 +1100,13 @@ public class ESIndexFacade implements IESIndexFacade {
 					// " total results " +totalResults + " total hits " +
 					// totalHits
 					// );
-					if (results.size() >= nbResults || incr == 0) {
+			//		if (results.size() >= nbResults || incr == 0) {
+					if (results.size() >= nbResults ) {
 						if (totalResults >= totalHits) {
 							res.hasMore = false;
 						}
 						res.hits = results;
-						res.stoppedAt = currentFrom + nbResults;
+						res.stoppedAt = currentFrom + stepSize;
 						ok = true;
 					} else {
 						if (totalResults >= totalHits) {
@@ -1110,7 +1114,7 @@ public class ESIndexFacade implements IESIndexFacade {
 							res.hits = results;
 							ok = true;
 						} else {
-							currentFrom += nbResults;
+							currentFrom += stepSize;
 						}
 					}
 				} else {

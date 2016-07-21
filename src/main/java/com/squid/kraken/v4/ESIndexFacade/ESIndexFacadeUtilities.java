@@ -129,9 +129,14 @@ public class ESIndexFacadeUtilities {
 
 		ESMapping map = mappings.get(fieldname);
 		if (map.type == ESTypeMapping.STRING) {
-			PrefixFilterBuilder prefixFilter = FilterBuilders.prefixFilter(fieldname + not_analyzedSuffix, prefix);
-			QueryBuilder q = QueryBuilders.constantScoreQuery(prefixFilter);
-			return q;
+			PrefixFilterBuilder prefixFilterUpper = FilterBuilders.prefixFilter(fieldname + not_analyzedSuffix, prefix.toLowerCase());
+			PrefixFilterBuilder prefixFilterLower = FilterBuilders.prefixFilter(fieldname + not_analyzedSuffix, prefix.toUpperCase());
+			BoolQueryBuilder orQuery = QueryBuilders.boolQuery();
+			orQuery.minimumNumberShouldMatch(1);
+			orQuery.should( QueryBuilders.constantScoreQuery(prefixFilterUpper)) ;
+			orQuery.should( QueryBuilders.constantScoreQuery(prefixFilterLower));
+			
+			return orQuery ;
 		} else
 			return null;
 	}
