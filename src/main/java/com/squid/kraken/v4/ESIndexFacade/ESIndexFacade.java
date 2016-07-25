@@ -75,6 +75,9 @@ import org.elasticsearch.indices.IndexMissingException;
 import org.elasticsearch.indices.recovery.RecoveryState.Stage;
 import org.elasticsearch.node.Node;
 import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.aggregations.AggregationBuilders;
+import org.elasticsearch.search.aggregations.bucket.terms.Terms;
+import org.elasticsearch.search.aggregations.bucket.terms.TermsBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -930,9 +933,12 @@ public class ESIndexFacade implements IESIndexFacade {
 		TypeFilterBuilder typeFilter = FilterBuilders.typeFilter(hierarchyName);
 
 		BoolQueryBuilder andBoolQuery = this.buildFilterHierarchyOnValues(filterVal, mappings);
+		
+		TermsBuilder agg = AggregationBuilders.terms(resultType).field(resultType).size(0);
+
 
 		SearchRequestBuilder srb = client.prepareSearch(domainName).setTypes(hierarchyName)
-				.setQuery(QueryBuilders.filteredQuery(andBoolQuery, typeFilter));
+				.setQuery(QueryBuilders.filteredQuery(andBoolQuery, typeFilter)).addAggregation(agg);
 		srb.setSize(nbResults);
 		srb.setFrom(from);
 
@@ -964,8 +970,10 @@ public class ESIndexFacade implements IESIndexFacade {
 
 		andBoolQuery.must(substringFilter);
 
+		TermsBuilder agg = AggregationBuilders.terms(resultType).field(resultType).size(0);
+
 		SearchRequestBuilder srb = client.prepareSearch(domainName).setTypes(hierarchyName)
-				.setQuery(QueryBuilders.filteredQuery(andBoolQuery, typeFilter));
+				.setQuery(QueryBuilders.filteredQuery(andBoolQuery, typeFilter)).addAggregation(agg);
 		srb.setSize(nbResults);
 		srb.setFrom(from);
 		// logger.info(srb.toString());
@@ -986,9 +994,10 @@ public class ESIndexFacade implements IESIndexFacade {
 		QueryBuilder substringFilter = ESIndexFacadeUtilities.matchOnSubstringOneField(substring, resultType, mappings);
 
 		andBoolQuery.must(substringFilter);
+		TermsBuilder agg = AggregationBuilders.terms(resultType).field(resultType).size(0);
 
 		SearchRequestBuilder srb = client.prepareSearch(domainName).setTypes(hierarchyName)
-				.setQuery(QueryBuilders.filteredQuery(andBoolQuery, typeFilter));
+				.setQuery(QueryBuilders.filteredQuery(andBoolQuery, typeFilter)).addAggregation(agg);
 		srb.setSize(nbResults);
 		srb.setFrom(from);
 		// logger.info(srb.toString());
@@ -1072,6 +1081,14 @@ public class ESIndexFacade implements IESIndexFacade {
 				}
 
 				// logger.info(resp.toString());
+				
+
+				
+				Terms terms = resp.getAggregations().get(resultType);
+				Collection<Terms.Bucket> buckets = terms.getBuckets();
+				for (Terms.Bucket bucket : buckets) {
+					logger.info(bucket.getKeyAsText() +" ("+bucket.getDocCount()+")");
+				}
 
 				if (resp != null) {
 					if (totalHits == -1) {
