@@ -75,6 +75,8 @@ import org.elasticsearch.indices.IndexMissingException;
 import org.elasticsearch.indices.recovery.RecoveryState.Stage;
 import org.elasticsearch.node.Node;
 import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.aggregations.AggregationBuilders;
+import org.elasticsearch.search.aggregations.bucket.terms.TermsBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -963,9 +965,11 @@ public class ESIndexFacade implements IESIndexFacade {
 		QueryBuilder substringFilter = ESIndexFacadeUtilities.filterOnNumericField(substring, resultType, mappings);
 
 		andBoolQuery.must(substringFilter);
+		
+		TermsBuilder agg = AggregationBuilders.terms(resultType).field(resultType).size(0);
 
 		SearchRequestBuilder srb = client.prepareSearch(domainName).setTypes(hierarchyName)
-				.setQuery(QueryBuilders.filteredQuery(andBoolQuery, typeFilter));
+				.setQuery(QueryBuilders.filteredQuery(andBoolQuery, typeFilter)).addAggregation(agg);
 		srb.setSize(nbResults);
 		srb.setFrom(from);
 		// logger.info(srb.toString());

@@ -137,6 +137,11 @@ public class ComputingService {
      * @throws ExecutionException 
      * @throws TimeoutException 
      */
+    public Collection<Facet> glitterFacets(Universe universe, Domain domain, DashboardSelection sel) throws ComputingException, InterruptedException, TimeoutException {
+    	return this.glitterFacets(universe, domain, sel, false);
+    }
+    
+    
     public Collection<Facet> glitterFacets(Universe universe, Domain domain, DashboardSelection sel, boolean includeDynamic) throws ComputingException, InterruptedException, TimeoutException {
         DomainFacetCompute compute = new DomainFacetCompute(universe);
         try {
@@ -165,7 +170,11 @@ public class ComputingService {
         	}
         }
     }
-    
+    public Collection<Facet> glitterFacets(Universe universe, Domain domain, DashboardSelection sel, Integer timeout) throws ComputingException, InterruptedException, TimeoutException {
+    	return this.glitterFacets(universe, domain, sel, false);
+    }
+
+    	
     public Collection<Facet> glitterFacets(Universe universe, Domain domain, DashboardSelection sel, Integer timeout, boolean includeDynamic) throws ComputingException, InterruptedException, TimeoutException {
         DomainFacetCompute compute = new DomainFacetCompute(universe);
         try {
