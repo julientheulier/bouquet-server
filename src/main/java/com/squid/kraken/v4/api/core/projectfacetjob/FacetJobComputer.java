@@ -134,10 +134,10 @@ public class FacetJobComputer implements
 	protected Collection<Facet> glitterFacets(ProjectFacetJob job, Universe universe, Domain domain, DashboardSelection ds) throws ComputingException, InterruptedException, TimeoutException {
 		if (job.getEngineVersion() == null) {
 			return ComputingService.INSTANCE.glitterFacets(universe,
-					domain, ds);
+					domain, ds, job.getIncludeDynamic());
 		} else {
 			return ComputingService.INSTANCE.glitterFacets(universe,
-					domain, ds, null);
+					domain, ds, null, job.getIncludeDynamic());
 		}
 	}
 

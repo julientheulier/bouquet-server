@@ -159,7 +159,8 @@ public class DomainFacetCompute extends FacetBuilder {
      */
     public Collection<Facet> computeDomainFacets(
             Domain domain,
-            DashboardSelection sel) throws ScopeException, InterruptedException, ComputingException {
+            DashboardSelection sel, 
+            boolean includeDynamics) throws ScopeException, InterruptedException, ComputingException {
         DomainHierarchy hierarchy = universe.getDomainHierarchy(domain, true);
         List<Facet> facets = new ArrayList<>();
         HashSet<String> names = new HashSet<>();
@@ -174,7 +175,7 @@ public class DomainFacetCompute extends FacetBuilder {
             ) 
             {
             	// T70
-            	if (index.isVisible())
+            	if (includeDynamics || index.isVisible())
             	{
             		Facet facet = computeDimensionFacets(domain, index, sel, null, offset, size);
             		if (names.contains(facet.getName())) {

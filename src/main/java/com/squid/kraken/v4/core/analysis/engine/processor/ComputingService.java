@@ -137,10 +137,10 @@ public class ComputingService {
      * @throws ExecutionException 
      * @throws TimeoutException 
      */
-    public Collection<Facet> glitterFacets(Universe universe, Domain domain, DashboardSelection sel) throws ComputingException, InterruptedException, TimeoutException {
+    public Collection<Facet> glitterFacets(Universe universe, Domain domain, DashboardSelection sel, boolean includeDynamic) throws ComputingException, InterruptedException, TimeoutException {
         DomainFacetCompute compute = new DomainFacetCompute(universe);
         try {
-            Collection<Facet> result = compute.computeDomainFacets(domain, sel);
+            Collection<Facet> result = compute.computeDomainFacets(domain, sel, includeDynamic);
             // default is to block - calling thread have to handle timeout explicitly
             boolean needToWait = false;
             for (Facet facet : result) {
@@ -151,7 +151,7 @@ public class ComputingService {
             }
             if (needToWait) {
                 DomainHierarchyManager.INSTANCE.isHierarchyDone(universe, domain, null/*block until complete*/);
-                return compute.computeDomainFacets(domain, sel);
+                return compute.computeDomainFacets(domain, sel, includeDynamic);
             } else {
                 return result;
             }
@@ -166,13 +166,13 @@ public class ComputingService {
         }
     }
     
-    public Collection<Facet> glitterFacets(Universe universe, Domain domain, DashboardSelection sel, Integer timeout) throws ComputingException, InterruptedException, TimeoutException {
+    public Collection<Facet> glitterFacets(Universe universe, Domain domain, DashboardSelection sel, Integer timeout, boolean includeDynamic) throws ComputingException, InterruptedException, TimeoutException {
         DomainFacetCompute compute = new DomainFacetCompute(universe);
         try {
             if (timeout!=null) {
                 DomainHierarchyManager.INSTANCE.isHierarchyDone(universe, domain, timeout);
             }
-            return compute.computeDomainFacets(domain, sel);
+            return compute.computeDomainFacets(domain, sel, includeDynamic);
         } catch (ScopeException e) {
             throw new ComputingException(e.getLocalizedMessage(), e);
         } catch (ExecutionException e) {
