@@ -28,6 +28,7 @@ import java.io.InputStream;
 import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.HashSet;
+import java.util.List;
 import java.util.jar.Attributes;
 import java.util.jar.Manifest;
 
@@ -54,8 +55,12 @@ import com.squid.kraken.v4.caching.redis.RedisCacheManager;
 import com.squid.kraken.v4.config.KrakenConfigV2;
 import com.squid.kraken.v4.core.analysis.engine.index.DimensionStoreManagerFactory;
 import com.squid.kraken.v4.core.database.impl.DriversService;
+import com.squid.kraken.v4.model.Customer;
 import com.squid.kraken.v4.model.Customer.AUTH_MODE;
+import com.squid.kraken.v4.persistence.AppContext;
+import com.squid.kraken.v4.persistence.DAOFactory;
 import com.squid.kraken.v4.persistence.DataStoreEventBus;
+import com.squid.kraken.v4.persistence.dao.CustomerDAO;
 import com.wordnik.swagger.config.ScannerFactory;
 import com.wordnik.swagger.jaxrs.config.ReflectiveJaxrsScanner;
 import com.wordnik.swagger.models.Info;
@@ -194,39 +199,25 @@ public class CXFServletService extends CXFNonSpringJaxrsServlet {
 			ESIndexFacadeConfiguration esConfig = new ESIndexFacadeConfiguration(embedded, null);
 			DimensionStoreManagerFactory.init(esConfig);
 		} catch (Exception e) {
-			logger.error("Failed to initialized DImensionStore with error: " + e.toString());
+			logger.error("Failed to initialize DimensionStore with error: " + e.toString());
 			throw new ServletException(e);
 		}
 
-		// Create a user if the server is on dev mode and no user is available
-		try {
-			String serverMode = null;
-
-			// We test if we are V2 for the config file.
-			String configFile = System.getProperty("kraken.cache.config.json");
-			String krakenConfigV2file = System.getProperty("bouquet.config.file");
-			if (krakenConfigV2file != null) {
-				KrakenConfigV2 krakenConf = KrakenConfigV2.loadFromjson(krakenConfigV2file);
-				serverMode = krakenConf.getServerMode();
-			} else {
-				serverMode = KrakenConfig.getProperty("kraken.server.mode", "release");
-			}
-			// we don't want to modify release servers.
-			if (serverMode.equals("dev") && System.getProperty("kraken.autocreate") != null) {
-				// Extra safety for prod
-				if (System.getProperty("kraken.autocreate").contains("true")) {
-					// Checking for previous superusers...
-					if (!ServiceUtils.getInstance().checkforSuperUserRootUserContext()) {
-						String defaultClientURL = KrakenConfig.getProperty("default.client.url", true);
-						CustomerServiceBaseImpl.getInstance()
-								.accessRequestDemo(defaultClientURL,
-										EmailHelperImpl.getInstance());
-					}
+		// Check if default customer has to be created
+		if (System.getProperty("kraken.autocreate") != null) {
+			// Extra safety for prod
+			if (System.getProperty("kraken.autocreate").contains("true")) {
+				AppContext ctx = new AppContext.Builder().build();
+				List<Customer> customers = ((CustomerDAO) DAOFactory.getDAOFactory().getDAO(Customer.class))
+						.findAll(ctx);
+				if (customers.isEmpty()) {
+					// create the default Customer
+					String defaultClientURL = KrakenConfig.getProperty("default.client.url", true);
+					CustomerServiceBaseImpl.getInstance().accessRequestDemo(defaultClientURL,
+							EmailHelperImpl.getInstance());
+					logger.warn("Default Customer created");
 				}
 			}
-		} catch (Exception e) {
-			logger.error("Failed to create a default user with error: " + e.toString());
-			throw new ServletException(e);
 		}
 		
 		AUTH_MODE authMode = KrakenConfig.getAuthMode();
