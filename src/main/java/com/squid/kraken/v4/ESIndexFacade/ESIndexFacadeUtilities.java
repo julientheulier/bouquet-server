@@ -40,6 +40,9 @@ import org.elasticsearch.index.query.RangeFilterBuilder;
 import org.elasticsearch.index.query.TermFilterBuilder;
 import org.elasticsearch.index.query.TypeFilterBuilder;
 import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.aggregations.AggregationBuilders;
+import org.elasticsearch.search.aggregations.bucket.terms.Terms;
+import org.elasticsearch.search.aggregations.bucket.terms.TermsBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -322,5 +325,14 @@ public class ESIndexFacadeUtilities {
 		rfb.gte(lowerLimit);
 		rfb.lte(upperLimit);
 		return QueryBuilders.constantScoreQuery(rfb);
+	}
+	
+	public static TermsBuilder createTermsAggr(String resultType){
+		
+		TermsBuilder agg = AggregationBuilders.terms(resultType)
+				.field(resultType + ESIndexFacadeUtilities.not_analyzedSuffix).size(0);
+			agg.order(Terms.Order.term(true));
+			
+		return agg;
 	}
 }

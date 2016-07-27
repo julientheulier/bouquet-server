@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -77,6 +78,7 @@ import org.elasticsearch.node.Node;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
+import org.elasticsearch.search.aggregations.bucket.terms.Terms.Bucket;
 import org.elasticsearch.search.aggregations.bucket.terms.TermsBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.slf4j.Logger;
@@ -906,7 +908,7 @@ public class ESIndexFacade implements IESIndexFacade {
 	private SearchResponse partialFilterHierarchyByFirstChar(String domainName, String hierarchyName, String resultType,
 			HashMap<String, ArrayList<String>> filterVal, String prefix, int from, int nbResults,
 			HashMap<String, ESMapping> mappings) {
-		
+
 		TypeFilterBuilder typeFilter = FilterBuilders.typeFilter(hierarchyName);
 
 		BoolQueryBuilder andBoolQuery = this.buildFilterHierarchyOnValues(filterVal, mappings);
@@ -933,9 +935,8 @@ public class ESIndexFacade implements IESIndexFacade {
 		TypeFilterBuilder typeFilter = FilterBuilders.typeFilter(hierarchyName);
 
 		BoolQueryBuilder andBoolQuery = this.buildFilterHierarchyOnValues(filterVal, mappings);
-		
-		TermsBuilder agg = AggregationBuilders.terms(resultType).field(resultType).size(0);
 
+		TermsBuilder agg = ESIndexFacadeUtilities.createTermsAggr(resultType);
 
 		SearchRequestBuilder srb = client.prepareSearch(domainName).setTypes(hierarchyName)
 				.setQuery(QueryBuilders.filteredQuery(andBoolQuery, typeFilter)).addAggregation(agg);
@@ -970,7 +971,7 @@ public class ESIndexFacade implements IESIndexFacade {
 
 		andBoolQuery.must(substringFilter);
 
-		TermsBuilder agg = AggregationBuilders.terms(resultType).field(resultType).size(0);
+		TermsBuilder agg = ESIndexFacadeUtilities.createTermsAggr(resultType);
 
 		SearchRequestBuilder srb = client.prepareSearch(domainName).setTypes(hierarchyName)
 				.setQuery(QueryBuilders.filteredQuery(andBoolQuery, typeFilter)).addAggregation(agg);
@@ -994,7 +995,7 @@ public class ESIndexFacade implements IESIndexFacade {
 		QueryBuilder substringFilter = ESIndexFacadeUtilities.matchOnSubstringOneField(substring, resultType, mappings);
 
 		andBoolQuery.must(substringFilter);
-		TermsBuilder agg = AggregationBuilders.terms(resultType).field(resultType).size(0);
+		TermsBuilder agg = ESIndexFacadeUtilities.createTermsAggr(resultType);
 
 		SearchRequestBuilder srb = client.prepareSearch(domainName).setTypes(hierarchyName)
 				.setQuery(QueryBuilders.filteredQuery(andBoolQuery, typeFilter)).addAggregation(agg);
@@ -1010,41 +1011,53 @@ public class ESIndexFacade implements IESIndexFacade {
 			HashMap<String, ArrayList<String>> filterVal, String substring, int from, int nbResults,
 			HashMap<String, ESMapping> mappings) throws ESIndexFacadeException {
 		try {
-			
-			logger.info("getN results , filter= " + substring);
-			int totalResults = 0;
-			long totalHits = -1;
-			LinkedHashSet<String> results = new LinkedHashSet<>();
-			HierarchiesSearchResult res = new HierarchiesSearchResult();
-			
-			int stepSize = nbResults *100;
 
-			boolean ok = false;
+			logger.info("getN results , filter= " + substring);
+
+			HierarchiesSearchResult res = new HierarchiesSearchResult();
+
+			int stepSize = nbResults * 100;
+
 			int currentFrom = from;
 
-			while (!ok) {
-				SearchResponse resp;
+			SearchResponse resp;
 
-				ESMapping map = mappings.get(resultType);
+			ESMapping map = mappings.get(resultType);
 
-				if (substring == null) {
-					resp = this.partialFilterHierarchyByMemberValues(domainName, hierarchyName, resultType, filterVal,
-							currentFrom, stepSize, mappings);
+			if (substring == null) {
+				resp = this.partialFilterHierarchyByMemberValues(domainName, hierarchyName, resultType, filterVal,
+						currentFrom, stepSize, mappings);
 
-				} else {
-					if (map.type.equals(ESTypeMapping.STRING)) {
-						if (substring.length() == 1) {
-							resp = this.partialFilterHierarchyByFirstChar(domainName, hierarchyName, resultType,
-									filterVal, substring, currentFrom, stepSize, mappings);
-						} else {
-							resp = this.partialFilterHierarchyByMemberValuesAndSubstring(domainName, hierarchyName,
-									resultType, filterVal, substring, currentFrom, stepSize, mappings);
-						}
+			} else {
+				if (map.type.equals(ESTypeMapping.STRING)) {
+					if (substring.length() == 1) {
+						resp = this.partialFilterHierarchyByFirstChar(domainName, hierarchyName, resultType, filterVal,
+								substring, currentFrom, stepSize, mappings);
 					} else {
-						if (map.type.equals(ESTypeMapping.DOUBLE)) {
+						resp = this.partialFilterHierarchyByMemberValuesAndSubstring(domainName, hierarchyName,
+								resultType, filterVal, substring, currentFrom, stepSize, mappings);
+					}
+				} else {
+					if (map.type.equals(ESTypeMapping.DOUBLE)) {
+						boolean isNumeric = true;
+						try {
+							Double.parseDouble(substring);
+						} catch (NumberFormatException e) {
+							isNumeric = false;
+						}
+
+						if (isNumeric) {
+							resp = this.partialFilterHierarchyByMemberValuesAndExactNumeric(domainName, hierarchyName,
+									resultType, filterVal, substring, currentFrom, stepSize, mappings);
+						} else {
+							resp = null;
+						}
+
+					} else {
+						if (map.type.equals(ESTypeMapping.LONG)) {
 							boolean isNumeric = true;
 							try {
-								Double.parseDouble(substring);
+								Long.parseLong(substring);
 							} catch (NumberFormatException e) {
 								isNumeric = false;
 							}
@@ -1056,88 +1069,31 @@ public class ESIndexFacade implements IESIndexFacade {
 							} else {
 								resp = null;
 							}
-
 						} else {
-							if (map.type.equals(ESTypeMapping.LONG)) {
-								boolean isNumeric = true;
-								try {
-									Long.parseLong(substring);
-								} catch (NumberFormatException e) {
-									isNumeric = false;
-								}
-
-								if (isNumeric) {
-									resp = this.partialFilterHierarchyByMemberValuesAndExactNumeric(domainName,
-											hierarchyName, resultType, filterVal, substring, currentFrom, stepSize,
-											mappings);
-								} else {
-									resp = null;
-								}
-							} else {
-								resp = null;
-							}
+							resp = null;
 						}
 					}
-				}
-
-				// logger.info(resp.toString());
-				
-
-				
-				Terms terms = resp.getAggregations().get(resultType);
-				Collection<Terms.Bucket> buckets = terms.getBuckets();
-				for (Terms.Bucket bucket : buckets) {
-					logger.info(bucket.getKeyAsText() +" ("+bucket.getDocCount()+")");
-				}
-
-				if (resp != null) {
-					if (totalHits == -1) {
-						totalHits = resp.getHits().getTotalHits();
-					}
-
-					totalResults += resp.getHits().getHits().length;
-
-//					int incr = 0;
-					for (SearchHit hit : resp.getHits().getHits()) {
-						Object value = hit.getSource().get(resultType);
-						if (value != null) {
-							if ((substring != null) && !(value.toString().toLowerCase().contains(substring.toLowerCase()))) {
-								continue;
-							}
-							if (results.add(value.toString())) {
-								if (logger.isDebugEnabled()) {
-									logger.debug(("score " + value.toString() + " " + hit.getScore()));
-								}
-//								incr++;
-							}
-						}
-					}
-
-					// logger.info("results size " + results.size() +
-					// " total results " +totalResults + " total hits " +
-					// totalHits
-					// );
-			//		if (results.size() >= nbResults || incr == 0) {
-					if (results.size() >= nbResults ) {
-						if (totalResults >= totalHits) {
-							res.hasMore = false;
-						}
-						res.hits = results;
-						res.stoppedAt = currentFrom + stepSize;
-						ok = true;
-					} else {
-						if (totalResults >= totalHits) {
-							res.hasMore = false;
-							res.hits = results;
-							ok = true;
-						} else {
-							currentFrom += stepSize;
-						}
-					}
-				} else {
-					ok = true;
 				}
 			}
+
+			Terms terms = resp.getAggregations().get(resultType);
+		
+			int i = 0;
+			res.hits = new LinkedHashSet<String>();
+			for (Bucket b : terms.getBuckets()) {
+				if (i < from) {
+					i++;
+				} else {
+					res.hits.add(b.getKeyAsText().string());
+					i++;
+					if (i == from + nbResults) {
+						res.hasMore = true;
+						break;
+					}
+				}
+			}
+			res.stoppedAt = i;
+
 			if (logger.isDebugEnabled()) {
 				logger.debug((" get N results " + res.hits.toString()));
 			}
