@@ -157,7 +157,7 @@ public class SegmentManager {
 					}
 				}
 				// handle the original selection
-				if (!sel.getMembers(goal.getAxis()).isEmpty()) {
+				if (includeDynamic || !sel.getMembers(goal.getAxis()).isEmpty()) {
 					goalFacet.getSelectedItems().add(member);
 				}
 			}
@@ -169,7 +169,7 @@ public class SegmentManager {
 					goalFacet.getItems().add(member);
 				}
 				// handle the original selection
-				if (!sel.getMembers(goal.getAxis()).isEmpty()) {
+				if (includeDynamic || !sel.getMembers(goal.getAxis()).isEmpty()) {
 					goalFacet.getSelectedItems().add(member);
 				}
 			}
