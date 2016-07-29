@@ -132,14 +132,16 @@ public class ESIndexFacadeUtilities {
 
 		ESMapping map = mappings.get(fieldname);
 		if (map.type == ESTypeMapping.STRING) {
-			PrefixFilterBuilder prefixFilterUpper = FilterBuilders.prefixFilter(fieldname + not_analyzedSuffix, prefix.toLowerCase());
-			PrefixFilterBuilder prefixFilterLower = FilterBuilders.prefixFilter(fieldname + not_analyzedSuffix, prefix.toUpperCase());
+			PrefixFilterBuilder prefixFilterUpper = FilterBuilders.prefixFilter(fieldname + not_analyzedSuffix,
+					prefix.toLowerCase());
+			PrefixFilterBuilder prefixFilterLower = FilterBuilders.prefixFilter(fieldname + not_analyzedSuffix,
+					prefix.toUpperCase());
 			BoolQueryBuilder orQuery = QueryBuilders.boolQuery();
 			orQuery.minimumNumberShouldMatch(1);
-			orQuery.should( QueryBuilders.constantScoreQuery(prefixFilterUpper)) ;
-			orQuery.should( QueryBuilders.constantScoreQuery(prefixFilterLower));
-			
-			return orQuery ;
+			orQuery.should(QueryBuilders.constantScoreQuery(prefixFilterUpper));
+			orQuery.should(QueryBuilders.constantScoreQuery(prefixFilterLower));
+
+			return orQuery;
 		} else
 			return null;
 	}
@@ -326,13 +328,18 @@ public class ESIndexFacadeUtilities {
 		rfb.lte(upperLimit);
 		return QueryBuilders.constantScoreQuery(rfb);
 	}
-	
-	public static TermsBuilder createTermsAggr(String resultType){
-		
-		TermsBuilder agg = AggregationBuilders.terms(resultType)
-				.field(resultType + ESIndexFacadeUtilities.not_analyzedSuffix).size(0);
-			agg.order(Terms.Order.term(true));
-			
+
+	public static TermsBuilder createTermsAggr(String resultType, HashMap<String, ESMapping> mappings) {
+		TermsBuilder agg;
+		if (mappings.get(resultType).type.equals(ESMapping.ESTypeMapping.STRING)) {
+			agg = AggregationBuilders.terms(resultType).field(resultType + ESIndexFacadeUtilities.not_analyzedSuffix)
+					.size(0);
+		} else {
+			agg = AggregationBuilders.terms(resultType).field(resultType).size(0);
+		}
+
+		agg.order(Terms.Order.term(true));
+
 		return agg;
 	}
 }

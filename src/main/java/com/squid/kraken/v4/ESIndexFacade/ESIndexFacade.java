@@ -917,8 +917,10 @@ public class ESIndexFacade implements IESIndexFacade {
 
 		andBoolQuery.must(substringFilter);
 
+		TermsBuilder agg = ESIndexFacadeUtilities.createTermsAggr(resultType, mappings);
+
 		SearchRequestBuilder srb = client.prepareSearch(domainName).setTypes(hierarchyName)
-				.setQuery(QueryBuilders.filteredQuery(andBoolQuery, typeFilter));
+				.setQuery(QueryBuilders.filteredQuery(andBoolQuery, typeFilter)).addAggregation(agg);
 		srb.setSize(nbResults);
 		srb.setFrom(from);
 
@@ -936,7 +938,7 @@ public class ESIndexFacade implements IESIndexFacade {
 
 		BoolQueryBuilder andBoolQuery = this.buildFilterHierarchyOnValues(filterVal, mappings);
 
-		TermsBuilder agg = ESIndexFacadeUtilities.createTermsAggr(resultType);
+		TermsBuilder agg = ESIndexFacadeUtilities.createTermsAggr(resultType, mappings);
 
 		SearchRequestBuilder srb = client.prepareSearch(domainName).setTypes(hierarchyName)
 				.setQuery(QueryBuilders.filteredQuery(andBoolQuery, typeFilter)).addAggregation(agg);
@@ -971,7 +973,7 @@ public class ESIndexFacade implements IESIndexFacade {
 
 		andBoolQuery.must(substringFilter);
 
-		TermsBuilder agg = ESIndexFacadeUtilities.createTermsAggr(resultType);
+		TermsBuilder agg = ESIndexFacadeUtilities.createTermsAggr(resultType, mappings);
 
 		SearchRequestBuilder srb = client.prepareSearch(domainName).setTypes(hierarchyName)
 				.setQuery(QueryBuilders.filteredQuery(andBoolQuery, typeFilter)).addAggregation(agg);
@@ -995,7 +997,7 @@ public class ESIndexFacade implements IESIndexFacade {
 		QueryBuilder substringFilter = ESIndexFacadeUtilities.matchOnSubstringOneField(substring, resultType, mappings);
 
 		andBoolQuery.must(substringFilter);
-		TermsBuilder agg = ESIndexFacadeUtilities.createTermsAggr(resultType);
+		TermsBuilder agg = ESIndexFacadeUtilities.createTermsAggr(resultType, mappings);
 
 		SearchRequestBuilder srb = client.prepareSearch(domainName).setTypes(hierarchyName)
 				.setQuery(QueryBuilders.filteredQuery(andBoolQuery, typeFilter)).addAggregation(agg);
@@ -1077,22 +1079,54 @@ public class ESIndexFacade implements IESIndexFacade {
 			}
 
 			Terms terms = resp.getAggregations().get(resultType);
-		
-			int i = 0;
+
+			int iter = 0;
+			int nbHits = 0;
 			res.hits = new LinkedHashSet<String>();
+
 			for (Bucket b : terms.getBuckets()) {
-				if (i < from) {
-					i++;
+				if (iter < from) {
+					// aggregations are always accessed from the start, we need
+					// get to the right position
+					iter++;
 				} else {
-					res.hits.add(b.getKeyAsText().string());
-					i++;
-					if (i == from + nbResults) {
+					String val;
+					if (mappings.get(resultType).type.equals(ESMapping.ESTypeMapping.LONG)) {
+						val = Long.toString(b.getKeyAsNumber().longValue());
+					} else {
+						if (mappings.get(resultType).type.equals(ESMapping.ESTypeMapping.DOUBLE)) {
+							long valL = b.getKeyAsNumber().longValue();
+							double valD = b.getKeyAsNumber().doubleValue();
+							if (valL == valD) {
+								val = Long.toString(valL);
+							} else {
+								val = Double.toString(valD);
+							}
+
+						} else {
+							val = b.getKey();
+						}
+					}
+
+					if (substring == null) {
+						res.hits.add(val);
+						nbHits++;
+					} else {
+						if (val.toLowerCase().contains(substring.toLowerCase())) {
+							res.hits.add(val);
+							nbHits++;
+						}
+					}
+					if (nbHits == nbResults) {
 						res.hasMore = true;
 						break;
+					} else {
+						iter++;
+
 					}
 				}
 			}
-			res.stoppedAt = i;
+			res.stoppedAt = iter;
 
 			if (logger.isDebugEnabled()) {
 				logger.debug((" get N results " + res.hits.toString()));
