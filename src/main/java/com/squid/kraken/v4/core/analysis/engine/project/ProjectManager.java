@@ -208,9 +208,9 @@ public class ProjectManager {
 	}
 
 	/**
-	 * look for a domain with this name in the project identified by projectPk
+	 * look for a domain by its name in the project identified by projectPk
 	 * @param ctx
-	 * @param parent
+	 * @param projectPk
 	 * @param name
 	 * @return
 	 * @throws ScopeException if the project does not exist
@@ -218,6 +218,22 @@ public class ProjectManager {
 	public Domain findDomainByName(AppContext ctx, ProjectPK projectPk, String name) throws ScopeException {
 		ProjectDynamicContent content = getProjectContent(ctx, projectPk);
 		return content.findDomainByName(name);
+	}
+
+	/**
+	 * look for a domain by its ID
+	 * @param ctx
+	 * @param domainPK
+	 * @param name
+	 * @return
+	 * @throws ScopeException if the project does not exist
+	 */
+	public Domain findDomainByID(AppContext ctx, DomainPK domainPK) throws ScopeException {
+		if (domainPK.getParent()==null) {
+			throw new ScopeException("invalid domain PK, parent cannot be null");
+		}
+		ProjectDynamicContent content = getProjectContent(ctx, domainPK.getParent());
+		return content.findDomainByID(domainPK);
 	}
 
 	/**

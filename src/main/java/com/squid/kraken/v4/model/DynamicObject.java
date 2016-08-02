@@ -24,7 +24,9 @@
 package com.squid.kraken.v4.model;
 
 import org.mongodb.morphia.annotations.Property;
+import org.mongodb.morphia.annotations.Transient;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.wordnik.swagger.annotations.ApiModelProperty;
 
 /**
@@ -48,6 +50,8 @@ public abstract class DynamicObject<PK extends GenericPK> extends LzPersistentBa
 	@Property(value="isDynamic2")// mongoDB specific: this is for compatibility with projects generated with prior version
     private boolean isDynamic = false;
 	
+	@Transient
+	@JsonIgnore
 	private boolean internalDynamic = true;// read-only flag to know if the object has been created through persistence or directly
 
 	public DynamicObject() {

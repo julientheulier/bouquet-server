@@ -161,7 +161,7 @@ public class DomainFacetCompute extends FacetBuilder {
 	 * @throws InterruptedException
 	 * @throws ComputingException
 	 */
-	public Collection<Facet> computeDomainFacets(Domain domain, DashboardSelection sel, boolean includeDynamic)
+	public Collection<Facet> computeDomainFacets(Domain domain, DashboardSelection sel)
 			throws ScopeException, InterruptedException, ComputingException {
 		DomainHierarchy hierarchy = universe.getDomainHierarchy(domain, true);
 		List<Facet> facets = new ArrayList<>();
@@ -175,7 +175,7 @@ public class DomainFacetCompute extends FacetBuilder {
 															// for now
 			) {
 				// T70
-				if (includeDynamic || index.isVisible()) {
+				if (index.isVisible()) {
 					Facet facet = computeDimensionFacets(domain, index, sel, null, offset, size);
 					if (names.contains(facet.getName())) {
 						facet.setName(facet.getName() + " (" + index.getDimensionPath() + ")");
@@ -186,7 +186,7 @@ public class DomainFacetCompute extends FacetBuilder {
 			}
 		}
 		// handle segments
-		Facet goalFacet = SegmentManager.createSegmentFacet(universe, hierarchy, domain, sel, includeDynamic);
+		Facet goalFacet = SegmentManager.createSegmentFacet(universe, hierarchy, domain, sel);
 		if (goalFacet != null && !goalFacet.getItems().isEmpty())
 			facets.add(goalFacet);
 		Collections.sort(facets, facetsComparator);
