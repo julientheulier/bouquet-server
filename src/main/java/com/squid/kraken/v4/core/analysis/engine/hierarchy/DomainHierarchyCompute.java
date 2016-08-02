@@ -89,13 +89,18 @@ public class DomainHierarchyCompute extends DomainHierarchyQueryGenerator {
 
 			for (DimensionPK dpk : this.queries.keySet()) {
 				ExecuteHierarchyQuery query = legacy.jobLookup.get(dpk);
-				Future<ExecuteHierarchyQueryResult> job = query.getJob();
-				if ((job != null) && (!job.isDone())
-						&& (this.SQLQueryPerDimensionPK.get(dpk).equals(legacy.SQLQueryPerDimensionPK.get(dpk)))) {
-					// ongoing queries that are still valid
-					logger.info("Reusing ongoing query for dimension " + dpk);
-					this.jobLookup.put(dpk, query);
-					validOngoingJobs.add(query);
+				if (query != null) {
+
+					Future<ExecuteHierarchyQueryResult> job = query.getJob();
+					if ((job != null) && (!job.isDone())
+							&& (this.SQLQueryPerDimensionPK.get(dpk).equals(legacy.SQLQueryPerDimensionPK.get(dpk)))) {
+						// ongoing queries that are still valid
+						logger.info("Reusing ongoing query for dimension " + dpk);
+						this.jobLookup.put(dpk, query);
+						validOngoingJobs.add(query);
+					} else {
+						trimmedQueries.put(dpk, this.queries.get(dpk));
+					}
 				} else {
 					trimmedQueries.put(dpk, this.queries.get(dpk));
 				}
@@ -211,11 +216,11 @@ public class DomainHierarchyCompute extends DomainHierarchyQueryGenerator {
 			return true;
 		if (jobLookup == null)
 			return false;
-		
+
 		ExecuteHierarchyQuery ehq = jobLookup.get(index.getDimension().getId());
 		if (ehq == null)
 			return false;
-		
+
 		Future<ExecuteHierarchyQueryResult> job = ehq.getJob();
 		if (job == null)
 			return false;
