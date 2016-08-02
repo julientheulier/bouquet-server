@@ -78,13 +78,8 @@ public class SegmentManager {
 	}
 
 	public static Facet createSegmentFacet(Universe universe, DomainHierarchy hierarchy, Domain domain,
-			DashboardSelection sel, boolean includeDynamic) {
-		return createSegmentFacet(universe, hierarchy, domain, FACET_ID, null, 100, 0, sel, includeDynamic);
-	}
-
-	public static Facet createSegmentFacet(Universe universe, DomainHierarchy hierarchy, Domain domain,
 			DashboardSelection sel) {
-		return createSegmentFacet(universe, hierarchy, domain, FACET_ID, null, 100, 0, sel, false);
+		return createSegmentFacet(universe, hierarchy, domain, FACET_ID, null, 100, 0, sel);
 	}
 
 	public static Facet newSegmentFacet(Domain domain) {
@@ -104,11 +99,6 @@ public class SegmentManager {
 
 	public static Facet createSegmentFacet(Universe universe, DomainHierarchy hierarchy, Domain domain, String facetId,
 			String filter, Integer maxResults, Integer startIndex, DashboardSelection sel) {
-		return createSegmentFacet(universe, hierarchy, domain, FACET_ID, null, 100, 0, sel, false);
-	}
-
-	public static Facet createSegmentFacet(Universe universe, DomainHierarchy hierarchy, Domain domain, String facetId,
-			String filter, Integer maxResults, Integer startIndex, DashboardSelection sel, boolean includeDynamic) {
 		//
 		// create the segment facet
 		Facet goalFacet = newSegmentFacet(domain);
@@ -145,7 +135,7 @@ public class SegmentManager {
 				throw new APIException(e.getMessage(), e, false);
 			}
 			// filter on name, expression
-			for (DimensionIndex goal : hierarchy.getSegments(universe.getContext(), includeDynamic)) {
+			for (DimensionIndex goal : hierarchy.getSegments(universe.getContext())) {
 				FacetMemberString member = new FacetMemberString(goal.getAxis().prettyPrint(), goal.getDimensionName());
 				if (filter == null || filter == "") {
 					if (member.getValue().contains(filter)) {
