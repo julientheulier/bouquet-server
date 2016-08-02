@@ -52,7 +52,6 @@ public class ProjectFacetJob extends JobBaseImpl<ProjectFacetJobPK, FacetSelecti
     private FacetSelection selection;
     
     private Integer engineVersion;
-    private boolean includeDynamic  = false;
 
     /**
      * Default constructor (required for jaxb).
@@ -71,15 +70,6 @@ public class ProjectFacetJob extends JobBaseImpl<ProjectFacetJobPK, FacetSelecti
 
     public void setSelection(FacetSelection selection) {
         this.selection = selection;
-    }
-
-    
-    public void setIncludeDynamic(boolean includeDynamic){
-    this.includeDynamic = includeDynamic;	
-    }
-    
-    public boolean getIncludeDynamic(){
-    	return includeDynamic ;
     }
     
     public List<DomainPK> getDomains() {
