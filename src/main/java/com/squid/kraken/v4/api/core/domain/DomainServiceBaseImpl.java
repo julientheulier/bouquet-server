@@ -136,6 +136,8 @@ public class DomainServiceBaseImpl extends GenericServiceImpl<Domain, DomainPK> 
             		throw new APIException("A Domain with that name already exists in this project", ctx.isNoError());
             	}
             }
+            // T1312 - need to copy the internalVersion property because it is not exposed through the API
+            domain.copyInternalVersion(check);
         } catch (ScopeException e) {
         	throw new APIException(e.getLocalizedMessage(), ctx.isNoError());
         }
