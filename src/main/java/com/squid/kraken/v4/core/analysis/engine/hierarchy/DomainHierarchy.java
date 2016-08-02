@@ -487,20 +487,16 @@ public class DomainHierarchy {
 		}
 		return indexes;
 	}
-	public List<DimensionIndex> getSegments(AppContext ctx) {
-		return this.getSegments(ctx, false);
-	}
 
 	// segments
-	public List<DimensionIndex> getSegments(AppContext ctx, boolean includeDynamic) {
+	public List<DimensionIndex> getSegments(AppContext ctx) {
 		if (segments.isEmpty()) {
 			return Collections.emptyList();
 		} else {
 			List<DimensionIndex> filter = new ArrayList<DimensionIndex>();
 			for (DimensionIndex index : segments) {
-
-				if (includeDynamic || index.isVisible()) {// show dynamics only if the domain is
-										// dynamic
+				// show dynamics only if the domain is dynamic
+				if (index.isVisible()) {
 					if (hasRole(ctx, index.getDimension())) {
 						filter.add(index);
 					}
