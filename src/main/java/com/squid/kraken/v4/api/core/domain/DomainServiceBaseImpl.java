@@ -129,14 +129,17 @@ public class DomainServiceBaseImpl extends GenericServiceImpl<Domain, DomainPK> 
         Project project = null;
         try {
         	project = ProjectManager.INSTANCE.getProject(ctx, domainPk.getParent());
+        	// check if we are trying to name the domain as another existing one
             Domain check = ProjectManager.INSTANCE.findDomainByName(ctx, domainPk.getParent(), domain.getName());
             if (check!=null) {
-            	// check if it is self
             	if (!check.getId().getDomainId().equals(domainPk.getDomainId())) {
             		throw new APIException("A Domain with that name already exists in this project", ctx.isNoError());
             	}
-                // T1312 - need to copy the internalVersion property because it is not exposed through the API
-                domain.copyInternalVersion(check);
+            }
+            // T1312 - need to copy the internalVersion property because it is not exposed through the API
+            check = ProjectManager.INSTANCE.findDomainByID(ctx, domainPk);
+            if (check!=null) {
+            	domain.copyInternalVersion(check);
             }
         } catch (ScopeException e) {
         	throw new APIException(e.getLocalizedMessage(), ctx.isNoError());
@@ -176,11 +179,7 @@ public class DomainServiceBaseImpl extends GenericServiceImpl<Domain, DomainPK> 
 			ExpressionSuggestionHandler handler = new ExpressionSuggestionHandler(
 					scope);
 			if (offset == null) {
-				if(expression == null){
-					offset = 1;
-				}else{
-					offset = expression.length()+1;
-				}
+				offset = expression.length()+1;
 			}
 			return handler.getSuggestion(expression, offset, filterType);
 		} catch (ScopeException | ComputingException | InterruptedException e) {
