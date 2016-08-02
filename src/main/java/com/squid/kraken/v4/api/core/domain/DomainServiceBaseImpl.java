@@ -130,16 +130,26 @@ public class DomainServiceBaseImpl extends GenericServiceImpl<Domain, DomainPK> 
         try {
         	project = ProjectManager.INSTANCE.getProject(ctx, domainPk.getParent());
         	// check if we are trying to name the domain as another existing one
-            Domain check = ProjectManager.INSTANCE.findDomainByName(ctx, domainPk.getParent(), domain.getName());
-            if (check!=null) {
-            	if (!check.getId().getDomainId().equals(domainPk.getDomainId())) {
+            Domain checkByName = ProjectManager.INSTANCE.findDomainByName(ctx, domainPk.getParent(), domain.getName());
+            if (checkByName!=null) {
+            	if (!checkByName.getId().getDomainId().equals(domainPk.getDomainId())) {
             		throw new APIException("A Domain with that name already exists in this project", ctx.isNoError());
             	}
             }
-            // T1312 - need to copy the internalVersion property because it is not exposed through the API
-            check = ProjectManager.INSTANCE.findDomainByID(ctx, domainPk);
-            if (check!=null) {
-            	domain.copyInternalVersion(check);
+            // check if user is modifying an existing one
+            Domain checkByID = ProjectManager.INSTANCE.findDomainByID(ctx, domainPk);
+            if (checkByID!=null) {
+                // T1312 - need to copy the internalVersion property because it is not exposed through the API
+            	domain.copyInternalVersion(checkByID);
+            	// check if the dynamic flag has changed
+            	if (domain.isDynamic()!=checkByID.isDynamic()) {
+            		// modifying the flag is OK
+            	} else {
+            		if (domain.isDynamic()) {
+            			// no more dynamic
+            			domain.setDynamic(false);
+            		}
+            	}
             }
         } catch (ScopeException e) {
         	throw new APIException(e.getLocalizedMessage(), ctx.isNoError());
