@@ -85,6 +85,22 @@ public class ProjectDynamicContent {
 		// else
 		return null;
 	}
+
+
+	/**
+	 * look for a domain by its ID, or return null if cannot find
+	 * @param domainID
+	 * @return the domain or null if cannot find
+	 */
+	public Domain findDomainByID(DomainPK domainPK) {
+		for (Domain domain : domains) {
+			if (domain.getId().equals(domainPK)) {
+				return domain;
+			}
+		}
+		// else
+		return null;
+	}
 	
 	public void setDomains(List<Domain> domains) {
 		this.domains = domains;

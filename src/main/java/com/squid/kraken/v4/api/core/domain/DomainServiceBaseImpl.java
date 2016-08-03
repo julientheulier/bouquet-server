@@ -129,11 +129,26 @@ public class DomainServiceBaseImpl extends GenericServiceImpl<Domain, DomainPK> 
         Project project = null;
         try {
         	project = ProjectManager.INSTANCE.getProject(ctx, domainPk.getParent());
-            Domain check = ProjectManager.INSTANCE.findDomainByName(ctx, domainPk.getParent(), domain.getName());
-            if (check!=null) {
-            	// check if it is self
-            	if (!check.getId().getDomainId().equals(domainPk.getDomainId())) {
+        	// check if we are trying to name the domain as another existing one
+            Domain checkByName = ProjectManager.INSTANCE.findDomainByName(ctx, domainPk.getParent(), domain.getName());
+            if (checkByName!=null) {
+            	if (!checkByName.getId().getDomainId().equals(domainPk.getDomainId())) {
             		throw new APIException("A Domain with that name already exists in this project", ctx.isNoError());
+            	}
+            }
+            // check if user is modifying an existing one
+            Domain checkByID = ProjectManager.INSTANCE.findDomainByID(ctx, domainPk);
+            if (checkByID!=null) {
+                // T1312 - need to copy the internalVersion property because it is not exposed through the API
+            	domain.copyInternalVersion(checkByID);
+            	// check if the dynamic flag has changed
+            	if (domain.isDynamic()!=checkByID.isDynamic()) {
+            		// modifying the flag is OK
+            	} else {
+            		if (domain.isDynamic()) {
+            			// no more dynamic
+            			domain.setDynamic(false);
+            		}
             	}
             }
         } catch (ScopeException e) {
@@ -174,11 +189,7 @@ public class DomainServiceBaseImpl extends GenericServiceImpl<Domain, DomainPK> 
 			ExpressionSuggestionHandler handler = new ExpressionSuggestionHandler(
 					scope);
 			if (offset == null) {
-				if(expression == null){
-					offset = 1;
-				}else{
-					offset = expression.length()+1;
-				}
+				offset = expression.length()+1;
 			}
 			return handler.getSuggestion(expression, offset, filterType);
 		} catch (ScopeException | ComputingException | InterruptedException e) {

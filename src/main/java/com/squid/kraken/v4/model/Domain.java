@@ -177,6 +177,14 @@ public class Domain extends DynamicObject<DomainPK> implements Cloneable, HasChi
 	public Integer getInternalVersion() {
 		return internalVersion;
 	}
+	
+	/**
+	 * use the copy internalVersion
+	 * @param copy
+	 */
+	public void copyInternalVersion(Domain copy) {
+		this.internalVersion = copy.internalVersion;
+	}
     
 	@Override
 	public String[] getChildren() {
