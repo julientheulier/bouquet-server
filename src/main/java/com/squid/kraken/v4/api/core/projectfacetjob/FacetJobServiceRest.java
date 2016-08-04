@@ -188,7 +188,7 @@ public class FacetJobServiceRest extends BaseServiceRest {
 				try {
 					delegate.writeResults(os, userContext, job, 1000,
 							finalTimeOut, true, finalMaxResults,
-							finalStartIndex,false, outFormat, outCompression, null);
+							finalStartIndex,null, outFormat, outCompression, null);
 				} catch (InterruptedException e) {
 					throw new IOException(e);
 				}

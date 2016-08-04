@@ -30,7 +30,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.squid.kraken.v4.caching.NotInCacheException;
-import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.export.ExportSourceWriter;
 import com.squid.kraken.v4.model.ComputationJob;
 import com.squid.kraken.v4.model.ComputationJob.Status;
@@ -47,7 +46,8 @@ import com.squid.kraken.v4.persistence.dao.JobDAO;
  * @param <PK>
  *            the ComputationJob PK
  */
-public class JobTask<T extends ComputationJob<PK, R>, PK extends GenericPK, R extends JobResult> implements Callable<T> {
+public class JobTask<T extends ComputationJob<PK, R>, PK extends GenericPK, R extends JobResult>
+		implements Callable<T> {
 
 	static private final Logger logger = LoggerFactory.getLogger(JobTask.class);
 
@@ -58,9 +58,8 @@ public class JobTask<T extends ComputationJob<PK, R>, PK extends GenericPK, R ex
 	private AppContext ctx;
 	private Integer maxResults;
 	private Integer startIndex;
-	private boolean lazy;
-	private boolean returnJobIfNotInCache= false; 
-
+	private String lazy;
+	private boolean returnJobIfNotInCache = false;
 
 	private OutputStream outputStream = null;
 
@@ -78,7 +77,8 @@ public class JobTask<T extends ComputationJob<PK, R>, PK extends GenericPK, R ex
 	 * @param cache
 	 *            used to cache job results
 	 */
-	public JobTask(AppContext ctx, T job, JobComputer<T, PK, R> computer, Class<T> type, OutputStream outputStream, ExportSourceWriter writer) {
+	public JobTask(AppContext ctx, T job, JobComputer<T, PK, R> computer, Class<T> type, OutputStream outputStream,
+			ExportSourceWriter writer) {
 		super();
 		this.ctx = ctx;
 		this.job = job;
@@ -88,7 +88,8 @@ public class JobTask<T extends ComputationJob<PK, R>, PK extends GenericPK, R ex
 		this.writer = writer;
 	}
 
-	public JobTask(AppContext ctx, T job, JobComputer<T, PK, R> computer, Class<T> type, Integer maxResults, Integer startIndex, boolean lazy) {
+	public JobTask(AppContext ctx, T job, JobComputer<T, PK, R> computer, Class<T> type, Integer maxResults,
+			Integer startIndex, String lazy) {
 		super();
 		this.ctx = ctx;
 		this.job = job;
@@ -99,18 +100,16 @@ public class JobTask<T extends ComputationJob<PK, R>, PK extends GenericPK, R ex
 		this.lazy = lazy;
 	}
 
-	public JobTask(AppContext ctx, T job, JobComputer<T, PK, R> computer, Class<T> type, Integer maxResults, Integer startIndex, boolean lazy, boolean returnJob) {
+	public JobTask(AppContext ctx, T job, JobComputer<T, PK, R> computer, Class<T> type, Integer maxResults,
+			Integer startIndex, String lazy, boolean returnJob) {
 		this(ctx, job, computer, type, maxResults, startIndex, lazy);
 		this.returnJobIfNotInCache = returnJob;
 	}
 
-
-
-
 	@Override
 	public T call() {
-		logger.info("Running Job : " + job + "\n lazy?"+lazy );
-		logger.info("JobId "+ job.getId());
+		logger.info("Running Job : " + job + "\n lazy?" + lazy);
+		logger.info("JobId " + job.getId());
 		DAOFactory factory = DAOFactory.getDAOFactory();
 		AppContext app = ServiceUtils.getInstance().getRootUserContext(job.getCustomerId());
 		JobDAO<T, PK> dao = ((JobDAO<T, PK>) factory.getDAO(type));
@@ -122,30 +121,43 @@ public class JobTask<T extends ComputationJob<PK, R>, PK extends GenericPK, R ex
 
 			// compute and get the results
 			R results;
+			boolean lazyAnalysis = (lazy != null && (lazy.equals("true") || lazy.equals("noError")));
+
 			if (outputStream == null) {
-				results = computer.compute(ctx, job, maxResults, startIndex, lazy);
+				results = computer.compute(ctx, job, maxResults, startIndex, lazyAnalysis);
 			} else {
-				results = computer.compute(ctx, job, outputStream, writer, lazy);
+				results = computer.compute(ctx, job, outputStream, writer, lazyAnalysis);
 			}
 			job.setResultsSize(results.getTotalSize());
 			job.setResults(results);
 			job.setError(null);
 		} catch (Throwable e) {
-			// set the job's 'error'
-			logger.error("Error in Job : " + job, e);
-			job.setError(new ComputationJob.Error("Computation error", e.getLocalizedMessage()));
-			if ((e instanceof NotInCacheException)){
-				if (! this.returnJobIfNotInCache){
-					throw (NotInCacheException) e;
-				}else{
-					job.getError().setEnableRerun(true);
+			if ((e instanceof NotInCacheException)) {
+				if (lazy.equals("noError")) {
+					// new way as of T453
+					job.setResults(null);
+				} else {
+					// old way
+					if (!this.returnJobIfNotInCache) {
+						throw (NotInCacheException) e;
+					} else {
+						job.setError(new ComputationJob.Error("Computation error", e.getLocalizedMessage()));
+						job.getError().setEnableRerun(true);
+					}
 				}
-			} 
+			} else {
+				// set the job's 'error'
+				logger.error("Error in Job : " + job, e);
+				job.setError(new ComputationJob.Error("Computation error", e.getLocalizedMessage()));
+			}
 		} finally {
 			// update the jobs status and stats
 			job.setStatus(Status.DONE);
 			job.getStatistics().setEndTime(System.currentTimeMillis());
-			//logger.info("task=JobTask"+" method=OverheadScheduler"+" jobid= "+job.getId()+" duration="+ (job.getStatistics().getStartTime()-job.getCreationTime())+" error=false status=done");
+			// logger.info("task=JobTask"+" method=OverheadScheduler"+" jobid=
+			// "+job.getId()+" duration="+
+			// (job.getStatistics().getStartTime()-job.getCreationTime())+"
+			// error=false status=done");
 
 			dao.update(app, job);
 		}

@@ -132,7 +132,7 @@ public class AnalysisJobServiceRest extends BaseServiceRest {
 			@ApiParam(value = "response timeout in milliseconds in case the job is not yet computed. If no timeout set, the method will return according to current job status.") @QueryParam("timeout") Integer timeout,
 			@ApiParam(value = "paging size") @QueryParam("maxResults") Integer maxResults,
 			@ApiParam(value = "paging start index") @QueryParam("startIndex") Integer startIndex,
-			@ApiParam(value = "if true, get the analysis only if already in cache", defaultValue = "false") @QueryParam("lazy") boolean lazy,
+			@ApiParam(value = "if true, get the analysis only if already in cache, else throw a NotInCacheException; if noError returns a null result if the analysis is not in cache ; else regular analysis", defaultValue = "false") @QueryParam("lazy") String lazy,
 			@ApiParam(value = "output format", allowableValues = "json,csv,vxls", defaultValue = "json") @QueryParam("format") String format,
 			@ApiParam(value = "output compression", allowableValues = "gzip, none, null", defaultValue = "none") @QueryParam("compression") String compression) {
 
@@ -162,7 +162,7 @@ public class AnalysisJobServiceRest extends BaseServiceRest {
 			@ApiParam(value = "response timeout in milliseconds in case the job is not yet computed. If no timeout set, the method will return according to current job status.") @QueryParam("timeout") Integer timeout,
 			@ApiParam(value = "paging size") @QueryParam("maxResults") Integer maxResults,
 			@ApiParam(value = "paging start index") @QueryParam("startIndex") Integer startIndex,
-			@ApiParam(value = "if true, get the analysis only if already in cache", defaultValue = "false") @QueryParam("lazy") boolean lazy,
+			@ApiParam(value = "if true, get the analysis only if already in cache, else throw a NotInCacheException; if noError returns a null result if the analysis is not in cache ; else regular analysis", defaultValue = "false") @QueryParam("lazy") String lazy,
 			@ApiParam(value = "response media type") @QueryParam("type") String type,
 			@ApiParam(value = "Velocity template as a base64 String") @QueryParam("template") String template) {
 		final ProjectAnalysisJobPK id = new ProjectAnalysisJobPK(userContext.getCustomerId(), projectId, jobId);
@@ -203,7 +203,7 @@ public class AnalysisJobServiceRest extends BaseServiceRest {
 			@ApiParam(value = "response timeout in milliseconds in case the job is not yet computed. If no timeout set, the method will return according to current job status.") @QueryParam("timeout") Integer timeout,
 			@ApiParam(value = "paging size") @QueryParam("maxResults") Integer maxResults,
 			@ApiParam(value = "paging start index") @QueryParam("startIndex") Integer startIndex,
-			@ApiParam(value = "if true, get the analysis only if already in cache", defaultValue = "false") @QueryParam("lazy") boolean lazy,
+			@ApiParam(value = "if true, get the analysis only if already in cache, else throw a NotInCacheException; if noError returns a null result if the analysis is not in cache ; else regular analysis", defaultValue = "false") @QueryParam("lazy") String lazy,
 			@ApiParam(value = "response media type (optional)") @QueryParam("type") String type,
 			@ApiParam(value = "Velocity template as a base64 String (optional)") @QueryParam("template") String template) {
 		return returnResultsAsFile(projectId, jobId, ext, timeout, maxResults, startIndex, lazy, type, template, false);
@@ -239,14 +239,14 @@ public class AnalysisJobServiceRest extends BaseServiceRest {
 			@ApiParam(value = "response timeout in milliseconds in case the job is not yet computed. If no timeout set, the method will return according to current job status.") @FormParam("timeout") Integer timeout,
 			@ApiParam(value = "paging size") @FormParam("maxResults") Integer maxResults,
 			@ApiParam(value = "paging start index") @FormParam("startIndex") Integer startIndex,
-			@ApiParam(value = "if true, get the analysis only if already in cache", defaultValue = "false") @QueryParam("lazy") boolean lazy,
+			@ApiParam(value = "if true, get the analysis only if already in cache, else throw a NotInCacheException; if noError returns a null result if the analysis is not in cache ; else regular analysis", defaultValue = "false") @QueryParam("lazy") String lazy,
 			@ApiParam(value = "response media type (optional)") @FormParam("type") String type,
 			@ApiParam(value = "Velocity template as a base64 String (optional)") @FormParam("template") String template) {
 		return returnResultsAsFile(projectId, jobId, ext, timeout, maxResults, startIndex, lazy, type, template, true);
 	}
 
 	private Response returnResultsAsFile(String projectId, String jobId, String ext, Integer timeout,
-			Integer maxResults, Integer startIndex, boolean lazy, String type, String template, boolean setFileName) {
+			Integer maxResults, Integer startIndex, String lazy, String type, String template, boolean setFileName) {
 
 		if (template == null) {
 			// normal rendering
@@ -275,7 +275,7 @@ public class AnalysisJobServiceRest extends BaseServiceRest {
 	}
 
 	public Response renderTemplate(AppContext ctx, final ProjectAnalysisJob job, final Integer timeout,
-			final Integer maxResults, final Integer startIndex, final boolean lazy, String type, String template,
+			final Integer maxResults, final Integer startIndex, final String lazy, String type, String template,
 			boolean setFileName) {
 
 		final String decoded = new String(Base64.decodeBase64(template.getBytes()));
@@ -336,7 +336,7 @@ public class AnalysisJobServiceRest extends BaseServiceRest {
 	}
 
 	private Response getResults(String projectId, final ProjectAnalysisJob job, final Integer timeout,
-			final Integer maxResults, final Integer startIndex, final boolean lazy, String format, String compression,
+			final Integer maxResults, final Integer startIndex, final String lazy, String format, String compression,
 			boolean setFileName) {
 
 		final OutputFormat outFormat;
@@ -478,7 +478,7 @@ public class AnalysisJobServiceRest extends BaseServiceRest {
 			@QueryParam("timeout") Integer timeout,
 			@ApiParam(value = "paging size") @QueryParam("maxResults") Integer maxResults,
 			@ApiParam(value = "paging start index") @QueryParam("startIndex") Integer startIndex,
-			@ApiParam(value = "if true, get the analysis only if already in cache", defaultValue = "false") @QueryParam("lazy") boolean lazy,
+			@ApiParam(value = "if true, get the analysis only if already in cache, else return a job with an error set to rerun; if noError returns a null result if the analysis is not in cache ; else regular analysis", defaultValue = "false") @QueryParam("lazy") String lazy,
 			@ApiParam(value = "output format", allowableValues = "json,csv,vxls", defaultValue = "json") @QueryParam("format") String format,
 			@ApiParam(value = "output compression", allowableValues = "gzip, none", defaultValue = "none") @QueryParam("compression") String compression) {
 
@@ -492,14 +492,14 @@ public class AnalysisJobServiceRest extends BaseServiceRest {
 			@QueryParam("timeout") Integer timeout,
 			@ApiParam(value = "paging size") @QueryParam("maxResults") Integer maxResults,
 			@ApiParam(value = "paging start index") @QueryParam("startIndex") Integer startIndex,
-			@ApiParam(value = "if true, get the analysis only if already in cache", defaultValue = "false") @QueryParam("lazy") boolean lazy,
+			@ApiParam(value = "if true, get the analysis only if already in cache, else throw a NotInCacheException; if noError returns a null result if the analysis is not in cache ; else regular analysis", defaultValue = "false") @QueryParam("lazy") String lazy,
 			@ApiParam(value = "output format", allowableValues = "json,csv,vxls", defaultValue = "json") @QueryParam("format") String format,
 			@ApiParam(value = "output compression", allowableValues = "gzip, none", defaultValue = "none") @QueryParam("compression") String compression) {
 		return createOrUpdate(projectId, job, timeout, maxResults, startIndex, lazy, format, compression);
 	}
 
 	private Response createOrUpdate(String projectId, ProjectAnalysisJob job, Integer timeout, Integer maxResults,
-			Integer startIndex, boolean lazy, String format, String compression) {
+			Integer startIndex, String lazy, String format, String compression) {
 		if (job.getId() == null) {
 			job.setId(new ProjectAnalysisJobPK(userContext.getCustomerId(), projectId, null));
 		}

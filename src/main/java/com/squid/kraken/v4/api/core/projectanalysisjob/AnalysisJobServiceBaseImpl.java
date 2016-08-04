@@ -39,36 +39,37 @@ import com.squid.kraken.v4.model.ProjectPK;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.dao.ProjectAnalysisJobDAO;
 
-public class AnalysisJobServiceBaseImpl extends JobServiceBaseImpl<ProjectAnalysisJob, ProjectAnalysisJobPK, DataTable> {
+public class AnalysisJobServiceBaseImpl
+		extends JobServiceBaseImpl<ProjectAnalysisJob, ProjectAnalysisJobPK, DataTable> {
 
-    private static AnalysisJobServiceBaseImpl instance;
+	private static AnalysisJobServiceBaseImpl instance;
 
-    public static AnalysisJobServiceBaseImpl getInstance() {
-        if (instance == null) {
-            instance = new AnalysisJobServiceBaseImpl();
-        }
-        return instance;
-    }
+	public static AnalysisJobServiceBaseImpl getInstance() {
+		if (instance == null) {
+			instance = new AnalysisJobServiceBaseImpl();
+		}
+		return instance;
+	}
 
-    private AnalysisJobServiceBaseImpl() {
-        // made private for singleton access
-        super(ProjectAnalysisJob.class, new AnalysisJobComputer());
-    }
-    
-    public List<ProjectAnalysisJob> readAll(AppContext app, String projectId) {
-        return ((ProjectAnalysisJobDAO) factory.getDAO(ProjectAnalysisJob.class)).findByProject(app, new ProjectPK(app
-                .getCustomerId(), projectId));
-    }
+	private AnalysisJobServiceBaseImpl() {
+		// made private for singleton access
+		super(ProjectAnalysisJob.class, new AnalysisJobComputer());
+	}
 
-    @Override
-    protected DataTable paginateResults(DataTable jobResults, Integer maxResults, Integer startIndex) {
-    	// pagination is now performed by computation task
-        return jobResults;
-    }
+	public List<ProjectAnalysisJob> readAll(AppContext app, String projectId) {
+		return ((ProjectAnalysisJobDAO) factory.getDAO(ProjectAnalysisJob.class)).findByProject(app,
+				new ProjectPK(app.getCustomerId(), projectId));
+	}
 
 	@Override
-	public ProjectAnalysisJob store(AppContext ctx, ProjectAnalysisJob job,
-			Integer timeout, Integer maxResults, Integer startIndex, boolean lazy) {
+	protected DataTable paginateResults(DataTable jobResults, Integer maxResults, Integer startIndex) {
+		// pagination is now performed by computation task
+		return jobResults;
+	}
+
+	@Override
+	public ProjectAnalysisJob store(AppContext ctx, ProjectAnalysisJob job, Integer timeout, Integer maxResults,
+			Integer startIndex, String lazy) {
 		if (timeout == null) {
 			// just here to support old timeout=null behavior for export app
 			// should be using job's autoRun property instead
@@ -77,18 +78,23 @@ public class AnalysisJobServiceBaseImpl extends JobServiceBaseImpl<ProjectAnalys
 			job = super.store(ctx, job, timeout, maxResults, startIndex, lazy);
 		}
 		return job;
-		
+
 	}
 
-	public String viewSQL(AppContext ctx, ProjectAnalysisJobPK jobId, boolean prettyfier) throws ComputingException, InterruptedException, ScopeException, SQLScopeException, RenderingException {
+	public String viewSQL(AppContext ctx, ProjectAnalysisJobPK jobId, boolean prettyfier)
+			throws ComputingException, InterruptedException, ScopeException, SQLScopeException, RenderingException {
 		final ProjectAnalysisJob job = read(ctx, jobId);
-		AnalysisJobComputer phonyjob = new AnalysisJobComputer();// need to create a new one
+		AnalysisJobComputer phonyjob = new AnalysisJobComputer();// need to
+																	// create a
+																	// new one
 		String sql = phonyjob.viewSQL(ctx, job);
 		if (prettyfier) {
 			StringBuilder html = new StringBuilder("<head>");
-			html.append("<script src='https://cdn.rawgit.com/google/code-prettify/master/loader/run_prettify.js?lang=sql'></script>");
+			html.append(
+					"<script src='https://cdn.rawgit.com/google/code-prettify/master/loader/run_prettify.js?lang=sql'></script>");
 			html.append("</head><body>");
-			html.append("<pre class='prettyprint lang-sql' style='white-space: pre-wrap;white-space: -moz-pre-wrap;white-space: -pre-wrap;white-space: -o-pre-wrap;word-wrap: break-word;padding:0px;margin:0px'>");
+			html.append(
+					"<pre class='prettyprint lang-sql' style='white-space: pre-wrap;white-space: -moz-pre-wrap;white-space: -pre-wrap;white-space: -o-pre-wrap;word-wrap: break-word;padding:0px;margin:0px'>");
 			html.append(StringEscapeUtils.escapeHtml4(sql));
 			html.append("</pre>");
 			html.append("</body>");
