@@ -32,6 +32,7 @@ import com.squid.core.sql.render.IOrderByPiece.ORDERING;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
 import com.squid.kraken.v4.core.analysis.universe.Property;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
+import com.squid.kraken.v4.model.Expression;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.Position;
 
 /**
@@ -62,6 +63,7 @@ public class DashboardAnalysis extends Dashboard {
 	
 	private String jobId;
 	
+	
 	public DashboardAnalysis(Universe universe) {
 	    super(universe);
     }
@@ -81,8 +83,14 @@ public class DashboardAnalysis extends Dashboard {
 	}
 	
 	public void orderBy(OrderBy order) {
-	    orders.add(new OrderBy(orders.size(), order.getExpression(), order.getOrdering()));
+		if (order instanceof OrderByGrowth){
+			orders.add(new OrderByGrowth(orders.size(), order.getExpression(), order.getOrdering(), ((OrderByGrowth) order).expr));
+		}else{
+			orders.add(new OrderBy(orders.size(), order.getExpression(), order.getOrdering()));
+		}
 	}
+		
+	
 	
 	public void orderBy(ExpressionAST expr, ORDERING order) {
 	    orders.add(new OrderBy(orders.size(), expr, order));
@@ -90,6 +98,10 @@ public class DashboardAnalysis extends Dashboard {
 	
 	public void orderBy(Property property, ORDERING order) {
 	    orders.add(new OrderBy(orders.size(), property.getReference(), order));
+	}
+	
+	public void orderByGrowth( ExpressionAST exprAST, ORDERING order, Expression exp){
+		orders.add(new OrderByGrowth(orders.size(), exprAST, order, exp ) );
 	}
 	
 	public List<OrderBy> getOrders() {
