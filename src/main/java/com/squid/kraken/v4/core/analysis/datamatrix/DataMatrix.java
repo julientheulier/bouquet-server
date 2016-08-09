@@ -55,6 +55,7 @@ import com.squid.kraken.v4.core.analysis.engine.query.mapping.MeasureMapping;
 import com.squid.kraken.v4.core.analysis.model.DashboardSelection;
 import com.squid.kraken.v4.core.analysis.model.DomainSelection;
 import com.squid.kraken.v4.core.analysis.model.OrderBy;
+import com.squid.kraken.v4.core.analysis.model.OrderByGrowth;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
 import com.squid.kraken.v4.core.analysis.universe.Measure;
 import com.squid.kraken.v4.model.DataTable;
@@ -339,7 +340,7 @@ public class DataMatrix {
 			int pos = 0;
 			boolean check = false;
 			for (AxisValues axis : this.axes) {
-				if (axis.getAxis().getReference().equals(itemExpr)) {
+				if ((! (orderBy instanceof OrderByGrowth))  && axis.getAxis().getReference().equals(itemExpr)) {
 					ordering.add(pos);
 					direction.add(item.getOrdering());
 					check = true;
