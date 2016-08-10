@@ -26,8 +26,6 @@ package com.squid.kraken.v4.api.core.projectanalysisjob;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import com.squid.kraken.v4.api.core.*;
 
@@ -80,7 +78,6 @@ import com.squid.kraken.v4.model.ProjectAnalysisJobPK;
 import com.squid.kraken.v4.model.ProjectPK;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.writers.ExportQueryWriter;
-
 
 /**
  * Compute a ProjectAnalysisJob using the Engine.<br>
@@ -413,24 +410,29 @@ public class AnalysisJobComputer implements JobComputer<ProjectAnalysisJob, Proj
 					Expression expr = orderby.getExpression();
 					if (expr.getValue() != null) {
 						try {
-							
+
 							String val = expr.getValue();
-							//T1699
-							if (val.startsWith("growth(") && val.endsWith(")")){
-								val = val.substring(7, val.length()-1);								
+							// T1699
+							if (val.startsWith("growth(") && val.endsWith(")")) {
+								val = val.substring(7, val.length() - 1);
 								ExpressionAST value = universe.expression(val);
 								dash.orderByGrowth(value, getOrderByDirection(orderby.getDirection()), expr);
-							}
-							else{
-								ExpressionAST value = universe.expression(val);
-								dash.orderBy(value, getOrderByDirection(orderby.getDirection()));
+							} else {
+								if (val.startsWith("compareTo(") && val.endsWith(")")) {
+									val = val.substring(10, val.length() - 1);
+									ExpressionAST value = universe.expression(val);
+									dash.orderByGrowth(value, getOrderByDirection(orderby.getDirection()), expr);
+								} else {
+									ExpressionAST value = universe.expression(val);
+									dash.orderBy(value, getOrderByDirection(orderby.getDirection()));
+								}
 							}
 						} catch (ScopeException e) {
 
 							long stop = System.currentTimeMillis();
 							PerfDB.logPerf(logger, job, "AnalysisJobComputer.buildDashboardAnalysis()", true,
-									stop - start, "invalid orderBy expression " + expr.getValue() + " at position #" + pos
-											+ ": " + e.getMessage());
+									stop - start, "invalid orderBy expression " + expr.getValue() + " at position #"
+											+ pos + ": " + e.getMessage());
 							throw new ScopeException("invalid orderBy expression '" + expr.getValue()
 									+ "' at position #" + pos + ": " + e.getMessage());
 						}
@@ -483,9 +485,9 @@ public class AnalysisJobComputer implements JobComputer<ProjectAnalysisJob, Proj
 				}
 			}
 		}
-		
+
 		// handles option keys
-		if (job.getOptionKeys()!=null) {
+		if (job.getOptionKeys() != null) {
 			dash.setOptionKeys(job.getOptionKeys());
 		}
 
