@@ -639,7 +639,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest {
 					name = formatName(
 							axis.getDimension() != null ? axis.getName() : axis.getDefinitionSafe().prettyPrint());
 				}
-				facets.add(new FacetExpression(colExpression.prettyPrint(), name));
+				facets.add(new FacetExpression(axis.prettyPrint(), name));
 				//
 				lookup.put(facetCount, legacyFacetCount++);
 				facetCount++;
