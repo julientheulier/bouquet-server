@@ -29,7 +29,6 @@ import java.util.concurrent.ExecutionException;
 import com.squid.core.database.model.Column;
 import com.squid.core.domain.IDomain;
 import com.squid.core.expression.ExpressionAST;
-import com.squid.kraken.v4.core.expression.reference.ColumnDomainReference;
 import com.squid.core.expression.scope.IdentifierType;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex;
@@ -37,6 +36,7 @@ import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
 import com.squid.kraken.v4.core.analysis.universe.Space;
+import com.squid.kraken.v4.core.expression.reference.ColumnDomainReference;
 import com.squid.kraken.v4.model.Dimension;
 import com.squid.kraken.v4.model.Metric;
 import com.squid.kraken.v4.model.Relation;
@@ -50,6 +50,13 @@ public class SpaceScope extends AnalysisScope {
         super();
         this.space = space;
     }
+    
+    /**
+	 * @return the space
+	 */
+	public Space getSpace() {
+		return space;
+	}
     
     @Override
     public ExpressionAST createReferringExpression(Object object)
