@@ -34,7 +34,6 @@ import com.squid.core.database.model.Column;
 import com.squid.core.database.model.Table;
 import com.squid.core.domain.IDomain;
 import com.squid.core.domain.operators.OperatorDefinition;
-import com.squid.core.domain.set.SetDomain;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.kraken.v4.core.expression.reference.ColumnDomainReference;
 import com.squid.kraken.v4.core.expression.reference.ParameterReference;
