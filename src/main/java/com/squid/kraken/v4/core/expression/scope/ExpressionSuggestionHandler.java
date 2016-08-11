@@ -135,6 +135,9 @@ public class ExpressionSuggestionHandler {
         if (isParseSubExpression) {
             // parse the full expression to get the correct parsing error
             parseExpression(expression, result);
+        } else {
+        	// just update the proposal
+        	updateProposal(result, expressionToParse, filterType);
         }
         return result;
     }
