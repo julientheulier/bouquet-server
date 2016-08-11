@@ -491,9 +491,18 @@ public class Space {
 	 * @return
 	 */
 	public String prettyPrint() {
+		return prettyPrint(null);
+	}
+
+	/**
+	 * return a V4 compatible expression attached to the provided scope: that is the expression could be parsed in this scope
+	 * @scope the parent scope or null for Universe
+	 * @return
+	 */
+	public String prettyPrint(Space scope) {
 		String pp = "";
 		Space parent = this;
-		while (parent!=null) {
+		while (parent!=null && !parent.equals(scope)) {
 			if (pp!="") {
 				pp = "."+pp;
 			}

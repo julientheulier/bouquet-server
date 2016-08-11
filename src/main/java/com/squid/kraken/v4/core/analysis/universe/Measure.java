@@ -235,8 +235,17 @@ public class Measure implements Property {
      * @return
      */
     public String prettyPrint() {
+    	return prettyPrint(null);
+    }
+
+	/**
+	 * return a V4 compatible expression attached to the provided scope: that is the expression could be parsed in this scope
+	 * @scope the parent scope or null for Universe
+	 * @return
+	 */
+    public String prettyPrint(Space scope) {
         if (metric!=null || definition==null) {
-            String pp = getParent().prettyPrint();
+            String pp = getParent().prettyPrint(scope);
             if (pp!="") {
                 pp += ".";
             }

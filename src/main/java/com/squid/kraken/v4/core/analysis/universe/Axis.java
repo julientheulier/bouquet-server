@@ -371,14 +371,16 @@ public class Axis implements Property {
 	public int hashCode() {
 		return this.getId().hashCode();
 	}
+
 	
 	/**
-	 * return a V4 compatible expression
+	 * return a V4 compatible expression attached to the provided scope: that is the expression could be parsed in this scope
+	 * @scope the parent scope or null for Universe
 	 * @return
 	 */
-	public String prettyPrint() {
+	public String prettyPrint(Space scope) {
 	    if (dimension!=null && dimension.getId().getDimensionId()!=null) {
-    		String pp = getParent().prettyPrint();
+    		String pp = getParent().prettyPrint(scope);
     		if (pp!="") {
     			pp += ".";
     		}
@@ -389,7 +391,7 @@ public class Axis implements Property {
     				+PrettyPrintConstant.CLOSE_IDENT;
 	    } else if (dimension!=null && dimension.getId().getDimensionId()==null && def_cache!=null) {
 	    	// krkn-93
-    		String pp = getParent().prettyPrint();
+    		String pp = getParent().prettyPrint(scope);
     		if (pp!="") {
     			pp += ".";
     		}
@@ -399,6 +401,14 @@ public class Axis implements Property {
 	    } else {
 	        return "**undefined**";
 	    }
+	}
+	
+	/**
+	 * return a V4 compatible expression
+	 * @return
+	 */
+	public String prettyPrint() {
+		return prettyPrint(null);
 	}
 	
 	@Override
