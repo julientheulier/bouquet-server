@@ -3,20 +3,24 @@ package com.squid.kraken.v4.model;
 import java.util.List;
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.squid.kraken.v4.model.AnalysisQueryImpl.AnalysisFacetImpl;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.OrderBy;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.RollUp;
-import com.squid.kraken.v4.model.SimpleAnalysis.SimpleFacet;
 
-@JsonDeserialize(as = SimpleAnalysis.class)
-public interface Analysis {
+@JsonDeserialize(as = AnalysisQueryImpl.class)
+public interface AnalysisQuery {
 
 	public abstract String getDomain();
 
 	public abstract void setDomain(String domain);
 
-	public abstract List<AnalysisFacet> getFacets();
+	public abstract List<AnalysisFacet> getGroupBy();
+	
+	public abstract void setGroupBy(List<AnalysisFacet> facets);
+	
+	public abstract List<AnalysisFacet> getMetrics();
 
-	public abstract void setFacets(List<AnalysisFacet> facets);
+	public abstract void setMetrics(List<AnalysisFacet> facets);
 
 	public abstract List<String> getFilters();
 
@@ -42,7 +46,7 @@ public interface Analysis {
 
 	public abstract void setBookmarkId(String bookmarkId);
 	
-	@JsonDeserialize(as = SimpleFacet.class)
+	@JsonDeserialize(as = AnalysisFacetImpl.class)
 	static public interface AnalysisFacet {
 		
 		public abstract String getName();

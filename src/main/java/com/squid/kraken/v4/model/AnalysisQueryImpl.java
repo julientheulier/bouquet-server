@@ -5,11 +5,13 @@ import java.util.List;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.OrderBy;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.RollUp;
 
-public class SimpleAnalysis implements Analysis {
+public class AnalysisQueryImpl implements AnalysisQuery {
 
 	private String domain;
 	
-	private List<AnalysisFacet> facets;
+	private List<AnalysisFacet> groupBy;
+	
+	private List<AnalysisFacet> metrics;
 	
 	private List<String> filters;
 	
@@ -23,7 +25,7 @@ public class SimpleAnalysis implements Analysis {
 	
 	private String bookmarkId;
 
-	public SimpleAnalysis() {
+	public AnalysisQueryImpl() {
 	}
 	
 	/* (non-Javadoc)
@@ -41,15 +43,21 @@ public class SimpleAnalysis implements Analysis {
 	public void setDomain(String domain) {
 		this.domain = domain;
 	}
-
-	@Override
-	public List<AnalysisFacet> getFacets() {
-		return facets;
+	
+	public List<AnalysisFacet> getGroupBy() {
+		return groupBy;
 	}
 
-	@Override
-	public void setFacets(List<AnalysisFacet> facets) {
-		this.facets = facets;
+	public void setGroupBy(List<AnalysisFacet> groupBy) {
+		this.groupBy = groupBy;
+	}
+
+	public List<AnalysisFacet> getMetrics() {
+		return metrics;
+	}
+
+	public void setMetrics(List<AnalysisFacet> metrics) {
+		this.metrics = metrics;
 	}
 
 	/* (non-Javadoc)
@@ -142,7 +150,7 @@ public class SimpleAnalysis implements Analysis {
 		this.bookmarkId = bookmarkId;
 	}
 
-	static public class SimpleFacet implements AnalysisFacet {
+	static public class AnalysisFacetImpl implements AnalysisFacet {
 
 		private String name;
 		
