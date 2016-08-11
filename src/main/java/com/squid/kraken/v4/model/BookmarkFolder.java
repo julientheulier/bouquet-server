@@ -120,6 +120,11 @@ public class BookmarkFolder implements HasChildren {
 		public BookmarkLink(BookmarkPK id) {
 			this.id = id;
 		}
+		
+		public String getBBID() {
+			if (id==null) return "";
+			return id.getProjectId()+":"+id.getBookmarkId();
+		}
 
 		public BookmarkPK getId() {
 			return id;
