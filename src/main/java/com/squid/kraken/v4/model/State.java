@@ -77,7 +77,7 @@ public class State extends PersistentBaseImpl<StatePK> implements HasConfig {
 	@Override
 	public Customer getParentObject(AppContext ctx) {
 		return DAOFactory.getDAOFactory().getDAO(Customer.class)
-				.readNotNull(ctx, new CustomerPK(id.getCustomerId()));
+				.readNotNull(ctx, new CustomerPK(ctx.getCustomerId()));
 	}
 
 	public Long getCreationTime() {

@@ -51,6 +51,9 @@ public class Measure implements Property {
 	
 	private OriginType originType = OriginType.USER;// default to User type
 	
+	private String description = null;
+	private String format = null;
+	
 	public Measure(Measure copy) {
 		this.parent = copy.parent;
 		this.metric = copy.metric;
@@ -165,6 +168,36 @@ public class Measure implements Property {
 	    return this;
 	}
 	
+	/* (non-Javadoc)
+	 * @see com.squid.kraken.v4.core.analysis.universe.Property#getDescription()
+	 */
+	@Override
+	public String getDescription() {
+		return this.description!=null?this.description:(this.metric!=null?this.metric.getDescription():null);
+	}
+	
+	/**
+	 * @param description the description to set
+	 */
+	public void setDescription(String description) {
+		this.description = description;
+	}
+	
+	/* (non-Javadoc)
+	 * @see com.squid.kraken.v4.core.analysis.universe.Property#getFormat()
+	 */
+	@Override
+	public String getFormat() {
+		return this.format;
+	}
+	
+	/**
+	 * @param format the format to set
+	 */
+	public void setFormat(String format) {
+		this.format = format;
+	}
+	
 	@Override
 	public ExpressionAST getDefinition() throws ScopeException {
 		if (this.definition==null) {
@@ -209,6 +242,8 @@ public class Measure implements Property {
             }
             if (originType==OriginType.COMPARETO) {
             	return "compareTo("+pp+"["+AnalysisScope.MEASURE.getToken()+":'"+(metric!=null?metric.getName():getName())+"'])";
+            } else if (originType==OriginType.GROWTH) {
+                	return "growth("+pp+"["+AnalysisScope.MEASURE.getToken()+":'"+(metric!=null?metric.getName():getName())+"'])";
             } else {
             	return pp+"["+AnalysisScope.MEASURE.getToken()+":'"+getName()+"']";
             }

@@ -165,9 +165,10 @@ public class Merger {
 				pos++;
 			}
 		}
+
 	}
 
-	public DataMatrix merge(boolean sortInput) {
+	public DataMatrix merge(boolean sortInput) throws ScopeException {
 		// need to work on sorted data
 		List<RawRow> this_rows = sortInput?left.sortRows():left.getRows();
 		List<RawRow> that_rows = sortInput?right.sortRows():right.getRows();

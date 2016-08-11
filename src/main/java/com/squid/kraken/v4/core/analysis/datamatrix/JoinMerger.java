@@ -97,11 +97,16 @@ public class JoinMerger extends Merger {
 		return null;
 	}
 	
+	/* (non-Javadoc)
+	 * @see com.squid.kraken.v4.core.analysis.datamatrix.Merger#createDefaultIndirectionRow(int, int)
+	 */
 	@Override
+
 	protected void mergeAxes(DataMatrix merge, RawRow leftrow, RawRow rightrow, RawRow merged) {
 		if (leftrow == null && rightrow == null) {
 			// ignore, should not happen
 		} if (leftrow == null) {
+
 			// copy axes
 			int rrInd = 0;
 			// left & right matrices having the same size

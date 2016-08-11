@@ -84,11 +84,11 @@ public class CustomerServiceRest {
 		return instance;
 	}
 
-	static public final String PARAM_REFRESH = "refresh";
+	static private final String PARAM_REFRESH = "refresh";
 
-	static public final String PARAM_DEEP_READ = "deepread";
+	static private final String PARAM_DEEP_READ = "deepread";
 
-	static public final String PARAM_OPTION = "option";
+	static private final String PARAM_OPTION = "option";
 
 	private CustomerServiceBaseImpl delegate = CustomerServiceBaseImpl
 			.getInstance();
@@ -170,6 +170,14 @@ public class CustomerServiceRest {
 		return new BookmarkFolderServiceRest(userContext);
 	}
 
+	
+	@Path("/queries")
+	@ApiOperation(value = "Gets ongoing queries")
+	public QueriesServiceRest getQueriesService(
+			@Context HttpServletRequest request) {
+		AppContext userContext = getUserContext(request);
+		return new QueriesServiceRest(userContext);
+	}
 
 	@Path("/internalanalysisjobs")
 	@ApiOperation(value = "Gets internal analysis jobs")
@@ -520,7 +528,11 @@ public class CustomerServiceRest {
 				first = false;
 			}
 			res += "{\"" + plugin.getVendorId() + "\" : \""
-					+ plugin.getVendorVersion() + "\"}";
+					+ plugin.getVendorVersion() + "\"";
+			res += ",\"vendorId\":\"" + plugin.getVendorId() + "\"";
+			res += ",\"version\":\"" + plugin.getVendorVersion() + "\"";
+			res += ",\"jdbcTemplate\":" + plugin.getJdbcUrlTemplate();
+			res +=  "}";
 		}
 		res += "]";
 		CoreVersion version = new CoreVersion();
@@ -571,7 +583,10 @@ public class CustomerServiceRest {
 			if (request.getParameter(PARAM_DEEP_READ) != null) {
 				ctxb.setDeepRead(true);
 			}
-
+			String sessionId = request.getHeader(AppContext.HEADER_BOUQUET_SESSIONID);
+			if (sessionId != null) {
+				ctxb.setSessionId(sessionId);
+			}
 			String[] options = request.getParameterValues(PARAM_OPTION);
 			if (options != null) {
 				ctxb.setOptions(Arrays.asList(options));

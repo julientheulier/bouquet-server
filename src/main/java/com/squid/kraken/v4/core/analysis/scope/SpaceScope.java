@@ -143,6 +143,23 @@ public class SpaceScope extends AnalysisScope {
             			return space.A(dimension);
             		}
             	}
+            	// T1392: the following code is there for compatibility reason while we look for a clean solution
+            	// - the problem is to move facetID from one domain to another while preserving the selection
+	            for (Axis axis : space.A()) {
+	            	DimensionIndex index = axis.getIndex();
+	            	if (index!=null) {
+	            		Dimension dimension = index.getDimension();
+	            		if (dimension!=null && dimension.getOid().equals(name)) {
+		                	// KRKN-107 : if it's a sub-domain, don't link through the dimension
+		                    if (!axis.getDefinitionSafe().getImageDomain().isInstanceOf(IDomain.OBJECT)) {
+		                    	return axis;
+		                    } else {
+		                    	return axis;
+		                    	//throw new ScopeException("dimension '"+index.getDimensionName()+"' definition has invalid type OBJECT");
+		                    }
+		                }
+	            	}
+	            }
             } catch (InterruptedException | ComputingException e) {
             	// ignore
             }

@@ -75,6 +75,10 @@ public class ExecuteQueryTask implements CancellableCallable<IExecutionItem> {
 		this.queryNum = queryNum;
 		this.sql = sql;
 	}
+	
+	public int getID() {
+		return queryNum;
+	}
 
     public void cancel() {
         if (statement!=null) {

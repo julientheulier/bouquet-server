@@ -105,6 +105,9 @@ public class DataTable extends JobResultBaseImpl {
         private Role role;
         
         private OriginType originType;
+        
+        private String description;
+        private String format;
 
         public Col() {
         }
@@ -181,6 +184,34 @@ public class DataTable extends JobResultBaseImpl {
         public String getDefinition() {
             return definition;
         }
+        
+        /**
+		 * @return the description
+		 */
+		public String getDescription() {
+			return description;
+		}
+		
+		/**
+		 * @param description the description to set
+		 */
+		public void setDescription(String description) {
+			this.description = description;
+		}
+		
+		/**
+		 * @return the format
+		 */
+		public String getFormat() {
+			return format;
+		}
+		
+		/**
+		 * @param format the format to set
+		 */
+		public void setFormat(String format) {
+			this.format = format;
+		}
 
         @Override
         public String toString() {

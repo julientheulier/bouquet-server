@@ -202,7 +202,7 @@ public class InternalAnalysisJobServiceRest extends BaseServiceRest {
                             };
                             jobService.writeResults(out, userContext, job, 1000,
                                     10000, true, 10000,
-                                    0,false, null, null, new ExportSourceWriterKafka());
+                                    0,null, null, null, new ExportSourceWriterKafka());
                         } catch (InterruptedException e) {
                             e.printStackTrace();
                         }
@@ -403,7 +403,7 @@ public class InternalAnalysisJobServiceRest extends BaseServiceRest {
 
                 Universe destuniverse = new Universe(userContext, destproject);
                 // Get the data.
-                DataTable results = AnalysisJobServiceBaseImpl.getInstance().readResults(userContext, job_stored.getId(), timeout, false, 1000, 0,false, 1000);
+                DataTable results = AnalysisJobServiceBaseImpl.getInstance().readResults(userContext, job_stored.getId(), timeout, false, 1000, 0,null, 1000);
                 if(results==null) {
                     response = Response.serverError();
                     return response.build();

@@ -45,6 +45,7 @@ import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.DomainPK;
 import com.squid.kraken.v4.model.ExpressionSuggestion;
 import com.squid.kraken.v4.model.ProjectPK;
+import com.squid.kraken.v4.model.ValueType;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.wordnik.swagger.annotations.Api;
 import com.wordnik.swagger.annotations.ApiOperation;
@@ -148,9 +149,9 @@ public class DomainServiceRest extends BaseServiceRest {
 			@PathParam("domainId") String domainId,
 			@QueryParam("dimensionId") String dimensionId,
 			@QueryParam("expression") String expression,
-			@QueryParam("offset") Integer offset) {
-		return delegate.getDimensionSuggestion(userContext, projectId,
-				domainId, dimensionId, expression, offset);
+			@QueryParam("offset") Integer offset,
+            @QueryParam("filterType") ValueType filterType){
+		return delegate.getDimensionSuggestion(userContext, projectId, domainId, dimensionId, expression, offset, filterType);
 	}
 
 	@Path("{" + PARAM_NAME + "}" + "/dimensions")
@@ -173,9 +174,10 @@ public class DomainServiceRest extends BaseServiceRest {
 			@PathParam("domainId") String domainId,
 			@QueryParam("metricId") String metricId,
 			@QueryParam("expression") String expression,
-			@QueryParam("offset") Integer offset) {
+			@QueryParam("offset") Integer offset,
+            @QueryParam("filterType") ValueType filterType) {
 		return delegate.getMetricSuggestion(userContext, projectId, domainId, metricId,
-				expression, offset);
+				expression, offset, filterType);
 	}
 
 	@Path("{" + PARAM_NAME + "}" + "/metrics")
@@ -216,9 +218,10 @@ public class DomainServiceRest extends BaseServiceRest {
 			@PathParam("projectId") String projectId,
 			@PathParam("domainId") String domainId,
 			@QueryParam("expression") String expression,
-			@QueryParam("offset") int offset) {
+			@QueryParam("offset") Integer offset,
+            @QueryParam("filterType") ValueType filterType) {
 		return delegate.getSegmentSuggestion(userContext, projectId, domainId,
-				expression, offset);
+				expression, offset, filterType);
 	}
 
 }

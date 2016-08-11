@@ -71,7 +71,7 @@ public class ProjectFacetJob extends JobBaseImpl<ProjectFacetJobPK, FacetSelecti
     public void setSelection(FacetSelection selection) {
         this.selection = selection;
     }
-
+    
     public List<DomainPK> getDomains() {
         if (domains == null) {
             domains = new ArrayList<DomainPK>();

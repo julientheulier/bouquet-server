@@ -28,6 +28,7 @@ import java.io.InputStream;
 import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.HashSet;
+import java.util.List;
 import java.util.jar.Attributes;
 import java.util.jar.Manifest;
 
@@ -35,8 +36,6 @@ import javax.servlet.ServletConfig;
 import javax.servlet.ServletContext;
 import javax.servlet.ServletException;
 
-import com.squid.kraken.v4.api.core.EmailHelperImpl;
-import com.squid.kraken.v4.api.core.customer.CustomerServiceBaseImpl;
 import org.apache.cxf.jaxrs.servlet.CXFNonSpringJaxrsServlet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,15 +43,24 @@ import org.slf4j.LoggerFactory;
 import com.squid.core.velocity.VelocityTemplateManager;
 import com.squid.kraken.v4.KrakenConfig;
 import com.squid.kraken.v4.ESIndexFacade.ESIndexFacadeConfiguration;
+import com.squid.kraken.v4.api.core.EmailHelperImpl;
 import com.squid.kraken.v4.api.core.ServiceUtils;
 import com.squid.kraken.v4.api.core.customer.AdminServiceRest;
+import com.squid.kraken.v4.api.core.customer.CustomerServiceBaseImpl;
 import com.squid.kraken.v4.api.core.customer.CustomerServiceRest;
-import com.squid.kraken.v4.caching.redis.RedisCacheConfig;
+import com.squid.kraken.v4.api.core.websocket.NotificationWebsocketMetaModelObserver;
 import com.squid.kraken.v4.caching.redis.CacheInitPoint;
+import com.squid.kraken.v4.caching.redis.RedisCacheConfig;
 import com.squid.kraken.v4.caching.redis.RedisCacheManager;
 import com.squid.kraken.v4.config.KrakenConfigV2;
 import com.squid.kraken.v4.core.analysis.engine.index.DimensionStoreManagerFactory;
 import com.squid.kraken.v4.core.database.impl.DriversService;
+import com.squid.kraken.v4.model.Customer;
+import com.squid.kraken.v4.model.Customer.AUTH_MODE;
+import com.squid.kraken.v4.persistence.AppContext;
+import com.squid.kraken.v4.persistence.DAOFactory;
+import com.squid.kraken.v4.persistence.DataStoreEventBus;
+import com.squid.kraken.v4.persistence.dao.CustomerDAO;
 import com.wordnik.swagger.config.ScannerFactory;
 import com.wordnik.swagger.jaxrs.config.ReflectiveJaxrsScanner;
 import com.wordnik.swagger.models.Info;
@@ -62,8 +70,7 @@ import com.wordnik.swagger.models.auth.OAuth2Definition;
 @SuppressWarnings("serial")
 public class CXFServletService extends CXFNonSpringJaxrsServlet {
 
-	private static final Logger logger = LoggerFactory
-			.getLogger(CXFServletService.class);
+	private static final Logger logger = LoggerFactory.getLogger(CXFServletService.class);
 
 	@Override
 	public void init(ServletConfig config) throws ServletException {
@@ -88,15 +95,10 @@ public class CXFServletService extends CXFNonSpringJaxrsServlet {
 		if (facets.contains("front")) {
 			// init the API
 			logger.info("Facet: Front");
-			servletConf.setJaxrsServiceClassesParam(CustomerServiceRest.class
-					.getName()
-					+ ","
-					+ AdminServiceRest.class.getName()
-					+ ","
-					+ "com.wordnik.swagger.jaxrs.listing.ApiListingResource");
+			servletConf.setJaxrsServiceClassesParam(CustomerServiceRest.class.getName() + ","
+					+ AdminServiceRest.class.getName() + "," + "com.wordnik.swagger.jaxrs.listing.ApiListingResource");
 		} else {
-			servletConf.setJaxrsServiceClassesParam(CacheInitPoint.class
-					.getName());
+			servletConf.setJaxrsServiceClassesParam(CacheInitPoint.class.getName());
 		}
 
 		initSwagger(config);
@@ -107,12 +109,11 @@ public class CXFServletService extends CXFNonSpringJaxrsServlet {
 		//
 
 		long ts_end = System.currentTimeMillis();
-		
-		logger.info("\n"+
-		"  _                 _                         \n"
-		+" / \\ ._   _  ._    |_)  _       _.      _ _|_ \n"
-		+" \\_/ |_) (/_ | |   |_) (_) |_| (_| |_| (/_ |_ \n"
-		+"     |                           |            ");  
+
+		logger.info("\n" + "  _                 _                         \n"
+				+ " / \\ ._   _  ._    |_)  _       _.      _ _|_ \n"
+				+ " \\_/ |_) (/_ | |   |_) (_) |_| (_| |_| (/_ |_ \n"
+				+ "     |                           |            ");
 
 		logger.info("Initialization complete in " + (ts_end - ts_start) + "ms");
 	}
@@ -133,17 +134,16 @@ public class CXFServletService extends CXFNonSpringJaxrsServlet {
 
 		// get the version for war Manifest
 		String version = null;
-		InputStream input = getServletContext().getResourceAsStream(
-				"/META-INF/MANIFEST.MF");
+		InputStream input = getServletContext().getResourceAsStream("/META-INF/MANIFEST.MF");
 		if (input != null) {
 			try {
 				Manifest manifest = new Manifest(input);
 				Attributes mainAttribs = manifest.getMainAttributes();
 				version = "{";
-				version += " \"build\" : \""+mainAttribs.getValue("Built-Date") + " ("
+				version += " \"build\" : \"" + mainAttribs.getValue("Built-Date") + " ("
 						+ mainAttribs.getValue("Revision") + ")";
 				version += "\",";
-				version += " \"version\" :  \""+mainAttribs.getValue("Version");
+				version += " \"version\" :  \"" + mainAttribs.getValue("Version");
 				version += "\"}";
 			} catch (IOException e) {
 				e.printStackTrace();
@@ -155,26 +155,25 @@ public class CXFServletService extends CXFNonSpringJaxrsServlet {
 		try {
 			String configFile = System.getProperty("kraken.cache.config.json");
 			String krakenConfigV2file = System.getProperty("bouquet.config.file");
-			
-			if(configFile== null && krakenConfigV2file == null){
+
+			if (configFile == null && krakenConfigV2file == null) {
 				conf = RedisCacheConfig.getDefault();
-				
-			} else{
-				if (krakenConfigV2file != null){
+
+			} else {
+				if (krakenConfigV2file != null) {
 					KrakenConfigV2 krakenConf = KrakenConfigV2.loadFromjson(krakenConfigV2file);
-					if (krakenConf.getCache() != null){ 
+					if (krakenConf.getCache() != null) {
 						conf = krakenConf.getCache();
-					}else{
+					} else {
 						conf = RedisCacheConfig.getDefault();
 					}
-			
-				}else {
+
+				} else {
 					logger.info(configFile);
-					conf = RedisCacheConfig.loadFromjson(System
-							.getProperty("kraken.cache.config.json"));
+					conf = RedisCacheConfig.loadFromjson(System.getProperty("kraken.cache.config.json"));
 					logger.info(conf.getAppName());
 				}
-			}	
+			}
 		} catch (IOException e) {
 			e.printStackTrace();
 			conf = RedisCacheConfig.getDefault();
@@ -186,11 +185,13 @@ public class CXFServletService extends CXFNonSpringJaxrsServlet {
 			// initialize RedisCacheManager
 			RedisCacheManager.getInstance().setConfig(conf);
 			RedisCacheManager.getInstance().startCacheManager();
+			// init websocket notification
+			DataStoreEventBus.getInstance().subscribe(NotificationWebsocketMetaModelObserver.getInstance());
 		}
 		CacheInitPoint cache = CacheInitPoint.INSTANCE;
 		cache.start(conf, facets);
 		DriversService.initDriver();
-		
+
 		// DimensionStoreManagerFactory initialization
 		try {
 			String embeddedValue = KrakenConfig.getProperty("elastic.local", "true");
@@ -198,45 +199,33 @@ public class CXFServletService extends CXFNonSpringJaxrsServlet {
 			ESIndexFacadeConfiguration esConfig = new ESIndexFacadeConfiguration(embedded, null);
 			DimensionStoreManagerFactory.init(esConfig);
 		} catch (Exception e) {
-			logger.error("Failed to initialized DImensionStore with error: "
-					+ e.toString());
+			logger.error("Failed to initialize DimensionStore with error: " + e.toString());
 			throw new ServletException(e);
 		}
 
-		// Create a user if the server is on dev mode and no user is available
-		try {
-			String serverMode = null;
-
-			// We test if we are V2 for the config file.
-			String configFile = System.getProperty("kraken.cache.config.json");
-			String krakenConfigV2file = System.getProperty("bouquet.config.file");
-			if (krakenConfigV2file != null) {
-				KrakenConfigV2 krakenConf = KrakenConfigV2.loadFromjson(krakenConfigV2file);
-				serverMode = krakenConf.getServerMode();
-			} else {
-				serverMode = KrakenConfig.getProperty("kraken.server.mode", "release");
-			}
-			// we don't want to modify release servers.
-			if(serverMode.equals("dev") && System.getProperty("kraken.autocreate")!=null){
-				//Extra safety for prod
-				if(System.getProperty("kraken.autocreate").contains("true")){
-					// Checking for previous superusers...
-					if(!ServiceUtils.getInstance().checkforSuperUserRootUserContext()) {
-						String defaultClientURL = KrakenConfig.getProperty(
-								"default.client.url", true);
-						CustomerServiceBaseImpl.getInstance().accessRequest("demo", null, null, null, null,
-								null, null, defaultClientURL, EmailHelperImpl.getInstance());
-					}
+		// Check if default customer has to be created
+		if (System.getProperty("kraken.autocreate") != null) {
+			// Extra safety for prod
+			if (System.getProperty("kraken.autocreate").contains("true")) {
+				AppContext ctx = new AppContext.Builder().build();
+				List<Customer> customers = ((CustomerDAO) DAOFactory.getDAOFactory().getDAO(Customer.class))
+						.findAll(ctx);
+				if (customers.isEmpty()) {
+					// create the default Customer
+					String defaultClientURL = KrakenConfig.getProperty("default.client.url", true);
+					CustomerServiceBaseImpl.getInstance().accessRequestDemo(defaultClientURL,
+							EmailHelperImpl.getInstance());
+					logger.warn("Default Customer created");
 				}
 			}
-		} catch (Exception e) {
-			logger.error("Failed to create a default user with error: "
-					+ e.toString());
-			throw new ServletException(e);
+		}
+		
+		AUTH_MODE authMode = KrakenConfig.getAuthMode();
+		if (authMode != AUTH_MODE.OAUTH) {
+			logger.warn("AUTH MODE set to "+authMode);
 		}
 
-		logger.info("Open Bouquet started with build version : "
-				+ ServiceUtils.getInstance().getBuildVersionString());
+		logger.info("Open Bouquet started with build version : " + ServiceUtils.getInstance().getBuildVersionString());
 	}
 
 	public void initSwagger(ServletConfig config) throws ServletException {
@@ -244,22 +233,17 @@ public class CXFServletService extends CXFNonSpringJaxrsServlet {
 		scanner.setResourcePackage("com.squid.kraken.v4.api.core.customer");
 		ScannerFactory.setScanner(scanner);
 
-		Info info = new Info().title("Bouquet").version("4.2")
-				.description("This is Bouquet API");
+		Info info = new Info().title("Bouquet").version("4.2").description("This is Bouquet API");
 
 		ServletContext context = config.getServletContext();
-		String basePath = "/"
-				+ KrakenConfig.getProperty("kraken.ws.api", "release") + "/"
+		String basePath = "/" + KrakenConfig.getProperty("kraken.ws.api", "release") + "/"
 				+ KrakenConfig.getProperty("kraken.ws.version", "v4.2");
 		Swagger swagger = new Swagger().info(info).basePath(basePath);
-
-		String oauthEndpoint = KrakenConfig.getProperty(
-				"kraken.oauth.endpoint",
+		logger.info("Swagger base path " + basePath);
+		String oauthEndpoint = KrakenConfig.getProperty("kraken.oauth.endpoint",
 				"https://api.squidsolutions.com/release/auth/oauth");
-		swagger.securityDefinition(
-				"kraken_auth",
-				new OAuth2Definition().implicit(oauthEndpoint).scope("access",
-						"Access protected resources"));
+		swagger.securityDefinition("kraken_auth",
+				new OAuth2Definition().implicit(oauthEndpoint).scope("access", "Access protected resources"));
 
 		context.setAttribute("swagger", swagger);
 	}

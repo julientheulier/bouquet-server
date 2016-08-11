@@ -146,8 +146,7 @@ public class AnalysisCompute {
 		if (groups.isEmpty()) {
 			SimpleQuery query = this.genSimpleQuery(analysis);
 			PreviewWriter qw = new PreviewWriter();
-
-			QueryRunner runner = new QueryRunner(query, analysis.isLazy(), qw, analysis.getJobId());
+			QueryRunner runner = new QueryRunner(universe.getContext(), query, analysis.isLazy(), qw, analysis.getJobId());
 			runner.run();
 			
 			DataMatrix dm = qw.getDataMatrix();
@@ -293,11 +292,20 @@ public class AnalysisCompute {
 		compareToAnalysis.setOrders(currentAnalysis.getOrders());
 		// copy the selection and replace with compare filters
 		DashboardSelection pastSelection = new DashboardSelection(presentSelection);
+		String compareToWhat = "";
 		for (Axis filter : compare.getFilters()) {
 			pastSelection.clear(filter);
 			pastSelection.add(filter, compare.getMembers(filter));
 			if (joinAxis != null && compareAxis(filter, joinAxis)) {
 				pastInterval = computeMinMax(compare.getMembers(filter));
+			}
+			//
+			IntervalleObject isInterval = computeMinMax(compare.getMembers(filter));
+			if (!compareToWhat.equals("")) compareToWhat += " and ";
+			if (isInterval!=null) {
+				compareToWhat += isInterval.toString();
+			} else {
+				compareToWhat += "["+(compare.getMembers(filter)).toString()+"]";
 			}
 		}
 		compareToAnalysis.setSelection(pastSelection);
@@ -305,6 +313,14 @@ public class AnalysisCompute {
 			compareToAnalysis.setBeyondLimit(compareBeyondLimit);
 			// use the present selection to compute
 			compareToAnalysis.setBeyodLimitSelection(presentSelection);
+		}
+		// copy metrics (do it after in order to be able to use the pastInterval)
+		for (Measure kpi : currentAnalysis.getKpis()) {
+			Measure compareToKpi = new Measure(kpi);
+			compareToKpi.setOriginType(OriginType.COMPARETO);
+			compareToKpi.setName(kpi.getName() + " [compare]");
+			compareToKpi.setDescription(kpi.getName()+" comparison on "+compareToWhat);
+			compareToAnalysis.add(compareToKpi);
 		}
 		//
 		// compute present & past in //
@@ -326,7 +342,9 @@ public class AnalysisCompute {
 			//
 			final Period offset = computeOffset(present, joinAxis, presentInterval, pastInterval);
 			//
-			CompareMerger merger = new CompareMerger(present, past, mergeOrder, joinAxis, offset);
+			Object computeGrowthOption = currentAnalysis.getOption(DashboardAnalysis.COMPUTE_GROWTH_OPTION_KEY);
+			boolean computeGrowth = computeGrowthOption!=null && computeGrowthOption.equals(true);
+			CompareMerger merger = new CompareMerger(present, past, mergeOrder, joinAxis, offset, computeGrowth);
 			DataMatrix debug = merger.merge(false);
 			// apply the original order by directive (T1039)
 			debug.orderBy(originalOrders);
@@ -439,14 +457,8 @@ public class AnalysisCompute {
 	}
 
 	/**
-<<<<<<< HEAD
 	 * This method expect to compute a "simple" analysis, that is not requiring a compareTo operation
 	 * It supports the BeyondLimit parameter.
-=======
-	 * This method expect to compute a "simple" analysis, that is not requiring
-	 * a merge/compare operation It supports the NoLimit parameter.
-	 * 
->>>>>>> refs/heads/develop
 	 * @param analysis
 	 * @param optimize
 	 * @return
@@ -465,6 +477,7 @@ public class AnalysisCompute {
 			//
 			DataMatrix dm =  computeAnalysisSimpleForGroup(analysis, group, optimize);
 			if (dm != null) {
+
 				// merge if needed
 				if (result == null) {
 					result = dm;
@@ -477,7 +490,7 @@ public class AnalysisCompute {
     }
 	
 	private DataMatrix runQuery(SimpleQuery query, boolean lazy, DashboardAnalysis analysis, PreviewWriter qw) throws ComputingException {
-		QueryRunner runner = new QueryRunner(query, lazy, qw, analysis.getJobId());
+		QueryRunner runner = new QueryRunner(universe.getContext(), query, lazy, qw, analysis.getJobId());
 		runner.run();
 		return qw.getDataMatrix();
 	}
@@ -565,6 +578,7 @@ public class AnalysisCompute {
 				} else {
 					throw e;// throw the NotInCache exception
 				}
+
 			}
 			// if we get here it's that we ran the query, not from the SmartCache
 			DataMatrix dm =  qw.getDataMatrix();
@@ -629,7 +643,7 @@ public class AnalysisCompute {
                     e.printStackTrace();
                 }
 
-				QueryRunner runner = new QueryRunner(query, lazy, writer, analysis.getJobId());
+				QueryRunner runner = new QueryRunner(universe.getContext(), query, lazy, writer, analysis.getJobId());
 				runner.run();
                         	
             } else {
@@ -643,7 +657,7 @@ public class AnalysisCompute {
                 //
                 SimpleQuery query = genAnalysisQueryWithSoftFiltering(analysis, group, false, false);
         		//
-				QueryRunner runner = new QueryRunner(query, lazy, writer, analysis.getJobId());
+				QueryRunner runner = new QueryRunner(universe.getContext(), query, lazy, writer, analysis.getJobId());
 				runner.run();
             }
 	    } catch (ScopeException e) {

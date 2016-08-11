@@ -25,12 +25,14 @@ package com.squid.kraken.v4.core.analysis.model;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.sql.render.IOrderByPiece.ORDERING;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
 import com.squid.kraken.v4.core.analysis.universe.Property;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
+import com.squid.kraken.v4.model.Expression;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.Position;
 
 /**
@@ -54,9 +56,13 @@ public class DashboardAnalysis extends Dashboard {
 	// T0126 & T1042: in case of beyondLimit + compareTo we need to use a different selection for computing the limit subquery
 	private DashboardSelection beyodLimitSelection = null;
 	
+	private Map<String, Object> optionKeys = null;
+	public static final String COMPUTE_GROWTH_OPTION_KEY = "computeGrowth";// true|false flag to enable computing the growth percentage when performing a compareTo analysis
+	
 	private boolean lazy = false;
 	
 	private String jobId;
+	
 	
 	public DashboardAnalysis(Universe universe) {
 	    super(universe);
@@ -77,8 +83,14 @@ public class DashboardAnalysis extends Dashboard {
 	}
 	
 	public void orderBy(OrderBy order) {
-	    orders.add(new OrderBy(orders.size(), order.getExpression(), order.getOrdering()));
+		if (order instanceof OrderByGrowth){
+			orders.add(new OrderByGrowth(orders.size(), order.getExpression(), order.getOrdering(), ((OrderByGrowth) order).expr));
+		}else{
+			orders.add(new OrderBy(orders.size(), order.getExpression(), order.getOrdering()));
+		}
 	}
+		
+	
 	
 	public void orderBy(ExpressionAST expr, ORDERING order) {
 	    orders.add(new OrderBy(orders.size(), expr, order));
@@ -86,6 +98,10 @@ public class DashboardAnalysis extends Dashboard {
 	
 	public void orderBy(Property property, ORDERING order) {
 	    orders.add(new OrderBy(orders.size(), property.getReference(), order));
+	}
+	
+	public void orderByGrowth( ExpressionAST exprAST, ORDERING order, Expression exp){
+		orders.add(new OrderByGrowth(orders.size(), exprAST, order, exp ) );
 	}
 	
 	public List<OrderBy> getOrders() {
@@ -168,6 +184,17 @@ public class DashboardAnalysis extends Dashboard {
     public boolean hasOffset() {
         return offset!=null;
     }
+    
+    public Object getOption(String key) {
+    	return optionKeys!=null?optionKeys.get(key):null;
+    }
+    
+    /**
+	 * @param optionKeys the optionKeys to set
+	 */
+	public void setOptionKeys(Map<String, Object> optionKeys) {
+		this.optionKeys = optionKeys;
+	}
     
     public void lazy(boolean lazy){
     	this.lazy = lazy;

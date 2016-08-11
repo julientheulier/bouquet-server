@@ -50,6 +50,7 @@ import com.squid.kraken.v4.model.ExpressionSuggestion;
 import com.squid.kraken.v4.model.Metric;
 import com.squid.kraken.v4.model.Project;
 import com.squid.kraken.v4.model.ProjectPK;
+import com.squid.kraken.v4.model.ValueType;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DAOFactory;
 import com.squid.kraken.v4.persistence.dao.MetricDAO;
@@ -128,11 +129,26 @@ public class DomainServiceBaseImpl extends GenericServiceImpl<Domain, DomainPK> 
         Project project = null;
         try {
         	project = ProjectManager.INSTANCE.getProject(ctx, domainPk.getParent());
-            Domain check = ProjectManager.INSTANCE.findDomainByName(ctx, domainPk.getParent(), domain.getName());
-            if (check!=null) {
-            	// check if it is self
-            	if (!check.getId().getDomainId().equals(domainPk.getDomainId())) {
+        	// check if we are trying to name the domain as another existing one
+            Domain checkByName = ProjectManager.INSTANCE.findDomainByName(ctx, domainPk.getParent(), domain.getName());
+            if (checkByName!=null) {
+            	if (!checkByName.getId().getDomainId().equals(domainPk.getDomainId())) {
             		throw new APIException("A Domain with that name already exists in this project", ctx.isNoError());
+            	}
+            }
+            // check if user is modifying an existing one
+            Domain checkByID = ProjectManager.INSTANCE.findDomainByID(ctx, domainPk);
+            if (checkByID!=null) {
+                // T1312 - need to copy the internalVersion property because it is not exposed through the API
+            	domain.copyInternalVersion(checkByID);
+            	// check if the dynamic flag has changed
+            	if (domain.isDynamic()!=checkByID.isDynamic()) {
+            		// modifying the flag is OK
+            	} else {
+            		if (domain.isDynamic()) {
+            			// no more dynamic
+            			domain.setDynamic(false);
+            		}
             	}
             }
         } catch (ScopeException e) {
@@ -155,7 +171,7 @@ public class DomainServiceBaseImpl extends GenericServiceImpl<Domain, DomainPK> 
 	}
 
 	public ExpressionSuggestion getDimensionSuggestion(AppContext ctx,
-			String projectId, String domainId, String dimensionId, String expression, Integer offset) {
+			String projectId, String domainId, String dimensionId, String expression, Integer offset, ValueType filterType) {
 		//
 		if (expression == null) {
 			expression = "";
@@ -175,14 +191,14 @@ public class DomainServiceBaseImpl extends GenericServiceImpl<Domain, DomainPK> 
 			if (offset == null) {
 				offset = expression.length()+1;
 			}
-			return handler.getSuggestion(expression, offset);
+			return handler.getSuggestion(expression, offset, filterType);
 		} catch (ScopeException | ComputingException | InterruptedException e) {
 			return new ExpressionSuggestion(e);
 		}
 	}
 
 	public ExpressionSuggestion getMetricSuggestion(AppContext ctx,
-			String projectId, String domainId, String metricId, String expression, int offset) {
+													String projectId, String domainId, String metricId, String expression, Integer offset, ValueType filterType) {
 		//
 		try {
 			ProjectPK projectPK = new ProjectPK(ctx.getCustomerId(), projectId);
@@ -196,17 +212,22 @@ public class DomainServiceBaseImpl extends GenericServiceImpl<Domain, DomainPK> 
 					domain, metric);
 			ExpressionSuggestionHandler handler = new ExpressionSuggestionHandler(
 					scope);
-			if (offset == 0) {
-				offset = expression.length();
+			String expression_final = expression;
+			if (offset == null) {
+				if(expression_final == null){
+					offset = 1;
+				}else{
+					offset = expression_final.length()+1;
+				}
 			}
-			return handler.getSuggestion(expression, offset);
+			return handler.getSuggestion(expression_final, offset, filterType);
 		} catch (ScopeException | ComputingException | InterruptedException e) {
 			return new ExpressionSuggestion(e);
 		}
 	}
 
 	public ExpressionSuggestion getSegmentSuggestion(AppContext ctx,
-			String projectId, String domainId, String expression, int offset) {
+			String projectId, String domainId, String expression, Integer offset, ValueType filterType) {
 		//
 		try {
 			ProjectPK projectPK = new ProjectPK(ctx.getCustomerId(), projectId);
@@ -219,10 +240,16 @@ public class DomainServiceBaseImpl extends GenericServiceImpl<Domain, DomainPK> 
 					domain);
 			ExpressionSuggestionHandler handler = new ExpressionSuggestionHandler(
 					scope);
-			if (offset == 0) {
-				offset = expression.length();
+			String expression_final = expression;
+			if (offset == null) {
+				if(expression_final == null){
+					offset = 1;
+					expression_final = "";
+				}else{
+					offset = expression_final.length()+1;
+				}
 			}
-			return handler.getSuggestion(expression, offset);
+			return handler.getSuggestion(expression_final, offset, filterType);
 		} catch (ScopeException e) {
 			return new ExpressionSuggestion(e);
 		}

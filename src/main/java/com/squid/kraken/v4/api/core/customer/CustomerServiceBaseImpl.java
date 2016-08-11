@@ -42,6 +42,7 @@ import com.squid.kraken.v4.api.core.APIException;
 import com.squid.kraken.v4.api.core.AccessRightsUtils;
 import com.squid.kraken.v4.api.core.CoreConstants;
 import com.squid.kraken.v4.api.core.EmailHelper;
+import com.squid.kraken.v4.api.core.EmailHelperImpl;
 import com.squid.kraken.v4.api.core.GenericServiceImpl;
 import com.squid.kraken.v4.api.core.InvalidCredentialsAPIException;
 import com.squid.kraken.v4.api.core.ServiceUtils;
@@ -53,6 +54,7 @@ import com.squid.kraken.v4.model.AccessTokenPK;
 import com.squid.kraken.v4.model.Client;
 import com.squid.kraken.v4.model.ClientPK;
 import com.squid.kraken.v4.model.Customer;
+import com.squid.kraken.v4.model.Customer.AUTH_MODE;
 import com.squid.kraken.v4.model.CustomerInfo;
 import com.squid.kraken.v4.model.CustomerPK;
 import com.squid.kraken.v4.model.User;
@@ -134,6 +136,7 @@ public class CustomerServiceBaseImpl extends
 		cust.setUserGroups(customerInfo.getUserGroups());
 		cust.setShortcuts(customerInfo.getShortcuts());
 		cust.setStates(customerInfo.getStates());
+		cust.setAuthMode(customerInfo.getAuthMode());
 		super.store(ctx, cust);
 		return readCustomerInfo(ctx);
 	}
@@ -161,12 +164,13 @@ public class CustomerServiceBaseImpl extends
 	 * @param clients
 	 * @return AppContext for the User.
 	 */
-	public AppContext createCustomer(String customerName, String defaultLocale,
+	public AppContext createCustomer(AUTH_MODE authMode, String customerName, String defaultLocale,
 			String salt, String userLogin, String userPassword,
 			String userEmail, List<Client> clients) {
 		Customer customer = new Customer(customerName);
 		customer.setDefaultLocale(defaultLocale);
 		customer.setMD5Salt(salt);
+		customer.setAuthMode(authMode);
 		if (StringUtils.isEmpty(userLogin)) {
 			if (!StringUtils.isEmpty(userEmail)) {
 				userLogin = userEmail;
@@ -338,7 +342,7 @@ public class CustomerServiceBaseImpl extends
 	 * @param emailHelper
 	 *            util to send mail
 	 */
-	public AppContext accessRequest(String customerName, String email,
+	public AppContext accessRequest(AUTH_MODE authMode, String customerName, String email,
 			String login, String password, String locale, String domain,
 			String linkURL, String defaultClientURL, EmailHelper emailHelper) {
 
@@ -382,7 +386,7 @@ public class CustomerServiceBaseImpl extends
 				urls));
 
 		String salt = UUID.randomUUID().toString();
-		AppContext ctx = createCustomer(customerName, locale, salt, login,
+		AppContext ctx = createCustomer(authMode, customerName, locale, salt, login,
 				password, email, clients);
 
 		if (email != null) {
@@ -414,6 +418,20 @@ public class CustomerServiceBaseImpl extends
 		}
 
 		return ctx;
+	}
+	
+	public AppContext accessRequest(String customerName, String email,
+			String login, String password, String locale, String domain,
+			String linkURL, String defaultClientURL, EmailHelper emailHelper) {
+		return accessRequest(AUTH_MODE.OAUTH, customerName, email, login,
+				password, locale, domain, linkURL, defaultClientURL,
+				emailHelper);
+	}
+
+	public AppContext accessRequestDemo(String defaultClientURL,
+			EmailHelper emailHelper) {
+		return accessRequest(AUTH_MODE.BYPASS, "demo", null, null, null, null,
+				null, null, defaultClientURL, EmailHelperImpl.getInstance());
 	}
 
 }

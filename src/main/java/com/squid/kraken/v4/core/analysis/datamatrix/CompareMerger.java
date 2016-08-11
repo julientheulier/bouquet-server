@@ -31,6 +31,8 @@ import org.joda.time.Period;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.caching.redis.datastruct.RawRow;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
+import com.squid.kraken.v4.core.analysis.universe.Measure;
+import com.squid.kraken.v4.core.analysis.universe.Property.OriginType;
 
 /**
  * specialized version to support date comparison
@@ -40,6 +42,13 @@ import com.squid.kraken.v4.core.analysis.universe.Axis;
 public class CompareMerger extends JoinMerger {
 
 	private Period offset;
+	
+	private boolean computeGrowth = false;
+
+	public CompareMerger(DataMatrix left, DataMatrix right, int[] mergeOrder, Axis join, Period offset, boolean computeGrowth) throws ScopeException {
+		this(left, right, mergeOrder, join, offset);
+		this.computeGrowth = computeGrowth;
+	}
 
 	public CompareMerger(DataMatrix left, DataMatrix right, int[] mergeOrder, Axis join, Period offset) throws ScopeException {
 		super(left, right, mergeOrder, join);

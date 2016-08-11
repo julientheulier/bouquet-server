@@ -32,6 +32,7 @@ import org.mongodb.morphia.annotations.Id;
 
 import com.squid.kraken.v4.model.GenericPK;
 import com.squid.kraken.v4.persistence.DataStoreEvent;
+import com.squid.kraken.v4.persistence.DataStoreEvent.Emitter;
 import com.squid.kraken.v4.persistence.DataStoreEvent.Type;
 
 
@@ -55,11 +56,13 @@ public class GlobalDataStoreEvent implements Serializable {
     
     private String server;
     
+    private Emitter emitter;
+    
     public GlobalDataStoreEvent() {
         
     }
 
-    public GlobalDataStoreEvent(GenericPK eventId, Type type, long ts, String server) {
+    public GlobalDataStoreEvent(Emitter emitter, GenericPK eventId, Type type, long ts, String server) {
         super();
         this.sourceId = eventId;
         this.ts = ts;
@@ -98,5 +101,9 @@ public class GlobalDataStoreEvent implements Serializable {
     public void setType(Type type) {
         this.type = type;
     }
+
+	public Emitter getEmitter() {
+		return emitter;
+	}
     
 }

@@ -77,6 +77,10 @@ public class RelationReference extends ExpressionRef {
 		return relation;
 	}
 
+	public String getDescription() {
+		return this.relation.getDescription();
+	}
+
 	@Override
 	public ExtendedType computeType(SQLSkin skin) {
 		return image.computeType(skin);

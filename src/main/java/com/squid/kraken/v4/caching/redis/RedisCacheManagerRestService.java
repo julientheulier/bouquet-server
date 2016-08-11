@@ -29,6 +29,8 @@ import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.QueryParam;
 
+import com.squid.kraken.v4.model.ProjectPK;
+
 public class RedisCacheManagerRestService {
 
 	public RedisCacheManagerRestService(){	
@@ -48,7 +50,10 @@ public class RedisCacheManagerRestService {
 	
 	@GET
 	@Path("/getData")
-	public Object getData(@QueryParam("sqlquery") String SQLQuery, 
+	public Object getData(
+			@QueryParam("user") String userID,
+			@QueryParam("project") ProjectPK projectPK,
+			@QueryParam("sqlquery") String SQLQuery, 
 			@QueryParam("deps") ArrayList<String> dependencies, 
 			@QueryParam("jobid") String jobId, 
 			@QueryParam("jdbc") String RSjdbcURL, 
@@ -56,7 +61,7 @@ public class RedisCacheManagerRestService {
 			@QueryParam("pwd") String pwd,
 			@QueryParam("ttl") int TTLinSec,
 			@QueryParam("limit") long limit) throws InterruptedException{
-		return RedisCacheManager.getInstance().getData(SQLQuery, dependencies, jobId, RSjdbcURL, username, pwd,
+		return RedisCacheManager.getInstance().getData(userID, projectPK, SQLQuery, dependencies, jobId, RSjdbcURL, username, pwd,
 				TTLinSec, limit);
 	}
 }

@@ -31,5 +31,6 @@ public enum ObjectType {
 	DOMAIN,
 	DIMENSION,
 	METRIC,
-	FORMULA
+	FORMULA,
+	FUNCTION
 }

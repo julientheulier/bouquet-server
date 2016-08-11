@@ -487,33 +487,12 @@ public class DynamicManager {
 	public void loadDomainDynamicContent(Space space, DomainContent content) {
 		Universe univ = space.getUniverse();
 		Domain domain = space.getDomain();
-		boolean isDomainLegacyMode = domain.getInternalVersion() == null;// check
-																			// if
-																			// the
-																			// domain
-																			// is
-																			// in
-																			// legacy
-																			// mode
-																			// (i.e.
-																			// default
-																			// is
-																			// to
-																			// hide
-																			// dynamic)
-		boolean domainInternalDefautDynamic = isDomainLegacyMode ? true : false;// if
-																				// legacy
-																				// mode,
-																				// hide
-																				// dynamic
-																				// object
-																				// is
-																				// the
-																				// default
-		HashSet<Column> coverage = new HashSet<Column>();// list column already
-															// available through
-															// defined
-															// dimensions
+		// check if the domain is in legacy mode (i.e. default is to hide dynamic)
+		boolean isDomainLegacyMode = domain.getInternalVersion() == null;
+		// domainInternalDefautDynamic flag: if legacy mode, hide dynamic object is the default
+		boolean domainInternalDefautDynamic = isDomainLegacyMode ? true : false;
+		// coverage Set: columns already available through defined dimensions
+		HashSet<Column> coverage = new HashSet<Column>();
 		HashSet<ExpressionAST> metricCoverage = new HashSet<ExpressionAST>();
 		HashSet<Space> neighborhood = new HashSet<Space>();
 		HashSet<String> checkName = new HashSet<String>();
@@ -523,31 +502,16 @@ public class DynamicManager {
 		//
 		// evaluate the concrete objects
 		HashSet<String> ids = new HashSet<String>();
-		ArrayList<ExpressionObject<?>> scope = new ArrayList<ExpressionObject<?>>();// T446:
-																					// must
-																					// define
-																					// the
-																					// scope
-																					// incrementally
-																					// and
-																					// override
-																					// the
-																					// universe
+		// T446: must define the scope incrementally and override the universe
+		ArrayList<ExpressionObject<?>> scope = new ArrayList<ExpressionObject<?>>();
 		//
 		// sort by level (0 first, ...)
 		List<ExpressionObject<?>> concrete = new ArrayList<ExpressionObject<?>>();
 		concrete.addAll(content.getDimensions());
 		concrete.addAll(content.getMetrics());
 		Collections.sort(concrete, new LevelComparator<ExpressionObject<?>>());
-		List<ExpressionObject<?>> failed = new ArrayList<ExpressionObject<?>>();// keep
-																				// track
-																				// of
-																				// failed
-																				// evaluation,
-																				// will
-																				// try
-																				// again
-																				// latter
+		// failed List : keep track of failed evaluation, will try again latter
+		List<ExpressionObject<?>> failed = new ArrayList<ExpressionObject<?>>();
 		for (ExpressionObject<?> object : concrete) {
 			if (object.getName() != null) {
 				checkName.add(object.getName());

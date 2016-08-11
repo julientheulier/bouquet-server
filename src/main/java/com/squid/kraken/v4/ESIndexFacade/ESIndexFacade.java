@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -75,6 +76,10 @@ import org.elasticsearch.indices.IndexMissingException;
 import org.elasticsearch.indices.recovery.RecoveryState.Stage;
 import org.elasticsearch.node.Node;
 import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.aggregations.AggregationBuilders;
+import org.elasticsearch.search.aggregations.bucket.terms.Terms;
+import org.elasticsearch.search.aggregations.bucket.terms.Terms.Bucket;
+import org.elasticsearch.search.aggregations.bucket.terms.TermsBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -255,6 +260,17 @@ public class ESIndexFacade implements IESIndexFacade {
 			mappingBuilder.startObject();
 			mappingBuilder.startObject(mappingName);
 			mappingBuilder.startObject("properties");
+			// add sorting field
+			if (idFieldName != null) {
+				ESMapping idMapping = mapping.get(idFieldName);
+				if (idMapping != null && idMapping.getType().equals("string")) {
+					mappingBuilder.startObject(ESIndexFacadeUtilities.sortKey);
+					mappingBuilder.field("index", "not_analyzed");
+					mappingBuilder.field("type", idMapping.getType());
+					mappingBuilder.field("doc_values", true);
+					mappingBuilder.endObject();
+				}
+			}
 			for (String k : mapping.keySet()) {
 				ESMapping map = mapping.get(k);
 				if (map.index == ESIndexMapping.BOTH) {
@@ -322,80 +338,6 @@ public class ESIndexFacade implements IESIndexFacade {
 		}
 	}
 
-	/*
-	 * private boolean createMapping(String domainName, String mappingName,
-	 * String idFieldName, HashMap<String, ESMapping> mapping) throws
-	 * ESIndexFacadeException { try {
-	 * 
-	 * logger.info("create mapping for " + mapping.toString()); XContentBuilder
-	 * mappingBuilder = XContentFactory.jsonBuilder();
-	 * 
-	 * mappingBuilder.startObject(); mappingBuilder.startObject(mappingName);
-	 * mappingBuilder.startObject("properties"); for (String k :
-	 * mapping.keySet()) { ESMapping map = mapping.get(k); if ((idFieldName !=
-	 * null) && (k.equals(idFieldName))) { if (map.index == ESIndexMapping.BOTH)
-	 * {
-	 * 
-	 * mappingBuilder.startObject(k); if (map.getType().equals("string")){
-	 * mappingBuilder.field("analyzer", "my_ngram_analyzer"); }
-	 * mappingBuilder.field("type", map.getType());
-	 * mappingBuilder.startObject("fields"); mappingBuilder
-	 * .startObject(ESIndexFacadeUtilities.not_analyzed);
-	 * mappingBuilder.field("index", "not_analyzed");
-	 * mappingBuilder.field("type", map.getType());
-	 * mappingBuilder.field("doc_values", true); mappingBuilder.endObject();
-	 * mappingBuilder.endObject(); mappingBuilder.endObject();
-	 * 
-	 * } else if (map.index == ESIndexMapping.NOT_ANALYZED) {
-	 * mappingBuilder.startObject(k); if (map.getType().equals("string")){
-	 * mappingBuilder.field("index", "not_analyzed"); }
-	 * mappingBuilder.field("type", map.getType()); //
-	 * mappingBuilder.field("doc_values", true); mappingBuilder.endObject(); }
-	 * else { // analyzed or no indication mappingBuilder.startObject(k);
-	 * mappingBuilder.field("type", map.getType()); if
-	 * (map.getType().equals("string")){ mappingBuilder.field("index",
-	 * "analyzed"); mappingBuilder.field("analyzer", "my_ngram_analyzer"); }
-	 * mappingBuilder.endObject(); } } else { if (map.index ==
-	 * ESIndexMapping.BOTH) {
-	 * 
-	 * mappingBuilder.startObject(k); if (map.getType().equals("string")){
-	 * mappingBuilder.field("analyzer", "my_ngram_analyzer"); }
-	 * mappingBuilder.field("type", map.getType());
-	 * mappingBuilder.startObject("fields"); mappingBuilder
-	 * .startObject(ESIndexFacadeUtilities.not_analyzed);
-	 * mappingBuilder.field("index", "not_analyzed");
-	 * mappingBuilder.field("type", map.getType()); mappingBuilder.endObject();
-	 * mappingBuilder.endObject(); mappingBuilder.endObject();
-	 * 
-	 * } else if (map.index == ESIndexMapping.NOT_ANALYZED) {
-	 * mappingBuilder.startObject(k);
-	 * 
-	 * if (map.getType().equals("string")){ mappingBuilder.field("index",
-	 * "not_analyzed"); } mappingBuilder.field("type", map.getType());
-	 * mappingBuilder.endObject(); } else { // analyzed or no indication
-	 * mappingBuilder.startObject(k); mappingBuilder.field("type",
-	 * map.getType()); if (map.getType().equals("string")){
-	 * mappingBuilder.field("analyzer", "my_ngram_analyzer");
-	 * mappingBuilder.field("index", "analyzed"); }else{
-	 * if(map.getType().equals("date")){ mappingBuilder.field("format",
-	 * "dateOptionalTime"); } } mappingBuilder.endObject(); } } }
-	 * 
-	 * mappingBuilder.endObject(); mappingBuilder.endObject();
-	 * mappingBuilder.endObject();
-	 * 
-	 * logger.info("Mapping\n" + mappingBuilder.string());
-	 * 
-	 * PutMappingResponse resp = client.admin().indices()
-	 * .preparePutMapping(domainName).setType(mappingName)
-	 * .setSource(mappingBuilder).execute().actionGet();
-	 * 
-	 * if (!resp.isAcknowledged()) { return false; }
-	 * 
-	 * return true; } catch (MergeMappingException e) { logger.error(
-	 * "ES mapping failed: cannot merge: ", e); return false; } catch (Exception
-	 * e) { logger.error("ES mapping failed: ", e); return false; } }
-	 */
-
 	public enum MappingState {
 		EXISTSEQUAL, EXISTSDIFFERENT, DOESNOTEXIST, ERROR
 	};
@@ -424,37 +366,62 @@ public class ESIndexFacade implements IESIndexFacade {
 		LinkedHashMap<String, Object> properties = (LinkedHashMap<String, Object>) existingMapping.get("properties");
 		logger.debug("current mappings : " + properties.toString());
 
-		if (mapping.keySet().size() != properties.keySet().size()) {
+		logger.debug(mapping.toString());
+
+		int sk = (idFieldName != null) && (mapping.get(idFieldName) != null)
+				&& (mapping.get(idFieldName).getType().equals("string")) ? 1 : 0;
+
+		if (mapping.keySet().size() + sk != properties.keySet().size()) {
 			logger.debug("a different set of properties");
 			return MappingState.EXISTSDIFFERENT;
-		} else {
-			for (String fieldName : mapping.keySet()) {
+		}
 
-				ESMapping map = mapping.get(fieldName);
-				if (map == null) {
-					logger.debug("no ESmapping found for " + fieldName);
+		if (idFieldName != null) {
+			ESMapping idMapping = mapping.get(idFieldName);
+			if (idMapping != null && idMapping.getType().equals("string")) {
+				Map<String, Object> property = (Map<String, Object>) properties.get(ESIndexFacadeUtilities.sortKey);
+				if (property == null) {
+					logger.debug(" no mapping found ES side for sortKey");
+					return MappingState.EXISTSDIFFERENT;
+				} else {
+					if (!property.get("type").equals("string") || !"not_analyzed".equals(property.get("index"))
+							|| property.get("doc_values") == null || !property.get("doc_values").equals(true)) {
+						logger.debug("  wrong mapping for sortKey");
+
+						return MappingState.EXISTSDIFFERENT;
+
+					}
+				}
+			}
+		}
+
+		for (String fieldName : mapping.keySet()) {
+
+			ESMapping map = mapping.get(fieldName);
+			if (map == null) {
+				logger.debug("no ESmapping found for " + fieldName);
+				return MappingState.EXISTSDIFFERENT;
+			}
+			if (map.index == ESIndexMapping.BOTH) {
+
+				Map<String, Object> property = (Map<String, Object>) properties.get(fieldName);
+				if (property == null) {
+					logger.debug(" no mapping found ES side for " + fieldName);
 					return MappingState.EXISTSDIFFERENT;
 				}
-				if (map.index == ESIndexMapping.BOTH) {
 
-					Map<String, Object> property = (Map<String, Object>) properties.get(fieldName);
-					if (property == null) {
-						logger.debug(" no mapping found ES side for " + fieldName);
-						return MappingState.EXISTSDIFFERENT;
-					}
+				if (!map.getType().equals(property.get("type"))) {
+					logger.debug("type differs for " + fieldName + " " + map.getType() + ":" + property.get("type"));
+					return MappingState.EXISTSDIFFERENT;
+				}
 
-					if (!map.getType().equals(property.get("type"))) {
-						logger.debug(
-								"type differs for " + fieldName + " " + map.getType() + ":" + property.get("type"));
-						return MappingState.EXISTSDIFFERENT;
-					}
+				if (map.getType().equals(ESMapping.ESTypeMapping.STRING) && (property.get("analyzer") == null
+						|| !"my_ngram_analyzer".equals(property.get("analyzer")))) {
+					logger.debug("badly configured analyzer");
+					return MappingState.EXISTSDIFFERENT;
+				}
 
-					if (map.getType().equals(ESMapping.ESTypeMapping.STRING) && (property.get("analyzer") == null
-							|| !"my_ngram_analyzer".equals(property.get("analyzer")))) {
-						logger.debug("badly configured analyzer");
-						return MappingState.EXISTSDIFFERENT;
-					}
-
+				if (map.getType().equals(ESMapping.ESTypeMapping.STRING)) {
 					Map<String, Object> fields = (Map<String, Object>) property.get("fields");
 
 					if (fields == null || fields.keySet().size() != 1
@@ -473,54 +440,53 @@ public class ESIndexFacade implements IESIndexFacade {
 						logger.debug("wrong id field");
 						return MappingState.EXISTSDIFFERENT;
 					}
+				}
 
-				} else if (map.index == ESIndexMapping.NOT_ANALYZED) {
+			} else if (map.index == ESIndexMapping.NOT_ANALYZED) {
 
-					Map<String, Object> property = (Map<String, Object>) properties.get(fieldName);
-					if (property == null) {
-						logger.debug("not analyzed - wrong name");
-						return MappingState.EXISTSDIFFERENT;
-					}
+				Map<String, Object> property = (Map<String, Object>) properties.get(fieldName);
+				if (property == null) {
+					logger.debug("not analyzed - wrong name");
+					return MappingState.EXISTSDIFFERENT;
+				}
 
-					if (!map.getType().equals(property.get("type"))) {
-						logger.debug("not analyzed  type");
-						return MappingState.EXISTSDIFFERENT;
-					}
+				if (!map.getType().equals(property.get("type"))) {
+					logger.debug("not analyzed  type");
+					return MappingState.EXISTSDIFFERENT;
+				}
 
-					if (map.getType().equals(ESTypeMapping.STRING) && !"not_analyzed".equals(property.get("index"))) {
-						logger.debug("not analyzed  -  string + wrong index");
-						return MappingState.EXISTSDIFFERENT;
+				if (map.getType().equals(ESTypeMapping.STRING) && !"not_analyzed".equals(property.get("index"))) {
+					logger.debug("not analyzed  -  string + wrong index");
+					return MappingState.EXISTSDIFFERENT;
 
-					}
-					if ((idFieldName != null) && (fieldName.equals(idFieldName))
-							&& (property.get("doc_values") == null || !property.get("doc_values").equals(true))) {
-						logger.debug("not analyzed  -  wrong id field");
-						return MappingState.EXISTSDIFFERENT;
-					}
+				}
+				if ((idFieldName != null) && (fieldName.equals(idFieldName))
+						&& (property.get("doc_values") == null || !property.get("doc_values").equals(true))) {
+					logger.debug("not analyzed  -  wrong id field");
+					return MappingState.EXISTSDIFFERENT;
+				}
 
-				} else { // analyzed or no indication
-					Map<String, Object> property = (Map<String, Object>) properties.get(fieldName);
-					if (property == null) {
-						return MappingState.EXISTSDIFFERENT;
-					}
+			} else { // analyzed or no indication
+				Map<String, Object> property = (Map<String, Object>) properties.get(fieldName);
+				if (property == null) {
+					return MappingState.EXISTSDIFFERENT;
+				}
 
-					if (!map.getType().equals(property.get("type"))) {
-						return MappingState.EXISTSDIFFERENT;
-					}
+				if (!map.getType().equals(property.get("type"))) {
+					return MappingState.EXISTSDIFFERENT;
+				}
 
-					if (map.getType().equals(ESTypeMapping.STRING)
-							&& (!"analyzed".equals(property.get("index")) || property.get("analyzer") == null
-									|| !"my_ngram_analyzer".equals(property.get("analyzer")))) {
-						return MappingState.EXISTSDIFFERENT;
-					}
+				if (map.getType().equals(ESTypeMapping.STRING) && (!"analyzed".equals(property.get("index"))
+						|| property.get("analyzer") == null || !"my_ngram_analyzer".equals(property.get("analyzer")))) {
+					return MappingState.EXISTSDIFFERENT;
+				}
 
-					if (map.getType().equals(ESTypeMapping.DATE)
-							&& !"dateOptionalTime".equals(property.get("format"))) {
-						return MappingState.EXISTSDIFFERENT;
-					}
+				if (map.getType().equals(ESTypeMapping.DATE) && !"dateOptionalTime".equals(property.get("format"))) {
+					return MappingState.EXISTSDIFFERENT;
 				}
 			}
 		}
+
 		return MappingState.EXISTSEQUAL;
 	}
 
@@ -677,7 +643,8 @@ public class ESIndexFacade implements IESIndexFacade {
 			SearchRequestBuilder srb = client.prepareSearch(domainName).setTypes(dimensionName).setQuery(query);
 			srb.setFrom(from);
 			srb.setSize(nbRes);
-			srb.addSort(SortBuilders.fieldSort(ESIndexFacadeUtilities.getSortingFieldName(sortingFieldName, mappings)));
+			srb.addSort(SortBuilders
+					.fieldSort(ESIndexFacadeUtilities.getSortingFieldName(sortingFieldName, mappings, false)));
 			// logger.info(srb.toString());
 			SearchResponse resp = srb.execute().actionGet();
 
@@ -719,14 +686,16 @@ public class ESIndexFacade implements IESIndexFacade {
 			for (Map<String, Object> row : intermediateRes) {
 				boolean rowOk = true;
 				// special case : numeric ID and only one token
-				if (mappings.containsKey(idFieldname + "_raw" ) && (mappings.get(idFieldname + "_raw").type == ESTypeMapping.DOUBLE) && (tokens.length == 1)) {
+				if (mappings.containsKey(idFieldname + "_raw")
+						&& (mappings.get(idFieldname + "_raw").type == ESTypeMapping.DOUBLE) && (tokens.length == 1)) {
 					String val = row.get(idFieldname + "_raw").toString();
 					rowOk = val.toLowerCase().equals(tokens[0].toLowerCase());
 				} else {
 					for (String token : tokens) {
 						boolean okOneToken = false;
 						for (String key : row.keySet()) {
-
+							if (key.equals(ESIndexFacadeUtilities.sortKey))
+								continue;
 							if (mappings.get(key).type == ESTypeMapping.STRING) {
 								String val = (String) row.get(key);
 								if (val.toLowerCase().contains(token.toLowerCase())) {
@@ -772,11 +741,13 @@ public class ESIndexFacade implements IESIndexFacade {
 			String[] tokens, int from, int nbResults, HashMap<String, ESMapping> mappings)
 					throws ESIndexFacadeException {
 
+		boolean useSortKey = false;
 		BoolQueryBuilder andQuery = QueryBuilders.boolQuery();
 		if (tokens.length == 1) {
 			String filter = tokens[0];
 			if (filter.length() == 1) {
 				andQuery = ESIndexFacadeUtilities.matchOnSubstringAnyField(filter, mappings, true);
+				useSortKey = true;
 			} else {
 				andQuery = ESIndexFacadeUtilities.matchOnSubstringAnyField(filter, mappings, false);
 			}
@@ -790,6 +761,9 @@ public class ESIndexFacade implements IESIndexFacade {
 
 		// apply the search to the right index on the dimensionType
 		SearchRequestBuilder srb = client.prepareSearch(domainName).setTypes(dimensionName).setQuery(andQuery);
+		if (useSortKey) {
+			srb.addSort(SortBuilders.fieldSort(ESIndexFacadeUtilities.sortKey));
+		}
 		srb.setSize(nbResults);
 		srb.setFrom(from);
 
@@ -905,6 +879,24 @@ public class ESIndexFacade implements IESIndexFacade {
 
 	}
 
+	private BoolQueryBuilder buildFilterHierarchyOnValues(HashMap<String, ArrayList<String>> filterVal,
+			HashMap<String, ESMapping> mappings) {
+
+		BoolQueryBuilder andBoolQuery = QueryBuilders.boolQuery();
+		for (String type : filterVal.keySet()) {
+			if (filterVal.containsKey(type)) {
+				BoolQueryBuilder orBoolQuery = QueryBuilders.boolQuery();
+				orBoolQuery.minimumNumberShouldMatch(1);
+				for (String val : filterVal.get(type)) {
+					QueryBuilder q = ESIndexFacadeUtilities.filterOnField(type, val, mappings);
+					orBoolQuery.should(q);
+				}
+				andBoolQuery.must(orBoolQuery);
+			}
+		}
+		return andBoolQuery;
+	}
+
 	@Override
 	public HierarchiesSearchResult filterHierarchyByMemberValues(String domainName, String hierarchyName,
 			String resultType, HashMap<String, ArrayList<String>> filterVal, int from, int nbResults,
@@ -919,28 +911,18 @@ public class ESIndexFacade implements IESIndexFacade {
 
 		TypeFilterBuilder typeFilter = FilterBuilders.typeFilter(hierarchyName);
 
-		BoolQueryBuilder andBoolQuery = QueryBuilders.boolQuery();
-		for (String type : filterVal.keySet()) {
-			if (filterVal.containsKey(type)) {
-				BoolQueryBuilder orBoolQuery = QueryBuilders.boolQuery();
-				orBoolQuery.minimumNumberShouldMatch(1);
-				for (String val : filterVal.get(type)) {
-					QueryBuilder q = ESIndexFacadeUtilities.filterOnField(type, val, mappings);
-					orBoolQuery.should(q);
-				}
-				andBoolQuery.must(orBoolQuery);
-			}
-		}
+		BoolQueryBuilder andBoolQuery = this.buildFilterHierarchyOnValues(filterVal, mappings);
 
 		QueryBuilder substringFilter = ESIndexFacadeUtilities.filterOnFirstCharOneField(prefix, resultType, mappings);
 
 		andBoolQuery.must(substringFilter);
 
+		TermsBuilder agg = ESIndexFacadeUtilities.createTermsAggr(resultType, mappings);
+
 		SearchRequestBuilder srb = client.prepareSearch(domainName).setTypes(hierarchyName)
-				.setQuery(QueryBuilders.filteredQuery(andBoolQuery, typeFilter));
+				.setQuery(QueryBuilders.filteredQuery(andBoolQuery, typeFilter)).addAggregation(agg);
 		srb.setSize(nbResults);
 		srb.setFrom(from);
-		logger.info(srb.toString());
 
 		SearchResponse resp = srb.execute().actionGet();
 		return resp;
@@ -954,25 +936,16 @@ public class ESIndexFacade implements IESIndexFacade {
 
 		TypeFilterBuilder typeFilter = FilterBuilders.typeFilter(hierarchyName);
 
-		BoolQueryBuilder andBoolQuery = QueryBuilders.boolQuery();
-		for (String type : filterVal.keySet()) {
-			if (filterVal.containsKey(type)) {
-				BoolQueryBuilder orBoolQuery = QueryBuilders.boolQuery();
-				orBoolQuery.minimumNumberShouldMatch(1);
-				for (String val : filterVal.get(type)) {
-					QueryBuilder q = ESIndexFacadeUtilities.filterOnField(type, val, mappings);
-					orBoolQuery.should(q);
-				}
-				andBoolQuery.must(orBoolQuery);
-			}
-		}
+		BoolQueryBuilder andBoolQuery = this.buildFilterHierarchyOnValues(filterVal, mappings);
+
+		TermsBuilder agg = ESIndexFacadeUtilities.createTermsAggr(resultType, mappings);
 
 		SearchRequestBuilder srb = client.prepareSearch(domainName).setTypes(hierarchyName)
-				.setQuery(QueryBuilders.filteredQuery(andBoolQuery, typeFilter));
+				.setQuery(QueryBuilders.filteredQuery(andBoolQuery, typeFilter)).addAggregation(agg);
 		srb.setSize(nbResults);
 		srb.setFrom(from);
 
-		String sortingFieldName = ESIndexFacadeUtilities.getSortingFieldName(resultType, mappings);
+		String sortingFieldName = ESIndexFacadeUtilities.getSortingFieldName(resultType, mappings, true);
 
 		srb.addSort(SortBuilders.fieldSort(sortingFieldName));
 		SearchResponse resp = srb.execute().actionGet();
@@ -987,6 +960,31 @@ public class ESIndexFacade implements IESIndexFacade {
 		return this.getNresults(domainName, hierarchyName, resultType, filterVal, substring, from, nbResults, mappings);
 	}
 
+	private SearchResponse partialFilterHierarchyByMemberValuesAndExactNumeric(String domainName, String hierarchyName,
+			String resultType, HashMap<String, ArrayList<String>> filterVal, String substring, int from, int nbResults,
+			HashMap<String, ESMapping> mappings) {
+		//
+
+		TypeFilterBuilder typeFilter = FilterBuilders.typeFilter(hierarchyName);
+
+		BoolQueryBuilder andBoolQuery = this.buildFilterHierarchyOnValues(filterVal, mappings);
+
+		QueryBuilder substringFilter = ESIndexFacadeUtilities.filterOnNumericField(substring, resultType, mappings);
+
+		andBoolQuery.must(substringFilter);
+
+		TermsBuilder agg = ESIndexFacadeUtilities.createTermsAggr(resultType, mappings);
+
+		SearchRequestBuilder srb = client.prepareSearch(domainName).setTypes(hierarchyName)
+				.setQuery(QueryBuilders.filteredQuery(andBoolQuery, typeFilter)).addAggregation(agg);
+		srb.setSize(nbResults);
+		srb.setFrom(from);
+		// logger.info(srb.toString());
+
+		SearchResponse resp = srb.execute().actionGet();
+		return resp;
+	}
+
 	private SearchResponse partialFilterHierarchyByMemberValuesAndSubstring(String domainName, String hierarchyName,
 			String resultType, HashMap<String, ArrayList<String>> filterVal, String substring, int from, int nbResults,
 			HashMap<String, ESMapping> mappings) {
@@ -994,29 +992,15 @@ public class ESIndexFacade implements IESIndexFacade {
 
 		TypeFilterBuilder typeFilter = FilterBuilders.typeFilter(hierarchyName);
 
-		BoolQueryBuilder andBoolQuery = QueryBuilders.boolQuery();
-		for (String type : filterVal.keySet()) {
-			if (filterVal.containsKey(type)) {
-				BoolQueryBuilder orBoolQuery = QueryBuilders.boolQuery();
-				orBoolQuery.minimumNumberShouldMatch(1);
-				for (String val : filterVal.get(type)) {
-					QueryBuilder q = ESIndexFacadeUtilities.filterOnField(type, val, mappings);
-					orBoolQuery.should(q);
-				}
-				andBoolQuery.must(orBoolQuery);
-			}
-		}
+		BoolQueryBuilder andBoolQuery = this.buildFilterHierarchyOnValues(filterVal, mappings);
 
-		/*
-		 * QueryBuilder substringFilter = ESIndexFacadeUtilities
-		 * .queryStringOnSubstringOneField(substring, resultType, mappings);
-		 */
 		QueryBuilder substringFilter = ESIndexFacadeUtilities.matchOnSubstringOneField(substring, resultType, mappings);
 
 		andBoolQuery.must(substringFilter);
+		TermsBuilder agg = ESIndexFacadeUtilities.createTermsAggr(resultType, mappings);
 
 		SearchRequestBuilder srb = client.prepareSearch(domainName).setTypes(hierarchyName)
-				.setQuery(QueryBuilders.filteredQuery(andBoolQuery, typeFilter));
+				.setQuery(QueryBuilders.filteredQuery(andBoolQuery, typeFilter)).addAggregation(agg);
 		srb.setSize(nbResults);
 		srb.setFrom(from);
 		// logger.info(srb.toString());
@@ -1029,74 +1013,121 @@ public class ESIndexFacade implements IESIndexFacade {
 			HashMap<String, ArrayList<String>> filterVal, String substring, int from, int nbResults,
 			HashMap<String, ESMapping> mappings) throws ESIndexFacadeException {
 		try {
-			int totalResults = 0;
-			long totalHits = -1;
-			LinkedHashSet<String> results = new LinkedHashSet<>();
+
+			logger.info("getN results , filter= " + substring);
+
 			HierarchiesSearchResult res = new HierarchiesSearchResult();
 
-			boolean ok = false;
+			int stepSize = nbResults * 100;
+
 			int currentFrom = from;
 
-			while (!ok) {
-				SearchResponse resp;
-				if (substring == null) {
-					resp = this.partialFilterHierarchyByMemberValues(domainName, hierarchyName, resultType, filterVal,
-							currentFrom, nbResults, mappings);
+			SearchResponse resp;
 
-				} else {
+			ESMapping map = mappings.get(resultType);
+
+			if (substring == null) {
+				resp = this.partialFilterHierarchyByMemberValues(domainName, hierarchyName, resultType, filterVal,
+						currentFrom, stepSize, mappings);
+
+			} else {
+				if (map.type.equals(ESTypeMapping.STRING)) {
 					if (substring.length() == 1) {
 						resp = this.partialFilterHierarchyByFirstChar(domainName, hierarchyName, resultType, filterVal,
-								substring, currentFrom, nbResults, mappings);
+								substring, currentFrom, stepSize, mappings);
 					} else {
 						resp = this.partialFilterHierarchyByMemberValuesAndSubstring(domainName, hierarchyName,
-								resultType, filterVal, substring, currentFrom, nbResults, mappings);
+								resultType, filterVal, substring, currentFrom, stepSize, mappings);
 					}
-				}
-
-				// logger.info(resp.toString());
-
-				if (totalHits == -1) {
-					totalHits = resp.getHits().getTotalHits();
-				}
-
-				totalResults += resp.getHits().getHits().length;
-
-				int incr = 0;
-				for (SearchHit hit : resp.getHits().getHits()) {
-					Object value = hit.getSource().get(resultType);
-					if (value != null) {
-						if ((substring != null) && !(value.toString().toLowerCase().contains(substring))) {
-							continue;
-						}
-						if (results.add(value.toString())) {
-							if (logger.isDebugEnabled()) {
-								logger.debug(("score " + value.toString() + " " + hit.getScore()));
-							}
-							incr++;
-						}
-					}
-				}
-
-				// logger.info("results size " + results.size() +
-				// " total results " +totalResults + " total hits " + totalHits
-				// );
-				if (results.size() >= nbResults || incr == 0) {
-					if (totalResults >= totalHits) {
-						res.hasMore = false;
-					}
-					res.hits = results;
-					res.stoppedAt = currentFrom + nbResults;
-					ok = true;
 				} else {
-					if (totalResults >= totalHits) {
-						res.hasMore = false;
-						res.hits = results;
-						ok = true;
+					if (map.type.equals(ESTypeMapping.DOUBLE)) {
+						boolean isNumeric = true;
+						try {
+							Double.parseDouble(substring);
+						} catch (NumberFormatException e) {
+							isNumeric = false;
+						}
+
+						if (isNumeric) {
+							resp = this.partialFilterHierarchyByMemberValuesAndExactNumeric(domainName, hierarchyName,
+									resultType, filterVal, substring, currentFrom, stepSize, mappings);
+						} else {
+							resp = null;
+						}
+
 					} else {
-						currentFrom += nbResults;
+						if (map.type.equals(ESTypeMapping.LONG)) {
+							boolean isNumeric = true;
+							try {
+								Long.parseLong(substring);
+							} catch (NumberFormatException e) {
+								isNumeric = false;
+							}
+
+							if (isNumeric) {
+								resp = this.partialFilterHierarchyByMemberValuesAndExactNumeric(domainName,
+										hierarchyName, resultType, filterVal, substring, currentFrom, stepSize,
+										mappings);
+							} else {
+								resp = null;
+							}
+						} else {
+							resp = null;
+						}
 					}
 				}
 			}
+
+			Terms terms = resp.getAggregations().get(resultType);
+
+			int iter = 0;
+			int nbHits = 0;
+			res.hits = new LinkedHashSet<String>();
+
+			for (Bucket b : terms.getBuckets()) {
+				if (iter < from) {
+					// aggregations are always accessed from the start, we need
+					// get to the right position
+					iter++;
+				} else {
+					String val;
+					if (mappings.get(resultType).type.equals(ESMapping.ESTypeMapping.LONG)) {
+						val = Long.toString(b.getKeyAsNumber().longValue());
+					} else {
+						if (mappings.get(resultType).type.equals(ESMapping.ESTypeMapping.DOUBLE)) {
+							long valL = b.getKeyAsNumber().longValue();
+							double valD = b.getKeyAsNumber().doubleValue();
+							if (valL == valD) {
+								val = Long.toString(valL);
+							} else {
+								val = Double.toString(valD);
+							}
+
+						} else {
+							val = b.getKey();
+						}
+					}
+
+					if (substring == null) {
+						res.hits.add(val);
+						nbHits++;
+					} else {
+						if (val.toLowerCase().contains(substring.toLowerCase())) {
+							res.hits.add(val);
+							nbHits++;
+						}
+					}
+					if (nbHits == nbResults) {
+						res.hasMore = true;
+						break;
+					} else {
+						iter++;
+
+					}
+				}
+			}
+			res.stoppedAt = iter;
+
 			if (logger.isDebugEnabled()) {
 				logger.debug((" get N results " + res.hits.toString()));
 			}
@@ -1131,7 +1162,8 @@ public class ESIndexFacade implements IESIndexFacade {
 		SearchRequestBuilder srb = client.prepareSearch(domainName).setTypes(dimensionName).setQuery(orBoolQuery);
 		srb.setSize(nbResults);
 		srb.setFrom(from);
-		srb.addSort(SortBuilders.fieldSort(ESIndexFacadeUtilities.getSortingFieldName(sortingFieldName, mappings)));
+		srb.addSort(
+				SortBuilders.fieldSort(ESIndexFacadeUtilities.getSortingFieldName(sortingFieldName, mappings, true)));
 
 		SearchResponse resp = srb.execute().actionGet();
 
@@ -1149,7 +1181,8 @@ public class ESIndexFacade implements IESIndexFacade {
 		srb.setSize(nbResults);
 		srb.setFrom(from);
 
-		srb.addSort(SortBuilders.fieldSort(ESIndexFacadeUtilities.getSortingFieldName(sortingFieldName, mappings)));
+		srb.addSort(
+				SortBuilders.fieldSort(ESIndexFacadeUtilities.getSortingFieldName(sortingFieldName, mappings, true)));
 
 		SearchResponse resp = srb.execute().actionGet();
 

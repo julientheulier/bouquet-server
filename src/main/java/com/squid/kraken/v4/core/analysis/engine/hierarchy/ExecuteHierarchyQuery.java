@@ -31,7 +31,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Future;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,6 +40,9 @@ import com.squid.core.concurrent.CancellableCallable;
 import com.squid.core.concurrent.ExecutionManager;
 import com.squid.core.jdbc.engine.IExecutionItem;
 import com.squid.core.jdbc.formatter.IJDBCDataFormatter;
+import com.squid.core.sql.render.RenderingException;
+import com.squid.kraken.v4.caching.redis.RedisCacheManager;
+import com.squid.kraken.v4.caching.redis.queryworkerserver.QueryWorkerJobStatus;
 import com.squid.kraken.v4.core.analysis.datamatrix.AxisValues;
 import com.squid.kraken.v4.core.analysis.engine.index.IndexationException;
 import com.squid.kraken.v4.core.analysis.engine.query.HierarchyQuery;
@@ -50,6 +53,8 @@ import com.squid.kraken.v4.core.database.impl.DatasourceDefinition;
 import com.squid.kraken.v4.core.database.impl.ExecuteQueryTask;
 import com.squid.kraken.v4.core.sql.SelectUniversal;
 import com.squid.kraken.v4.model.Attribute;
+import com.squid.kraken.v4.model.DimensionPK;
+import com.squid.kraken.v4.model.ProjectPK;
 
 /**
  * Handles the execution of the HierarchyQuery, and populates the associated
@@ -58,32 +63,108 @@ import com.squid.kraken.v4.model.Attribute;
  * @author sergefantino
  *
  */
-public class ExecuteHierarchyQuery implements CancellableCallable<Boolean> {
+public class ExecuteHierarchyQuery implements CancellableCallable<ExecuteHierarchyQueryResult> {
 
 	static final Logger logger = LoggerFactory.getLogger(ExecuteHierarchyQuery.class);
 
-	private CountDownLatch countdown;
 	private HierarchyQuery query;
 
 	private ExecuteQueryTask executeQueryTask;
 
-	public ExecuteHierarchyQuery(CountDownLatch countDown, HierarchyQuery query) {
-		this.countdown = countDown;
+	public State state;
+
+	private Future<ExecuteHierarchyQueryResult> job;
+
+	// to fill in the Status
+	private int itemId = -1;
+	private long metter_start;
+	private long count = 0;
+
+	private String key;
+	private String SQL;
+
+	public ExecuteHierarchyQuery(HierarchyQuery query) {
 		this.query = query;
+		this.state = State.NEW;
+
+		try {
+			this.SQL = query.render();
+		} catch (RenderingException e) {
+			this.state = State.ERROR;
+		}
+
+		ArrayList<String> dependencies = new ArrayList<String>();
+
+		for (DimensionMapping dm : query.getDimensionMapping()) {
+			dependencies.add(dm.getDimensionIndex().getDimensionName());
+		}
+
+		this.key = RedisCacheManager.getInstance().getKey(SQL, dependencies).getStringKey();
 	}
+
+	public void setJob(Future<ExecuteHierarchyQueryResult> job) {
+		this.job = job;
+	}
+
+	public Future<ExecuteHierarchyQueryResult> getJob() {
+		return job;
+	}
+
+	public enum State {
+		NEW, ONGOING_EXECUTION, ONGOING_INDEXING, DONE, CANCELLED, ERROR
+	};
 
 	private volatile boolean abort = false;// make sure this callable will stop
 											// working
 
 	public void cancel() {
 		abort = true;
+		this.state = State.CANCELLED;
 		if (executeQueryTask != null) {
 			executeQueryTask.cancel();
 		}
 	}
 
-	public Boolean call() throws Exception {
+	public boolean isOngoing() {
+		return this.state == State.ONGOING_EXECUTION || this.state == State.ONGOING_INDEXING || this.state == State.NEW;
+	}
+
+	public ArrayList<DimensionPK> getDimensions() {
+		ArrayList<DimensionPK> dimensions = new ArrayList<DimensionPK>();
+
+		for (DimensionMapping dm : query.getDimensionMapping()) {
+			dimensions.add(dm.getDimensionIndex().getDimension().getId());
+		}
+		return dimensions;
+
+	}
+
+	public QueryWorkerJobStatus getStatus() {
+
+		ProjectPK projectPK = this.query.getUniverse().getProject().getId();
+
+		long elapse = new Date().getTime() - this.metter_start;
+
+		QueryWorkerJobStatus.Status jobStatus;
+		if (this.state == State.ONGOING_EXECUTION) {
+			jobStatus = QueryWorkerJobStatus.Status.EXECUTING;
+		} else {
+			jobStatus = QueryWorkerJobStatus.Status.INDEXING;
+		}
+
+		QueryWorkerJobStatus status = new QueryWorkerJobStatus(jobStatus, projectPK, this.key, this.itemId, SQL,
+				this.count, this.metter_start, elapse);
+
+		return status;
+	}
+
+	public ExecuteHierarchyQueryResult call() throws Exception {
 		//
+
+		HashMap<DimensionIndex, String> lastIndexedDimension = new HashMap<DimensionIndex, String>();
+		HashMap<DimensionIndex, String> lastIndexedCorrelation = new HashMap<DimensionIndex, String>();
+
+		this.state = State.ONGOING_EXECUTION;
 		ExecutionManager.INSTANCE.registerTask(this);
 		//
 		List<DimensionMapping> dx_map = query.getDimensionMapping();
@@ -93,16 +174,16 @@ public class ExecuteHierarchyQuery implements CancellableCallable<Boolean> {
 		try {
 			SelectUniversal select = query.getSelect();
 			DatasourceDefinition ds = select.getDatasource();
-			String SQL = select.render();
 			executeQueryTask = ds.getDBManager().createExecuteQueryTask(SQL);
+			this.itemId = executeQueryTask.getID();
 			executeQueryTask.setWorkerId("front");
 			executeQueryTask.prepare();
-			this.countdown.countDown();
-			;// now ok to count-down because the query is already in the queue
-			this.countdown = null;// clear the count-down
+
 			item = executeQueryTask.call();// calling the query in the same
 											// thread
 			ResultSet result = item.getResultSet();
+			this.state = State.ONGOING_INDEXING;
+
 			int bufferCommitSize = result.getFetchSize();
 			//
 			ResultSetMetaData metadata = result.getMetaData();
@@ -135,7 +216,7 @@ public class ExecuteHierarchyQuery implements CancellableCallable<Boolean> {
 				type.add(index);
 			}
 			//
-			long count = 0;
+			this.count = 0;
 			int maxRecords = -1;
 			DimensionMember[] dedup = new DimensionMember[dx_map.size()];
 			ArrayList<DimensionMember[]> rowBuffer = new ArrayList<>(bufferCommitSize);
@@ -143,9 +224,6 @@ public class ExecuteHierarchyQuery implements CancellableCallable<Boolean> {
 			ArrayList<DimensionMember>[] indexBuffer = new ArrayList[dx_map.size()];
 
 			// to detected proper end of indexation;
-
-			HashMap<DimensionIndex, String> lastIndexedDimension = new HashMap<DimensionIndex, String>();
-			HashMap<DimensionIndex, String> lastIndexedCorrelation = new HashMap<DimensionIndex, String>();
 
 			boolean wait = true;
 			while ((result.next()) && (count++ < maxRecords || maxRecords < 0)) {
@@ -254,8 +332,11 @@ public class ExecuteHierarchyQuery implements CancellableCallable<Boolean> {
 					+ this.getClass().getName());
 
 			//
-			return true;
+			this.state = State.DONE;
+			return new ExecuteHierarchyQueryResult(lastIndexedDimension, lastIndexedCorrelation);
+
 		} catch (Exception e) {
+			this.state = State.ERROR;
 			for (DimensionMapping m : dx_map) {
 				m.getDimensionIndex().setPermanentError(e.getMessage());
 			}
@@ -273,10 +354,7 @@ public class ExecuteHierarchyQuery implements CancellableCallable<Boolean> {
 				} catch (Exception e) {
 					// swallow the exception
 				}
-			// update the latch
-			if (this.countdown != null)
-				this.countdown.countDown();
-			//
+
 			// unregister
 			ExecutionManager.INSTANCE.unregisterTask(this);
 		}
@@ -311,9 +389,8 @@ public class ExecuteHierarchyQuery implements CancellableCallable<Boolean> {
 
 	}
 
-	private HashMap<DimensionIndex, String> flushDimensionBuffer(List<DimensionMapping> dx_map,
-			ArrayList<DimensionMember>[] indexBuffer, HashMap<DimensionIndex, String> lastIndexed, boolean wait)
-					throws IndexationException {
+	private void flushDimensionBuffer(List<DimensionMapping> dx_map, ArrayList<DimensionMember>[] indexBuffer,
+			HashMap<DimensionIndex, String> lastIndexed, boolean wait) throws IndexationException {
 
 		int j = 0;
 		for (DimensionMapping m : dx_map) {
@@ -330,10 +407,9 @@ public class ExecuteHierarchyQuery implements CancellableCallable<Boolean> {
 			}
 			j++;
 		}
-		return lastIndexed;
 	}
 
-	private HashMap<DimensionIndex, String> flushCorrelationBuffer(List<DimensionMapping> dx_map,
+	private void flushCorrelationBuffer(List<DimensionMapping> dx_map,
 			Map<DimensionIndex, List<Integer>> hierarchies_pos,
 			Map<DimensionIndex, List<DimensionIndex>> hierarchies_type, ArrayList<DimensionMember[]> rowBuffer,
 			ArrayList<DimensionMember>[] indexBuffer, HashMap<DimensionIndex, String> lastIndexed, boolean wait)
@@ -355,7 +431,6 @@ public class ExecuteHierarchyQuery implements CancellableCallable<Boolean> {
 				}
 			}
 		}
-		return lastIndexed;
 	}
 
 }
