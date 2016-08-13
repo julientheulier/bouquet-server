@@ -105,6 +105,16 @@ extends AnalysisExpression
 		}
 	}
 	
+	/* (non-Javadoc)
+	 * @see com.squid.core.expression.ExpressionRef#prettyPrint()
+	 */
+	// T1702: this has side effects...
+	/*
+	@Override
+	public String prettyPrint() {
+		if (value!=null) return value.prettyPrint(); else return "{axis:undefined}";
+	}
+	*/
 	
 	
 	@Override

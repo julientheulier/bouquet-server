@@ -42,6 +42,7 @@ extends DefaultScope
 {
 
 	public static final IdentifierType DOMAIN = new IdentifierType("domain");
+	public static final IdentifierType BOOKMARK = new IdentifierType("bookmark");
 	public static final IdentifierType MEASURE = new IdentifierType("measure");
 	public static final IdentifierType AXIS = new IdentifierType("axis");
 
