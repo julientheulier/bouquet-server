@@ -45,6 +45,7 @@ import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainHierarchy;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainHierarchyManager;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
+import com.squid.kraken.v4.model.Bookmark;
 import com.squid.kraken.v4.model.Dimension;
 import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.DomainOption;
@@ -70,6 +71,7 @@ public class Space {
 	private DomainOption domainOptions = null;
 
 	private ExpressionAST def_cache;//cache the space definition
+	private Bookmark bookmark;
 	
 	public Space(Universe universe, Domain domain) {
 		this.universe = universe;
@@ -94,6 +96,24 @@ public class Space {
 		this.ID = (parent!=null?parent.ID+"/":"")+relation.getId().toUUID();
 	}
 	
+	/**
+	 * Provide integrated support for bookmarks
+	 * @param universe
+	 * @param bookmark
+	 */
+	public Space(Universe universe, Domain domain, Bookmark bookmark) {
+		this(universe, domain);
+		this.bookmark = bookmark;
+	}
+	
+	public boolean hasBookmark() {
+		return bookmark!=null;
+	}
+	
+	public Bookmark getBookmark() {
+		return bookmark;
+	}
+
 	/**
 	 * check if it is OK to compose this space with the given relation
 	 * @param relation
@@ -144,7 +164,7 @@ public class Space {
 	}
 
     public IDomain getSourceDomain() {
-        return new ProxyDomainDomain(universe, getRoot());
+        return IDomain.ANY;
     }
 
     public IDomain getImageDomain() {
