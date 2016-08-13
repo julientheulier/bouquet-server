@@ -410,21 +410,36 @@ public class AnalysisJobComputer implements JobComputer<ProjectAnalysisJob, Proj
 					Expression expr = orderby.getExpression();
 					if (expr.getValue() != null) {
 						try {
-							ExpressionAST value = universe.expression(expr.getValue());
-							dash.orderBy(value, getOrderByDirection(orderby.getDirection()));
+
+							String val = expr.getValue();
+							// T1699
+							if (val.startsWith("growth(") && val.endsWith(")")) {
+								val = val.substring(7, val.length() - 1);
+								ExpressionAST value = universe.expression(val);
+								dash.orderByGrowth(value, getOrderByDirection(orderby.getDirection()), expr);
+							} else {
+								if (val.startsWith("compareTo(") && val.endsWith(")")) {
+									val = val.substring(10, val.length() - 1);
+									ExpressionAST value = universe.expression(val);
+									dash.orderByGrowth(value, getOrderByDirection(orderby.getDirection()), expr);
+								} else {
+									ExpressionAST value = universe.expression(val);
+									dash.orderBy(value, getOrderByDirection(orderby.getDirection()));
+								}
+							}
 						} catch (ScopeException e) {
 
 							long stop = System.currentTimeMillis();
 							PerfDB.logPerf(logger, job, "AnalysisJobComputer.buildDashboardAnalysis()", true,
-									stop - start, "invalid pivot expression " + expr.getValue() + " at position #" + pos
-											+ ": " + e.getMessage());
+									stop - start, "invalid orderBy expression " + expr.getValue() + " at position #"
+											+ pos + ": " + e.getMessage());
 							throw new ScopeException("invalid orderBy expression '" + expr.getValue()
 									+ "' at position #" + pos + ": " + e.getMessage());
 						}
 					} else {
 						long stop = System.currentTimeMillis();
 						PerfDB.logPerf(logger, job, "AnalysisJobComputer.buildDashboardAnalysis()", true, stop - start,
-								"undefined pivot expression at position #" + pos);
+								"undefined orderBy expression at position #" + pos);
 						throw new ScopeException("undefined orderBy expression (null) at position #" + pos);
 					}
 				} else if (orderby.getCol() != null) {
@@ -470,9 +485,9 @@ public class AnalysisJobComputer implements JobComputer<ProjectAnalysisJob, Proj
 				}
 			}
 		}
-		
+
 		// handles option keys
-		if (job.getOptionKeys()!=null) {
+		if (job.getOptionKeys() != null) {
 			dash.setOptionKeys(job.getOptionKeys());
 		}
 

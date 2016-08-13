@@ -55,6 +55,7 @@ import com.squid.kraken.v4.core.analysis.engine.query.mapping.MeasureMapping;
 import com.squid.kraken.v4.core.analysis.model.DashboardSelection;
 import com.squid.kraken.v4.core.analysis.model.DomainSelection;
 import com.squid.kraken.v4.core.analysis.model.OrderBy;
+import com.squid.kraken.v4.core.analysis.model.OrderByGrowth;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
 import com.squid.kraken.v4.core.analysis.universe.Measure;
 import com.squid.kraken.v4.model.DataTable;
@@ -66,40 +67,39 @@ import com.squid.kraken.v4.model.DimensionPK;
 import com.squid.kraken.v4.model.Metric;
 import com.squid.kraken.v4.persistence.AppContext;
 
-
 import com.squid.kraken.v4.core.analysis.universe.Property;
 
 /**
- * A DataMatrix stores the result of a query. 
- * There are two part in the Matrix: the AxisColumn storing metadata about the dimension, and the facts
+ * A DataMatrix stores the result of a query. There are two part in the Matrix:
+ * the AxisColumn storing metadata about the dimension, and the facts
+ * 
  * @author sfantino
  *
  */
 public class DataMatrix {
-	
-	static final Logger logger = LoggerFactory
-			.getLogger(DataMatrix.class);
+
+	static final Logger logger = LoggerFactory.getLogger(DataMatrix.class);
 	private List<Measure> kpis = new ArrayList<Measure>();
 
 	private List<AxisValues> axes = new ArrayList<AxisValues>();
-	//private int size = 0;
+	// private int size = 0;
 	private boolean fullset = false;// only true if we read all the data
 	private boolean isSorted = false;// true when sorted
-	
-	private Database database = null;// keep an eye on the database to check if results are stale
+
+	private Database database = null;// keep an eye on the database to check if
+										// results are stale
 	private DataMatrix parent = null;
-	
+
 	private List<IndirectionRow> rows = new ArrayList<IndirectionRow>();
-	
+
 	private boolean fromCache = false;// true if the data come from the cache
-	
+
 	private Date executionDate = null;// when did we compute the data
-	
+
 	private String redisKey;
-	
-	private Map<Property, String> propertyToAlias; 
-	private Map<Property, Integer> propertyToType; 
-	
+
+	private Map<Property, String> propertyToAlias;
+	private Map<Property, Integer> propertyToType;
 
 	public String getRedisKey() {
 		return redisKey;
@@ -115,7 +115,7 @@ public class DataMatrix {
 		this.propertyToType = new HashMap<Property, Integer>();
 
 	}
-	
+
 	public DataMatrix(Database db, ArrayList<IndirectionRow> rows) {
 		this.database = db;
 		this.rows = rows;
@@ -126,7 +126,10 @@ public class DataMatrix {
 	}
 
 	/**
-	 * create a matrix with same layout but empty data. We keep a link to the original matrix so we can check if a particular column is a sub-set of the original one
+	 * create a matrix with same layout but empty data. We keep a link to the
+	 * original matrix so we can check if a particular column is a sub-set of
+	 * the original one
+	 * 
 	 * @param dm
 	 */
 	public DataMatrix(DataMatrix parent) {
@@ -142,27 +145,28 @@ public class DataMatrix {
 		this.propertyToAlias = parent.propertyToAlias;
 		this.propertyToType = parent.propertyToType;
 	}
-	
+
 	public DataMatrix getParent() {
 		return parent;
 	}
-	
-	public DataMatrix(Database database, RawMatrix rawMatrix, List<MeasureMapping> kx_map, List<AxisMapping> ax_map) throws ScopeException {
-//		logger.info( rawMatrix.toString());
+
+	public DataMatrix(Database database, RawMatrix rawMatrix, List<MeasureMapping> kx_map, List<AxisMapping> ax_map)
+			throws ScopeException {
+		// logger.info( rawMatrix.toString());
 		this(database);
-//		logger.info("compute data matrix from RawMatrix");
+		// logger.info("compute data matrix from RawMatrix");
 		this.setFromCache(rawMatrix.isFromCache());
 		this.setExecutionDate(rawMatrix.getExecutionDate());
 		this.setRedisKey(rawMatrix.getRedisKey());
 		this.setFullset(!rawMatrix.hasMoreData());
 
-		
-		//init mappings
-		for (AxisMapping m : ax_map){
+		// init mappings
+		for (AxisMapping m : ax_map) {
 			int index = rawMatrix.getColNames().indexOf(m.getPiece().getAlias());
-			if (index<0) {
-			    // KRKN-72
-			    throw new ScopeException("invalid rawMatrix mapping: missing column for Axis '"+m.getAxis().getName()+"'");
+			if (index < 0) {
+				// KRKN-72
+				throw new ScopeException(
+						"invalid rawMatrix mapping: missing column for Axis '" + m.getAxis().getName() + "'");
 			}
 			int type = rawMatrix.getColTypes().get(index);
 			m.setMetadata(index, type);
@@ -170,86 +174,81 @@ public class DataMatrix {
 			propertyToAlias.put(m.getAxis(), m.getPiece().getAlias());
 			propertyToType.put(m.getAxis(), type);
 		}
-		
-		for(MeasureMapping m : kx_map){
+
+		for (MeasureMapping m : kx_map) {
 			int index = rawMatrix.getColNames().indexOf(m.getPiece().getAlias());
-			int type= rawMatrix.getColTypes().get(index);
+			int type = rawMatrix.getColTypes().get(index);
 			m.setMetadata(index, type);
 			this.add(m.getMapping());
 			propertyToAlias.put(m.getMapping(), m.getPiece().getAlias());
 			propertyToType.put(m.getMapping(), type);
 
 		}
-		// set rows	
+		// set rows
 		for (IndirectionRow r : this.convertRows(rawMatrix, kx_map, ax_map))
-			this.pushRow(r); 	
-		
+			this.pushRow(r);
+
 		// (T1057) disabling
 		/*
-		// index possible values for a dimension
-		for (IndirectionRow row : this.getRows()) {
-			int index = 0;
-			for (AxisMapping m : ax_map) {
-				Object value =row.getAxisValue(index);
-				if (value!=null) 
-					m.getData().getValues().add(value);
-				index++;
-			}
-		}
-		*/
+		 * // index possible values for a dimension for (IndirectionRow row :
+		 * this.getRows()) { int index = 0; for (AxisMapping m : ax_map) {
+		 * Object value =row.getAxisValue(index); if (value!=null)
+		 * m.getData().getValues().add(value); index++; } }
+		 */
 	}
-	
-	private ArrayList<IndirectionRow> convertRows(RawMatrix matrix, List<MeasureMapping> kx_map, List<AxisMapping> ax_map ){
-		int[] axesIndirection = new int[ax_map.size()];
-		int[] dataIndirection  = new int[kx_map.size()];
-		int i=0 ;
-//		logger.info(this.ax_map.size()  + " axes " + this.kx_map.size() +" kpi");
 
-		for(AxisMapping m : ax_map){
+	private ArrayList<IndirectionRow> convertRows(RawMatrix matrix, List<MeasureMapping> kx_map,
+			List<AxisMapping> ax_map) {
+		int[] axesIndirection = new int[ax_map.size()];
+		int[] dataIndirection = new int[kx_map.size()];
+		int i = 0;
+		// logger.info(this.ax_map.size() + " axes " + this.kx_map.size() +"
+		// kpi");
+
+		for (AxisMapping m : ax_map) {
 			axesIndirection[i] = m.getIndex();
 			i++;
 		}
-		i=0;
-		for(MeasureMapping m : kx_map){
+		i = 0;
+		for (MeasureMapping m : kx_map) {
 			dataIndirection[i] = m.getIndex();
 			i++;
-		}		
-		
+		}
+
 		ArrayList<IndirectionRow> res = new ArrayList<IndirectionRow>();
-		for(RawRow r : matrix.getRows())
+		for (RawRow r : matrix.getRows())
 			res.add(new IndirectionRow(r.getData(), axesIndirection, dataIndirection));
 		return res;
 	}
-	
-	
-	
+
 	/**
 	 * check if the data are stale: i.e. if the source database is stale
+	 * 
 	 * @return
 	 */
 	public boolean isStale() {
 		return this.database.isStale();
 	}
-	
+
 	public Database getDatabase() {
 		return this.database;
 	}
-	
+
 	public boolean isFromCache() {
-        return fromCache;
-    }
-	
+		return fromCache;
+	}
+
 	public void setFromCache(boolean fromCache) {
-        this.fromCache = fromCache;
-    }
-	
+		this.fromCache = fromCache;
+	}
+
 	public Date getExecutionDate() {
-        return executionDate;
-    }
-	
+		return executionDate;
+	}
+
 	public void setExecutionDate(Date executionDate) {
-        this.executionDate = executionDate;
-    }
+		this.executionDate = executionDate;
+	}
 
 	public boolean isFullset() {
 		return fullset;
@@ -266,15 +265,15 @@ public class DataMatrix {
 	public boolean add(AxisValues data) {
 		return axes.add(data);
 	}
-	
-	public void pushRow( IndirectionRow r) {
+
+	public void pushRow(IndirectionRow r) {
 		rows.add(r);
 	}
 
 	public List<Measure> getKPIs() {
 		return kpis;
 	}
-	
+
 	public int getDataSize() {
 		return kpis.size();
 	}
@@ -292,7 +291,7 @@ public class DataMatrix {
 		// else
 		return null;
 	}
-	
+
 	public AxisValues getAxisColumn(Axis axis) {
 		for (AxisValues ax : axes) {
 			if (ax.getAxis().equals(axis)) {
@@ -305,10 +304,10 @@ public class DataMatrix {
 
 	public Collection<DimensionMember> getAxisValues(Axis axis) throws ComputingException, InterruptedException {
 		AxisValues ax = getAxisColumn(axis);
-		if (ax!=null) {
+		if (ax != null) {
 			// compute values
 			int pos = axes.indexOf(ax);
-			if (pos>=0) {
+			if (pos >= 0) {
 				HashSet<Object> objects = new HashSet<>();
 				ArrayList<DimensionMember> members = new ArrayList<>();
 				DimensionIndex index = axis.getIndex();
@@ -326,9 +325,10 @@ public class DataMatrix {
 		// else
 		return Collections.emptyList();
 	}
-	
+
 	/**
 	 * orderBy this matrix
+	 * 
 	 * @param orderBy
 	 */
 	public void orderBy(List<OrderBy> orderBy) {
@@ -339,7 +339,7 @@ public class DataMatrix {
 			int pos = 0;
 			boolean check = false;
 			for (AxisValues axis : this.axes) {
-				if (axis.getAxis().getReference().equals(itemExpr)) {
+				if ((!(item instanceof OrderByGrowth)) && axis.getAxis().getReference().equals(itemExpr)) {
 					ordering.add(pos);
 					direction.add(item.getOrdering());
 					check = true;
@@ -351,11 +351,20 @@ public class DataMatrix {
 			if (!check) {
 				// try the kpis
 				for (Measure kpi : getKPIs()) {
-					if (kpi.getReference().equals(itemExpr)) {
-						ordering.add(pos);
-						direction.add(item.getOrdering());
-						check = true;
-						break;
+					if (item instanceof OrderByGrowth) {
+						if (kpi.prettyPrint().equals(((OrderByGrowth) item).expr.getValue())) {
+							ordering.add(pos);
+							direction.add(item.getOrdering());
+							check = true;
+							break;
+						}
+					} else {
+						if (kpi.getReference().equals(itemExpr)) {
+							ordering.add(pos);
+							direction.add(item.getOrdering());
+							check = true;
+							break;
+						}
 					}
 					pos++;
 				}
@@ -365,19 +374,21 @@ public class DataMatrix {
 		Collections.sort(rows, new Comparator<IndirectionRow>() {
 			@Override
 			public int compare(IndirectionRow o1, IndirectionRow o2) {
-				for (int i=0;i<size;i++) {
+				for (int i = 0; i < size; i++) {
 					Object v1 = o1.getValue(ordering.get(i));
 					Object v2 = o2.getValue(ordering.get(i));
 					int cc = compareValues(v1, v2);
-					if (direction.get(i)==ORDERING.DESCENT) cc = -cc;//reverse
-					if (cc!=0) return cc;
+					if (direction.get(i) == ORDERING.DESCENT)
+						cc = -cc;// reverse
+					if (cc != 0)
+						return cc;
 				}
 				// equal !
 				return 0;
 			}
 		});
 	}
-	
+
 	private int compareValues(Object v1, Object v2) {
 		if (v1 == null && v2 != null)
 			return -1;
@@ -397,15 +408,17 @@ public class DataMatrix {
 
 	public void truncate(long limitValue, long offsetValue) {
 		int from = (int) Math.max(0, offsetValue);
-		int to = (int) Math.min(rows.size(), from+limitValue);
-		this.rows = this.rows.subList(from, to);// this is not a copy, just a view
+		int to = (int) Math.min(rows.size(), from + limitValue);
+		this.rows = this.rows.subList(from, to);// this is not a copy, just a
+												// view
 	}
-	
+
 	/**
 	 * merge two matrix with different KPIs but must be on the same space
+	 * 
 	 * @param that
 	 * @return
-	 * @throws ScopeException 
+	 * @throws ScopeException
 	 */
 	public DataMatrix merge(DataMatrix that) throws ScopeException {
 		Merger merger = new Merger(this, that);
@@ -415,7 +428,7 @@ public class DataMatrix {
 	public DataMatrix filter(DashboardSelection selection) {
 		return filter(selection, true);
 	}
-	
+
 	/**
 	 * filter the matrix given a selection to contain only the required rows
 	 * <br>
@@ -431,26 +444,28 @@ public class DataMatrix {
 		}
 		Collection<ApplyFilterCondition> automaton = new ArrayList<ApplyFilterCondition>();
 		// first compute the matching automaton based on the selection
-		// note that we don't know if the selection dimension exists already in the matrix; if not, just ignore it?
+		// note that we don't know if the selection dimension exists already in
+		// the matrix; if not, just ignore it?
 		for (DomainSelection domain : selection.get()) {
 			for (Axis axis : domain.getFilters()) {
 				// check if the axis is defined
-			    //if (axis.getDimension().getType()==Type.CATEGORICAL) { // krkn-75, apply that damn filter please!
-    				AxisValues axisData = getAxisColumn(axis);
-    				if (axisData!=null) {
-    					// check the axis index
-    					int index = getAxes().indexOf(axisData);
-    					ApplyFilterCondition item = null;
-    					// ok, populate the automaton with filter values
-    					for (DimensionMember member : domain.getMembers(axis)) {
-                            if (item==null) {
-                                item = new ApplyFilterCondition(index,nullIsValid);
-                                automaton.add(item);
-                            }
-                            item.add(member);
-    					}
-    				}
-				//}
+				// if (axis.getDimension().getType()==Type.CATEGORICAL) { //
+				// krkn-75, apply that damn filter please!
+				AxisValues axisData = getAxisColumn(axis);
+				if (axisData != null) {
+					// check the axis index
+					int index = getAxes().indexOf(axisData);
+					ApplyFilterCondition item = null;
+					// ok, populate the automaton with filter values
+					for (DimensionMember member : domain.getMembers(axis)) {
+						if (item == null) {
+							item = new ApplyFilterCondition(index, nullIsValid);
+							automaton.add(item);
+						}
+						item.add(member);
+					}
+				}
+				// }
 			}
 		}
 		// ok, we are ready to iterate through the matrix now...
@@ -458,9 +473,9 @@ public class DataMatrix {
 			return this;
 		} else {
 			DataMatrix result = new DataMatrix(this);
-			
+
 			for (IndirectionRow row : getRows()) {
-				boolean filter = checkRowAND(row,automaton);
+				boolean filter = checkRowAND(row, automaton);
 				if (filter) {
 					result.pushRow(row);
 				}
@@ -468,7 +483,7 @@ public class DataMatrix {
 			return result;
 		}
 	}
-	
+
 	public DataMatrix filter(FilterFunction func) {
 		DataMatrix result = new DataMatrix(this);
 		for (IndirectionRow row : getRows()) {
@@ -479,18 +494,19 @@ public class DataMatrix {
 		}
 		return result;
 	}
-	
+
 	/**
 	 * simple interface to filter a DataMatrix
+	 * 
 	 * @author sfantino
 	 *
 	 */
 	public interface FilterFunction {
-		
+
 		public boolean check(IndirectionRow row);
-		
+
 	}
-	
+
 	/**
 	 * filter the matrix given a selection to contain only the required rows
 	 * <br>
@@ -506,26 +522,27 @@ public class DataMatrix {
 		}
 		Collection<ApplyFilterCondition> automaton = new ArrayList<ApplyFilterCondition>();
 		// first compute the matching automaton based on the selection
-		// note that we don't know if the selection dimension exists already in the matrix; if not, just ignore it?
+		// note that we don't know if the selection dimension exists already in
+		// the matrix; if not, just ignore it?
 		for (DomainSelection space : selection.get()) {
 			for (Axis axis : space.getFilters()) {
-			    if (axis.getDimension().getType()==Type.CATEGORICAL) {
-    				// check if the axis is defined
-    				AxisValues axisData = getAxisColumn(axis);
-    				if (axisData!=null) {
-    					// check the axis index
-    					int index = getAxes().indexOf(axisData);
-    					ApplyFilterCondition item = null;
-    					// ok, populate the automaton with filter values
-    					for (DimensionMember filter : space.getMembers(axis)) {
-                            if (item==null) {
-                                item = new ApplyFilterCondition(index,nullIsValid);
-                                automaton.add(item);
-                            }
-                            item.add((DimensionMember)filter);
-    					}
-    				}
-			    }
+				if (axis.getDimension().getType() == Type.CATEGORICAL) {
+					// check if the axis is defined
+					AxisValues axisData = getAxisColumn(axis);
+					if (axisData != null) {
+						// check the axis index
+						int index = getAxes().indexOf(axisData);
+						ApplyFilterCondition item = null;
+						// ok, populate the automaton with filter values
+						for (DimensionMember filter : space.getMembers(axis)) {
+							if (item == null) {
+								item = new ApplyFilterCondition(index, nullIsValid);
+								automaton.add(item);
+							}
+							item.add((DimensionMember) filter);
+						}
+					}
+				}
 			}
 		}
 		// ok, we are ready to iterate through the matrix now...
@@ -534,7 +551,7 @@ public class DataMatrix {
 		} else {
 			DataMatrix result = new DataMatrix(this);
 			for (IndirectionRow row : getRows()) {
-				boolean filter = checkRowOR(row,automaton);
+				boolean filter = checkRowOR(row, automaton);
 				if (filter) {
 					result.pushRow(row);
 				}
@@ -542,21 +559,21 @@ public class DataMatrix {
 			return result;
 		}
 	}
-	
-	
+
 	private boolean checkRowOR(IndirectionRow row, Collection<ApplyFilterCondition> automaton) {
 		int failed = 0;
 		for (ApplyFilterCondition item : automaton) {
 			if (!item.filter(row)) {
 				failed++;
-				if ((failed>=1)) return false;
+				if ((failed >= 1))
+					return false;
 			}
 		}
 		return true;
 	}
-	
+
 	private boolean checkRowAND(IndirectionRow row, Collection<ApplyFilterCondition> automaton) {
-		boolean filter = true;//challenge it
+		boolean filter = true;// challenge it
 		for (ApplyFilterCondition item : automaton) {
 			if (!item.filter(row)) {
 				filter = false;
@@ -565,13 +582,15 @@ public class DataMatrix {
 		}
 		return filter;
 	}
-	
+
 	/**
-	 * return the data sorted; if the matrix is not sorted, it actually modify the rows internally once.
+	 * return the data sorted; if the matrix is not sorted, it actually modify
+	 * the rows internally once.
+	 * 
 	 * @return
 	 */
 	public List<IndirectionRow> sortRows() {
-		if (rows!=null) {
+		if (rows != null) {
 			if (!isSorted) {
 				synchronized (this) {
 					if (!isSorted) {
@@ -585,7 +604,6 @@ public class DataMatrix {
 			return getRows();
 		}
 	}
-	
 
 	public void dump() throws InterruptedException {
 		try {
@@ -597,80 +615,80 @@ public class DataMatrix {
 	}
 
 	public void dump(int sizeLimit) throws ComputingException, InterruptedException {
-	    // dump
-		int count=0;
-		for (IndirectionRow row: this.getRows()) {
+		// dump
+		int count = 0;
+		for (IndirectionRow row : this.getRows()) {
 			StringBuilder output = new StringBuilder();
 			//
-			for (int i=0;i<row.getAxesCount();i++) {
+			for (int i = 0; i < row.getAxesCount(); i++) {
 				AxisValues m = axes.get(i);
 				if (m.isVisible()) {
 					Object value = row.getAxisValue(i);
 					Axis a = m.getAxis();
 					output.append(a.getName());
 					output.append("=[");
-					output.append(value!=null?value.toString():"--");
+					output.append(value != null ? value.toString() : "--");
 					output.append("];");
 				}
 			}
-			int i=0;
-			for (int k=0;k<kpis.size();k++,i++) {
+			int i = 0;
+			for (int k = 0; k < kpis.size(); k++, i++) {
 				Measure kpi = kpis.get(k);
 				Object value = row.getDataValue(i);
 
-				output.append(kpi.getName()).append("=").append(value!=null?value.toString():"--").append(";");
+				output.append(kpi.getName()).append("=").append(value != null ? value.toString() : "--").append(";");
 			}
 			//
 			logger.info(output.toString());
 			count++;
-			if (count==sizeLimit) {
-			    break;
+			if (count == sizeLimit) {
+				break;
 			}
 		}
-        logger.info("stopped at line " + count + " out of " + getRows().size());
+		logger.info("stopped at line " + count + " out of " + getRows().size());
 	}
 
 	public void export() throws ComputingException, InterruptedException {
 		// export header
 		StringBuilder header = new StringBuilder();
-		for (int i=0;i<axes.size();i++) {
+		for (int i = 0; i < axes.size(); i++) {
 			AxisValues m = axes.get(i);
 			header.append(m.getAxis().getDimension().getName()).append(";");
 		}
-		for (int i=0;i<kpis.size();i++) {
-		    Measure m = kpis.get(i);
+		for (int i = 0; i < kpis.size(); i++) {
+			Measure m = kpis.get(i);
 			header.append(m.getName()).append(";");
 		}
 		logger.info(header.toString());
 		// expot data
-		for (IndirectionRow row: this.getRows()) {
+		for (IndirectionRow row : this.getRows()) {
 			StringBuilder output = new StringBuilder();
 			//
-			for (int i=0;i<row.getAxesCount();i++) {
-				//AxisColumn m = axes.get(i);
+			for (int i = 0; i < row.getAxesCount(); i++) {
+				// AxisColumn m = axes.get(i);
 				Object value = row.getAxisValue(i);
-				output.append(value!=null?value.toString():"").append(";");
+				output.append(value != null ? value.toString() : "").append(";");
 			}
-			for (int i=0;i<row.getDataCount();i++) {
+			for (int i = 0; i < row.getDataCount(); i++) {
 				Object value = row.getDataValue(i);
-				output.append(value!=null?value.toString():"").append(";");
+				output.append(value != null ? value.toString() : "").append(";");
 			}
 			//
 			logger.info(output.toString());
 		}
 	}
 
-    public List<IndirectionRow> getRows() {
-    	return rows;
-    }
-    
-    private String computeFormat(Property px, ExtendedType type) {
-    	if (px.getFormat()!=null) {
-    		return px.getFormat();
-    	} else {
-    		return computeFormat(type);
-    	}
-    }
+	public List<IndirectionRow> getRows() {
+		return rows;
+	}
+
+	private String computeFormat(Property px, ExtendedType type) {
+		if (px.getFormat() != null) {
+			return px.getFormat();
+		} else {
+			return computeFormat(type);
+		}
+	}
 
 	/**
 	 * @param type
@@ -682,197 +700,205 @@ public class DataMatrix {
 			return "%tY-%<tm-%<tdT%<tH:%<tM:%<tS.%<tLZ";
 		}
 		if (image.isInstanceOf(IDomain.NUMERIC)) {
-			if (type.getDataType()==Types.INTEGER) {
+			if (type.getDataType() == Types.INTEGER) {
 				return "%,d";
 			}
-			if (type.getDataType()==Types.NUMERIC && type.getScale()>0) {
-				return "%,."+type.getScale()+"f";
+			if (type.getDataType() == Types.NUMERIC && type.getScale() > 0) {
+				return "%,." + type.getScale() + "f";
 			}
 		}
 		// else
 		return null;
 	}
-	
-	public DataTable toDataTable(AppContext ctx, Integer maxResults, Integer startIndex, boolean replaceNullValues) throws ComputingException {
-	    return toDataTable(ctx, maxResults, startIndex, replaceNullValues, null);
+
+	public DataTable toDataTable(AppContext ctx, Integer maxResults, Integer startIndex, boolean replaceNullValues)
+			throws ComputingException {
+		return toDataTable(ctx, maxResults, startIndex, replaceNullValues, null);
 	}
 
 	/**
-	 * convert the DataMatrix in a DataTable format that we can exchange through the API
+	 * convert the DataMatrix in a DataTable format that we can exchange through
+	 * the API
+	 * 
 	 * @param ctx
-	 * @param map 
+	 * @param map
 	 * @return
-	 * @throws ComputingException 
+	 * @throws ComputingException
 	 */
-    public DataTable toDataTable(AppContext ctx, Integer maxResults, Integer startIndex, boolean replaceNullValues, Map<String, Object> options) throws ComputingException {
-        DataTable table = new DataTable();
-        
-        List<AxisValues> axes = this.getAxes();
-        
-        List<IndirectionRow> rows = this.getRows();
-        List<Measure> kpis = this.getKPIs();
+	public DataTable toDataTable(AppContext ctx, Integer maxResults, Integer startIndex, boolean replaceNullValues,
+			Map<String, Object> options) throws ComputingException {
+		DataTable table = new DataTable();
 
-        // export header
-        List<Col> header = table.getCols();
-        int visible_count = 0;
-        for (int i = 0; i < axes.size(); i++) {
-            AxisValues m = axes.get(i);
-            if (m.isVisible()) {
-            	visible_count++;
-	            Dimension dim = m.getAxis().getDimension();
-	            DataType colType;
+		List<AxisValues> axes = this.getAxes();
+
+		List<IndirectionRow> rows = this.getRows();
+		List<Measure> kpis = this.getKPIs();
+
+		// export header
+		List<Col> header = table.getCols();
+		int visible_count = 0;
+		for (int i = 0; i < axes.size(); i++) {
+			AxisValues m = axes.get(i);
+			if (m.isVisible()) {
+				visible_count++;
+				Dimension dim = m.getAxis().getDimension();
+				DataType colType;
 				ExtendedType colExtType;
-	            if (dim!=null) {
-	            	colType = getDataType(m.getAxis());
+				if (dim != null) {
+					colType = getDataType(m.getAxis());
 					colExtType = getExtendedType(m.getAxis().getDefinitionSafe());
-					assert(colType.equals(DataType.values()[colExtType.getDataType()]));
-                    Col col = new Col(dim.getId(), m.getAxis().getName(), colExtType, Col.Role.DOMAIN);
-                    col.setDefinition(m.getAxis().prettyPrint());
-                    col.setOriginType(m.getAxis().getOriginType());
-                    col.setDescription(m.getAxis().getDescription());
-                    col.setFormat(computeFormat(m.getAxis(),colExtType));
-                    header.add(col);
-	            } else {
-	                String def = m.getAxis().getDefinitionSafe().prettyPrint();
-	                String ID = m.getAxis().getId();
-	                String name = m.getAxis().getName();
-	                colType = getDataType(m.getAxis());
+					assert (colType.equals(DataType.values()[colExtType.getDataType()]));
+					Col col = new Col(dim.getId(), m.getAxis().getName(), colExtType, Col.Role.DOMAIN);
+					col.setDefinition(m.getAxis().prettyPrint());
+					col.setOriginType(m.getAxis().getOriginType());
+					col.setDescription(m.getAxis().getDescription());
+					col.setFormat(computeFormat(m.getAxis(), colExtType));
+					header.add(col);
+				} else {
+					String def = m.getAxis().getDefinitionSafe().prettyPrint();
+					String ID = m.getAxis().getId();
+					String name = m.getAxis().getName();
+					colType = getDataType(m.getAxis());
 					colExtType = getExtendedType(m.getAxis().getDefinitionSafe());
-					assert(colType.equals(DataType.values()[colExtType.getDataType()]));
-					DimensionPK pk = new DimensionPK(m.getAxis().getParent().getDomain().getId(),ID);
-	                Col col = new Col(pk, name, colExtType, Col.Role.DOMAIN);
-	                if (def!=null) col.setDefinition(m.getAxis().prettyPrint());
-                    col.setOriginType(m.getAxis().getOriginType());
-                    col.setDescription(m.getAxis().getDescription());
-                    col.setFormat(computeFormat(m.getAxis(),colExtType));
-	                header.add(col);
-	            }
-            }
-        }
-        for (int i = 0; i < kpis.size(); i++) {
-            Measure m = kpis.get(i);
-            Metric metric = m.getMetric();
-            ExtendedType type = getExtendedType(m.getDefinitionSafe());
-			Col col = new Col(metric!=null?metric.getId():null, m.getName(), type, Col.Role.DATA);
-            col.setDefinition(m.prettyPrint());
-            col.setOriginType(m.getOriginType());
-            col.setDescription(m.getDescription());
-            col.setFormat(computeFormat(m,type));
-            header.add(col);
-        }
-        // export data
-        boolean applyFormat = checkApplyFormat(options);
-        List<DataTable.Row> tableRows = table.getRows();
-        int axes_count = getAxes().size();
-        int kpi_count = getKPIs().size();
-        if (startIndex == null) {
-        	startIndex = 0;
-        }
-        startIndex = Math.max(startIndex, 0);
-        if (maxResults == null) {
-        	maxResults = rows.size();
-        }
-        maxResults = Math.max(maxResults, 0);
-        int endIndex = Math.min(rows.size()-1, startIndex + maxResults);
-        if (startIndex<=endIndex) {
-	        for (int rowIndex=startIndex;rowIndex<=endIndex;rowIndex++) {
-	        	IndirectionRow row = rows.get(rowIndex);
-	            Object[] values = new Object[visible_count + row.getDataCount()];	           
-	            int colIdx = 0;
-	            for (int i = 0; i < axes_count; i++) {
-	            	AxisValues m = axes.get(i);
-	            	if (m.isVisible()) {
-            			String format = header.get(colIdx).getFormat();
-	            		Object value = row.getAxisValue(i);
-	            		if ((value == null ) && replaceNullValues){	                	
-	            			values[colIdx++] = "";
-	            		} else {
-	            			if (applyFormat && value!=null && format!=null) {
-	            				try {
-	            					value = String.format(format, value);
-	            				} catch (IllegalFormatException e) {
-	            					// ignore
-	            				}
-	            			}
-	            			values[colIdx++] = value;
-	            		}
-	            	}
-	            }
-	            for (int i = 0; i < kpi_count; i++) {
-	                Object value = row.getDataValue(i);
-        			String format = header.get(colIdx).getFormat();
-	                if ((value == null ) && replaceNullValues){	                	
-	                	values[colIdx++] = "";
-	                }else{
-            			if (applyFormat && value!=null && format!=null) {
-            				try {
-            					value = String.format(format, value);
-            				} catch (IllegalFormatException e) {
-            					// ignore
-            				}
-            			}
-	                	values[colIdx++] = value;
-	                }
-	            }
-	            //
-	            tableRows.add(new DataTable.Row(values));
-	        }
-        }
-        table.setStartIndex(startIndex);
-        table.setTotalSize(rows.size());
-        table.setFromCache(isFromCache());
-        table.setExecutionDate(getExecutionDate());
-        table.setFullset(this.fullset);
+					assert (colType.equals(DataType.values()[colExtType.getDataType()]));
+					DimensionPK pk = new DimensionPK(m.getAxis().getParent().getDomain().getId(), ID);
+					Col col = new Col(pk, name, colExtType, Col.Role.DOMAIN);
+					if (def != null)
+						col.setDefinition(m.getAxis().prettyPrint());
+					col.setOriginType(m.getAxis().getOriginType());
+					col.setDescription(m.getAxis().getDescription());
+					col.setFormat(computeFormat(m.getAxis(), colExtType));
+					header.add(col);
+				}
+			}
+		}
+		for (int i = 0; i < kpis.size(); i++) {
+			Measure m = kpis.get(i);
+			Metric metric = m.getMetric();
+			ExtendedType type = getExtendedType(m.getDefinitionSafe());
+			Col col = new Col(metric != null ? metric.getId() : null, m.getName(), type, Col.Role.DATA);
+			col.setDefinition(m.prettyPrint());
+			col.setOriginType(m.getOriginType());
+			col.setDescription(m.getDescription());
+			col.setFormat(computeFormat(m, type));
+			header.add(col);
+		}
+		// export data
+		boolean applyFormat = checkApplyFormat(options);
+		List<DataTable.Row> tableRows = table.getRows();
+		int axes_count = getAxes().size();
+		int kpi_count = getKPIs().size();
+		if (startIndex == null) {
+			startIndex = 0;
+		}
+		startIndex = Math.max(startIndex, 0);
+		if (maxResults == null) {
+			maxResults = rows.size();
+		}
+		maxResults = Math.max(maxResults, 0);
+		int endIndex = Math.min(rows.size() - 1, startIndex + maxResults);
+		if (startIndex <= endIndex) {
+			for (int rowIndex = startIndex; rowIndex <= endIndex; rowIndex++) {
+				IndirectionRow row = rows.get(rowIndex);
+				Object[] values = new Object[visible_count + row.getDataCount()];
+				int colIdx = 0;
+				for (int i = 0; i < axes_count; i++) {
+					AxisValues m = axes.get(i);
+					if (m.isVisible()) {
+						String format = header.get(colIdx).getFormat();
+						Object value = row.getAxisValue(i);
+						if ((value == null) && replaceNullValues) {
+							values[colIdx++] = "";
+						} else {
+							if (applyFormat && value != null && format != null) {
+								try {
+									value = String.format(format, value);
+								} catch (IllegalFormatException e) {
+									// ignore
+								}
+							}
+							values[colIdx++] = value;
+						}
+					}
+				}
+				for (int i = 0; i < kpi_count; i++) {
+					Object value = row.getDataValue(i);
+					String format = header.get(colIdx).getFormat();
+					if ((value == null) && replaceNullValues) {
+						values[colIdx++] = "";
+					} else {
+						if (applyFormat && value != null && format != null) {
+							try {
+								value = String.format(format, value);
+							} catch (IllegalFormatException e) {
+								// ignore
+							}
+						}
+						values[colIdx++] = value;
+					}
+				}
+				//
+				tableRows.add(new DataTable.Row(values));
+			}
+		}
+		table.setStartIndex(startIndex);
+		table.setTotalSize(rows.size());
+		table.setFromCache(isFromCache());
+		table.setExecutionDate(getExecutionDate());
+		table.setFullset(this.fullset);
 
-        return table;
-    }
-    
-    /**
+		return table;
+	}
+
+	/**
 	 * @param options
 	 * @return
 	 */
 	private boolean checkApplyFormat(Map<String, Object> options) {
-		if (options==null) return false;
+		if (options == null)
+			return false;
 		Object option = options.get("applyFormat");
-		return option!=null?option.equals(true):false;
+		return option != null ? option.equals(true) : false;
 	}
 
 	private DataType getDataType(Axis axis) {
 		ExpressionAST expr = axis.getDefinitionSafe();
-        IDomain image = expr.getImageDomain();
-        if (image.isInstanceOf(IDomain.DATE)) {
-            return DataType.DATE;
-        } else if (image.isInstanceOf(IDomain.TIMESTAMP)) {
-            return DataType.DATE;
-        } else if (image.isInstanceOf(IDomain.NUMERIC)) {
-            return DataType.NUMBER;
-        } else if (image.isInstanceOf(IDomain.STRING)) {
-            return DataType.STRING;
-        } else {
-            return DataType.STRING;
-        }
+		IDomain image = expr.getImageDomain();
+		if (image.isInstanceOf(IDomain.DATE)) {
+			return DataType.DATE;
+		} else if (image.isInstanceOf(IDomain.TIMESTAMP)) {
+			return DataType.DATE;
+		} else if (image.isInstanceOf(IDomain.NUMERIC)) {
+			return DataType.NUMBER;
+		} else if (image.isInstanceOf(IDomain.STRING)) {
+			return DataType.STRING;
+		} else {
+			return DataType.STRING;
+		}
 	}
 
 	private ExtendedType getExtendedType(ExpressionAST expr) {
 		return expr.computeType(this.database.getSkin());
 	}
 
-
-    /**
-     * concatenate matrices
-     * @param results
-     * @throws ScopeException 
-     */
+	/**
+	 * concatenate matrices
+	 * 
+	 * @param results
+	 * @throws ScopeException
+	 */
 	public void concat(ArrayList<DataMatrix> matrices) throws ScopeException {
 		//
 		int[] axis_indices = new int[matrices.size()];
 		int i = 0;
 		for (DataMatrix dm : matrices) {
-			axis_indices[i++] = this.getAxes().size();// register first indice for the dm
+			axis_indices[i++] = this.getAxes().size();// register first indice
+														// for the dm
 			for (AxisValues data : dm.getAxes()) {
 				AxisValues checkUnique = this.getAxisColumn(data.getAxis());
-				if (checkUnique!=null) {
-					throw new ScopeException("unable to concat matrices with intersecting axis: '"+data.getAxis().getDimension().getName()+"'");
+				if (checkUnique != null) {
+					throw new ScopeException("unable to concat matrices with intersecting axis: '"
+							+ data.getAxis().getDimension().getName() + "'");
 				}
 				this.add(data);
 			}
@@ -880,23 +906,23 @@ public class DataMatrix {
 				throw new ScopeException("unable to concat matrices with kpis");
 			}
 		}
-		
+
 		int size = getAxes().size();
 		// created indirection tables
-		int[] indirAxes = new int[size] ;
-		for (i = 0; i< size; i++)
+		int[] indirAxes = new int[size];
+		for (i = 0; i < size; i++)
 			indirAxes[i] = i;
 
-		int nextMatIndex=0;
+		int nextMatIndex = 0;
 		for (DataMatrix dm : matrices) {
 			int length = dm.getAxes().size();
-			for (IndirectionRow row : dm.getRows()) {				
-				int startMat  = nextMatIndex;
-				Object[] rawrow =new Object[size];
-				for (int j=0; j < row.getAxesCount() ; j++){
+			for (IndirectionRow row : dm.getRows()) {
+				int startMat = nextMatIndex;
+				Object[] rawrow = new Object[size];
+				for (int j = 0; j < row.getAxesCount(); j++) {
 					rawrow[startMat] = row.getAxisValue(j);
 					startMat++;
-				}			
+				}
 				IndirectionRow newRow = new IndirectionRow(rawrow, indirAxes, null);
 				pushRow(newRow);
 			}
@@ -904,24 +930,25 @@ public class DataMatrix {
 		}
 	}
 
-	public Map<Property, String> getPropertyToAlias(){
+	public Map<Property, String> getPropertyToAlias() {
 		return this.propertyToAlias;
 
 	}
 
-	public Map<Property, Integer> getPropertyToInteger(){
+	public Map<Property, Integer> getPropertyToInteger() {
 		return this.propertyToType;
 	}
-	
+
 	@Override
 	public String toString() {
 		StringBuilder dump = new StringBuilder();
-		dump.append("DataMatrix: size="+(axes.size()+kpis.size())+"x"+rows.size()+(fullset?"(full)":"(partial)"));
-		if (rows!=null) {
-			int i=0;
+		dump.append("DataMatrix: size=" + (axes.size() + kpis.size()) + "x" + rows.size()
+				+ (fullset ? "(full)" : "(partial)"));
+		if (rows != null) {
+			int i = 0;
 			for (IndirectionRow row : rows) {
-				dump.append("\n"+row.toString());
-				if (i++>10) {
+				dump.append("\n" + row.toString());
+				if (i++ > 10) {
 					dump.append("\n(...)");
 					break;
 				}
