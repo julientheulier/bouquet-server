@@ -47,6 +47,7 @@ import com.squid.kraken.v4.model.AnalysisQuery;
 import com.squid.kraken.v4.model.AnalysisQuery.AnalysisFacet;
 import com.squid.kraken.v4.model.AnalysisQueryImpl;
 import com.squid.kraken.v4.model.AnalysisResult;
+import com.squid.kraken.v4.model.Bookmark;
 import com.squid.kraken.v4.model.Expression;
 import com.squid.kraken.v4.model.ExpressionSuggestion;
 import com.squid.kraken.v4.model.Facet;
@@ -68,7 +69,11 @@ import com.wordnik.swagger.annotations.AuthorizationScope;
  *
  */
 @Path("/bb")
-@Api(value = "bookmark-analysis", hidden = false, authorizations = { @Authorization(value = "kraken_auth", type = "oauth2", scopes = { @AuthorizationScope(scope = "access", description = "Access") }) })
+@Api(
+		value = "bookmark-analysis", 
+		hidden = false, 
+		description = "this is the new bookmark API intented to provide all the fun without the pain",
+		authorizations = { @Authorization(value = "kraken_auth", type = "oauth2", scopes = { @AuthorizationScope(scope = "access", description = "Access") }) })
 @Produces({ MediaType.APPLICATION_JSON })
 public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest {
 
@@ -90,19 +95,42 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest {
 			notes = "it provides a comprehensive view including projects, domains, folders and bookmarks")
 	public List<NavigationItem> listContent(
 			@Context HttpServletRequest request,
-			@QueryParam("parent") String parent,
+			@ApiParam(value="filter the content under the parent path") @QueryParam("parent") String parent,
+			@ApiParam(value="filter the content by name; q can be a multi-token search string separated by comma") @QueryParam("q") String filter,
 			@ApiParam(value="if flat flag is true, the complete folder hierarchy is returned") @QueryParam("flat") boolean isFlat
 		) throws ScopeException {
 		AppContext userContext = getUserContext(request);
-		return delegate.listContent(userContext, parent, isFlat);
+		String[] filters = null;
+		if (filter!=null) filters = filter.toLowerCase().split(",");
+		return delegate.listContent(userContext, parent, filters, isFlat);
 	}
+
+			
 	
 	@GET
 	@Path("{" + BBID_PARAM_NAME + "}")
 	@ApiOperation(value = "Get an item, can be a Domain or a Bookmark")
-	public Object getItem(@Context HttpServletRequest request, @PathParam(BBID_PARAM_NAME) String BBID) throws ScopeException {
+	public Object getItem(
+			@Context HttpServletRequest request, 
+			@PathParam(BBID_PARAM_NAME) String BBID) throws ScopeException {
 		AppContext userContext = getUserContext(request);
 		return delegate.getItem(userContext, BBID);
+	}
+
+	@POST
+	@Path("{" + BBID_PARAM_NAME + "}")
+	@ApiOperation(
+			value = "create a new bookmark",
+			notes = "")
+	public Bookmark createBookmark(
+			@Context HttpServletRequest request,
+			@ApiParam(value="the analysis query definition", required=true) AnalysisQuery query,
+			@PathParam(BBID_PARAM_NAME) String BBID,
+			@ApiParam(value="the new bookmark name", required=true) @QueryParam("name") String name,
+			@ApiParam(value="the new bookmark folder, can be /MYBOOKMARKS, /MYBOOKMARKS/any/folders or /SHARED/any/folders") @QueryParam("parent") String parent)
+	{
+		AppContext userContext = getUserContext(request);
+		return delegate.createBookmark(userContext, query, BBID, name, parent);
 	}
 	
 	/*
@@ -231,7 +259,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest {
 			@ApiParam(
 					value="optional expression kind to filter the suggestions. If undefined all valid expression in the context are returned. ",
 					allowMultiple=true,
-					allowableValues="DIMENSION, METRIC, DOMAIN, COLUMN, FUNCTION") 
+					allowableValues="DIMENSION, METRIC, RELATION, COLUMN, FUNCTION") 
 			@QueryParam("kind") ObjectType[] kindFilters
 			) throws ScopeException
 	{
@@ -288,14 +316,23 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest {
 					value = "override the default metric query parameter by providing a list of metrics to compute. Metric can be defined using it's ID or any valid expression.",
 					allowMultiple = true) 
 			@QueryParam("metric") String[] metrics, 
+			@ApiParam(allowMultiple = true) 
 			@QueryParam("filter") String[] filterExpressions,
-			@QueryParam("orderby") String[] orderExpressions, @QueryParam("rollup") String[] rollupExpressions,
+			@ApiParam(allowMultiple = true) 
+			@QueryParam("orderby") String[] orderExpressions, 
+			@ApiParam(allowMultiple = true) 
+			@QueryParam("rollup") String[] rollupExpressions,
 			@QueryParam("limit") Long limit,
 			@ApiParam(value = "paging size") @QueryParam("maxResults") Integer maxResults,
 			@ApiParam(value = "paging start index") @QueryParam("startIndex") Integer startIndex,
 			@ApiParam(value = "if true, get the analysis only if already in cache, else throw a NotInCacheException; if noError returns a null result if the analysis is not in cache ; else regular analysis", defaultValue = "false") @QueryParam("lazy") String lazy
 			) throws ComputingException, ScopeException, InterruptedException {
 		AppContext userContext = getUserContext(request);
+		AnalysisQuery analysis = createAnalysisFromParams(groupBy, metrics, filterExpressions, orderExpressions, rollupExpressions, limit);
+		return delegate.runAnalysis(userContext, BBID, analysis, maxResults, startIndex, lazy);
+	}
+	
+	private AnalysisQuery createAnalysisFromParams(String[] groupBy, String[] metrics, String[] filterExpressions, String[] orderExpressions, String[] rollupExpressions, Long limit) throws ScopeException {
 		// init the analysis query using the query parameters
 		AnalysisQueryImpl analysis = new AnalysisQueryImpl();
 		int groupByLength = groupBy!=null?groupBy.length:0;
@@ -365,7 +402,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest {
 			analysis.setRollups(rollups);
 		}
 		analysis.setLimit(limit);
-		return delegate.runAnalysis(userContext, BBID, analysis, maxResults, startIndex, lazy);
+		return analysis;
 	}
 	
 	
