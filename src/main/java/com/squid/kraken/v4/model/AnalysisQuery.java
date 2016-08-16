@@ -10,52 +10,52 @@ import com.squid.kraken.v4.model.ProjectAnalysisJob.RollUp;
 @JsonDeserialize(as = AnalysisQueryImpl.class)
 public interface AnalysisQuery {
 
-	public abstract String getDomain();
+	public String getDomain();
 
-	public abstract void setDomain(String domain);
+	public void setDomain(String domain);
 
-	public abstract List<AnalysisFacet> getGroupBy();
+	public List<AnalysisFacet> getGroupBy();
 	
-	public abstract void setGroupBy(List<AnalysisFacet> facets);
+	public void setGroupBy(List<AnalysisFacet> facets);
 	
-	public abstract List<AnalysisFacet> getMetrics();
+	public List<AnalysisFacet> getMetrics();
 
-	public abstract void setMetrics(List<AnalysisFacet> facets);
+	public void setMetrics(List<AnalysisFacet> facets);
 
-	public abstract List<String> getFilters();
+	public List<String> getFilters();
 
-	public abstract void setFilters(List<String> filters);
+	public void setFilters(List<String> filters);
 
-	public abstract List<OrderBy> getOrderBy();
+	public List<OrderBy> getOrderBy();
 
-	public abstract void setOrderBy(List<OrderBy> orderBy);
+	public void setOrderBy(List<OrderBy> orderBy);
 
-	public abstract List<RollUp> getRollups();
+	public List<RollUp> getRollups();
 
-	public abstract void setRollups(List<RollUp> rollups);
+	public void setRollups(List<RollUp> rollups);
 
-	public abstract Long getOffset();
+	public Long getOffset();
 
-	public abstract void setOffset(Long offset);
+	public void setOffset(Long offset);
 
-	public abstract Long getLimit();
+	public Long getLimit();
 
-	public abstract void setLimit(Long limit);
+	public void setLimit(Long limit);
 	
-	public abstract String getBookmarkId();
+	public String getBookmarkId();
 
-	public abstract void setBookmarkId(String bookmarkId);
+	public void setBookmarkId(String bookmarkId);
 	
 	@JsonDeserialize(as = AnalysisFacetImpl.class)
 	static public interface AnalysisFacet {
 		
-		public abstract String getName();
+		public String getName();
 		
-		public abstract void setName(String name);
+		public void setName(String name);
 		
-		public abstract String getExpression();
+		public String getExpression();
 		
-		public abstract void setExpression(String expression);
+		public void setExpression(String expression);
 		
 	}
 
