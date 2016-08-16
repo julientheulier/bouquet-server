@@ -164,7 +164,7 @@ public class Space {
 	}
 
     public IDomain getSourceDomain() {
-        return IDomain.ANY;
+        return new ProxyDomainDomain(universe, getRoot());
     }
 
     public IDomain getImageDomain() {
