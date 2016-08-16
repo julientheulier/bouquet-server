@@ -75,6 +75,7 @@ import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.kraken.v4.core.expression.reference.DomainReference;
 import com.squid.kraken.v4.core.expression.scope.DomainExpressionScope;
 import com.squid.kraken.v4.core.expression.scope.ExpressionSuggestionHandler;
+import com.squid.kraken.v4.core.model.domain.DomainDomain;
 import com.squid.kraken.v4.model.AccessRight;
 import com.squid.kraken.v4.model.AnalysisQuery;
 import com.squid.kraken.v4.model.AnalysisQuery.AnalysisFacet;
@@ -906,7 +907,7 @@ public class BookmarkAnalysisServiceBaseImpl {
 	 */
 	private String rewriteExpressionToGlobalScope(ExpressionAST expr, Space root) throws ScopeException {
 		IDomain source = expr.getSourceDomain();
-		if (!source.equals(IDomain.ANY)) {
+		if (!source.isInstanceOf(DomainDomain.DOMAIN)) {
 			String global = root.prettyPrint();
 			String value = expr.prettyPrint();
 			return global+".("+value+")";
