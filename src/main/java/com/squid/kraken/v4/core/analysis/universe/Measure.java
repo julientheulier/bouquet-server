@@ -81,6 +81,8 @@ public class Measure implements Property {
 		    if (!this.parent.getTable().equals(domain.getTable())) {
                 throw new ScopeException("Invalid expression: incompatible domain for "+definition.prettyPrint());
 		    }
+		} else if (source.equals(IDomain.NULL)) {
+			// count() ?
 		} else {
             throw new ScopeException("Invalid expression: incompatible domain for "+definition.prettyPrint());
         }
