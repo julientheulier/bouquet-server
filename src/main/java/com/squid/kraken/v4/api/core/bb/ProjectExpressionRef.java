@@ -27,6 +27,7 @@ import com.squid.core.domain.IDomain;
 import com.squid.core.domain.operators.ExtendedType;
 import com.squid.core.expression.ExpressionRef;
 import com.squid.core.sql.render.SQLSkin;
+import com.squid.kraken.v4.core.model.domain.DomainDomain;
 import com.squid.kraken.v4.model.Project;
 
 /**
@@ -56,7 +57,7 @@ public class ProjectExpressionRef extends ExpressionRef {
 	 */
 	@Override
 	public IDomain getImageDomain() {
-		return IDomain.ANY;
+		return DomainDomain.DOMAIN;
 	}
 
 	/* (non-Javadoc)
