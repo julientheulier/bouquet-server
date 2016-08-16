@@ -108,14 +108,11 @@ extends AnalysisExpression
 	/* (non-Javadoc)
 	 * @see com.squid.core.expression.ExpressionRef#prettyPrint()
 	 */
-	// T1702: this has side effects...
-	/*
+	// T1702: this has side effects... but this is truly the right way to handle the axisExpression.prettyPrint().
 	@Override
 	public String prettyPrint() {
 		if (value!=null) return value.prettyPrint(); else return "{axis:undefined}";
 	}
-	*/
-	
 	
 	@Override
 	public Object getReference() {
