@@ -122,7 +122,7 @@ public class NotificationWebsocket {
 			if (session.isOpen()) {
 				// send back the welcome message
 				AppContext userContext = (AppContext) session.getUserProperties().get("ctx");
-				String bouquetSessionId = userContext.getSessionId();
+				String bouquetSessionId = userContext!=null?userContext.getSessionId():"";
 				logger.debug("Welcome session : " + session.getId() + " uuid : " + bouquetSessionId);
 				session.getBasicRemote().sendObject(new SessionMessage(bouquetSessionId));
 			}
