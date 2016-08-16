@@ -281,6 +281,13 @@ public class Universe extends Physics {
 		//
 		IDomain source = expr.getSourceDomain();
 		Space parent = null;
+		if (source.isInstanceOf(IDomain.ANY) && expr instanceof Compose) {
+			// T1702: the expression is formed with a domain as the root
+			Compose compose = (Compose)expr;
+			ExpressionAST tail = compose.getTail();
+			Space root = S(tail);
+			return root.M(compose.getHead());
+		}
 		if (source.isInstanceOf(DomainDomain.DOMAIN)) {
 		    DomainDomain type = (DomainDomain)source;
 		    Domain domain = type.getDomain();
