@@ -112,7 +112,7 @@ public class ExpressionSuggestionHandler {
 
 
     public ExpressionSuggestion getSuggestion(String expression, int offset, ValueType valueTypes) {
-    	return getSuggestion(expression, offset, null, Collections.singletonList(valueTypes));
+    	return getSuggestion(expression, offset, null, valueTypes!=null?Collections.singletonList(valueTypes):null);
     }
 
     public ExpressionSuggestion getSuggestion(String expression, int offset, Collection<ObjectType> objectTypes, Collection<ValueType> valueTypes) {
