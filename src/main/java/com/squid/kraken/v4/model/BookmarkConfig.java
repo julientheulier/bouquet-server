@@ -26,7 +26,10 @@ public class BookmarkConfig {
 	
 	private String[] availableMetrics;
 	
+	// handling timeframe
 	private Map<String, String> period;
+	
+	private String timeUnit;
 	
 	/**
 	 * 
@@ -113,6 +116,14 @@ public class BookmarkConfig {
 
 	public void setPeriod(Map<String, String> period) {
 		this.period = period;
+	}
+
+	public String getTimeUnit() {
+		return timeUnit;
+	}
+
+	public void setTimeUnit(String timeUnit) {
+		this.timeUnit = timeUnit;
 	}
 
 }
