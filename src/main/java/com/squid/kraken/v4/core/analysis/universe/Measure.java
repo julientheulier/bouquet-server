@@ -148,7 +148,7 @@ public class Measure implements Property {
 	    } else if (metric!=null) {
 			return metric.getName();
 		} else {
-			return "metric_"+definition.prettyPrint();
+			return definition.prettyPrint();
 		}
 	}
     
