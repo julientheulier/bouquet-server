@@ -21,6 +21,23 @@ public interface AnalysisQuery {
 	public List<AnalysisFacet> getMetrics();
 
 	public void setMetrics(List<AnalysisFacet> facets);
+	
+	/**
+	 * get the period expression, used to filter the timeframe.
+	 * This must be a valid date or timestamp expression.
+	 * @return
+	 */
+	public String getPeriod();
+	
+	public void setPeriod(String expression);
+	
+	public String[] getTimeframe();
+	
+	public void setTimeframe(String[] timeframe);
+	
+	public String[] getCompareframe();
+	
+	public void setCompareframe(String[] compareframe);
 
 	public List<String> getFilters();
 
