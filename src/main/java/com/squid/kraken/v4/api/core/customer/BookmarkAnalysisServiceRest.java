@@ -21,7 +21,7 @@
  * you and Squid Solutions (above licenses and LICENSE.txt included).
  * See http://www.squidsolutions.com/EnterpriseBouquet/
  *******************************************************************************/
-package com.squid.kraken.v4.api.core.bb;
+package com.squid.kraken.v4.api.core.customer;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -41,7 +41,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.squid.core.expression.scope.ScopeException;
-import com.squid.kraken.v4.api.core.customer.CoreAuthenticatedServiceRest;
+import com.squid.kraken.v4.api.core.bb.BookmarkAnalysisServiceBaseImpl;
+import com.squid.kraken.v4.api.core.bb.NavigationItem;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.model.AnalysisQuery;
 import com.squid.kraken.v4.model.AnalysisQuery.AnalysisFacet;
@@ -55,6 +56,7 @@ import com.squid.kraken.v4.model.ObjectType;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.OrderBy;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.Position;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.RollUp;
+import com.squid.kraken.v4.model.ValueType;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.wordnik.swagger.annotations.Api;
 import com.wordnik.swagger.annotations.ApiOperation;
@@ -92,21 +94,24 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest {
 	@Path("")
 	@ApiOperation(
 			value = "List available content",
-			notes = "it provides a comprehensive view including projects, domains, folders and bookmarks")
+			notes = "It provides a comprehensive view including projects, domains, folders and bookmarks."
+					+ "You can use it to navigate the entire available content, or access a specific content by defining the parent parameter."
+					+ "The root parents are /PROJECTS for listing projects and domains, /MYBOOKMARKS to list the user bookmarks and folders, and /SHARED to list the shared bookmarks and folders."
+					+ "By default it lists ony the content directly under the parent, but you can set the hierarchy parameter to view content recursively.")
 	public List<NavigationItem> listContent(
 			@Context HttpServletRequest request,
 			@ApiParam(value="filter the content under the parent path") @QueryParam("parent") String parent,
 			@ApiParam(value="filter the content by name; q can be a multi-token search string separated by comma") @QueryParam("q") String filter,
-			@ApiParam(value="if flat flag is true, the complete folder hierarchy is returned") @QueryParam("flat") boolean isFlat
+			@ApiParam(
+					value="define the hierarchy mode. FLAT mode return the hierarchy as a flat list, whereas TREE returns it as a folded structure (NIY)") 
+				@QueryParam("hierarchy") HierarchyMode hierarchyMode
 		) throws ScopeException {
 		AppContext userContext = getUserContext(request);
 		String[] filters = null;
 		if (filter!=null) filters = filter.toLowerCase().split(",");
-		return delegate.listContent(userContext, parent, filters, isFlat);
+		return delegate.listContent(userContext, parent, filters, hierarchyMode);
 	}
 
-			
-	
 	@GET
 	@Path("{" + BBID_PARAM_NAME + "}")
 	@ApiOperation(value = "Get an item, can be a Domain or a Bookmark")
@@ -252,19 +257,24 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest {
 	public ExpressionSuggestion evaluateExpression(
 			@Context HttpServletRequest request, 
 			@PathParam(BBID_PARAM_NAME) String BBID,
-			@ApiParam(value="optionally the expression to check and get suggestion for, or null in order to get scope level suggestions") 
+			@ApiParam(value="(optional) the expression to check and get suggestion for, or null in order to get scope level suggestions") 
 			@QueryParam("value") String expression,
-			@ApiParam(value="optionnal caret position in the expression value in order to provide relevant suggestions based on the caret position. By default the suggestion are based on the full expression if provided, or else the entire bookmark scope.") 
+			@ApiParam(value="(optionnal) caret position in the expression value in order to provide relevant suggestions based on the caret position. By default the suggestion are based on the full expression if provided, or else the entire bookmark scope.") 
 			@QueryParam("offset") Integer offset,
 			@ApiParam(
-					value="optional expression kind to filter the suggestions. If undefined all valid expression in the context are returned. ",
+					value="(optional) the expression type to filter the suggestions. If undefined all valid expression in the context are returned. ",
 					allowMultiple=true,
 					allowableValues="DIMENSION, METRIC, RELATION, COLUMN, FUNCTION") 
-			@QueryParam("kind") ObjectType[] kindFilters
+			@QueryParam("types") ObjectType[] types,
+			@ApiParam(
+					value="(optional) the expression value to filter the suggestions. If undefined all valid expression in the context are returned. ",
+					allowMultiple=true,
+					allowableValues="OBJECT, NUMERIC, AGGREGATE, DATE, STRING, CONDITION, DOMAIN, OTHER, ERROR") 
+			@QueryParam("values") ValueType[] values
 			) throws ScopeException
 	{
 		AppContext userContext = getUserContext(request);
-		return delegate.evaluateExpression(userContext, BBID, expression, offset, kindFilters);
+		return delegate.evaluateExpression(userContext, BBID, expression, offset, types, values);
 	}
 
 	@GET
@@ -274,14 +284,18 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest {
 			@Context HttpServletRequest request, 
 			@PathParam(BBID_PARAM_NAME) String BBID,
 			@PathParam(FACETID_PARAM_NAME) String facetId,
-			@ApiParam(value="filter the facet values using a list of tokens")@QueryParam("filter") String filter,
+			@ApiParam(value="search the facet values using a list of tokens")@QueryParam("q") String search,
+			@ApiParam(
+					value = "Define the filters to apply to results. A filter must be a valid conditional expression. If empty, the subject default parameters will apply. You can use the * token to extend the subject default parameters.",
+					allowMultiple = true) 
+			@QueryParam("filter") String[] filters,
 			@ApiParam(value="maximum number of items to return per page") @QueryParam("maxResults") Integer maxResults,
 			@ApiParam(value="index of the first item to start the page") @QueryParam("startIndex") Integer startIndex,
 			@ApiParam(value="optional timeout in milliseconds") @QueryParam("timeout") Integer timeoutMs
 			) throws ComputingException {
 
 		AppContext userContext = getUserContext(request);
-		return delegate.getFacet(userContext, BBID, facetId, filter, maxResults, startIndex, timeoutMs);
+		return delegate.getFacet(userContext, BBID, facetId, search, filters, maxResults, startIndex, timeoutMs);
 	}
 
 	@POST
@@ -307,17 +321,24 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest {
 			@PathParam(BBID_PARAM_NAME) String BBID,
 			// groupBy parameter
 			@ApiParam(
-					value = "override the default groupBy query parameter by providing a list of facets to group the results by. Facet can be defined using it's ID or any valid expression.",
+					value = "Define the group-by facets to apply to results. Facet can be defined using it's ID or any valid expression. If empty, the subject default parameters will apply. You can use the * token to extend the subject default parameters.",
 					allowMultiple = true
 					) 
 			@QueryParam("groupBy") String[] groupBy, 
 			// metric parameter
 			@ApiParam(
-					value = "override the default metric query parameter by providing a list of metrics to compute. Metric can be defined using it's ID or any valid expression.",
+					value = "Define the metrics to compute. Metric can be defined using it's ID or any valid expression. If empty, the subject default parameters will apply. You can use the * token to extend the subject default parameters.",
 					allowMultiple = true) 
 			@QueryParam("metric") String[] metrics, 
-			@ApiParam(allowMultiple = true) 
+			@ApiParam(
+					value = "Define the filters to apply to results. A filter must be a valid conditional expression. If empty, the subject default parameters will apply. You can use the * token to extend the subject default parameters.",
+					allowMultiple = true) 
 			@QueryParam("filter") String[] filterExpressions,
+			@QueryParam("period") String period,
+			@ApiParam(value="define the timeframe for the period. It can be a date range [lower,upper] or a special alias: __LAST_DAY, __LAST_7_DAYS, __CURRENT_MONTH, __PREVIOUS_MONTH, __CURRENT_MONTH, __PREVIOUS_YEAR", allowMultiple = true) 
+			@QueryParam("timeframe") String[] timeframe,
+			@ApiParam(value="activate and define the compare to period. It can be a date range [lower,upper] or a special alias: __COMPARE_TO_PREVIOUS_PERIOD, __COMPARE_TO_PREVIOUS_MONTH, __COMPARE_TO_PREVIOUS_YEAR", allowMultiple = true) 
+			@QueryParam("compareframe") String[] compareframe,
 			@ApiParam(allowMultiple = true) 
 			@QueryParam("orderby") String[] orderExpressions, 
 			@ApiParam(allowMultiple = true) 
@@ -328,11 +349,31 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest {
 			@ApiParam(value = "if true, get the analysis only if already in cache, else throw a NotInCacheException; if noError returns a null result if the analysis is not in cache ; else regular analysis", defaultValue = "false") @QueryParam("lazy") String lazy
 			) throws ComputingException, ScopeException, InterruptedException {
 		AppContext userContext = getUserContext(request);
-		AnalysisQuery analysis = createAnalysisFromParams(groupBy, metrics, filterExpressions, orderExpressions, rollupExpressions, limit);
+		AnalysisQuery analysis = createAnalysisFromParams(groupBy, metrics, filterExpressions, period, timeframe, compareframe, orderExpressions, rollupExpressions, limit);
 		return delegate.runAnalysis(userContext, BBID, analysis, maxResults, startIndex, lazy);
 	}
 	
-	private AnalysisQuery createAnalysisFromParams(String[] groupBy, String[] metrics, String[] filterExpressions, String[] orderExpressions, String[] rollupExpressions, Long limit) throws ScopeException {
+	/**
+	 * transform the GET query parameters into a AnalysisQuery similar to the one used for POST
+	 * @param groupBy
+	 * @param metrics
+	 * @param filterExpressions
+	 * @param orderExpressions
+	 * @param rollupExpressions
+	 * @param limit
+	 * @return
+	 * @throws ScopeException
+	 */
+	private AnalysisQuery createAnalysisFromParams(
+			String[] groupBy, 
+			String[] metrics, 
+			String[] filterExpressions,
+			String period,
+			String[] timeframe,
+			String[] compareframe,
+			String[] orderExpressions, 
+			String[] rollupExpressions, 
+			Long limit) throws ScopeException {
 		// init the analysis query using the query parameters
 		AnalysisQueryImpl analysis = new AnalysisQueryImpl();
 		int groupByLength = groupBy!=null?groupBy.length:0;
@@ -362,6 +403,15 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest {
 		}
 		if ((filterExpressions != null) && (filterExpressions.length > 0)) {
 			analysis.setFilters(Arrays.asList(filterExpressions));
+		}
+		if (period!=null) {
+			analysis.setPeriod(period);
+		}
+		if (timeframe != null && timeframe.length>0) {
+			analysis.setTimeframe(timeframe);
+		}
+		if (compareframe != null && compareframe.length>0) {
+			analysis.setCompareframe(compareframe);
 		}
 		if ((orderExpressions != null) && (orderExpressions.length > 0)) {
 			List<OrderBy> orders = new ArrayList<OrderBy>();
@@ -405,6 +455,8 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest {
 		return analysis;
 	}
 	
-	
+	public enum HierarchyMode {
+		TREE, FLAT
+	}
 
 }
