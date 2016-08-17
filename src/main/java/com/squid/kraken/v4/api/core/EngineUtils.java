@@ -471,6 +471,16 @@ public class EngineUtils {
                     DimensionIndex index = universe.
                             getDomainHierarchy(domain, true).
                             getDimensionIndex(axis);
+                    if (index==null) {
+                    	if (axis.getDimension()!=null) {
+                    		Domain shortcut = axis.getParent().getDomain();
+                    		index = universe.
+                                    getDomainHierarchy(shortcut, true).
+                                    getDimensionIndex(axis.prune());
+                    	} else {
+                    		throw new ScopeException("unable to filter on "+axis.getDefinitionSafe().prettyPrint());
+                    	}
+                    }
                     AccessRightsUtils.getInstance().checkRole(ctx, index.getDimension(), Role.READ);
                     for (FacetMember selectedItem : facetSel.getSelectedItems()) {
                         if (selectedItem instanceof FacetMemberInterval) {
