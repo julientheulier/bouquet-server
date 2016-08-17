@@ -18,6 +18,12 @@ public class AnalysisQueryImpl implements AnalysisQuery {
 	private List<OrderBy> orderBy;
 	
 	private List<RollUp> rollups;
+	
+	private String period;
+	
+	private String[] timeframe;
+	
+	private String[] compareframe;
 
 	private Long offset;
 
@@ -107,6 +113,30 @@ public class AnalysisQueryImpl implements AnalysisQuery {
 	public void setRollups(List<RollUp> rollups) {
 		this.rollups = rollups;
 	}
+	
+	public String getPeriod() {
+		return period;
+	}
+
+	public void setPeriod(String period) {
+		this.period = period;
+	}
+	
+	public String[] getTimeframe() {
+		return timeframe;
+	}
+
+	public void setTimeframe(String[] timeframe) {
+		this.timeframe = timeframe;
+	}
+
+	public String[] getCompareframe() {
+		return compareframe;
+	}
+
+	public void setCompareframe(String[] compareframe) {
+		this.compareframe = compareframe;
+	}
 
 	/* (non-Javadoc)
 	 * @see com.squid.kraken.v4.model.Analysis#getOffset()
@@ -170,6 +200,14 @@ public class AnalysisQueryImpl implements AnalysisQuery {
 
 		public void setExpression(String expression) {
 			this.expression = expression;
+		}
+		
+		/* (non-Javadoc)
+		 * @see java.lang.Object#toString()
+		 */
+		@Override
+		public String toString() {
+			return expression;
 		}
 	
 	}
