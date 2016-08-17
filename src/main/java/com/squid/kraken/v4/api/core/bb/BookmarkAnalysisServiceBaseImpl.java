@@ -38,11 +38,14 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.squid.core.domain.DomainNumericConstant;
 import com.squid.core.domain.IDomain;
+import com.squid.core.domain.operators.IntrinsicOperators;
+import com.squid.core.domain.operators.OperatorDefinition;
 import com.squid.core.domain.sort.DomainSort;
 import com.squid.core.domain.sort.DomainSort.SortDirection;
 import com.squid.core.domain.sort.SortOperatorDefinition;
+import com.squid.core.domain.vector.VectorOperatorDefinition;
+import com.squid.core.expression.ConstantValue;
 import com.squid.core.expression.ExpressionAST;
-import com.squid.core.expression.ExpressionLeaf;
 import com.squid.core.expression.Operator;
 import com.squid.core.expression.scope.ExpressionMaker;
 import com.squid.core.expression.scope.ScopeException;
@@ -53,6 +56,7 @@ import com.squid.kraken.v4.api.core.EngineUtils;
 import com.squid.kraken.v4.api.core.JobServiceBaseImpl.OutputFormat;
 import com.squid.kraken.v4.api.core.ObjectNotFoundAPIException;
 import com.squid.kraken.v4.api.core.bookmark.BookmarkServiceBaseImpl;
+import com.squid.kraken.v4.api.core.customer.BookmarkAnalysisServiceRest.HierarchyMode;
 import com.squid.kraken.v4.api.core.projectanalysisjob.AnalysisJobComputer;
 import com.squid.kraken.v4.core.analysis.engine.bookmark.BookmarkManager;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex;
@@ -91,6 +95,8 @@ import com.squid.kraken.v4.model.Expression;
 import com.squid.kraken.v4.model.ExpressionSuggestion;
 import com.squid.kraken.v4.model.Facet;
 import com.squid.kraken.v4.model.FacetExpression;
+import com.squid.kraken.v4.model.FacetMember;
+import com.squid.kraken.v4.model.FacetMemberInterval;
 import com.squid.kraken.v4.model.FacetMemberString;
 import com.squid.kraken.v4.model.FacetSelection;
 import com.squid.kraken.v4.model.Metric;
@@ -103,6 +109,7 @@ import com.squid.kraken.v4.model.ProjectAnalysisJob.RollUp;
 import com.squid.kraken.v4.model.ProjectAnalysisJobPK;
 import com.squid.kraken.v4.model.ProjectFacetJob;
 import com.squid.kraken.v4.model.ProjectPK;
+import com.squid.kraken.v4.model.ValueType;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DAOFactory;
 import com.squid.kraken.v4.persistence.dao.BookmarkDAO;
@@ -128,7 +135,7 @@ public class BookmarkAnalysisServiceBaseImpl {
 			AppContext userContext,
 			String parent,
 			String[] filters,
-			boolean isFlat
+			HierarchyMode hierarchyMode
 		) throws ScopeException {
 		List<NavigationItem> content = new ArrayList<>();
 		if (parent !=null && parent.endsWith("/")) {
@@ -137,19 +144,19 @@ public class BookmarkAnalysisServiceBaseImpl {
 		if (parent==null || parent.length()==0) {
 			// this is the root
 			content.add(PROJECTS_FOLDER);
-			if (isFlat) listProjects(userContext, parent, filters, content);
+			if (hierarchyMode!=null) listProjects(userContext, PROJECTS_FOLDER.getSelfRef(), filters, hierarchyMode, content);
 			content.add(SHARED_FOLDER);
-			if (isFlat) listSharedBoomarks(userContext, parent, filters, isFlat, content);
+			if (hierarchyMode!=null) listSharedBoomarks(userContext, SHARED_FOLDER.getSelfRef(), filters, hierarchyMode, content);
 			content.add(MYBOOKMARKS_FOLDER);
-			if (isFlat) listMyBoomarks(userContext, parent, filters, isFlat, content);
+			if (hierarchyMode!=null) listMyBoomarks(userContext, MYBOOKMARKS_FOLDER.getSelfRef(), filters, hierarchyMode, content);
 		} else {
 			// need to list parent's content
 			if (parent.startsWith(PROJECTS_FOLDER.getSelfRef())) {
-				listProjects(userContext, parent, filters, content);
+				listProjects(userContext, parent, filters, hierarchyMode, content);
 			} else if (parent.startsWith(SHARED_FOLDER.getSelfRef())) {
-				listSharedBoomarks(userContext, parent, filters, isFlat, content);
+				listSharedBoomarks(userContext, parent, filters, hierarchyMode, content);
 			} else if (parent.startsWith(MYBOOKMARKS_FOLDER.getSelfRef())) {
-				listMyBoomarks(userContext, parent, filters, isFlat, content);
+				listMyBoomarks(userContext, parent, filters, hierarchyMode, content);
 			} else {
 				// invalid
 				throw new ObjectNotFoundAPIException("invalid parent reference", true);
@@ -166,9 +173,9 @@ public class BookmarkAnalysisServiceBaseImpl {
 	 * @param content
 	 * @throws ScopeException
 	 */
-	private void listProjects(AppContext userContext, String parent, String[] filters, List<NavigationItem> content) throws ScopeException {
+	private void listProjects(AppContext userContext, String parent, String[] filters, HierarchyMode hierarchyMode, List<NavigationItem> content) throws ScopeException {
 		// list project related resources
-		if (parent.equals(PROJECTS_FOLDER.getSelfRef())) {
+		if (parent==null || parent.equals("") || parent.equals("/") || parent.equals(PROJECTS_FOLDER.getSelfRef())) {
 			// return available project
 			List<Project> projects = ((ProjectDAO) DAOFactory.getDAOFactory().getDAO(Project.class))
 					.findByCustomer(userContext, userContext.getCustomerPk());
@@ -180,7 +187,7 @@ public class BookmarkAnalysisServiceBaseImpl {
 					content.add(folder);
 				}
 			}
-		} else {
+		} else if (parent.startsWith(PROJECTS_FOLDER.getSelfRef())) {
 			String projectId = parent.substring(PROJECTS_FOLDER.getSelfRef().length()+1);// remove /PROJECTS/ part
 			ProjectPK projectPk = new ProjectPK(userContext.getClientId(), projectId);
 			List<Domain> domains = ProjectManager.INSTANCE.getDomains(userContext, projectPk);
@@ -192,6 +199,8 @@ public class BookmarkAnalysisServiceBaseImpl {
 					content.add(item);
 				}
 			}
+		} else {
+			// what's this parent anyway???
 		}
 	}
 	
@@ -203,7 +212,7 @@ public class BookmarkAnalysisServiceBaseImpl {
 	 * @param content
 	 * @throws ScopeException
 	 */
-	private void listMyBoomarks(AppContext userContext, String parent, String[] filters, boolean isFlat, List<NavigationItem> content) throws ScopeException {
+	private void listMyBoomarks(AppContext userContext, String parent, String[] filters, HierarchyMode hierarchyMode, List<NavigationItem> content) throws ScopeException {
 		// list mybookmark related resources
 		String fullPath = getMyBookmarkPath(userContext);
 		if (parent.equals(MYBOOKMARKS_FOLDER.getSelfRef())) {
@@ -212,7 +221,7 @@ public class BookmarkAnalysisServiceBaseImpl {
 			// add the remaining path to fullpath
 			fullPath += parent.substring(MYBOOKMARKS_FOLDER.getSelfRef().length());
 		}
-		listBoomarks(userContext, parent, filters, isFlat, fullPath, content);
+		listBoomarks(userContext, parent, filters, hierarchyMode, fullPath, content);
 	}
 	
 	/**
@@ -223,17 +232,17 @@ public class BookmarkAnalysisServiceBaseImpl {
 	 * @param content
 	 * @throws ScopeException
 	 */
-	private void listSharedBoomarks(AppContext userContext, String parent, String[] filters, boolean isFlat, List<NavigationItem> content) throws ScopeException {
+	private void listSharedBoomarks(AppContext userContext, String parent, String[] filters, HierarchyMode hierarchyMode, List<NavigationItem> content) throws ScopeException {
 		// list mybookmark related resources
 		String fullPath = Bookmark.SEPARATOR + Bookmark.Folder.SHARED;
 		if (!parent.equals(SHARED_FOLDER.getSelfRef())) {
 			// add the remaining path to fullpath
 			fullPath += parent.substring(SHARED_FOLDER.getSelfRef().length());
 		}
-		listBoomarks(userContext, parent, filters, isFlat, fullPath, content);
+		listBoomarks(userContext, parent, filters, hierarchyMode, fullPath, content);
 	}
 
-	private void listBoomarks(AppContext userContext, String parent, String[] filters, boolean isFlat, String fullPath, List<NavigationItem> content) throws ScopeException {
+	private void listBoomarks(AppContext userContext, String parent, String[] filters, HierarchyMode hierarchyMode, String fullPath, List<NavigationItem> content) throws ScopeException {
 		// list the content first
 		List<Bookmark> bookmarks = ((BookmarkDAO) DAOFactory.getDAOFactory()
 				.getDAO(Bookmark.class)).findByPath(userContext, fullPath);
@@ -253,7 +262,7 @@ public class BookmarkAnalysisServiceBaseImpl {
 				path = bookmark.getPath().substring(fullPath.length()+1);// remove first /
 				String[] split = path.split("/");
 				if (split.length>0) {
-					String name = "/"+(isFlat?path:split[0]);
+					String name = "/"+(hierarchyMode!=null?path:split[0]);
 					String id = parent+name;
 					if (!folders.contains(id)) {
 						if (filters==null || filter(name, filters)) {
@@ -368,7 +377,8 @@ public class BookmarkAnalysisServiceBaseImpl {
 			AppContext userContext, 
 			String BBID,
 			String facetId,
-			String filter,
+			String search,
+			String[] filters, 
 			Integer maxResults,
 			Integer startIndex,
 			Integer timeoutMs
@@ -377,17 +387,22 @@ public class BookmarkAnalysisServiceBaseImpl {
 			Space space = getSpace(userContext, BBID);
 			Domain domain = space.getDomain();
 			//
+			AnalysisQuery query = new AnalysisQueryImpl();
+			if ((filters != null) && (filters.length > 0)) {
+				query.setFilters(Arrays.asList(filters));
+			}
+			//
 			ProjectFacetJob job = new ProjectFacetJob();
 			job.setDomain(Collections.singletonList(domain.getId()));
 			job.setCustomerId(userContext.getCustomerId());
 			//
+			BookmarkConfig config = null;
 			if (space.hasBookmark()) {
-				BookmarkConfig config = BookmarkManager.INSTANCE.readConfig(space.getBookmark());
-				FacetSelection selection = config.getSelection();
-				job.setSelection(selection);
-			} else {
-				job.setSelection(new FacetSelection());
+				config = BookmarkManager.INSTANCE.readConfig(space.getBookmark());
 			}
+			initDefaultAnalysis(space, query, config);
+			FacetSelection selection = createFacetSelection(space, query, config);
+			job.setSelection(selection);
 			//
 			Universe universe = space.getUniverse();
 			List<Domain> domains = Collections.singletonList(domain);
@@ -398,7 +413,7 @@ public class BookmarkAnalysisServiceBaseImpl {
 				DomainHierarchy hierarchy = universe
 						.getDomainHierarchy(domain, true);
 				return SegmentManager.createSegmentFacet(universe, hierarchy, domain,
-						facetId, filter, maxResults, startIndex, sel);
+						facetId, search, maxResults, startIndex, sel);
 			} else {
 				/*
 				Axis axis = EngineUtils.getInstance().getFacetAxis(userContext,
@@ -423,7 +438,7 @@ public class BookmarkAnalysisServiceBaseImpl {
 				}
 				//
 				Facet facet = ComputingService.INSTANCE.glitterFacet(universe,
-						domain, sel, axis, filter,
+						domain, sel, axis, search,
 						startIndex != null ? startIndex : 0,
 						maxResults != null ? maxResults : 50, timeoutMs);
 
@@ -454,7 +469,8 @@ public class BookmarkAnalysisServiceBaseImpl {
 			String BBID,
 			String expression,
 			Integer offset,
-			ObjectType[] kindFilters
+			ObjectType[] types,
+			ValueType[] values
 			) throws ScopeException
 	{
 		if (expression==null) expression="";
@@ -467,15 +483,23 @@ public class BookmarkAnalysisServiceBaseImpl {
 		if (offset == null) {
 			offset = expression.length()+1;
 		}
-		Collection<ObjectType> kinds = null;
-		if (kindFilters!=null) {
-			if (kindFilters.length>1) {
-				kinds = new HashSet<>(Arrays.asList(kindFilters));
-			} else if (kindFilters.length==1) {
-				kinds = Collections.singletonList(kindFilters[0]);
+		Collection<ObjectType> typeFilters = null;
+		if (types!=null) {
+			if (types.length>1) {
+				typeFilters = new HashSet<>(Arrays.asList(types));
+			} else if (types.length==1) {
+				typeFilters = Collections.singletonList(types[0]);
 			}
 		}
-		ExpressionSuggestion suggestions = handler.getSuggestion(expression, offset, kinds, null);
+		Collection<ValueType> valueFilters = null;
+		if (values!=null) {
+			if (values.length>1) {
+				valueFilters = new HashSet<>(Arrays.asList(values));
+			} else if (values.length==1) {
+				valueFilters = Collections.singletonList(values[0]);
+			}
+		}
+		ExpressionSuggestion suggestions = handler.getSuggestion(expression, offset, typeFilters, valueFilters);
 		return suggestions;
 	}
 	
@@ -494,9 +518,10 @@ public class BookmarkAnalysisServiceBaseImpl {
 			BookmarkConfig config = readConfig(bookmark);
 			//
 			// using the default selection
-			FacetSelection selection = config!=null?config.getSelection():new FacetSelection();
+			//FacetSelection selection = config!=null?config.getSelection():new FacetSelection();
 			//
 			initDefaultAnalysis(space, query, config);
+			FacetSelection selection = createFacetSelection(space, query, config);
 			ProjectAnalysisJob job = createAnalysisJob(space.getUniverse(), query, selection, OutputFormat.JSON);
 			//
 			boolean lazyFlag = (lazy != null) && (lazy.equals("true") || lazy.equals("noError"));
@@ -517,6 +542,106 @@ public class BookmarkAnalysisServiceBaseImpl {
 		}
 	}
 	
+	/**
+	 * @param space
+	 * @param query
+	 * @param config
+	 * @return
+	 * @throws ScopeException 
+	 */
+	private FacetSelection createFacetSelection(Space space, AnalysisQuery query, BookmarkConfig config) throws ScopeException {
+		FacetSelection original = config!=null?config.getSelection():new FacetSelection();
+		FacetSelection selection = new FacetSelection();
+		SpaceScope scope = new SpaceScope(space);
+		Domain domain = space.getDomain();
+		// handle period & timeframe
+		if (query.getPeriod()!=null && query.getTimeframe()!=null && query.getTimeframe().length>0) {
+			ExpressionAST expr = scope.parseExpression(query.getPeriod());
+			Facet facet = createFacetInterval(space, expr, query.getTimeframe());
+			selection.getFacets().add(facet);
+		}
+		// handle compareframe
+		if (query.getPeriod()!=null && query.getCompareframe()!=null && query.getCompareframe().length>0) {
+			ExpressionAST expr = scope.parseExpression(query.getPeriod());
+			Facet compareFacet = createFacetInterval(space, expr, query.getCompareframe());
+			selection.setCompareTo(Collections.singletonList(compareFacet));
+		}
+		// handle filters
+		if (query.getFilters() != null) {
+			Facet segment = SegmentManager.newSegmentFacet(domain);
+			for (String filter : query.getFilters()) {
+				ExpressionAST filterExpr = scope.parseExpression(filter);
+				if (!filterExpr.getImageDomain().isInstanceOf(IDomain.CONDITIONAL)) {
+					throw new ScopeException("invalid filter, must be a condition");
+				}
+				Facet facet = createFacet(filterExpr);
+				if (facet!=null) {
+					selection.getFacets().add(facet);
+				} else {
+					// use open-filter
+					FacetMemberString openFilter = SegmentManager.newOpenFilter(filterExpr, filter);
+					segment.getSelectedItems().add(openFilter);
+				}
+			}
+			if (!segment.getSelectedItems().isEmpty()) {
+				selection.getFacets().add(segment);
+			}
+		}
+		//
+		return selection;
+	}
+	
+	private Facet createFacet(ExpressionAST expr) {
+		if (expr instanceof Operator) {
+			Operator op = (Operator)expr;
+			if (op.getOperatorDefinition().getId()==IntrinsicOperators.EQUAL & op.getArguments().size()==2) {
+				ExpressionAST dim = op.getArguments().get(0);
+				ExpressionAST value = op.getArguments().get(1);
+				if (value instanceof ConstantValue) {
+					Facet facet = new Facet();
+					facet.setId(dim.prettyPrint());
+					Object constant = ((ConstantValue)value).getValue();
+					if (constant!=null) {
+						facet.getSelectedItems().add(new FacetMemberString(constant.toString(), constant.toString()));
+						return facet;
+					}
+				}
+			} else if (op.getOperatorDefinition().getId()==IntrinsicOperators.IN & op.getArguments().size()==2) {
+				ExpressionAST dim = op.getArguments().get(0);
+				ExpressionAST second = op.getArguments().get(1);
+				if (second instanceof Operator) {
+					Operator vector = (Operator)second;
+					if (vector.getOperatorDefinition().getExtendedID().equals(VectorOperatorDefinition.ID)) {
+						Facet facet = new Facet();
+						facet.setId(dim.prettyPrint());
+						for (ExpressionAST value : vector.getArguments()) {
+							Object constant = ((ConstantValue)value).getValue();
+							if (constant!=null) {
+								FacetMember member = new FacetMemberString(constant.toString(), constant.toString());
+								facet.getSelectedItems().add(member);
+							}
+						}
+						if (!facet.getSelectedItems().isEmpty()) {
+							return facet;
+						}
+					}
+				}
+			}
+		}
+		// else
+		return null;
+	}
+	
+	private Facet createFacetInterval(Space space, ExpressionAST expr, String[] frame) throws ScopeException {
+		Facet facet = new Facet();
+		facet.setId(rewriteExpressionToGlobalScope(expr, space));
+		String lowerbound = frame[0];
+		String upperbound = frame.length==2?frame[1]:lowerbound;
+		FacetMemberInterval member = new FacetMemberInterval(lowerbound, upperbound);
+		facet.getSelectedItems().add(member);
+		return facet;
+	}
+
 	private ProjectAnalysisJob createAnalysisJob(Universe universe, AnalysisQuery analysis, FacetSelection selection, OutputFormat format) throws ScopeException {
 		// read the domain reference
 		if (analysis.getDomain() == null) {
@@ -563,16 +688,21 @@ public class BookmarkAnalysisServiceBaseImpl {
 			}
 			IDomain image = colExpression.getImageDomain();
 			if (image.isInstanceOf(IDomain.AGGREGATE)) {
-				// it's a metric, we need to relink with the domain
-				if (!(colExpression instanceof ExpressionLeaf)) {
-					// add parenthesis if it is not a simple expression so A+B
-					// => domain.(A+B)
-					colExpression = ExpressionMaker.GROUP(colExpression);
+				IDomain source = colExpression.getSourceDomain();
+				if (!source.isInstanceOf(DomainDomain.DOMAIN)) {
+					// need to add the domain
+					// check if it needs grouping?
+					if (colExpression instanceof Operator) {
+						Operator op = (Operator)colExpression;
+						if (op.getArguments().size()>1 && op.getOperatorDefinition().getPosition()!=OperatorDefinition.PREFIX_POSITION) {
+							colExpression = ExpressionMaker.GROUP(colExpression);
+						}
+					}
+					// add the domain// relink with the domain
+					colExpression = ExpressionMaker.COMPOSE(new DomainReference(universe, domain), colExpression);
 				}
-				// relink with the domain
-				ExpressionAST relink = ExpressionMaker.COMPOSE(new DomainReference(universe, domain), colExpression);
 				// now it can be transformed into a measure
-				Measure m = universe.asMeasure(relink);
+				Measure m = universe.asMeasure(colExpression);
 				if (m == null) {
 					throw new ScopeException("cannot use expression='" + facet.getExpression() + "'");
 				}
@@ -580,7 +710,7 @@ public class BookmarkAnalysisServiceBaseImpl {
 				metric.setExpression(new Expression(m.prettyPrint()));
 				String name = facet.getName();
 				if (name == null) {
-					name = m.prettyPrint();
+					name = m.getName();
 				}
 				metric.setName(name);
 				metrics.add(metric);
@@ -607,23 +737,6 @@ public class BookmarkAnalysisServiceBaseImpl {
 			}
 		}
 
-		// handle filters
-		if (analysis.getFilters() != null) {
-			if (selection == null) {
-				selection = new FacetSelection();
-			}
-			for (String filter : analysis.getFilters()) {
-				ExpressionAST filterExpr = scope.parseExpression(filter);
-				if (!filterExpr.getImageDomain().isInstanceOf(IDomain.CONDITIONAL)) {
-					throw new ScopeException("invalid filter, must be a condition");
-				}
-				Facet segment = SegmentManager.newSegmentFacet(domain);
-				FacetMemberString openFilter = SegmentManager.newOpenFilter(filterExpr, filter);
-				segment.getSelectedItems().add(openFilter);
-				selection.getFacets().add(segment);
-			}
-		}
-
 		// handle orderBy
 		List<OrderBy> orderBy = new ArrayList<>();
 		int pos = 1;
@@ -644,10 +757,9 @@ public class BookmarkAnalysisServiceBaseImpl {
 									expr = op.getArguments().get(0);
 								}
 							}
-						} else if (order.getDirection() == null) {
-							// we need direction! default to ASC
-							order.setDirection(Direction.ASC);
-						}
+						} else {
+							direction = order.getDirection()!=null?order.getDirection():Direction.ASC;
+						} 
 						if (image.isInstanceOf(DomainNumericConstant.DOMAIN)) {
 							// it is a reference to the facets
 							DomainNumericConstant num = (DomainNumericConstant) image
@@ -789,7 +901,7 @@ public class BookmarkAnalysisServiceBaseImpl {
 			for (OrderBy orderBy : query.getOrderBy()) {
 				String value = orderBy.getExpression().getValue();
 				OrderBy copy = new OrderBy(new Expression(query.getDomain()+".("+value+")"), orderBy.getDirection());
-				query.getOrderBy().add(copy);
+				config.getOrderBy().add(copy);
 			}
 		}
 		//
@@ -847,21 +959,26 @@ public class BookmarkAnalysisServiceBaseImpl {
 				analysis.setGroupBy(groupBy);
 			}
 		}
-		if (analysis.getMetrics() == null) {
+		boolean metricWildcard = isWildcard(analysis.getMetrics());
+		if (analysis.getMetrics() == null || metricWildcard) {
+			List<AnalysisFacet> metrics = new ArrayList<>();
 			if (config==null) {
 				// no metrics
 			} else if (config.getChosenMetrics() != null) {
-				List<AnalysisFacet> metrics = new ArrayList<AnalysisFacet>();
 				for (String chosenMetric : config.getChosenMetrics()) {
 					AnalysisFacet f = new AnalysisQueryImpl.AnalysisFacetImpl();
 					f.setExpression("@'" + chosenMetric + "'");
 					metrics.add(f);
 				}
-				analysis.setMetrics(metrics);
 			}
+			if (metricWildcard) {
+				analysis.getMetrics().remove(0);// remove the first one
+				metrics.addAll(analysis.getMetrics());// add reminding
+			}
+			analysis.setMetrics(metrics);
 		}
 		if (analysis.getOrderBy() == null) {
-			if (config!=null) {
+			if (config!=null && config.getOrderBy()!=null) {
 				analysis.setOrderBy(new ArrayList<OrderBy>());
 				for (OrderBy orderBy : config.getOrderBy()) {
 					ExpressionAST expr = globalScope.parseExpression(orderBy.getExpression().getValue());
@@ -875,6 +992,99 @@ public class BookmarkAnalysisServiceBaseImpl {
 				analysis.setRollups(config.getRollups());
 			}
 		}
+		//
+		// handling selection
+		//
+		FacetSelection selection = config!=null?config.getSelection():new FacetSelection();
+		// handling the period
+		if (analysis.getPeriod()==null && config!=null && config.getPeriod()!=null && !config.getPeriod().isEmpty()) {
+			// look for this domain period
+			String domainID = space.getDomain().getOid();
+			String period = config.getPeriod().get(domainID);
+			if (period!=null) {
+				ExpressionAST expr = globalScope.parseExpression(period);
+				IDomain image = expr.getImageDomain();
+				if (image.isInstanceOf(IDomain.TEMPORAL)) {
+					// ok, it's a date
+					analysis.setPeriod(rewriteExpressionToLocalScope(expr, space));
+				}
+			}
+		}
+		if (analysis.getPeriod()==null) {
+			// nothing selected - double check and auto detect?
+		}
+		// handling the selection
+		if (!selection.getFacets().isEmpty()) {
+			List<String> filters = new ArrayList<>();
+			String period = null;
+			if (analysis.getPeriod()!=null && analysis.getTimeframe()==null) {
+				period = analysis.getDomain()+"."+analysis.getPeriod();
+			}
+			// look for the selection
+			for (Facet facet : selection.getFacets()) {
+				if (facet.getId().equals(period)) {
+					// it's the period
+					List<FacetMember> items = facet.getSelectedItems();
+					if (items.size()==1) {
+						FacetMember timeframe = items.get(0);
+						if (timeframe instanceof FacetMemberInterval) {
+							String upperBound = ((FacetMemberInterval) timeframe).getUpperBound();
+							if (upperBound.startsWith("__")) {
+								// it's a shortcut
+								analysis.setTimeframe(new String[]{upperBound});
+							} else {
+								// it's a date
+								String lowerBound = ((FacetMemberInterval) timeframe).getLowerBound();
+								analysis.setTimeframe(new String[]{lowerBound,upperBound});
+							}
+						}
+					}
+				} else if (SegmentManager.isSegmentFacet(facet)) {
+					// it's an open filter
+					throw new RuntimeException("unsupported open filter");
+				} else if (!facet.getSelectedItems().isEmpty()) {
+					ExpressionAST expr = globalScope.parseExpression(facet.getId());
+					String  filter = rewriteExpressionToLocalScope(expr, space);
+					if (facet.getSelectedItems().size()==1) {
+						if (facet.getSelectedItems().get(0) instanceof FacetMemberString) {
+							filter += "=";
+							FacetMember member = facet.getSelectedItems().get(0);
+							filter += member.toString();
+							filters.add(filter);
+						}
+					} else {
+						filter += " IN [";
+						boolean first = true;
+						for (FacetMember member : facet.getSelectedItems()) {
+							if (member instanceof FacetMemberString) {
+								if (!first) {
+									filter += " , ";
+								} else {
+									first = false;
+								}
+								filter += member.toString();
+							}
+						}
+						filter += "]";
+						if (!first) {
+							filters.add(filter);
+						}
+					}
+				}
+			}
+			if (!filters.isEmpty()) {
+				analysis.setFilters(filters);
+			}
+		}
+	}
+	
+	private boolean isWildcard(List<AnalysisFacet> facets) {
+		if (facets !=null && !facets.isEmpty()) {
+			AnalysisFacet first = facets.get(0);
+			return first.getExpression().equals("*");
+		}
+		// else
+		return false;
 	}
 	
 	/**
