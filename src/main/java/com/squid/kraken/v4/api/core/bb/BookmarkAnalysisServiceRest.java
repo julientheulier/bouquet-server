@@ -21,7 +21,7 @@
  * you and Squid Solutions (above licenses and LICENSE.txt included).
  * See http://www.squidsolutions.com/EnterpriseBouquet/
  *******************************************************************************/
-package com.squid.kraken.v4.api.core.customer;
+package com.squid.kraken.v4.api.core.bb;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -41,8 +41,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.squid.core.expression.scope.ScopeException;
-import com.squid.kraken.v4.api.core.bb.BookmarkAnalysisServiceBaseImpl;
-import com.squid.kraken.v4.api.core.bb.NavigationReply;
+import com.squid.kraken.v4.api.core.customer.CoreAuthenticatedServiceRest;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.model.AnalysisQuery;
 import com.squid.kraken.v4.model.AnalysisQuery.AnalysisFacet;
@@ -104,11 +103,15 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest {
 			@ApiParam(value="filter the content by name; q can be a multi-token search string separated by comma") 
 			@QueryParam("q") String search,
 			@ApiParam(
-					value="define the hierarchy mode. FLAT mode return the hierarchy as a flat list, whereas TREE returns it as a folded structure (NIY)") 
-				@QueryParam("hierarchy") HierarchyMode hierarchyMode
+					value="define the hierarchy mode. FLAT mode return the hierarchy as a flat list, whereas TREE returns it as a folded structure (NIY)",
+					allowableValues="TREE, FLAT") 
+			@QueryParam("hierarchy") HierarchyMode hierarchyMode,
+			@ApiParam(
+					value="define the result style", allowableValues="LEGACY, MACHINE, HUMAN", defaultValue="HUMAN")
+			@QueryParam("style") String style
 		) throws ScopeException {
 		AppContext userContext = getUserContext(request);
-		return delegate.listContent(userContext, parent, search, hierarchyMode);
+		return delegate.listContent(userContext, parent, search, hierarchyMode, style);
 	}
 
 	@GET
@@ -193,59 +196,6 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest {
 		AppContext userContext = getUserContext(request);
 		return runFacets(userContext, BBID, selection);
 	}
-	
-	public FacetSelection runFacets(
-			AppContext userContext, 
-			@PathParam(BBID_PARAM_NAME) String BBID,
-			FacetSelection selection
-		) throws ComputingException {
-		Bookmark bookmark = getBookmark(userContext, BBID);
-		BookmarkConfig config = readConfig(bookmark);
-		String domainId = config.getDomain();
-		DomainPK domainPk = new DomainPK(bookmark.getId().getParent(), domainId);
-		//
-		try {
-			Domain domain = ProjectManager.INSTANCE.getDomain(userContext, domainPk);
-			ProjectFacetJob job = new ProjectFacetJob();
-			job.setDomain(Collections.singletonList(domainPk));
-			job.setCustomerId(userContext.getCustomerId());
-			if (selection!=null) {
-				selection = config.getSelection();
-			}
-			job.setSelection(selection);
-			List<Facet> result = new ArrayList<>();
-			ProjectPK projectPK = bookmark.getId().getParent();
-			Project project = ProjectServiceBaseImpl.getInstance().read(userContext, projectPK, false);
-			Universe universe = new Universe(userContext, project);
-			DashboardSelection ds;
-			List<Domain> domains = Collections.singletonList(domain);
-			ds = EngineUtils.getInstance().applyFacetSelection(userContext,
-					universe, domains, selection);
-			result.addAll(ComputingService.INSTANCE.glitterFacets(universe,
-					domain, ds));
-			FacetSelection facetSelectionResult = new FacetSelection();
-			facetSelectionResult.setFacets(result);
-			// handling compareTo (T947)
-			if (ds.hasCompareToSelection()) {
-				// create a fresh seelction with the compareTo
-				DashboardSelection compareDS = new DashboardSelection();
-				Domain domain2 = ds.getCompareToSelection().getDomain();
-				compareDS.add(ds.getCompareToSelection());
-				ArrayList<Facet> facets = new ArrayList<>();
-				for (Axis filter : ds.getCompareToSelection().getFilters()) {
-					facets.add(ComputingService.INSTANCE.glitterFacet(universe, domain2, compareDS, filter, null, 0, 100, null));
-				}
-				facetSelectionResult.setCompareTo(facets);
-			}
-			return facetSelectionResult;
-	
-		} catch (ScopeException | ComputingException | InterruptedException e) {
-			throw new ComputingException(e.getLocalizedMessage(), e);
-		} catch (TimeoutException e) {
-			throw new ComputingInProgressAPIException(null,
-					userContext.isNoError(), null);
-		}
-	}
 	*/
 	
 	@GET
@@ -304,12 +254,16 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest {
 			@Context HttpServletRequest request, 
 			@ApiParam(value="the analysis query definition", required=true) AnalysisQuery query,
 			@PathParam(BBID_PARAM_NAME) String BBID,
+			@ApiParam(
+					value="define the result format.",
+					allowableValues="LEGACY,SQL,CSV")
+			@QueryParam("format") String format,
 			@ApiParam(value = "paging size for the results") @QueryParam("maxResults") Integer maxResults,
 			@ApiParam(value = "paging start index") @QueryParam("startIndex") Integer startIndex,
 			@ApiParam(value = "if true, get the analysis only if already in cache, else throw a NotInCacheException; if noError returns a null result if the analysis is not in cache ; else regular analysis", defaultValue = "false") @QueryParam("lazy") String lazy
 			) throws ComputingException, ScopeException, InterruptedException {
 		AppContext userContext = getUserContext(request);
-		return delegate.runAnalysis(userContext, BBID, query, maxResults, startIndex, lazy);
+		return delegate.runAnalysis(userContext, BBID, query, format, maxResults, startIndex, lazy);
 	}
 
 	@GET
@@ -334,7 +288,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest {
 					allowMultiple = true) 
 			@QueryParam("filter") String[] filterExpressions,
 			@QueryParam("period") String period,
-			@ApiParam(value="define the timeframe for the period. It can be a date range [lower,upper] or a special alias: __LAST_DAY, __LAST_7_DAYS, __CURRENT_MONTH, __PREVIOUS_MONTH, __CURRENT_MONTH, __PREVIOUS_YEAR", allowMultiple = true) 
+			@ApiParam(value="define the timeframe for the period. It can be a date range [lower,upper] or a special alias: ____ALL, ____LAST_DAY, ____LAST_7_DAYS, __CURRENT_MONTH, __PREVIOUS_MONTH, __CURRENT_MONTH, __PREVIOUS_YEAR", allowMultiple = true) 
 			@QueryParam("timeframe") String[] timeframe,
 			@ApiParam(value="activate and define the compare to period. It can be a date range [lower,upper] or a special alias: __COMPARE_TO_PREVIOUS_PERIOD, __COMPARE_TO_PREVIOUS_MONTH, __COMPARE_TO_PREVIOUS_YEAR", allowMultiple = true) 
 			@QueryParam("compareframe") String[] compareframe,
@@ -343,13 +297,17 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest {
 			@ApiParam(allowMultiple = true) 
 			@QueryParam("rollup") String[] rollupExpressions,
 			@QueryParam("limit") Long limit,
+			@ApiParam(
+					value="define the result format.",
+					allowableValues="LEGACY,SQL,CSV")
+			@QueryParam("format") String format,
 			@ApiParam(value = "paging size") @QueryParam("maxResults") Integer maxResults,
 			@ApiParam(value = "paging start index") @QueryParam("startIndex") Integer startIndex,
 			@ApiParam(value = "if true, get the analysis only if already in cache, else throw a NotInCacheException; if noError returns a null result if the analysis is not in cache ; else regular analysis", defaultValue = "false") @QueryParam("lazy") String lazy
 			) throws ComputingException, ScopeException, InterruptedException {
 		AppContext userContext = getUserContext(request);
 		AnalysisQuery analysis = createAnalysisFromParams(groupBy, metrics, filterExpressions, period, timeframe, compareframe, orderExpressions, rollupExpressions, limit);
-		return delegate.runAnalysis(userContext, BBID, analysis, maxResults, startIndex, lazy);
+		return delegate.runAnalysis(userContext, BBID, analysis, format, maxResults, startIndex, lazy);
 	}
 	
 	/**
@@ -455,7 +413,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest {
 	}
 	
 	public enum HierarchyMode {
-		TREE, FLAT
+		NONE, TREE, FLAT
 	}
 
 }
