@@ -52,19 +52,22 @@ import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.Operator;
 import com.squid.core.expression.scope.ExpressionMaker;
 import com.squid.core.expression.scope.ScopeException;
+import com.squid.core.sql.model.SQLScopeException;
+import com.squid.core.sql.render.RenderingException;
 import com.squid.kraken.v4.api.core.APIException;
 import com.squid.kraken.v4.api.core.AccessRightsUtils;
 import com.squid.kraken.v4.api.core.ComputingInProgressAPIException;
 import com.squid.kraken.v4.api.core.EngineUtils;
 import com.squid.kraken.v4.api.core.JobServiceBaseImpl.OutputFormat;
+import com.squid.kraken.v4.api.core.bb.BookmarkAnalysisServiceRest.HierarchyMode;
 import com.squid.kraken.v4.api.core.ObjectNotFoundAPIException;
 import com.squid.kraken.v4.api.core.bookmark.BookmarkServiceBaseImpl;
-import com.squid.kraken.v4.api.core.customer.BookmarkAnalysisServiceRest.HierarchyMode;
 import com.squid.kraken.v4.api.core.projectanalysisjob.AnalysisJobComputer;
 import com.squid.kraken.v4.core.analysis.engine.bookmark.BookmarkManager;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex.Status;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainHierarchy;
+import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainHierarchyManager;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.SegmentManager;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingService;
@@ -94,6 +97,7 @@ import com.squid.kraken.v4.model.BookmarkConfig;
 import com.squid.kraken.v4.model.BookmarkPK;
 import com.squid.kraken.v4.model.DataTable;
 import com.squid.kraken.v4.model.Dimension;
+import com.squid.kraken.v4.model.Dimension.Type;
 import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.Expression;
 import com.squid.kraken.v4.model.ExpressionSuggestion;
@@ -135,15 +139,16 @@ public class BookmarkAnalysisServiceBaseImpl {
 	private static final NavigationItem SHARED_FOLDER = new NavigationItem("Shared Bookmarks", "list all the bookmarks shared with you", "", "/SHARED", "FOLDER");
 	private static final NavigationItem MYBOOKMARKS_FOLDER = new NavigationItem("My Bookmarks", "list all your bookmarks", "", "/MYBOOKMARKS", "FOLDER");
 	
-	private static final String FOLDER_TYPE = "FOLDER";
-	private static final String BOOKMARK_TYPE = "BOOKMARK";
-	private static final String DOMAIN_TYPE = "DOMAIN";
+	public static final String FOLDER_TYPE = "FOLDER";
+	public static final String BOOKMARK_TYPE = "BOOKMARK";
+	public static final String DOMAIN_TYPE = "DOMAIN";
 
 	public NavigationReply listContent(
 			AppContext userContext,
 			String parent,
 			String search,
-			HierarchyMode hierarchyMode
+			HierarchyMode hierarchyMode, 
+			String style
 		) throws ScopeException {
 		List<NavigationItem> content = new ArrayList<>();
 		if (parent !=null && parent.endsWith("/")) {
@@ -153,6 +158,7 @@ public class BookmarkAnalysisServiceBaseImpl {
 		query.setParent(parent);
 		query.setQ(search);
 		query.setHiearchy(hierarchyMode);
+		query.setStyle(style!=null?style:"HUMAN");
 		//
 		// tokenize the search string
 		String[] filters = null;
@@ -161,19 +167,19 @@ public class BookmarkAnalysisServiceBaseImpl {
 		if (parent==null || parent.length()==0) {
 			// this is the root
 			content.add(PROJECTS_FOLDER);
-			if (hierarchyMode!=null) listProjects(userContext, PROJECTS_FOLDER.getSelfRef(), filters, hierarchyMode, content);
+			if (hierarchyMode!=null) listProjects(userContext, query, PROJECTS_FOLDER.getSelfRef(), filters, hierarchyMode, content);
 			content.add(SHARED_FOLDER);
-			if (hierarchyMode!=null) listSharedBoomarks(userContext, SHARED_FOLDER.getSelfRef(), filters, hierarchyMode, content);
+			if (hierarchyMode!=null) listSharedBoomarks(userContext, query, SHARED_FOLDER.getSelfRef(), filters, hierarchyMode, content);
 			content.add(MYBOOKMARKS_FOLDER);
-			if (hierarchyMode!=null) listMyBoomarks(userContext, MYBOOKMARKS_FOLDER.getSelfRef(), filters, hierarchyMode, content);
+			if (hierarchyMode!=null) listMyBoomarks(userContext, query, MYBOOKMARKS_FOLDER.getSelfRef(), filters, hierarchyMode, content);
 		} else {
 			// need to list parent's content
 			if (parent.startsWith(PROJECTS_FOLDER.getSelfRef())) {
-				listProjects(userContext, parent, filters, hierarchyMode, content);
+				listProjects(userContext, query, parent, filters, hierarchyMode, content);
 			} else if (parent.startsWith(SHARED_FOLDER.getSelfRef())) {
-				listSharedBoomarks(userContext, parent, filters, hierarchyMode, content);
+				listSharedBoomarks(userContext, query, parent, filters, hierarchyMode, content);
 			} else if (parent.startsWith(MYBOOKMARKS_FOLDER.getSelfRef())) {
-				listMyBoomarks(userContext, parent, filters, hierarchyMode, content);
+				listMyBoomarks(userContext, query, parent, filters, hierarchyMode, content);
 			} else {
 				// invalid
 				throw new ObjectNotFoundAPIException("invalid parent reference", true);
@@ -216,33 +222,39 @@ public class BookmarkAnalysisServiceBaseImpl {
 	 * list the projects and their content (domains) depending on the parent path.
 	 * Note that this method does not support the flat mode because of computing constraints.
 	 * @param userContext
+	 * @param query 
 	 * @param parent
 	 * @param content
 	 * @throws ScopeException
 	 */
-	private void listProjects(AppContext userContext, String parent, String[] filters, HierarchyMode hierarchyMode, List<NavigationItem> content) throws ScopeException {
+	private void listProjects(AppContext userContext, NavigationQuery query, String parent, String[] filters, HierarchyMode hierarchyMode, List<NavigationItem> content) throws ScopeException {
 		// list project related resources
 		if (parent==null || parent.equals("") || parent.equals("/") || parent.equals(PROJECTS_FOLDER.getSelfRef())) {
 			// return available project
 			List<Project> projects = ((ProjectDAO) DAOFactory.getDAOFactory().getDAO(Project.class))
 					.findByCustomer(userContext, userContext.getCustomerPk());
 			for (Project project : projects) {
-				String id = PROJECTS_FOLDER.getSelfRef()+"/"+project.getId().getProjectId();
-				String name = project.getName();
-				if (filters==null || filter(name, filters)) {
-					NavigationItem folder = new NavigationItem(project.getId(), name, project.getDescription(), parent, id, FOLDER_TYPE);
+				if (filters==null || filter(project, filters)) {
+					NavigationItem folder = new NavigationItem(query, project, parent);
+					HashMap<String, String> attrs = new HashMap<>();
+					attrs.put("jdbc", project.getDbUrl());
+					folder.setAttributes(attrs);
 					content.add(folder);
 				}
 			}
 		} else if (parent.startsWith(PROJECTS_FOLDER.getSelfRef())) {
 			String projectId = parent.substring(PROJECTS_FOLDER.getSelfRef().length()+1);// remove /PROJECTS/ part
 			ProjectPK projectPk = new ProjectPK(userContext.getClientId(), projectId);
+			Project project = ProjectManager.INSTANCE.getProject(userContext, projectPk);
 			List<Domain> domains = ProjectManager.INSTANCE.getDomains(userContext, projectPk);
 			for (Domain domain : domains) {
 				String id = "@'"+projectId+"'.@'"+domain.getId().getDomainId()+"'";
 				String name = domain.getName();
 				if (filters==null || filter(name, filters)) {
-					NavigationItem item = new NavigationItem(domain.getId(), name, domain.getDescription(), parent, id, DOMAIN_TYPE);
+					NavigationItem item = new NavigationItem(query.getStyle().equals("HUMAN")?null:domain.getId(), name, domain.getDescription(), parent, id, DOMAIN_TYPE);
+					HashMap<String, String> attrs = new HashMap<>();
+					attrs.put("dictionary", project.getName());
+					item.setAttributes(attrs);
 					content.add(item);
 				}
 			}
@@ -254,12 +266,13 @@ public class BookmarkAnalysisServiceBaseImpl {
 	/**
 	 * list the MyBookmarks content (bookmarks and folders)
 	 * @param userContext
+	 * @param query 
 	 * @param parent
 	 * @param isFlat
 	 * @param content
 	 * @throws ScopeException
 	 */
-	private void listMyBoomarks(AppContext userContext, String parent, String[] filters, HierarchyMode hierarchyMode, List<NavigationItem> content) throws ScopeException {
+	private void listMyBoomarks(AppContext userContext, NavigationQuery query, String parent, String[] filters, HierarchyMode hierarchyMode, List<NavigationItem> content) throws ScopeException {
 		// list mybookmark related resources
 		String fullPath = getMyBookmarkPath(userContext);
 		if (parent.equals(MYBOOKMARKS_FOLDER.getSelfRef())) {
@@ -268,40 +281,45 @@ public class BookmarkAnalysisServiceBaseImpl {
 			// add the remaining path to fullpath
 			fullPath += parent.substring(MYBOOKMARKS_FOLDER.getSelfRef().length());
 		}
-		listBoomarks(userContext, parent, filters, hierarchyMode, fullPath, content);
+		listBoomarks(userContext, query, parent, filters, hierarchyMode, fullPath, content);
 	}
 	
 	/**
 	 * List the Shared bookmarks and folders
 	 * @param userContext
+	 * @param query 
 	 * @param parent
 	 * @param isFlat
 	 * @param content
 	 * @throws ScopeException
 	 */
-	private void listSharedBoomarks(AppContext userContext, String parent, String[] filters, HierarchyMode hierarchyMode, List<NavigationItem> content) throws ScopeException {
+	private void listSharedBoomarks(AppContext userContext, NavigationQuery query, String parent, String[] filters, HierarchyMode hierarchyMode, List<NavigationItem> content) throws ScopeException {
 		// list mybookmark related resources
 		String fullPath = Bookmark.SEPARATOR + Bookmark.Folder.SHARED;
 		if (!parent.equals(SHARED_FOLDER.getSelfRef())) {
 			// add the remaining path to fullpath
 			fullPath += parent.substring(SHARED_FOLDER.getSelfRef().length());
 		}
-		listBoomarks(userContext, parent, filters, hierarchyMode, fullPath, content);
+		listBoomarks(userContext, query, parent, filters, hierarchyMode, fullPath, content);
 	}
 
-	private void listBoomarks(AppContext userContext, String parent, String[] filters, HierarchyMode hierarchyMode, String fullPath, List<NavigationItem> content) throws ScopeException {
+	private void listBoomarks(AppContext userContext, NavigationQuery query, String parent, String[] filters, HierarchyMode hierarchyMode, String fullPath, List<NavigationItem> content) throws ScopeException {
 		// list the content first
 		List<Bookmark> bookmarks = ((BookmarkDAO) DAOFactory.getDAOFactory()
 				.getDAO(Bookmark.class)).findByPath(userContext, fullPath);
 		HashSet<String> folders = new HashSet<>();
 		for (Bookmark bookmark : bookmarks) {
+			Project project = ProjectManager.INSTANCE.getProject(userContext, bookmark.getId().getParent());
 			String path = bookmark.getPath();
 			// only handle the exact path
 			if (path.equals(fullPath)) {
 				String name = bookmark.getName();
-				if (filters==null || filter(name, filters)) {
+				if (filters==null || filter(bookmark, project, filters)) {
 					String id = "@'"+bookmark.getId().getProjectId()+"'.[bookmark:'"+bookmark.getId().getBookmarkId()+"']";
-					NavigationItem item = new NavigationItem(bookmark.getId(), name, bookmark.getDescription(), parent, id, BOOKMARK_TYPE);
+					NavigationItem item = new NavigationItem(query.getStyle().equals("HUMAN")?null:bookmark.getId(), name, bookmark.getDescription(), parent, id, BOOKMARK_TYPE);
+					HashMap<String, String> attrs = new HashMap<>();
+					attrs.put("dictionary", project.getName());
+					item.setAttributes(attrs);
 					content.add(item);
 				}
 			} else {
@@ -316,7 +334,7 @@ public class BookmarkAnalysisServiceBaseImpl {
 							String oid = Base64
 									.encodeBase64URLSafeString(selfpath.getBytes());
 							BookmarkFolderPK id = new BookmarkFolderPK(bookmark.getId().getParent(), oid);
-							NavigationItem item = new NavigationItem(id, name, "", parent, selfpath, FOLDER_TYPE);
+							NavigationItem item = new NavigationItem(query.getStyle().equals("HUMAN")?null:id, name, "", parent, selfpath, FOLDER_TYPE);
 							content.add(item);
 							folders.add(selfpath);
 						}
@@ -324,6 +342,38 @@ public class BookmarkAnalysisServiceBaseImpl {
 				}
 			}
 		}
+	}
+	
+	private boolean filter(Project project, String[] filters) {
+		final String name = project.getName();
+		final String description = project.getDescription();
+		final String attr = project.getDbUrl();
+		for (String filter : filters) {
+			if (name==null || !name.toLowerCase().contains(filter)) {
+				if (description==null || !description.toLowerCase().contains(filter)) {
+					if (attr==null || !attr.toLowerCase().contains(filter)) {
+						return false;
+					}
+				}
+			}
+		}
+		return true;
+	}
+	
+	private boolean filter(Bookmark bookmark, Project project, String[] filters) {
+		final String name = bookmark.getName();
+		final String description = bookmark.getDescription();
+		final String attr = project.getName();
+		for (String filter : filters) {
+			if (name==null || !name.toLowerCase().contains(filter)) {
+				if (description==null || !description.toLowerCase().contains(filter)) {
+					if (attr==null || !attr.toLowerCase().contains(filter)) {
+						return false;
+					}
+				}
+			}
+		}
+		return true;
 	}
 	
 	private boolean filter(String name, String[] filters) {
@@ -368,13 +418,13 @@ public class BookmarkAnalysisServiceBaseImpl {
 			Bookmark bookmark = new Bookmark();
 			BookmarkPK bookmarkPK = new BookmarkPK(space.getUniverse().getProject().getId());
 			bookmark.setId(bookmarkPK);
-			BookmarkConfig config = bookmarkFromQuery(query);
+			BookmarkConfig config = createBookmarkConfig(space, query);
 			ObjectMapper mapper = new ObjectMapper();
 			mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 			String json = mapper.writeValueAsString(config);
 			JsonNode tree = mapper.readTree(json);
 			bookmark.setConfig(tree);
-			bookmark.setDescription("created using the super coll new Bookmark API");
+			bookmark.setDescription("created using the super cool new Bookmark API");
 			bookmark.setName(name);
 			String path = "";
 			if (parent.startsWith(MYBOOKMARKS_FOLDER.getSelfRef())) {
@@ -411,16 +461,20 @@ public class BookmarkAnalysisServiceBaseImpl {
 		}
 	}
 	
-	private Space getSpace(AppContext userContext, String BBID) throws ScopeException {
-		GlobalExpressionScope scope = new GlobalExpressionScope(userContext);
-		ExpressionAST expr = scope.parseExpression(BBID);
-		if (expr instanceof SpaceExpression) {
-			SpaceExpression ref = (SpaceExpression)expr;
-			Space space = ref.getSpace();
-			return space;
+	private Space getSpace(AppContext userContext, String BBID) {
+		try {
+			GlobalExpressionScope scope = new GlobalExpressionScope(userContext);
+			ExpressionAST expr = scope.parseExpression(BBID);
+			if (expr instanceof SpaceExpression) {
+				SpaceExpression ref = (SpaceExpression)expr;
+				Space space = ref.getSpace();
+				return space;
+			}
+		} catch (ScopeException e) {
+			throw new ObjectNotFoundAPIException("invalid BBID: "+e.getMessage(), true);
 		}
 		// else
-		throw new ScopeException("invalid BBID");
+		throw new ObjectNotFoundAPIException("invalid BBID", true);
 	}
 	
 	public Facet getFacet(
@@ -450,8 +504,10 @@ public class BookmarkAnalysisServiceBaseImpl {
 			if (space.hasBookmark()) {
 				config = BookmarkManager.INSTANCE.readConfig(space.getBookmark());
 			}
-			initDefaultAnalysis(space, query, config);
-			FacetSelection selection = createFacetSelection(space, query, config);
+			// merge the config with the query
+			mergeBoomarkConfig(space, query, config);
+			// extract the facet selection
+			FacetSelection selection = createFacetSelection(space, query);
 			job.setSelection(selection);
 			//
 			Universe universe = space.getUniverse();
@@ -557,7 +613,7 @@ public class BookmarkAnalysisServiceBaseImpl {
 			AppContext userContext,
 			String BBID,
 			AnalysisQuery query,
-			Integer maxResults,
+			String format, Integer maxResults,
 			Integer startIndex,
 			String lazy
 			) {
@@ -567,27 +623,36 @@ public class BookmarkAnalysisServiceBaseImpl {
 			Bookmark bookmark = space.getBookmark();
 			BookmarkConfig config = readConfig(bookmark);
 			//
-			// using the default selection
-			//FacetSelection selection = config!=null?config.getSelection():new FacetSelection();
-			//
-			initDefaultAnalysis(space, query, config);
-			FacetSelection selection = createFacetSelection(space, query, config);
+			// merge the bookmark config with the query
+			mergeBoomarkConfig(space, query, config);
+			// create the facet selection
+			FacetSelection selection = createFacetSelection(space, query);
 			ProjectAnalysisJob job = createAnalysisJob(space.getUniverse(), query, selection, OutputFormat.JSON);
 			//
 			boolean lazyFlag = (lazy != null) && (lazy.equals("true") || lazy.equals("noError"));
-			//
-			DataTable data = AnalysisJobComputer.INSTANCE.compute(userContext, job, maxResults, startIndex, lazyFlag);
-			//
-			job.setResults(data);
 			//
 			// create the AnalysisResult
 			AnalysisResult result = new AnalysisResult();
 			result.setSelection(selection);
 			result.setQuery(query);
-			result.setData(data);
+			//
+			if (format==null || format.equals("")) {
+				format = "LEGACY";
+			}
+			if (format.equals("LEGACY")) {
+				DataTable data = AnalysisJobComputer.INSTANCE.compute(userContext, job, maxResults, startIndex, lazyFlag);
+				job.setResults(data);
+				result.setData(data);
+			}
+			if (format.equals("SQL")) {
+				// bypassing the ComputingService
+				AnalysisJobComputer computer = new AnalysisJobComputer();
+				String sql = computer.viewSQL(userContext, job);
+				result.setSQL(sql);
+			}
 			//
 			return result;
-		} catch (ComputingException | InterruptedException | ScopeException e) {
+		} catch (ComputingException | InterruptedException | ScopeException | SQLScopeException | RenderingException e) {
 			throw new APIException(e.getMessage(), true);
 		}
 	}
@@ -599,8 +664,7 @@ public class BookmarkAnalysisServiceBaseImpl {
 	 * @return
 	 * @throws ScopeException 
 	 */
-	private FacetSelection createFacetSelection(Space space, AnalysisQuery query, BookmarkConfig config) throws ScopeException {
-		FacetSelection original = config!=null?config.getSelection():new FacetSelection();
+	private FacetSelection createFacetSelection(Space space, AnalysisQuery query) throws ScopeException {
 		FacetSelection selection = new FacetSelection();
 		SpaceScope scope = new SpaceScope(space);
 		Domain domain = space.getDomain();
@@ -920,9 +984,11 @@ public class BookmarkAnalysisServiceBaseImpl {
 		return prettyPrint.replaceAll("[(),.]", " ").trim().replaceAll("[^ a-zA-Z_0-9]", "").replace(' ', '_');
 	}
 	
-	private BookmarkConfig bookmarkFromQuery(AnalysisQuery query) {
+	private BookmarkConfig createBookmarkConfig(Space space, AnalysisQuery query) throws ScopeException {
+		SpaceScope scope = new SpaceScope(space);
 		BookmarkConfig config = new BookmarkConfig();
-		config.setDomain(query.getDomain());
+		// config use the Domain OID
+		config.setDomain(space.getDomain().getOid());
 		//config.setSelection();
 		config.setLimit(query.getLimit());
 		if (query.getGroupBy() != null) {
@@ -930,7 +996,8 @@ public class BookmarkAnalysisServiceBaseImpl {
 			for (AnalysisFacet facet : query.getGroupBy()) {
 				String expression = facet.getExpression();
 				// add the domain scope
-				chosenDimensions.add(query.getDomain()+".("+expression+")");
+				ExpressionAST expr = scope.parseExpression(expression);
+				chosenDimensions.add(rewriteExpressionToGlobalScope(expr, space));
 			}
 			String[] toArray = new String[chosenDimensions.size()];
 			config.setChosenDimensions(chosenDimensions.toArray(toArray));
@@ -940,10 +1007,11 @@ public class BookmarkAnalysisServiceBaseImpl {
 			for (AnalysisFacet facet : query.getMetrics()) {
 				String expression = facet.getExpression();
 				// add the domain scope
-				choosenMetrics.add(query.getDomain()+".("+expression+")");
+				ExpressionAST expr = scope.parseExpression(expression);
+				choosenMetrics.add(rewriteExpressionToGlobalScope(expr, space));
 			}
 			String[] toArray = new String[choosenMetrics.size()];
-			config.setChosenDimensions(choosenMetrics.toArray(toArray));
+			config.setChosenMetrics(choosenMetrics.toArray(toArray));
 		}
 		//
 		if (query.getOrderBy() != null) {
@@ -958,10 +1026,23 @@ public class BookmarkAnalysisServiceBaseImpl {
 		if (query.getRollups() != null) {
 			config.setRollups(query.getRollups());
 		}
+		// add the selection
+		FacetSelection selection = createFacetSelection(space, query);
+		config.setSelection(selection);
 		return config;
 	}
 	
-	private void initDefaultAnalysis(Space space, AnalysisQuery analysis, BookmarkConfig config) throws ScopeException {
+	/**
+	 * merge the bookmark config with the current query. It modifies the query. Query parameters take precedence over the bookmark config.
+	 * 
+	 * @param space
+	 * @param analysis
+	 * @param config
+	 * @throws ScopeException
+	 * @throws ComputingException
+	 * @throws InterruptedException
+	 */
+	private void mergeBoomarkConfig(Space space, AnalysisQuery analysis, BookmarkConfig config) throws ScopeException, ComputingException, InterruptedException {
 		UniverseScope globalScope = new UniverseScope(space.getUniverse());
 		if (analysis.getDomain() == null) {
 			//analysis.setDomain("@'" + config.getDomain() + "'");
@@ -1061,11 +1142,33 @@ public class BookmarkAnalysisServiceBaseImpl {
 			}
 		}
 		if (analysis.getPeriod()==null) {
-			// nothing selected - double check and auto detect?
+			DomainHierarchy hierarchy = DomainHierarchyManager.INSTANCE.getHierarchy(space.getUniverse().getProject().getId(), space.getDomain(), false);
+			for (DimensionIndex index : hierarchy.getDimensionIndexes()) {
+				if (index.isVisible() && index.getDimension().getType().equals(Type.CONTINUOUS) && index.getAxis().getDefinitionSafe().getImageDomain().isInstanceOf(IDomain.TEMPORAL)) {
+					// use it as period
+					Axis axis = index.getAxis();
+					AxisExpression expr = new AxisExpression(axis);
+					analysis.setPeriod(rewriteExpressionToLocalScope(expr, space));
+				}
+			}
+			if (analysis.getPeriod()==null) {
+				// nothing selected - double check and auto detect?
+				if (analysis.getTimeframe()!=null && analysis.getTimeframe().length>0) {
+					throw new APIException("No period defined: you cannot set the timeframe");
+				}
+				if (analysis.getCompareframe()!=null && analysis.getCompareframe().length>0) {
+					throw new APIException("No period defined: you cannot set the timeframe");
+				}
+			}
 		}
 		// handling the selection
-		if (!selection.getFacets().isEmpty()) {
-			List<String> filters = new ArrayList<>();
+		boolean filterWildcard = isWildcardFilters(analysis.getFilters());
+		List<String> filters = analysis.getFilters()!=null?new ArrayList<>(analysis.getFilters()):new ArrayList<String>();
+		if (filterWildcard) {
+			filters.remove(0); // remove the *
+		}
+		if (!selection.getFacets().isEmpty()) {// always iterate over selection at least to capture the period
+			boolean keepConfig = filterWildcard || filters.isEmpty();
 			String period = null;
 			if (analysis.getPeriod()!=null && analysis.getTimeframe()==null) {
 				period = analysis.getDomain()+"."+analysis.getPeriod();
@@ -1090,7 +1193,7 @@ public class BookmarkAnalysisServiceBaseImpl {
 								}
 							}
 						}
-					} else if (SegmentManager.isSegmentFacet(facet)) {
+					} else if (SegmentManager.isSegmentFacet(facet) && keepConfig) {
 						// it's the segment facet
 						for (FacetMember item : facet.getSelectedItems()) {
 							if (item instanceof FacetMemberString) {
@@ -1108,7 +1211,7 @@ public class BookmarkAnalysisServiceBaseImpl {
 								}
 							}
 						}
-					} else {
+					} else if (keepConfig) {
 						ExpressionAST expr = globalScope.parseExpression(facet.getId());
 						String  filter = rewriteExpressionToLocalScope(expr, space);
 						if (facet.getSelectedItems().size()==1) {
@@ -1139,9 +1242,13 @@ public class BookmarkAnalysisServiceBaseImpl {
 					}
 				}
 			}
-			if (!filters.isEmpty()) {
-				analysis.setFilters(filters);
-			}
+		}
+		analysis.setFilters(filters);
+		//
+		// check timeframe again
+		if (analysis.getPeriod()!=null && (analysis.getTimeframe()==null || analysis.getTimeframe().length==0)) {
+			// add a default timeframe
+			analysis.setTimeframe(new String[]{"__CURRENT_MONTH"});
 		}
 	}
 	
@@ -1152,6 +1259,15 @@ public class BookmarkAnalysisServiceBaseImpl {
 		}
 		// else
 		return false;
+	}
+	
+	private boolean isWildcardFilters(List<String> items) {
+		if (items !=null && !items.isEmpty()) {
+			String first = items.get(0);
+			return first.equals("*");
+		} else {
+			return false;// only return true if it is a real wildcard
+		}
 	}
 	
 	/**
