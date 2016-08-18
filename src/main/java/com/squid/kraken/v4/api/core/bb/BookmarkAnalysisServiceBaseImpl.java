@@ -28,10 +28,13 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
+
+import org.apache.commons.codec.binary.Base64;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -79,6 +82,7 @@ import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.kraken.v4.core.expression.reference.DomainReference;
 import com.squid.kraken.v4.core.expression.scope.DomainExpressionScope;
 import com.squid.kraken.v4.core.expression.scope.ExpressionSuggestionHandler;
+import com.squid.kraken.v4.core.expression.scope.SegmentExpressionScope;
 import com.squid.kraken.v4.core.model.domain.DomainDomain;
 import com.squid.kraken.v4.model.AccessRight;
 import com.squid.kraken.v4.model.AnalysisQuery;
@@ -127,20 +131,33 @@ public class BookmarkAnalysisServiceBaseImpl {
 	}
 	
 
-	private static final NavigationItem PROJECTS_FOLDER = new NavigationItem("Projects", "", "/PROJECTS", "FOLDER");
-	private static final NavigationItem SHARED_FOLDER = new NavigationItem("Shared Bookmarks", "", "/SHARED", "FOLDER");
-	private static final NavigationItem MYBOOKMARKS_FOLDER = new NavigationItem("My Bookmarks", "", "/MYBOOKMARKS", "FOLDER");
+	private static final NavigationItem PROJECTS_FOLDER = new NavigationItem("Projects", "list all your Dictionaries", "", "/PROJECTS", "FOLDER");
+	private static final NavigationItem SHARED_FOLDER = new NavigationItem("Shared Bookmarks", "list all the bookmarks shared with you", "", "/SHARED", "FOLDER");
+	private static final NavigationItem MYBOOKMARKS_FOLDER = new NavigationItem("My Bookmarks", "list all your bookmarks", "", "/MYBOOKMARKS", "FOLDER");
+	
+	private static final String FOLDER_TYPE = "FOLDER";
+	private static final String BOOKMARK_TYPE = "BOOKMARK";
+	private static final String DOMAIN_TYPE = "DOMAIN";
 
-	public List<NavigationItem> listContent(
+	public NavigationReply listContent(
 			AppContext userContext,
 			String parent,
-			String[] filters,
+			String search,
 			HierarchyMode hierarchyMode
 		) throws ScopeException {
 		List<NavigationItem> content = new ArrayList<>();
 		if (parent !=null && parent.endsWith("/")) {
 			parent = parent.substring(0, parent.length()-1);// remove trailing /
 		}
+		NavigationQuery query = new NavigationQuery();
+		query.setParent(parent);
+		query.setQ(search);
+		query.setHiearchy(hierarchyMode);
+		//
+		// tokenize the search string
+		String[] filters = null;
+		if (search!=null) filters = search.toLowerCase().split(",");
+		//
 		if (parent==null || parent.length()==0) {
 			// this is the root
 			content.add(PROJECTS_FOLDER);
@@ -162,9 +179,39 @@ public class BookmarkAnalysisServiceBaseImpl {
 				throw new ObjectNotFoundAPIException("invalid parent reference", true);
 			}
 		}
-		return content;
+		// sort content
+		sortNavigationContent(content);
+		return new NavigationReply(query, content);
 	}
 	
+	private static final List<String> topLevelOrder = Arrays.asList(new String[]{PROJECTS_FOLDER.getSelfRef(), SHARED_FOLDER.getSelfRef(), MYBOOKMARKS_FOLDER.getSelfRef()});
+	private static final List<String> typeOrder = Arrays.asList(new String[]{FOLDER_TYPE, BOOKMARK_TYPE, DOMAIN_TYPE});
+	/**
+	 * @param content
+	 */
+	private void sortNavigationContent(List<NavigationItem> content) {
+		Collections.sort(content, new Comparator<NavigationItem>() {
+			@Override
+			public int compare(NavigationItem o1, NavigationItem o2) {
+				if (o1.getParentRef()=="" && o2.getParentRef()=="") {
+					// special rule for top level
+					return Integer.compare(topLevelOrder.indexOf(o1.getSelfRef()),topLevelOrder.indexOf(o2.getSelfRef()));
+				} else if (o1.getParentRef().equals(o2.getParentRef())) {
+					if (o1.getType().equals(o2.getType())) {
+						// sort by name
+						return o1.getName().compareTo(o2.getName());
+					} else {
+						// sort by type
+						return Integer.compare(typeOrder.indexOf(o1.getType()),typeOrder.indexOf(o2.getType()));
+					}
+				} else {
+					// sort by parent
+					return o1.getParentRef().compareTo(o2.getParentRef());
+				}
+			}
+		});
+	}
+
 	/**
 	 * list the projects and their content (domains) depending on the parent path.
 	 * Note that this method does not support the flat mode because of computing constraints.
@@ -183,7 +230,7 @@ public class BookmarkAnalysisServiceBaseImpl {
 				String id = PROJECTS_FOLDER.getSelfRef()+"/"+project.getId().getProjectId();
 				String name = project.getName();
 				if (filters==null || filter(name, filters)) {
-					NavigationItem folder = new NavigationItem(name, parent, id, "FOLDER");
+					NavigationItem folder = new NavigationItem(project.getId(), name, project.getDescription(), parent, id, FOLDER_TYPE);
 					content.add(folder);
 				}
 			}
@@ -195,7 +242,7 @@ public class BookmarkAnalysisServiceBaseImpl {
 				String id = "@'"+projectId+"'.@'"+domain.getId().getDomainId()+"'";
 				String name = domain.getName();
 				if (filters==null || filter(name, filters)) {
-					NavigationItem item = new NavigationItem(name, parent, id, "DOMAIN");
+					NavigationItem item = new NavigationItem(domain.getId(), name, domain.getDescription(), parent, id, DOMAIN_TYPE);
 					content.add(item);
 				}
 			}
@@ -254,7 +301,7 @@ public class BookmarkAnalysisServiceBaseImpl {
 				String name = bookmark.getName();
 				if (filters==null || filter(name, filters)) {
 					String id = "@'"+bookmark.getId().getProjectId()+"'.[bookmark:'"+bookmark.getId().getBookmarkId()+"']";
-					NavigationItem item = new NavigationItem(name, parent, id, "BOOKMARK");
+					NavigationItem item = new NavigationItem(bookmark.getId(), name, bookmark.getDescription(), parent, id, BOOKMARK_TYPE);
 					content.add(item);
 				}
 			} else {
@@ -263,12 +310,15 @@ public class BookmarkAnalysisServiceBaseImpl {
 				String[] split = path.split("/");
 				if (split.length>0) {
 					String name = "/"+(hierarchyMode!=null?path:split[0]);
-					String id = parent+name;
-					if (!folders.contains(id)) {
+					String selfpath = parent+name;
+					if (!folders.contains(selfpath)) {
 						if (filters==null || filter(name, filters)) {
-							NavigationItem item = new NavigationItem(name, parent, id, "FOLDER");
+							String oid = Base64
+									.encodeBase64URLSafeString(selfpath.getBytes());
+							BookmarkFolderPK id = new BookmarkFolderPK(bookmark.getId().getParent(), oid);
+							NavigationItem item = new NavigationItem(id, name, "", parent, selfpath, FOLDER_TYPE);
 							content.add(item);
-							folders.add(id);
+							folders.add(selfpath);
 						}
 					}
 				}
@@ -1022,52 +1072,69 @@ public class BookmarkAnalysisServiceBaseImpl {
 			}
 			// look for the selection
 			for (Facet facet : selection.getFacets()) {
-				if (facet.getId().equals(period)) {
-					// it's the period
-					List<FacetMember> items = facet.getSelectedItems();
-					if (items.size()==1) {
-						FacetMember timeframe = items.get(0);
-						if (timeframe instanceof FacetMemberInterval) {
-							String upperBound = ((FacetMemberInterval) timeframe).getUpperBound();
-							if (upperBound.startsWith("__")) {
-								// it's a shortcut
-								analysis.setTimeframe(new String[]{upperBound});
-							} else {
-								// it's a date
-								String lowerBound = ((FacetMemberInterval) timeframe).getLowerBound();
-								analysis.setTimeframe(new String[]{lowerBound,upperBound});
+				if (!facet.getSelectedItems().isEmpty()) {
+					if (facet.getId().equals(period)) {
+						// it's the period
+						List<FacetMember> items = facet.getSelectedItems();
+						if (items.size()==1) {
+							FacetMember timeframe = items.get(0);
+							if (timeframe instanceof FacetMemberInterval) {
+								String upperBound = ((FacetMemberInterval) timeframe).getUpperBound();
+								if (upperBound.startsWith("__")) {
+									// it's a shortcut
+									analysis.setTimeframe(new String[]{upperBound});
+								} else {
+									// it's a date
+									String lowerBound = ((FacetMemberInterval) timeframe).getLowerBound();
+									analysis.setTimeframe(new String[]{lowerBound,upperBound});
+								}
 							}
 						}
-					}
-				} else if (SegmentManager.isSegmentFacet(facet)) {
-					// it's an open filter
-					throw new RuntimeException("unsupported open filter");
-				} else if (!facet.getSelectedItems().isEmpty()) {
-					ExpressionAST expr = globalScope.parseExpression(facet.getId());
-					String  filter = rewriteExpressionToLocalScope(expr, space);
-					if (facet.getSelectedItems().size()==1) {
-						if (facet.getSelectedItems().get(0) instanceof FacetMemberString) {
-							filter += "=";
-							FacetMember member = facet.getSelectedItems().get(0);
-							filter += member.toString();
-							filters.add(filter);
+					} else if (SegmentManager.isSegmentFacet(facet)) {
+						// it's the segment facet
+						for (FacetMember item : facet.getSelectedItems()) {
+							if (item instanceof FacetMemberString) {
+								FacetMemberString member = (FacetMemberString)item;
+								if (SegmentManager.isOpenFilter(member)) {
+									// open filter is jut a formula
+									String formula = member.getValue();
+									if (formula.startsWith("=")) {
+										formula = formula.substring(1);
+									}
+									filters.add(formula);
+								} else {
+									// it's a segment name
+									filters.add("'"+member.getValue()+"'");
+								}
+							}
 						}
 					} else {
-						filter += " IN [";
-						boolean first = true;
-						for (FacetMember member : facet.getSelectedItems()) {
-							if (member instanceof FacetMemberString) {
-								if (!first) {
-									filter += " , ";
-								} else {
-									first = false;
-								}
-								filter += member.toString();
+						ExpressionAST expr = globalScope.parseExpression(facet.getId());
+						String  filter = rewriteExpressionToLocalScope(expr, space);
+						if (facet.getSelectedItems().size()==1) {
+							if (facet.getSelectedItems().get(0) instanceof FacetMemberString) {
+								filter += "=";
+								FacetMember member = facet.getSelectedItems().get(0);
+								filter += "\""+member.toString()+"\"";
+								filters.add(filter);
 							}
-						}
-						filter += "]";
-						if (!first) {
-							filters.add(filter);
+						} else {
+							filter += " IN [";
+							boolean first = true;
+							for (FacetMember member : facet.getSelectedItems()) {
+								if (member instanceof FacetMemberString) {
+									if (!first) {
+										filter += " , ";
+									} else {
+										first = false;
+									}
+									filter += "\""+member.toString()+"\"";
+								}
+							}
+							filter += "]";
+							if (!first) {
+								filters.add(filter);
+							}
 						}
 					}
 				}
