@@ -42,7 +42,7 @@ import org.slf4j.LoggerFactory;
 
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.api.core.bb.BookmarkAnalysisServiceBaseImpl;
-import com.squid.kraken.v4.api.core.bb.NavigationItem;
+import com.squid.kraken.v4.api.core.bb.NavigationReply;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.model.AnalysisQuery;
 import com.squid.kraken.v4.model.AnalysisQuery.AnalysisFacet;
@@ -98,18 +98,17 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest {
 					+ "You can use it to navigate the entire available content, or access a specific content by defining the parent parameter."
 					+ "The root parents are /PROJECTS for listing projects and domains, /MYBOOKMARKS to list the user bookmarks and folders, and /SHARED to list the shared bookmarks and folders."
 					+ "By default it lists ony the content directly under the parent, but you can set the hierarchy parameter to view content recursively.")
-	public List<NavigationItem> listContent(
+	public NavigationReply listContent(
 			@Context HttpServletRequest request,
 			@ApiParam(value="filter the content under the parent path") @QueryParam("parent") String parent,
-			@ApiParam(value="filter the content by name; q can be a multi-token search string separated by comma") @QueryParam("q") String filter,
+			@ApiParam(value="filter the content by name; q can be a multi-token search string separated by comma") 
+			@QueryParam("q") String search,
 			@ApiParam(
 					value="define the hierarchy mode. FLAT mode return the hierarchy as a flat list, whereas TREE returns it as a folded structure (NIY)") 
 				@QueryParam("hierarchy") HierarchyMode hierarchyMode
 		) throws ScopeException {
 		AppContext userContext = getUserContext(request);
-		String[] filters = null;
-		if (filter!=null) filters = filter.toLowerCase().split(",");
-		return delegate.listContent(userContext, parent, filters, hierarchyMode);
+		return delegate.listContent(userContext, parent, search, hierarchyMode);
 	}
 
 	@GET
