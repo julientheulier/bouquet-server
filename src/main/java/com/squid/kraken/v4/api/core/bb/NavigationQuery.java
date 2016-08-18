@@ -23,7 +23,7 @@
  *******************************************************************************/
 package com.squid.kraken.v4.api.core.bb;
 
-import com.squid.kraken.v4.api.core.customer.BookmarkAnalysisServiceRest.HierarchyMode;
+import com.squid.kraken.v4.api.core.bb.BookmarkAnalysisServiceRest.HierarchyMode;
 
 /**
  * This is a simple pojo that wraps the navigation parameters
@@ -32,11 +32,13 @@ import com.squid.kraken.v4.api.core.customer.BookmarkAnalysisServiceRest.Hierarc
  */
 public class NavigationQuery {
 	
-	public String parent;
+	private String parent;
 	
-	public String q;
+	private String q;
 	
-	public HierarchyMode hiearchy;
+	private HierarchyMode hiearchy;
+	
+	private String style;
 	
 	/**
 	 * 
@@ -67,6 +69,14 @@ public class NavigationQuery {
 
 	public void setHiearchy(HierarchyMode hiearchy) {
 		this.hiearchy = hiearchy;
+	}
+
+	public String getStyle() {
+		return style;
+	}
+
+	public void setStyle(String style) {
+		this.style = style;
 	}
 
 }
