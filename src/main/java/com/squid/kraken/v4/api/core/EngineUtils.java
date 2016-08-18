@@ -254,6 +254,13 @@ public class EngineUtils {
 				if (range==null) {
 					range = IntervalleObject.createInterval(new Date(), new Date());
 				}
+				if (value.equalsIgnoreCase("__ALL")) {
+					if (bound==Bound.UPPER) {
+						return (Date)range.getUpperBound();
+					} else {
+						return (Date)range.getLowerBound();
+					}
+				}
 				if (value.equalsIgnoreCase("__LAST_DAY")) {
 					if (bound==Bound.UPPER) {
 						return (Date)range.getUpperBound();
