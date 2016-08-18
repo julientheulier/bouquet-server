@@ -251,7 +251,7 @@ public class SegmentManager {
 	 * @param id
 	 * @return
 	 */
-	private static boolean isOpenFilter(FacetMemberString member) {
+	public static boolean isOpenFilter(FacetMemberString member) {
 		return member.getId() != null && member.getValue() != null && member.getId().startsWith(OPEN_FILTER_ID);
 	}
 
