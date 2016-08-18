@@ -23,19 +23,25 @@
  *******************************************************************************/
 package com.squid.kraken.v4.api.core.bb;
 
+import com.squid.kraken.v4.model.CustomerPK;
+
 /**
  * @author sergefantino
  *
  */
 public class NavigationItem {
 	
-	public String name;
+	private CustomerPK id;
 	
-	public String parentRef;
+	private String name;
 	
-	public String selfRef;
+	private String description;
 	
-	public String type;
+	private String parentRef;
+	
+	private String selfRef;
+	
+	private String type;
 	
 	/**
 	 * 
@@ -44,12 +50,31 @@ public class NavigationItem {
 		// TODO Auto-generated constructor stub
 	}
 	
-	public NavigationItem(String name, String parentRef, String selfRef, String type) {
+	public NavigationItem(CustomerPK id, String name, String description, String parentRef, String selfRef, String type) {
 		super();
-		this.name = name;
+		this.id = id;
+		this.name = name!=null?name:"";// avoid having undefined name make everyone happy
+		this.description = description;
 		this.parentRef = parentRef;
 		this.selfRef = selfRef;
 		this.type = type;
+	}
+	
+	public NavigationItem(String name, String description, String parentRef, String selfRef, String type) {
+		super();
+		this.name = name!=null?name:"";// avoid having undefined name make everyone happy
+		this.description = description;
+		this.parentRef = parentRef;
+		this.selfRef = selfRef;
+		this.type = type;
+	}
+	
+	public CustomerPK getId() {
+		return id;
+	}
+
+	public void setId(CustomerPK id) {
+		this.id = id;
 	}
 
 	public String getName() {
@@ -58,6 +83,14 @@ public class NavigationItem {
 
 	public void setName(String name) {
 		this.name = name;
+	}
+	
+	public String getDescription() {
+		return description;
+	}
+
+	public void setDescription(String description) {
+		this.description = description;
 	}
 
 	public String getParentRef() {
