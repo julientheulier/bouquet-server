@@ -23,7 +23,10 @@
  *******************************************************************************/
 package com.squid.kraken.v4.api.core.bb;
 
+import java.util.Map;
+
 import com.squid.kraken.v4.model.CustomerPK;
+import com.squid.kraken.v4.model.Project;
 
 /**
  * @author sergefantino
@@ -37,6 +40,8 @@ public class NavigationItem {
 	
 	private String description;
 	
+	private Map<String, String> attributes;
+	
 	private String parentRef;
 	
 	private String selfRef;
@@ -48,6 +53,16 @@ public class NavigationItem {
 	 */
 	public NavigationItem() {
 		// TODO Auto-generated constructor stub
+	}
+	
+	public NavigationItem(NavigationQuery query, Project project, String parentRef) {
+		this.id = query.getStyle().equals("HUMAN")?null:project.getId();
+		this.name = project.getName();
+		if (this.name==null) this.name="";
+		this.description = project.getDescription();
+		this.parentRef = parentRef;
+		this.selfRef = parentRef+"/"+project.getOid();
+		this.type = BookmarkAnalysisServiceBaseImpl.FOLDER_TYPE;
 	}
 	
 	public NavigationItem(CustomerPK id, String name, String description, String parentRef, String selfRef, String type) {
@@ -91,6 +106,14 @@ public class NavigationItem {
 
 	public void setDescription(String description) {
 		this.description = description;
+	}
+	
+	public Map<String, String> getAttributes() {
+		return attributes;
+	}
+
+	public void setAttributes(Map<String, String> attributes) {
+		this.attributes = attributes;
 	}
 
 	public String getParentRef() {
