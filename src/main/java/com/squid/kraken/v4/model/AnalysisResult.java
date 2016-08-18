@@ -38,6 +38,8 @@ public class AnalysisResult {
 	
 	// the resulting dataTable
 	private DataTable data;
+	// the sql code
+	private String sql;
 	
 	/**
 	 * 
@@ -68,6 +70,14 @@ public class AnalysisResult {
 
 	public void setData(DataTable data) {
 		this.data = data;
+	}
+
+	public String getSQL() {
+		return sql;
+	}
+	
+	public void setSQL(String sql) {
+		this.sql = sql;
 	}
 
 }
