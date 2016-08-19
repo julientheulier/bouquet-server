@@ -26,6 +26,7 @@ package com.squid.kraken.v4.api.core.bb;
 import com.squid.core.domain.IDomain;
 import com.squid.core.domain.operators.ExtendedType;
 import com.squid.core.expression.ExpressionRef;
+import com.squid.core.expression.scope.IdentifierType;
 import com.squid.core.sql.render.SQLSkin;
 import com.squid.kraken.v4.core.model.domain.DomainDomain;
 import com.squid.kraken.v4.model.Project;
@@ -80,20 +81,19 @@ public class ProjectExpressionRef extends ExpressionRef {
 		return project;
 	}
 
-	/* (non-Javadoc)
-	 * @see com.squid.core.expression.ExpressionRef#getReferenceName()
-	 */
 	@Override
 	public String getReferenceName() {
 		return project.getName();
 	}
 
-	/* (non-Javadoc)
-	 * @see com.squid.core.expression.ExpressionRef#getReferenceIdentifier()
-	 */
 	@Override
 	public String getReferenceIdentifier() {
 		return project.getId().getProjectId();
+	}
+	
+	@Override
+	public IdentifierType getReferenceType() {
+		return null;
 	}
 
 }

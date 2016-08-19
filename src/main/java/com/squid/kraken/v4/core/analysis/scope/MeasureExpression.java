@@ -26,6 +26,8 @@ package com.squid.kraken.v4.core.analysis.scope;
 import com.squid.core.domain.IDomain;
 import com.squid.core.domain.operators.ExtendedType;
 import com.squid.core.expression.PrettyPrintConstant;
+import com.squid.core.expression.PrettyPrintOptions;
+import com.squid.core.expression.scope.IdentifierType;
 import com.squid.core.sql.render.SQLSkin;
 import com.squid.kraken.v4.core.analysis.universe.Measure;
 import com.squid.kraken.v4.core.analysis.universe.Space;
@@ -61,6 +63,20 @@ extends AnalysisExpression
 	
 	@Override
 	public String getReferenceIdentifier() {
+		if (value!=null && value.getMetric()!=null) {
+			return value.getMetric().getOid();
+		} else {
+			return null;
+		}
+	}
+	
+	@Override
+	public IdentifierType getReferenceType() {
+		return null;
+	}
+	
+	@Override
+	public String prettyPrintIdentifierX() {
 		Metric metric = value.getMetric();
 		if (metric!=null && metric.getOid()!=null) {
 			String id = PrettyPrintConstant.IDENTIFIER_TAG
@@ -116,7 +132,7 @@ extends AnalysisExpression
 	 */
 	// T1702: this has side effects... but this is truly the right way to handle the axisExpression.prettyPrint().
 	@Override
-	public String prettyPrint() {
+	public String prettyPrint(PrettyPrintOptions options) {
 		if (value!=null) return value.prettyPrint(); else return "{measure:undefined}";
 	}
 
