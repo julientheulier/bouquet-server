@@ -682,9 +682,19 @@ public class DataMatrix {
 		return rows;
 	}
 
-	private String computeFormat(Property px, ExtendedType type) {
-		if (px.getFormat() != null) {
-			return px.getFormat();
+	private String computeFormat(Axis axis, ExtendedType type) {
+		IDomain image = axis.getDefinitionSafe().getImageDomain();
+		if (image.isInstanceOf(IDomain.NUMERIC)) return null;
+		if (axis.getFormat() != null) {
+			return axis.getFormat();
+		} else {
+			return computeFormat(type);
+		}
+	}
+
+	private String computeFormat(Measure measure, ExtendedType type) {
+		if (measure.getFormat() != null) {
+			return measure.getFormat();
 		} else {
 			return computeFormat(type);
 		}
