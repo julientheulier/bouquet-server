@@ -3,6 +3,7 @@ package com.squid.kraken.v4.model;
 import java.util.List;
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.squid.kraken.v4.api.core.bb.NavigationQuery.Style;
 import com.squid.kraken.v4.model.AnalysisQueryImpl.AnalysisFacetImpl;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.OrderBy;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.RollUp;
@@ -14,13 +15,13 @@ public interface AnalysisQuery {
 
 	public void setDomain(String domain);
 
-	public List<AnalysisFacet> getGroupBy();
+	public List<String> getGroupBy();
 	
-	public void setGroupBy(List<AnalysisFacet> facets);
+	public void setGroupBy(List<String> facets);
 	
-	public List<AnalysisFacet> getMetrics();
+	public List<String> getMetrics();
 
-	public void setMetrics(List<AnalysisFacet> facets);
+	public void setMetrics(List<String> facets);
 	
 	/**
 	 * get the period expression, used to filter the timeframe.
@@ -63,6 +64,26 @@ public interface AnalysisQuery {
 
 	public void setBookmarkId(String bookmarkId);
 	
+	void setStyle(Style style);
+
+	Style getStyle();
+
+	void setLazy(String lazy);
+
+	String getLazy();
+
+	void setStartIndex(Integer startIndex);
+
+	Integer getStartIndex();
+
+	void setMaxResults(Integer maxResults);
+
+	Integer getMaxResults();
+
+	void setFormat(String format);
+
+	String getFormat();
+
 	@JsonDeserialize(as = AnalysisFacetImpl.class)
 	static public interface AnalysisFacet {
 		

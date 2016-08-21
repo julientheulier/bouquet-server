@@ -2,6 +2,7 @@ package com.squid.kraken.v4.model;
 
 import java.util.List;
 
+import com.squid.kraken.v4.api.core.bb.NavigationQuery.Style;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.OrderBy;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.RollUp;
 
@@ -9,9 +10,9 @@ public class AnalysisQueryImpl implements AnalysisQuery {
 
 	private String domain;
 	
-	private List<AnalysisFacet> groupBy;
+	private List<String> groupBy;
 	
-	private List<AnalysisFacet> metrics;
+	private List<String> metrics;
 	
 	private List<String> filters;
 	
@@ -30,6 +31,16 @@ public class AnalysisQueryImpl implements AnalysisQuery {
 	private Long limit;
 	
 	private String bookmarkId;
+	
+	private String format = "LEGACY";
+	
+	private Integer maxResults = null;
+	
+	private Integer startIndex = null;
+	
+	private String lazy = null;// false
+	
+	private Style style = Style.HUMAN;
 
 	public AnalysisQueryImpl() {
 	}
@@ -50,19 +61,19 @@ public class AnalysisQueryImpl implements AnalysisQuery {
 		this.domain = domain;
 	}
 	
-	public List<AnalysisFacet> getGroupBy() {
+	public List<String> getGroupBy() {
 		return groupBy;
 	}
 
-	public void setGroupBy(List<AnalysisFacet> groupBy) {
+	public void setGroupBy(List<String> groupBy) {
 		this.groupBy = groupBy;
 	}
 
-	public List<AnalysisFacet> getMetrics() {
+	public List<String> getMetrics() {
 		return metrics;
 	}
 
-	public void setMetrics(List<AnalysisFacet> metrics) {
+	public void setMetrics(List<String> metrics) {
 		this.metrics = metrics;
 	}
 
@@ -179,6 +190,58 @@ public class AnalysisQueryImpl implements AnalysisQuery {
 	public void setBookmarkId(String bookmarkId) {
 		this.bookmarkId = bookmarkId;
 	}
+	
+	@Override
+	public String getFormat() {
+		return format;
+	}
+
+	@Override
+	public void setFormat(String format) {
+		this.format = format;
+	}
+
+	@Override
+	public Integer getMaxResults() {
+		return maxResults;
+	}
+
+	@Override
+	public void setMaxResults(Integer maxResults) {
+		this.maxResults = maxResults;
+	}
+
+	@Override
+	public Integer getStartIndex() {
+		return startIndex;
+	}
+
+	@Override
+	public void setStartIndex(Integer startIndex) {
+		this.startIndex = startIndex;
+	}
+
+	@Override
+	public String getLazy() {
+		return lazy;
+	}
+
+	@Override
+	public void setLazy(String lazy) {
+		this.lazy = lazy;
+	}
+
+	@Override
+	public Style getStyle() {
+		return style;
+	}
+
+	@Override
+	public void setStyle(Style style) {
+		this.style = style;
+	}
+
+
 
 	static public class AnalysisFacetImpl implements AnalysisFacet {
 
@@ -201,6 +264,8 @@ public class AnalysisQueryImpl implements AnalysisQuery {
 		public void setExpression(String expression) {
 			this.expression = expression;
 		}
+		
+		
 		
 		/* (non-Javadoc)
 		 * @see java.lang.Object#toString()
