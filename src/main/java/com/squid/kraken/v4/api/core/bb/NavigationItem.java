@@ -25,7 +25,9 @@ package com.squid.kraken.v4.api.core.bb;
 
 import java.util.Map;
 
+import com.squid.kraken.v4.api.core.bb.NavigationQuery.Style;
 import com.squid.kraken.v4.model.CustomerPK;
+import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.Project;
 
 /**
@@ -56,13 +58,37 @@ public class NavigationItem {
 	}
 	
 	public NavigationItem(NavigationQuery query, Project project, String parentRef) {
-		this.id = query.getStyle().equals("HUMAN")?null:project.getId();
+		this.id = query.getStyle()==Style.HUMAN?null:project.getId();
 		this.name = project.getName();
 		if (this.name==null) this.name="";
 		this.description = project.getDescription();
 		this.parentRef = parentRef;
-		this.selfRef = parentRef+"/"+project.getOid();
-		this.type = BookmarkAnalysisServiceBaseImpl.FOLDER_TYPE;
+		if (query.getStyle()==Style.HUMAN) {
+			this.selfRef = parentRef+"/"+project.getName();
+		} else {
+			this.selfRef = parentRef+"/@"+project.getOid();
+		}
+		this.type = BookmarkAnalysisServiceBaseImpl.PROJECT_TYPE;
+	}
+	
+	/**
+	 * @param query
+	 * @param project
+	 * @param domain
+	 * @param parent
+	 */
+	public NavigationItem(NavigationQuery query, Project project, Domain domain, String parentRef) {
+		this.id = query.getStyle()==Style.HUMAN?null:domain.getId();
+		this.name = domain.getName();
+		if (this.name==null) this.name="";
+		this.description = domain.getDescription();
+		this.parentRef = parentRef;
+		if (query.getStyle()==Style.HUMAN) {
+			this.selfRef = "'"+project.getName()+"'.'"+domain.getName()+"'";
+		} else {
+			this.selfRef = "@'"+project.getOid()+"'.@'"+domain.getOid()+"'";
+		}
+		this.type = BookmarkAnalysisServiceBaseImpl.DOMAIN_TYPE;
 	}
 	
 	public NavigationItem(CustomerPK id, String name, String description, String parentRef, String selfRef, String type) {
@@ -83,7 +109,7 @@ public class NavigationItem {
 		this.selfRef = selfRef;
 		this.type = type;
 	}
-	
+
 	public CustomerPK getId() {
 		return id;
 	}
