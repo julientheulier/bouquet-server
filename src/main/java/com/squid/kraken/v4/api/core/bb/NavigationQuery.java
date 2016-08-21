@@ -32,13 +32,17 @@ import com.squid.kraken.v4.api.core.bb.BookmarkAnalysisServiceRest.HierarchyMode
  */
 public class NavigationQuery {
 	
+	public enum Style {
+		HUMAN, LEGACY, MACHINE
+	}
+	
 	private String parent;
 	
 	private String q;
 	
 	private HierarchyMode hiearchy;
 	
-	private String style;
+	private Style style;
 	
 	/**
 	 * 
@@ -71,11 +75,11 @@ public class NavigationQuery {
 		this.hiearchy = hiearchy;
 	}
 
-	public String getStyle() {
+	public Style getStyle() {
 		return style;
 	}
 
-	public void setStyle(String style) {
+	public void setStyle(Style style) {
 		this.style = style;
 	}
 
