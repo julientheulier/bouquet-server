@@ -36,15 +36,16 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.squid.core.expression.scope.ScopeException;
+import com.squid.kraken.v4.api.core.bb.NavigationQuery.Style;
 import com.squid.kraken.v4.api.core.customer.CoreAuthenticatedServiceRest;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.model.AnalysisQuery;
-import com.squid.kraken.v4.model.AnalysisQuery.AnalysisFacet;
 import com.squid.kraken.v4.model.AnalysisQueryImpl;
 import com.squid.kraken.v4.model.AnalysisResult;
 import com.squid.kraken.v4.model.Bookmark;
@@ -107,8 +108,8 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest {
 					allowableValues="TREE, FLAT") 
 			@QueryParam("hierarchy") HierarchyMode hierarchyMode,
 			@ApiParam(
-					value="define the result style", allowableValues="LEGACY, MACHINE, HUMAN", defaultValue="HUMAN")
-			@QueryParam("style") String style
+					value="define the result style. If HUMAN, the API will try to use natural reference for objects, like 'My First Project', 'Account', 'Total Sales'... If MACHINE the API will use canonical references that are invariant, e.g. @'5603ca63c531d744b50823a3bis'. If LEGACY the API will also provide internal compound key to lookup objects in the management API.", allowableValues="LEGACY, MACHINE, HUMAN", defaultValue="HUMAN")
+			@QueryParam("style") Style style
 		) throws ScopeException {
 		AppContext userContext = getUserContext(request);
 		return delegate.listContent(userContext, parent, search, hierarchyMode, style);
@@ -254,22 +255,17 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest {
 			@Context HttpServletRequest request, 
 			@ApiParam(value="the analysis query definition", required=true) AnalysisQuery query,
 			@PathParam(BBID_PARAM_NAME) String BBID,
-			@ApiParam(
-					value="define the result format.",
-					allowableValues="LEGACY,SQL,CSV")
-			@QueryParam("format") String format,
-			@ApiParam(value = "paging size for the results") @QueryParam("maxResults") Integer maxResults,
-			@ApiParam(value = "paging start index") @QueryParam("startIndex") Integer startIndex,
-			@ApiParam(value = "if true, get the analysis only if already in cache, else throw a NotInCacheException; if noError returns a null result if the analysis is not in cache ; else regular analysis", defaultValue = "false") @QueryParam("lazy") String lazy
+			@ApiParam(value = "response timeout in milliseconds. If no timeout set, the method will return according to current job status.") 
+			@QueryParam("timeout") Integer timeout
 			) throws ComputingException, ScopeException, InterruptedException {
 		AppContext userContext = getUserContext(request);
-		return delegate.runAnalysis(userContext, BBID, query, format, maxResults, startIndex, lazy);
+		return delegate.runAnalysis(userContext, BBID, query, timeout);
 	}
 
 	@GET
 	@Path("{" + BBID_PARAM_NAME + "}/analysis")
-	@ApiOperation(value = "Compute the bookmark's default analysis, using default selection")
-	public AnalysisResult getAnalysis(
+	@ApiOperation(value = "Compute an analysis for the subject")
+	public AnalysisResult runAnalysis(
 			@Context HttpServletRequest request, 
 			@PathParam(BBID_PARAM_NAME) String BBID,
 			// groupBy parameter
@@ -298,16 +294,79 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest {
 			@QueryParam("rollup") String[] rollupExpressions,
 			@QueryParam("limit") Long limit,
 			@ApiParam(
-					value="define the result format.",
+					value="define the analysis data format.",
 					allowableValues="LEGACY,SQL,CSV")
 			@QueryParam("format") String format,
 			@ApiParam(value = "paging size") @QueryParam("maxResults") Integer maxResults,
 			@ApiParam(value = "paging start index") @QueryParam("startIndex") Integer startIndex,
-			@ApiParam(value = "if true, get the analysis only if already in cache, else throw a NotInCacheException; if noError returns a null result if the analysis is not in cache ; else regular analysis", defaultValue = "false") @QueryParam("lazy") String lazy
+			@ApiParam(value = "if true, get the analysis only if already in cache, else throw a NotInCacheException; if noError returns a null result if the analysis is not in cache ; else regular analysis", defaultValue = "false") @QueryParam("lazy") String lazy,
+			@ApiParam(
+					value="define the result style. If HUMAN, the API will try to use natural reference for objects, like 'My First Project', 'Account', 'Total Sales'... If MACHINE the API will use canonical references that are invariant, e.g. @'5603ca63c531d744b50823a3bis'. If LEGACY the API will also provide internal compound key to lookup objects in the management API.", allowableValues="LEGACY, MACHINE, HUMAN", defaultValue="HUMAN")
+			@QueryParam("style") Style style,
+			@ApiParam(value = "response timeout in milliseconds. If no timeout set, the method will return according to current job status.") 
+			@QueryParam("timeout") Integer timeout
 			) throws ComputingException, ScopeException, InterruptedException {
 		AppContext userContext = getUserContext(request);
-		AnalysisQuery analysis = createAnalysisFromParams(groupBy, metrics, filterExpressions, period, timeframe, compareframe, orderExpressions, rollupExpressions, limit);
-		return delegate.runAnalysis(userContext, BBID, analysis, format, maxResults, startIndex, lazy);
+		AnalysisQuery analysis = createAnalysisFromParams(groupBy, metrics, filterExpressions, period, timeframe, compareframe, orderExpressions, rollupExpressions, limit, format, maxResults, startIndex, lazy, style);
+		return delegate.runAnalysis(userContext, BBID, analysis, timeout);
+	}
+
+	@GET
+	@Path("{" + BBID_PARAM_NAME + "}/export/" + "{filename}")
+	@ApiOperation(value = "Export an analysis results")
+	public Response exportAnalysis(
+			@Context HttpServletRequest request, 
+			@PathParam(BBID_PARAM_NAME) String BBID,
+			@PathParam("filename") String filename,
+			// groupBy parameter
+			@ApiParam(
+					value = "Define the group-by facets to apply to results. Facet can be defined using it's ID or any valid expression. If empty, the subject default parameters will apply. You can use the * token to extend the subject default parameters.",
+					allowMultiple = true
+					) 
+			@QueryParam("groupBy") String[] groupBy, 
+			// metric parameter
+			@ApiParam(
+					value = "Define the metrics to compute. Metric can be defined using it's ID or any valid expression. If empty, the subject default parameters will apply. You can use the * token to extend the subject default parameters.",
+					allowMultiple = true) 
+			@QueryParam("metric") String[] metrics, 
+			@ApiParam(
+					value = "Define the filters to apply to results. A filter must be a valid conditional expression. If empty, the subject default parameters will apply. You can use the * token to extend the subject default parameters.",
+					allowMultiple = true) 
+			@QueryParam("filter") String[] filterExpressions,
+			@QueryParam("period") String period,
+			@ApiParam(value="define the timeframe for the period. It can be a date range [lower,upper] or a special alias: ____ALL, ____LAST_DAY, ____LAST_7_DAYS, __CURRENT_MONTH, __PREVIOUS_MONTH, __CURRENT_MONTH, __PREVIOUS_YEAR", allowMultiple = true) 
+			@QueryParam("timeframe") String[] timeframe,
+			@ApiParam(value="activate and define the compare to period. It can be a date range [lower,upper] or a special alias: __COMPARE_TO_PREVIOUS_PERIOD, __COMPARE_TO_PREVIOUS_MONTH, __COMPARE_TO_PREVIOUS_YEAR", allowMultiple = true) 
+			@QueryParam("compareframe") String[] compareframe,
+			@ApiParam(allowMultiple = true) 
+			@QueryParam("orderby") String[] orderExpressions, 
+			@ApiParam(allowMultiple = true) 
+			@QueryParam("rollup") String[] rollupExpressions,
+			@QueryParam("limit") Long limit,
+			@ApiParam(
+					value="define the analysis data format.",
+					allowableValues="JSON,SQL,CSV")
+			@QueryParam("format") String format
+			) throws ComputingException, ScopeException, InterruptedException {
+		AppContext userContext = getUserContext(request);
+		String[] split = filename.split("\\.");
+		String filepart = null;
+		String fileext = null;
+		String compression = null;
+		if (split.length > 0) {
+			filepart = split[0];
+		}
+		if (split.length > 1) {
+			fileext = split[1];
+		}
+		if (split.length > 2) {
+			compression = split[2];
+			if (compression.equals("gz")) {
+				compression = "gzip";
+			}
+		}
+		AnalysisQuery analysis = createAnalysisFromParams(groupBy, metrics, filterExpressions, period, timeframe, compareframe, orderExpressions, rollupExpressions, limit, format, null, null, null, null);
+		return delegate.exportAnalysis(userContext, BBID, analysis, filepart, fileext, compression);
 	}
 	
 	/**
@@ -330,33 +389,21 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest {
 			String[] compareframe,
 			String[] orderExpressions, 
 			String[] rollupExpressions, 
-			Long limit) throws ScopeException {
+			Long limit,
+			String format, 
+			Integer maxResults, 
+			Integer startIndex, 
+			String lazy, 
+			Style style
+		) throws ScopeException {
 		// init the analysis query using the query parameters
-		AnalysisQueryImpl analysis = new AnalysisQueryImpl();
+		AnalysisQuery analysis = new AnalysisQueryImpl();
 		int groupByLength = groupBy!=null?groupBy.length:0;
 		if (groupByLength > 0) {
-			List<AnalysisFacet> facets = new ArrayList<AnalysisFacet>();
-			for (int i = 0; i < groupBy.length; i++) {
-				AnalysisFacet f = new AnalysisQueryImpl.AnalysisFacetImpl();
-				f.setExpression(groupBy[i]);// if the name is provided
-														// by the expression, we
-														// will get it latter
-														// when it's parsed
-				facets.add(f);
-			}
-			analysis.setGroupBy(facets);
+			analysis.setGroupBy(Arrays.asList(groupBy));
 		}
 		if ((metrics != null) && (metrics.length > 0)) {
-			List<AnalysisFacet> facets = new ArrayList<AnalysisFacet>();
-			for (int i = 0; i < metrics.length; i++) {
-				AnalysisFacet f = new AnalysisQueryImpl.AnalysisFacetImpl();
-				f.setExpression(metrics[i]);// if the name is provided
-														// by the expression, we
-														// will get it latter
-														// when it's parsed
-				facets.add(f);
-			}
-			analysis.setMetrics(facets);
+			analysis.setMetrics(Arrays.asList(metrics));
 		}
 		if ((filterExpressions != null) && (filterExpressions.length > 0)) {
 			analysis.setFilters(Arrays.asList(filterExpressions));
@@ -408,7 +455,12 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest {
 			}
 			analysis.setRollups(rollups);
 		}
-		analysis.setLimit(limit);
+		if (limit!=null) analysis.setLimit(limit);
+		if (format!=null) analysis.setFormat(format);
+		if (maxResults!=null) analysis.setMaxResults(maxResults);
+		if (startIndex!=null) analysis.setStartIndex(startIndex);
+		if (lazy!=null) analysis.setLazy(lazy);
+		if (style!=null) analysis.setStyle(style);
 		return analysis;
 	}
 	
