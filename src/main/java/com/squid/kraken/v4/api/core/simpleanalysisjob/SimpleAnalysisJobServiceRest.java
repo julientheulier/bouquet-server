@@ -144,26 +144,26 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 		analysis.setDomain(domainExpr);
 		int groupByLength = groupBy!=null?groupBy.length:0;
 		if (groupByLength > 0) {
-			List<AnalysisFacet> facets = new ArrayList<AnalysisFacet>();
+			List<String> facets = new ArrayList<>();
 			for (int i = 0; i < groupBy.length; i++) {
 				AnalysisFacet f = new AnalysisQueryImpl.AnalysisFacetImpl();
 				f.setExpression(groupBy[i]);// if the name is provided
 														// by the expression, we
 														// will get it latter
 														// when it's parsed
-				facets.add(f);
+				facets.add(f.getExpression());
 			}
 			analysis.setGroupBy(facets);
 		}
 		if ((metrics != null) && (metrics.length > 0)) {
-			List<AnalysisFacet> facets = new ArrayList<AnalysisFacet>();
+			List<String> facets = new ArrayList<>();
 			for (int i = 0; i < metrics.length; i++) {
 				AnalysisFacet f = new AnalysisQueryImpl.AnalysisFacetImpl();
 				f.setExpression(metrics[i]);// if the name is provided
 														// by the expression, we
 														// will get it latter
 														// when it's parsed
-				facets.add(f);
+				facets.add(f.getExpression());
 			}
 			analysis.setMetrics(facets);
 		}
@@ -287,7 +287,7 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 				analysis.setLimit(config.getLimit());
 			}
 			if (analysis.getGroupBy() == null && config.getChosenDimensions() != null) {
-				List<AnalysisFacet> groupBy = new ArrayList<AnalysisFacet>();
+				List<String> groupBy = new ArrayList<>();
 				for (String chosenDimension : config.getChosenDimensions()) {
 					AnalysisFacet f = new AnalysisQueryImpl.AnalysisFacetImpl();
 					if (chosenDimension.startsWith("@")) {
@@ -295,16 +295,16 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 					} else {
 						f.setExpression(domain + ".@'" + chosenDimension + "'");
 					}
-					groupBy.add(f);
+					groupBy.add(f.getExpression());
 				}
 				analysis.setGroupBy(groupBy);
 			}
 			if (analysis.getMetrics()!=null && config.getChosenMetrics() != null) {
-				List<AnalysisFacet> metrics = new ArrayList<AnalysisFacet>();
+				List<String> metrics = new ArrayList<>();
 				for (String chosenMetric : config.getChosenMetrics()) {
 					AnalysisFacet f = new AnalysisQueryImpl.AnalysisFacetImpl();
 					f.setExpression(domain + ".@'" + chosenMetric + "'");
-					metrics.add(f);
+					metrics.add(f.getExpression());
 				}
 				analysis.setMetrics(metrics);
 			}
@@ -354,18 +354,20 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 			throw new ScopeException("there is no defined facet, can't run the analysis");
 		}
 		// quick fix to support the old facet mechanism
-		ArrayList<AnalysisFacet> analysisFacets = new ArrayList<>();
+		ArrayList<String> analysisFacets = new ArrayList<>();
 		if (analysis.getGroupBy()!=null) analysisFacets.addAll(analysis.getGroupBy());
 		if (analysis.getMetrics()!=null) analysisFacets.addAll(analysis.getMetrics());
-		for (AnalysisFacet facet : analysisFacets) {
-			ExpressionAST colExpression = domainScope.parseExpression(facet.getExpression());
+		for (String facet : analysisFacets) {
+			ExpressionAST colExpression = domainScope.parseExpression(facet);
 			if (colExpression.getName() != null) {
+				/*
 				if (facet.getName() != null && !facet.equals(colExpression.getName())) {
 					throw new ScopeException("the facet name is ambiguous: " + colExpression.getName() + "/"
 							+ facet.getName() + " for expresion: " + facet.getExpression());
 				}
 				// else
 				facet.setName(colExpression.getName());
+				*/
 			}
 			IDomain image = colExpression.getImageDomain();
 			if (image.isInstanceOf(IDomain.AGGREGATE)) {
@@ -380,11 +382,11 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 				// now it can be transformed into a measure
 				Measure m = universe.asMeasure(relink);
 				if (m == null) {
-					throw new ScopeException("cannot use expression='" + facet.getExpression() + "'");
+					throw new ScopeException("cannot use expression='" + facet + "'");
 				}
 				Metric metric = new Metric();
 				metric.setExpression(new Expression(m.prettyPrint()));
-				String name = facet.getName();
+				String name = null;//facet.getName();
 				if (name == null) {
 					name = m.prettyPrint();
 				}
@@ -401,7 +403,7 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 					throw new ScopeException("cannot use expression='" + colExpression.prettyPrint() + "'");
 				}
 				ExpressionAST facetExp = ExpressionMaker.COMPOSE(new SpaceExpression(root), colExpression);
-				String name = facet.getName();
+				String name = facetExp.getName();
 				if (name == null) {
 					name = formatName(
 							axis.getDimension() != null ? axis.getName() : axis.getDefinitionSafe().prettyPrint());
