@@ -24,6 +24,7 @@
 package com.squid.kraken.v4.api.core.bb;
 
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -32,13 +33,27 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.zip.GZIPOutputStream;
+
+import javax.ws.rs.WebApplicationException;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
+import javax.ws.rs.core.StreamingOutput;
+import javax.ws.rs.core.Response.ResponseBuilder;
 
 import org.apache.commons.codec.binary.Base64;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.squid.core.concurrent.ExecutionManager;
 import com.squid.core.domain.DomainNumericConstant;
 import com.squid.core.domain.IDomain;
 import com.squid.core.domain.operators.IntrinsicOperators;
@@ -50,19 +65,26 @@ import com.squid.core.domain.vector.VectorOperatorDefinition;
 import com.squid.core.expression.ConstantValue;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.Operator;
+import com.squid.core.expression.PrettyPrintOptions;
+import com.squid.core.expression.PrettyPrintOptions.ReferenceStyle;
 import com.squid.core.expression.scope.ExpressionMaker;
 import com.squid.core.expression.scope.ScopeException;
+import com.squid.core.poi.ExcelFile;
+import com.squid.core.poi.ExcelSettingsBean;
 import com.squid.core.sql.model.SQLScopeException;
 import com.squid.core.sql.render.RenderingException;
 import com.squid.kraken.v4.api.core.APIException;
 import com.squid.kraken.v4.api.core.AccessRightsUtils;
 import com.squid.kraken.v4.api.core.ComputingInProgressAPIException;
 import com.squid.kraken.v4.api.core.EngineUtils;
+import com.squid.kraken.v4.api.core.JobServiceBaseImpl.OutputCompression;
 import com.squid.kraken.v4.api.core.JobServiceBaseImpl.OutputFormat;
 import com.squid.kraken.v4.api.core.bb.BookmarkAnalysisServiceRest.HierarchyMode;
+import com.squid.kraken.v4.api.core.bb.NavigationQuery.Style;
 import com.squid.kraken.v4.api.core.ObjectNotFoundAPIException;
 import com.squid.kraken.v4.api.core.bookmark.BookmarkServiceBaseImpl;
 import com.squid.kraken.v4.api.core.projectanalysisjob.AnalysisJobComputer;
+import com.squid.kraken.v4.caching.NotInCacheException;
 import com.squid.kraken.v4.core.analysis.engine.bookmark.BookmarkManager;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex.Status;
@@ -74,7 +96,6 @@ import com.squid.kraken.v4.core.analysis.engine.processor.ComputingService;
 import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
 import com.squid.kraken.v4.core.analysis.model.DashboardSelection;
 import com.squid.kraken.v4.core.analysis.scope.AxisExpression;
-import com.squid.kraken.v4.core.analysis.scope.MeasureExpression;
 import com.squid.kraken.v4.core.analysis.scope.SpaceExpression;
 import com.squid.kraken.v4.core.analysis.scope.SpaceScope;
 import com.squid.kraken.v4.core.analysis.scope.UniverseScope;
@@ -85,11 +106,12 @@ import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.kraken.v4.core.expression.reference.DomainReference;
 import com.squid.kraken.v4.core.expression.scope.DomainExpressionScope;
 import com.squid.kraken.v4.core.expression.scope.ExpressionSuggestionHandler;
-import com.squid.kraken.v4.core.expression.scope.SegmentExpressionScope;
 import com.squid.kraken.v4.core.model.domain.DomainDomain;
+import com.squid.kraken.v4.export.ExportSourceWriter;
+import com.squid.kraken.v4.export.ExportSourceWriterCSV;
+import com.squid.kraken.v4.export.ExportSourceWriterXLSX;
 import com.squid.kraken.v4.model.AccessRight;
 import com.squid.kraken.v4.model.AnalysisQuery;
-import com.squid.kraken.v4.model.AnalysisQuery.AnalysisFacet;
 import com.squid.kraken.v4.model.AnalysisQueryImpl;
 import com.squid.kraken.v4.model.AnalysisResult;
 import com.squid.kraken.v4.model.Bookmark;
@@ -128,6 +150,9 @@ import com.squid.kraken.v4.persistence.dao.ProjectDAO;
  *
  */
 public class BookmarkAnalysisServiceBaseImpl {
+
+	static final Logger logger = LoggerFactory
+			.getLogger(BookmarkAnalysisServiceBaseImpl.class);
 	
 	public static final BookmarkAnalysisServiceBaseImpl INSTANCE = new BookmarkAnalysisServiceBaseImpl();
 	
@@ -138,7 +163,8 @@ public class BookmarkAnalysisServiceBaseImpl {
 	private static final NavigationItem PROJECTS_FOLDER = new NavigationItem("Projects", "list all your Dictionaries", "", "/PROJECTS", "FOLDER");
 	private static final NavigationItem SHARED_FOLDER = new NavigationItem("Shared Bookmarks", "list all the bookmarks shared with you", "", "/SHARED", "FOLDER");
 	private static final NavigationItem MYBOOKMARKS_FOLDER = new NavigationItem("My Bookmarks", "list all your bookmarks", "", "/MYBOOKMARKS", "FOLDER");
-	
+
+	public static final String PROJECT_TYPE = "PROJECT";
 	public static final String FOLDER_TYPE = "FOLDER";
 	public static final String BOOKMARK_TYPE = "BOOKMARK";
 	public static final String DOMAIN_TYPE = "DOMAIN";
@@ -148,7 +174,7 @@ public class BookmarkAnalysisServiceBaseImpl {
 			String parent,
 			String search,
 			HierarchyMode hierarchyMode, 
-			String style
+			Style style
 		) throws ScopeException {
 		List<NavigationItem> content = new ArrayList<>();
 		if (parent !=null && parent.endsWith("/")) {
@@ -158,7 +184,7 @@ public class BookmarkAnalysisServiceBaseImpl {
 		query.setParent(parent);
 		query.setQ(search);
 		query.setHiearchy(hierarchyMode);
-		query.setStyle(style!=null?style:"HUMAN");
+		query.setStyle(style!=null?style:Style.HUMAN);
 		//
 		// tokenize the search string
 		String[] filters = null;
@@ -243,15 +269,13 @@ public class BookmarkAnalysisServiceBaseImpl {
 				}
 			}
 		} else if (parent.startsWith(PROJECTS_FOLDER.getSelfRef())) {
-			String projectId = parent.substring(PROJECTS_FOLDER.getSelfRef().length()+1);// remove /PROJECTS/ part
-			ProjectPK projectPk = new ProjectPK(userContext.getClientId(), projectId);
-			Project project = ProjectManager.INSTANCE.getProject(userContext, projectPk);
-			List<Domain> domains = ProjectManager.INSTANCE.getDomains(userContext, projectPk);
+			String projectRef = parent.substring(PROJECTS_FOLDER.getSelfRef().length()+1);// remove /PROJECTS/ part
+			Project project = findProject(userContext, projectRef);
+			List<Domain> domains = ProjectManager.INSTANCE.getDomains(userContext, project.getId());
 			for (Domain domain : domains) {
-				String id = "@'"+projectId+"'.@'"+domain.getId().getDomainId()+"'";
 				String name = domain.getName();
 				if (filters==null || filter(name, filters)) {
-					NavigationItem item = new NavigationItem(query.getStyle().equals("HUMAN")?null:domain.getId(), name, domain.getDescription(), parent, id, DOMAIN_TYPE);
+					NavigationItem item = new NavigationItem(query, project, domain, parent);
 					HashMap<String, String> attrs = new HashMap<>();
 					attrs.put("dictionary", project.getName());
 					item.setAttributes(attrs);
@@ -263,6 +287,31 @@ public class BookmarkAnalysisServiceBaseImpl {
 		}
 	}
 	
+	/**
+	 * @param userContext
+	 * @param projectRef
+	 * @return
+	 * @throws ScopeException 
+	 */
+	private Project findProject(AppContext userContext, String projectRef) throws ScopeException {
+		if (projectRef.startsWith("@")) {
+			// using ID
+			String projectId = projectRef.substring(1);
+			ProjectPK projectPk = new ProjectPK(userContext.getClientId(), projectId);
+			return ProjectManager.INSTANCE.getProject(userContext, projectPk);
+		} else {
+			// using name
+			List<Project> projects = ((ProjectDAO) DAOFactory.getDAOFactory().getDAO(Project.class))
+					.findByCustomer(userContext, userContext.getCustomerPk());
+			for (Project project : projects) {
+				if (project.getName().equals(projectRef)) {
+					return project;
+				}
+			}
+			throw new ScopeException("cannot find project with name='"+projectRef+"'");
+		}
+	}
+
 	/**
 	 * list the MyBookmarks content (bookmarks and folders)
 	 * @param userContext
@@ -610,13 +659,89 @@ public class BookmarkAnalysisServiceBaseImpl {
 	}
 	
 	public AnalysisResult runAnalysis(
-			AppContext userContext,
+			final AppContext userContext,
 			String BBID,
-			AnalysisQuery query,
-			String format, Integer maxResults,
-			Integer startIndex,
-			String lazy
-			) {
+			final AnalysisQuery query, 
+			Integer timeout
+			)
+	{
+		try {
+			Space space = getSpace(userContext, BBID);
+			//
+			Bookmark bookmark = space.getBookmark();
+			BookmarkConfig config = readConfig(bookmark);
+			//
+			// merge the bookmark config with the query
+			mergeBoomarkConfig(space, query, config);
+			if (query.getLimit()==null) {
+				query.setLimit((long) 100);
+			}
+			// create the facet selection
+			FacetSelection selection = createFacetSelection(space, query);
+			final ProjectAnalysisJob job = createAnalysisJob(space.getUniverse(), query, selection, OutputFormat.JSON);
+			//
+			final boolean lazyFlag = (query.getLazy() != null) && (query.getLazy().equals("true") || query.getLazy().equals("noError"));
+			//
+			// create the AnalysisResult
+			AnalysisResult result = new AnalysisResult();
+			if (query.getStyle()==Style.LEGACY) {
+				// legacy may use the facetSelection
+				result.setSelection(selection);
+			}
+			result.setQuery(query);
+			//
+			if (query.getFormat().equals("LEGACY")) {
+				try {
+					Callable<DataTable> task = new Callable<DataTable>() {
+						@Override
+						public DataTable call() throws Exception {
+							return AnalysisJobComputer.INSTANCE.compute(userContext, job, query.getMaxResults(), query.getStartIndex(), lazyFlag);
+						}
+					};
+					Future<DataTable> futur = ExecutionManager.INSTANCE.submit(userContext.getCustomerId(), task);
+					DataTable data = null;
+					if (timeout==null) {
+						// using the customer execution engine to control load
+						data = futur.get();
+					} else {
+						data = futur.get(timeout>1000?timeout:1000, TimeUnit.MILLISECONDS);
+					}
+					job.setResults(data);
+					result.setData(data);
+				} catch (NotInCacheException e) {
+					if (query.getLazy().equals("noError")) {
+						result.setData(new DataTable());
+					} else {
+						throw e;
+					}
+				} catch (ExecutionException e) {
+					throw new APIException(e);
+				} catch (TimeoutException e) {
+					throw new ComputingInProgressAPIException("computing in progress", true, timeout*2);
+				}
+			}
+			if (query.getFormat().equals("SQL")) {
+				// bypassing the ComputingService
+				AnalysisJobComputer computer = new AnalysisJobComputer();
+				String sql = computer.viewSQL(userContext, job);
+				result.setSQL(sql);
+			}
+			//
+			return result;
+		} catch (ComputingException | InterruptedException | ScopeException | SQLScopeException | RenderingException e) {
+			throw new APIException(e.getMessage(), true);
+		}
+	}
+
+	public Response exportAnalysis(
+			final AppContext userContext,
+			String BBID,
+			final AnalysisQuery query,
+			String filename,
+			String fileext,
+			String compression
+			)
+	{
 		try {
 			Space space = getSpace(userContext, BBID);
 			//
@@ -627,33 +752,104 @@ public class BookmarkAnalysisServiceBaseImpl {
 			mergeBoomarkConfig(space, query, config);
 			// create the facet selection
 			FacetSelection selection = createFacetSelection(space, query);
-			ProjectAnalysisJob job = createAnalysisJob(space.getUniverse(), query, selection, OutputFormat.JSON);
+			final ProjectAnalysisJob job = createAnalysisJob(space.getUniverse(), query, selection, OutputFormat.JSON);
 			//
-			boolean lazyFlag = (lazy != null) && (lazy.equals("true") || lazy.equals("noError"));
-			//
-			// create the AnalysisResult
-			AnalysisResult result = new AnalysisResult();
-			result.setSelection(selection);
-			result.setQuery(query);
-			//
-			if (format==null || format.equals("")) {
-				format = "LEGACY";
+			final OutputFormat outFormat;
+			if (query.getFormat() == null) query.setFormat(fileext);
+			if (query.getFormat() == null) {
+				outFormat = OutputFormat.JSON;
+			} else {
+				outFormat = OutputFormat.valueOf(query.getFormat().toUpperCase());
 			}
-			if (format.equals("LEGACY")) {
-				DataTable data = AnalysisJobComputer.INSTANCE.compute(userContext, job, maxResults, startIndex, lazyFlag);
-				job.setResults(data);
-				result.setData(data);
+
+			final OutputCompression outCompression;
+			if (compression == null) {
+				outCompression = OutputCompression.NONE;
+			} else {
+				outCompression = OutputCompression.valueOf(compression.toUpperCase());
 			}
-			if (format.equals("SQL")) {
-				// bypassing the ComputingService
-				AnalysisJobComputer computer = new AnalysisJobComputer();
-				String sql = computer.viewSQL(userContext, job);
-				result.setSQL(sql);
+			
+			final ExportSourceWriter writer = getWriter(outFormat);
+
+			StreamingOutput stream = new StreamingOutput() {
+				@Override
+				public void write(OutputStream os) throws IOException, WebApplicationException {
+					try {
+						if (outCompression == OutputCompression.GZIP) {
+							try {
+								os = new GZIPOutputStream(os);
+							} catch (IOException e) {
+								throw new RuntimeException(e);
+							}
+						}
+						AnalysisJobComputer.INSTANCE.compute(userContext, job, os, writer, false);
+					} catch (InterruptedException | ComputingException e) {
+						throw new IOException(e);
+					}
+				}
+			};
+
+			// build the response
+			ResponseBuilder response;
+			if (filename==null || filename.equals("")) {
+				filename = "job-" + (space.hasBookmark()?space.getBookmark().getName():space.getRoot().getName());
 			}
-			//
-			return result;
-		} catch (ComputingException | InterruptedException | ScopeException | SQLScopeException | RenderingException e) {
+			String mediaType;
+			switch (outFormat) {
+			case CSV:
+				mediaType = "text/csv";
+				filename += "."+(fileext!=null?fileext:"csv");
+				break;
+			case XLS:
+				mediaType = "application/vnd.ms-excel";
+				filename += "."+(fileext!=null?fileext:"xls");
+				break;
+			case XLSX:
+				mediaType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+				filename += "."+(fileext!=null?fileext:"xlsx");
+				break;
+			default:
+				mediaType = MediaType.APPLICATION_JSON_TYPE.toString();
+				filename += "."+(fileext!=null?fileext:"json");
+			}
+
+			switch (outCompression) {
+			case GZIP:
+				// note : setting "Content-Type:application/octet-stream" should
+				// disable interceptor's GZIP compression.
+				mediaType = MediaType.APPLICATION_OCTET_STREAM_TYPE.toString();
+				filename += "."+(compression!=null?compression:"gz");
+				break;
+			default:
+				// NONE
+			}
+
+			response = Response.ok(stream);
+			// response.header("Content-Type", mediaType);
+			if (filename!=null && ((outFormat != OutputFormat.JSON) || (outCompression != OutputCompression.NONE))) {
+				logger.info("returning results as " + mediaType + ", fileName : " + filename);
+				response.header("Content-Disposition", "attachment; filename=" + filename);
+			}
+
+			return response.type(mediaType + "; charset=UTF-8").build();
+		} catch (ComputingException | InterruptedException | ScopeException e) {
 			throw new APIException(e.getMessage(), true);
+		}
+	}
+	
+	private ExportSourceWriter getWriter(OutputFormat outFormat) {
+		if (outFormat==OutputFormat.CSV) {
+			return new ExportSourceWriterCSV();
+		} else if (outFormat==OutputFormat.XLS) {
+			ExcelSettingsBean settings = new ExcelSettingsBean();
+			settings.setExcelFile(ExcelFile.XLS);
+			return new ExportSourceWriterXLSX(settings);
+		} else if (outFormat==OutputFormat.XLSX) {
+			ExcelSettingsBean settings = new ExcelSettingsBean();
+			settings.setExcelFile(ExcelFile.XLSX);
+			return new ExportSourceWriterXLSX(settings);
+		} else {
+			return null;
 		}
 	}
 	
@@ -787,19 +983,11 @@ public class BookmarkAnalysisServiceBaseImpl {
 		// -- note that it won't limit the actual expression scope to the bookmark scope - but let's keep that for latter
 		SpaceScope scope = new SpaceScope(universe.S(domain));
 		// quick fix to support the old facet mechanism
-		ArrayList<AnalysisFacet> analysisFacets = new ArrayList<>();
+		ArrayList<String> analysisFacets = new ArrayList<>();
 		if (analysis.getGroupBy()!=null) analysisFacets.addAll(analysis.getGroupBy());
 		if (analysis.getMetrics()!=null) analysisFacets.addAll(analysis.getMetrics());
-		for (AnalysisFacet facet : analysisFacets) {
-			ExpressionAST colExpression = scope.parseExpression(facet.getExpression());
-			if (colExpression.getName() != null) {
-				if (facet.getName() != null && !facet.equals(colExpression.getName())) {
-					throw new ScopeException("the facet name is ambiguous: " + colExpression.getName() + "/"
-							+ facet.getName() + " for expresion: " + facet.getExpression());
-				}
-				// else
-				facet.setName(colExpression.getName());
-			}
+		for (String facet : analysisFacets) {
+			ExpressionAST colExpression = scope.parseExpression(facet);
 			IDomain image = colExpression.getImageDomain();
 			if (image.isInstanceOf(IDomain.AGGREGATE)) {
 				IDomain source = colExpression.getSourceDomain();
@@ -818,11 +1006,11 @@ public class BookmarkAnalysisServiceBaseImpl {
 				// now it can be transformed into a measure
 				Measure m = universe.asMeasure(colExpression);
 				if (m == null) {
-					throw new ScopeException("cannot use expression='" + facet.getExpression() + "'");
+					throw new ScopeException("cannot use expression='" + facet + "'");
 				}
 				Metric metric = new Metric();
 				metric.setExpression(new Expression(m.prettyPrint()));
-				String name = facet.getName();
+				String name = colExpression.getName();
 				if (name == null) {
 					name = m.getName();
 				}
@@ -838,13 +1026,7 @@ public class BookmarkAnalysisServiceBaseImpl {
 				if (axis == null) {
 					throw new ScopeException("cannot use expression='" + colExpression.prettyPrint() + "'");
 				}
-				//ExpressionAST facetExp = ExpressionMaker.COMPOSE(new SpaceExpression(root), colExpression);
-				String name = facet.getName();
-				if (name == null) {
-					name = formatName(
-							axis.getDimension() != null ? axis.getName() : axis.getDefinitionSafe().prettyPrint());
-				}
-				facets.add(new FacetExpression(axis.prettyPrint(), name));
+				facets.add(new FacetExpression(axis.prettyPrint(), axis.getName()));
 				//
 				lookup.put(facetCount, legacyFacetCount++);
 				facetCount++;
@@ -993,10 +1175,9 @@ public class BookmarkAnalysisServiceBaseImpl {
 		config.setLimit(query.getLimit());
 		if (query.getGroupBy() != null) {
 			List<String> chosenDimensions = new ArrayList<>();
-			for (AnalysisFacet facet : query.getGroupBy()) {
-				String expression = facet.getExpression();
+			for (String facet : query.getGroupBy()) {
 				// add the domain scope
-				ExpressionAST expr = scope.parseExpression(expression);
+				ExpressionAST expr = scope.parseExpression(facet);
 				chosenDimensions.add(rewriteExpressionToGlobalScope(expr, space));
 			}
 			String[] toArray = new String[chosenDimensions.size()];
@@ -1004,10 +1185,9 @@ public class BookmarkAnalysisServiceBaseImpl {
 		}
 		if (query.getMetrics() != null) {
 			List<String> choosenMetrics = new ArrayList<>();
-			for (AnalysisFacet facet : query.getMetrics()) {
-				String expression = facet.getExpression();
+			for (String facet : query.getMetrics()) {
 				// add the domain scope
-				ExpressionAST expr = scope.parseExpression(expression);
+				ExpressionAST expr = scope.parseExpression(facet);
 				choosenMetrics.add(rewriteExpressionToGlobalScope(expr, space));
 			}
 			String[] toArray = new String[choosenMetrics.size()];
@@ -1043,31 +1223,29 @@ public class BookmarkAnalysisServiceBaseImpl {
 	 * @throws InterruptedException
 	 */
 	private void mergeBoomarkConfig(Space space, AnalysisQuery analysis, BookmarkConfig config) throws ScopeException, ComputingException, InterruptedException {
+		ReferenceStyle prettyStyle = getReferenceStyle(analysis.getStyle());
+		PrettyPrintOptions prettyOptions = new PrettyPrintOptions(prettyStyle, null);
 		UniverseScope globalScope = new UniverseScope(space.getUniverse());
 		if (analysis.getDomain() == null) {
-			//analysis.setDomain("@'" + config.getDomain() + "'");
-			analysis.setDomain(space.prettyPrint());
+			analysis.setDomain(space.prettyPrint(prettyOptions));
 		}
 		if (analysis.getLimit() == null) {
 			if (config!=null) {
 				analysis.setLimit(config.getLimit());
-			} else {
-				analysis.setLimit((long) 100);
 			}
 		}
 		if (analysis.getGroupBy() == null) {
 			if (config==null) {
-				List<AnalysisFacet> groupBy = new ArrayList<AnalysisFacet>();
+				List<String> groupBy = new ArrayList<String>();
 				// use a default pivot selection...
 				// -- just list the content of the table
+				PrettyPrintOptions options = new PrettyPrintOptions(prettyStyle, space.getTop().getImageDomain());
 				for (Dimension dimension : space.getDimensions()) {
 					Axis axis = space.A(dimension);
 					try {
 						DimensionIndex index = axis.getIndex();
 						if (index!=null && index.isVisible() && index.getStatus()!=Status.ERROR) {
-							AnalysisFacet f = new AnalysisQueryImpl.AnalysisFacetImpl();
-							f.setExpression(axis.prettyPrint(space));
-							groupBy.add(f);
+							groupBy.add(axis.prettyPrint(options));
 						}
 					} catch (ComputingException | InterruptedException e) {
 						// ignore this one
@@ -1075,15 +1253,15 @@ public class BookmarkAnalysisServiceBaseImpl {
 				}
 				analysis.setGroupBy(groupBy);
 			} else if (config.getChosenDimensions() != null) {
-				List<AnalysisFacet> groupBy = new ArrayList<AnalysisFacet>();
+				List<String> groupBy = new ArrayList<String>();
 				for (String chosenDimension : config.getChosenDimensions()) {
-					AnalysisFacet f = new AnalysisQueryImpl.AnalysisFacetImpl();
+					String f = null;
 					if (chosenDimension.startsWith("@")) {
 						// need to fix the scope
 						ExpressionAST expr = globalScope.parseExpression(chosenDimension);
-						f.setExpression(rewriteExpressionToLocalScope(expr, space));
+						f = rewriteExpressionToLocalScope(expr, space);
 					} else {
-						f.setExpression("@'" + chosenDimension + "'");
+						f = "@'" + chosenDimension + "'";
 					}
 					groupBy.add(f);
 				}
@@ -1092,14 +1270,12 @@ public class BookmarkAnalysisServiceBaseImpl {
 		}
 		boolean metricWildcard = isWildcard(analysis.getMetrics());
 		if (analysis.getMetrics() == null || metricWildcard) {
-			List<AnalysisFacet> metrics = new ArrayList<>();
+			List<String> metrics = new ArrayList<>();
 			if (config==null) {
 				// no metrics
 			} else if (config.getChosenMetrics() != null) {
 				for (String chosenMetric : config.getChosenMetrics()) {
-					AnalysisFacet f = new AnalysisQueryImpl.AnalysisFacetImpl();
-					f.setExpression("@'" + chosenMetric + "'");
-					metrics.add(f);
+					metrics.add("@'" + chosenMetric + "'");
 				}
 			}
 			if (metricWildcard) {
@@ -1252,10 +1428,22 @@ public class BookmarkAnalysisServiceBaseImpl {
 		}
 	}
 	
-	private boolean isWildcard(List<AnalysisFacet> facets) {
+	private PrettyPrintOptions.ReferenceStyle getReferenceStyle(Style style) {
+		switch (style) {
+		case HUMAN:
+			return ReferenceStyle.NAME;
+		case LEGACY:
+			return ReferenceStyle.LEGACY;
+		case MACHINE:
+		default:
+			return ReferenceStyle.IDENTIFIER;
+		}
+	}
+	
+	private boolean isWildcard(List<String> facets) {
 		if (facets !=null && !facets.isEmpty()) {
-			AnalysisFacet first = facets.get(0);
-			return first.getExpression().equals("*");
+			String first = facets.get(0);
+			return first.equals("*");
 		}
 		// else
 		return false;
@@ -1277,7 +1465,11 @@ public class BookmarkAnalysisServiceBaseImpl {
 	 * @return
 	 * @throws ScopeException
 	 */
-	private String rewriteExpressionToLocalScope(ExpressionAST expr, Space scope) throws ScopeException {
+	private String rewriteExpressionToLocalScope(ExpressionAST expr, Space space) throws ScopeException {
+		ReferenceStyle style = ReferenceStyle.LEGACY;
+		PrettyPrintOptions options = new PrettyPrintOptions(style, space.getTop().getImageDomain());
+		return expr.prettyPrint(options);
+		/*
 		if (expr instanceof AxisExpression) {
 			AxisExpression ref = ((AxisExpression)expr);
 			Axis axis = ref.getAxis();
@@ -1289,6 +1481,7 @@ public class BookmarkAnalysisServiceBaseImpl {
 		} else {
 			return expr.prettyPrint();
 		}
+		*/
 	}
 	
 	/**
