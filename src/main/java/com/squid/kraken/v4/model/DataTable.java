@@ -56,7 +56,7 @@ public class DataTable extends JobResultBaseImpl {
     
     private boolean fromCache = false;// true if the data comes from the cache
     
-    private Date executionDate = null;
+    private String executionDate = null;
 
     private boolean fullset = true; //true if the whole dataset fits in  REDIS cache  (ie : number of row < LIMIT)
     
@@ -277,12 +277,12 @@ public class DataTable extends JobResultBaseImpl {
         this.fromCache = fromCache;
     }
     
-    public Date getExecutionDate() {
+    public String getExecutionDate() {
         return executionDate;
     }
     
     public void setExecutionDate(Date executionDate) {
-        this.executionDate = executionDate;
+        this.executionDate = executionDate.toString();
     }
 
 	public boolean getFullset() {
