@@ -23,6 +23,8 @@
  *******************************************************************************/
 package com.squid.kraken.v4.model;
 
+import com.wordnik.swagger.annotations.ApiModelProperty;
+
 /**
  * This is the result of an analysis
  * @author sergefantino
@@ -56,6 +58,7 @@ public class AnalysisResult {
 		this.query = query;
 	}
 
+	@ApiModelProperty(hidden=true)// only used for LEGACY mode, so don't mess user with it
 	public FacetSelection getSelection() {
 		return selection;
 	}
