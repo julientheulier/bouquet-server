@@ -29,7 +29,10 @@ import com.squid.core.domain.aggregate.AggregateDomain;
 import com.squid.core.domain.associative.AssociativeDomainInformation;
 import com.squid.core.domain.operators.OperatorScope;
 import com.squid.core.expression.ExpressionAST;
+import com.squid.core.expression.PrettyPrintConstant;
+import com.squid.core.expression.PrettyPrintOptions;
 import com.squid.core.expression.UndefinedExpression;
+import com.squid.core.expression.PrettyPrintOptions.ReferenceStyle;
 import com.squid.core.expression.scope.ExpressionMaker;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.core.analysis.scope.AnalysisScope;
@@ -37,6 +40,8 @@ import com.squid.kraken.v4.core.analysis.scope.MeasureExpression;
 import com.squid.kraken.v4.core.model.domain.DomainDomain;
 import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.ExpressionObject;
+import com.squid.kraken.v4.model.GenericPK;
+import com.squid.kraken.v4.model.LzPersistentBaseImpl;
 import com.squid.kraken.v4.model.Metric;
 
 // Measure
@@ -245,23 +250,46 @@ public class Measure implements Property {
 	 * @scope the parent scope or null for Universe
 	 * @return
 	 */
-    public String prettyPrint(Space scope) {
+    public String prettyPrint(PrettyPrintOptions options) {
         if (metric!=null || definition==null) {
-            String pp = getParent().prettyPrint(scope);
+            String pp = getParent().prettyPrint(options);
             if (pp!="") {
                 pp += ".";
             }
+            String print_measure = prettyPrintObject(metric, options);
             if (originType==OriginType.COMPARETO) {
-            	return "compareTo("+pp+"["+AnalysisScope.MEASURE.getToken()+":'"+(metric!=null?metric.getName():getName())+"'])";
+            	return "compareTo("+pp+print_measure+")";
             } else if (originType==OriginType.GROWTH) {
-                	return "growth("+pp+"["+AnalysisScope.MEASURE.getToken()+":'"+(metric!=null?metric.getName():getName())+"'])";
+                	return "growth("+pp+print_measure+")";
             } else {
-            	return pp+"["+AnalysisScope.MEASURE.getToken()+":'"+getName()+"']";
+            	return pp+print_measure;
             }
         } else {
             return definition.prettyPrint();
         }
     }
+    
+	/**
+	 * utility method to pretty-print a object id
+	 * @param object
+	 * @param options
+	 * @return
+	 */
+	protected static String prettyPrintObject(LzPersistentBaseImpl<? extends GenericPK> object, PrettyPrintOptions options) {
+		if (object==null) return "{undefined metric}";
+		if (options==null || options.getStyle()==ReferenceStyle.LEGACY) {
+			return "["+AnalysisScope.MEASURE.getToken()+":'"+object.getName()+"']";
+		} else if (options!=null && options.getStyle()==ReferenceStyle.NAME) {
+			return PrettyPrintConstant.OPEN_IDENT
+	    			+object.getName()
+	    			+PrettyPrintConstant.CLOSE_IDENT;
+		} else {// krkn-84: default is ID
+			return PrettyPrintConstant.IDENTIFIER_TAG
+	    			+PrettyPrintConstant.OPEN_IDENT
+					+object.getOid()
+					+PrettyPrintConstant.CLOSE_IDENT;
+		}
+	}
 	
 	@Override
 	public boolean equals(Object obj) {

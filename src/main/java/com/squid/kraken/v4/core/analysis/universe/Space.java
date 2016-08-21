@@ -35,6 +35,8 @@ import com.squid.core.domain.set.SetDomain;
 import com.squid.core.expression.Compose;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.PrettyPrintConstant;
+import com.squid.core.expression.PrettyPrintOptions;
+import com.squid.core.expression.PrettyPrintOptions.ReferenceStyle;
 import com.squid.core.expression.UndefinedExpression;
 import com.squid.kraken.v4.core.expression.reference.RelationReference;
 import com.squid.kraken.v4.core.model.domain.ProxyDomainDomain;
@@ -50,6 +52,8 @@ import com.squid.kraken.v4.model.Dimension;
 import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.DomainOption;
 import com.squid.kraken.v4.model.ExpressionObject;
+import com.squid.kraken.v4.model.GenericPK;
+import com.squid.kraken.v4.model.LzPersistentBaseImpl;
 import com.squid.kraken.v4.model.Metric;
 import com.squid.kraken.v4.model.Relation;
 import com.squid.core.expression.reference.RelationDirection;
@@ -519,30 +523,46 @@ public class Space {
 	 * @scope the parent scope or null for Universe
 	 * @return
 	 */
-	public String prettyPrint(Space scope) {
+	public String prettyPrint(PrettyPrintOptions options) {
 		String pp = "";
 		Space parent = this;
-		while (parent!=null && !parent.equals(scope)) {
+		while (parent!=null) {
+			if (options!=null && options.getScope()!=null) {
+				if (parent.getImageDomain().equals(options.getScope())) {
+					break;
+				}
+			}
 			if (pp!="") {
 				pp = "."+pp;
 			}
 			if (parent.getParent()!=null) {
-				pp = PrettyPrintConstant.IDENTIFIER_TAG
-	    			+PrettyPrintConstant.OPEN_IDENT
-	    			+parent.relation.getOid()
-	    			+PrettyPrintConstant.CLOSE_IDENT
-	    			+pp;// krkn-84
+				pp = prettyPrintObject(parent.relation, options)+pp;
 			} else {
-				pp = PrettyPrintConstant.IDENTIFIER_TAG
-	    			+PrettyPrintConstant.OPEN_IDENT
-	    			+parent.getDomain().getOid()
-	    			+PrettyPrintConstant.CLOSE_IDENT
-	    			+pp;// krkn-84
+				pp = prettyPrintObject(parent.getDomain(), options)+pp;
 			}
 			parent = parent.getParent();
 		}
 		//
 		return pp;
+	}
+
+	/**
+	 * utility method to pretty-print a object id
+	 * @param object
+	 * @param options
+	 * @return
+	 */
+	private static String prettyPrintObject(LzPersistentBaseImpl<? extends GenericPK> object, PrettyPrintOptions options) {
+		if (options!=null && options.getStyle()==ReferenceStyle.NAME) {
+			return PrettyPrintConstant.OPEN_IDENT
+	    			+object.getName()
+	    			+PrettyPrintConstant.CLOSE_IDENT;
+		} else {// krkn-84: default is ID
+			return PrettyPrintConstant.IDENTIFIER_TAG
+					+PrettyPrintConstant.OPEN_IDENT
+					+object.getOid()
+					+PrettyPrintConstant.CLOSE_IDENT;
+		}
 	}
 
 	@Override
