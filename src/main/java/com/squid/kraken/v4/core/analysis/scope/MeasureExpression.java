@@ -75,8 +75,11 @@ extends AnalysisExpression
 		return null;
 	}
 	
+	/**
+	 * todo: need to correct that code...
+	 */
 	@Override
-	public String prettyPrintIdentifierX() {
+	public String prettyPrintIdentifier() {
 		Metric metric = value.getMetric();
 		if (metric!=null && metric.getOid()!=null) {
 			String id = PrettyPrintConstant.IDENTIFIER_TAG
@@ -133,7 +136,11 @@ extends AnalysisExpression
 	// T1702: this has side effects... but this is truly the right way to handle the axisExpression.prettyPrint().
 	@Override
 	public String prettyPrint(PrettyPrintOptions options) {
-		if (value!=null) return value.prettyPrint(); else return "{measure:undefined}";
+		if (options==null) {
+			if (value!=null) return value.prettyPrint(); else return "{measure:undefined}";
+		} else {
+			if (value!=null) return value.prettyPrint(options); else return "{measure:undefined}";
+		}
 	}
 
 	@Override
