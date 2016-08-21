@@ -167,14 +167,14 @@ public class AnalysisJobComputer implements JobComputer<ProjectAnalysisJob, Proj
 			ExportSourceWriter writer, boolean lazy) throws ComputingException, InterruptedException {
 		// build the analysis
 		long start = System.currentTimeMillis();
-		logger.info("Starting export compute for job " + job.getId().getAnalysisJobId().toString());
+		logger.info("Starting export compute for job " + job.getOid());
 		DashboardAnalysis analysis;
 		try {
 			analysis = buildDashboardAnalysis(ctx, job, true);
 		} catch (ScopeException e1) {
 			throw new ComputingException(e1);
 		}
-		ExportQueryWriter eqw = new ExportQueryWriter(writer, outputStream, job.getId().getAnalysisJobId().toString());
+		ExportQueryWriter eqw = new ExportQueryWriter(writer, outputStream, job.getId().getAnalysisJobId());
 		ComputingService.INSTANCE.executeAnalysis(analysis, eqw, lazy);
 
 		DataTable results = new DataTable();
@@ -185,7 +185,7 @@ public class AnalysisJobComputer implements JobComputer<ProjectAnalysisJob, Proj
 		// job.getId().getAnalysisJobId().toString() + " in " +(stop-start)+
 		// "ms" );
 		logger.info("task=" + this.getClass().getName() + " method=compute" + " jobid="
-				+ job.getId().getAnalysisJobId().toString() + " status=done duration=" + (stop - start));
+				+ job.getOid() + " status=done duration=" + (stop - start));
 		JobStats queryLog = new JobStats(job.getId().toString(), "FacetJobComputer", (stop - start),
 				job.getId().getProjectId());
 		PerfDB.INSTANCE.save(queryLog);
