@@ -67,9 +67,13 @@ public class VegaliteSpecs {
 
 	public static class Format {
 
-		public String type;
+		public FormatType type;
 
 		public Object parse;
+	}
+	
+	public enum FormatType {
+		json, csv, tsv, topojson// lowercase is mandatory
 	}
 
 	public Data data;
