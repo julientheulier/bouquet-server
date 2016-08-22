@@ -25,6 +25,7 @@ package com.squid.kraken.v4.api.core.bb;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -45,6 +46,8 @@ import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.StreamingOutput;
+import javax.ws.rs.core.UriBuilder;
+import javax.ws.rs.core.UriInfo;
 import javax.ws.rs.core.Response.ResponseBuilder;
 
 import org.apache.commons.codec.binary.Base64;
@@ -150,21 +153,22 @@ import com.squid.kraken.v4.persistence.dao.BookmarkDAO;
 import com.squid.kraken.v4.persistence.dao.ProjectDAO;
 import com.squid.kraken.v4.vegalite.VegaliteSpecs;
 import com.squid.kraken.v4.vegalite.VegaliteSpecs.*;
+import com.squid.kraken.v4.vegalite.VegaliteSpecs.Format;
 
 /**
  * @author sergefantino
  *
  */
-public class BookmarkAnalysisServiceBaseImpl {
+public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceConstants {
 
 	static final Logger logger = LoggerFactory
 			.getLogger(BookmarkAnalysisServiceBaseImpl.class);
+
+	private UriInfo uriInfo;
 	
-	public static final BookmarkAnalysisServiceBaseImpl INSTANCE = new BookmarkAnalysisServiceBaseImpl();
-	
-	private BookmarkAnalysisServiceBaseImpl() {
+	protected BookmarkAnalysisServiceBaseImpl(UriInfo uriInfo) {
+		this.uriInfo = uriInfo;
 	}
-	
 
 	private static final NavigationItem PROJECTS_FOLDER = new NavigationItem("Projects", "list all your Dictionaries", "", "/PROJECTS", "FOLDER");
 	private static final NavigationItem SHARED_FOLDER = new NavigationItem("Shared Bookmarks", "list all the bookmarks shared with you", "", "/SHARED", "FOLDER");
@@ -198,11 +202,11 @@ public class BookmarkAnalysisServiceBaseImpl {
 		//
 		if (parent==null || parent.length()==0) {
 			// this is the root
-			content.add(PROJECTS_FOLDER);
+			content.add(createLinkableFolder(userContext, query, PROJECTS_FOLDER));
 			if (hierarchyMode!=null) listProjects(userContext, query, PROJECTS_FOLDER.getSelfRef(), filters, hierarchyMode, content);
-			content.add(SHARED_FOLDER);
+			content.add(createLinkableFolder(userContext, query, SHARED_FOLDER));
 			if (hierarchyMode!=null) listSharedBoomarks(userContext, query, SHARED_FOLDER.getSelfRef(), filters, hierarchyMode, content);
-			content.add(MYBOOKMARKS_FOLDER);
+			content.add(createLinkableFolder(userContext, query, MYBOOKMARKS_FOLDER));
 			if (hierarchyMode!=null) listMyBoomarks(userContext, query, MYBOOKMARKS_FOLDER.getSelfRef(), filters, hierarchyMode, content);
 		} else {
 			// need to list parent's content
@@ -222,8 +226,19 @@ public class BookmarkAnalysisServiceBaseImpl {
 		return new NavigationReply(query, content);
 	}
 	
+	private NavigationItem createLinkableFolder(AppContext userContext, NavigationQuery query, NavigationItem folder) {
+		if (query.getStyle()==Style.HUMAN) {
+			NavigationItem copy = new NavigationItem(folder);
+			copy.setLink(createLinkToFolder(userContext, copy));
+			return copy;
+		} else {
+			return folder;
+		}
+	}
+	
 	private static final List<String> topLevelOrder = Arrays.asList(new String[]{PROJECTS_FOLDER.getSelfRef(), SHARED_FOLDER.getSelfRef(), MYBOOKMARKS_FOLDER.getSelfRef()});
 	private static final List<String> typeOrder = Arrays.asList(new String[]{FOLDER_TYPE, BOOKMARK_TYPE, DOMAIN_TYPE});
+	
 	/**
 	 * @param content
 	 */
@@ -268,6 +283,7 @@ public class BookmarkAnalysisServiceBaseImpl {
 			for (Project project : projects) {
 				if (filters==null || filter(project, filters)) {
 					NavigationItem folder = new NavigationItem(query, project, parent);
+					if (query.getStyle()==Style.HUMAN) folder.setLink(createLinkToFolder(userContext, folder));
 					HashMap<String, String> attrs = new HashMap<>();
 					attrs.put("jdbc", project.getDbUrl());
 					folder.setAttributes(attrs);
@@ -282,6 +298,7 @@ public class BookmarkAnalysisServiceBaseImpl {
 				String name = domain.getName();
 				if (filters==null || filter(name, filters)) {
 					NavigationItem item = new NavigationItem(query, project, domain, parent);
+					if (query.getStyle()==Style.HUMAN) item.setLink(createLinkToAnalysis(userContext, item));
 					HashMap<String, String> attrs = new HashMap<>();
 					attrs.put("dictionary", project.getName());
 					item.setAttributes(attrs);
@@ -291,6 +308,21 @@ public class BookmarkAnalysisServiceBaseImpl {
 		} else {
 			// what's this parent anyway???
 		}
+	}
+	
+	/**
+	 * create a link to the NavigationItem
+	 * @param item
+	 * @return
+	 */
+	private URI createLinkToFolder(AppContext userContext, NavigationItem item) {
+		return
+				uriInfo.getAbsolutePathBuilder().path("").queryParam("parent", item.getSelfRef()).queryParam("access_token", userContext.getToken().getOid()).build();
+	}
+	
+	private URI createLinkToAnalysis(AppContext userContext, NavigationItem item) {
+		return
+				uriInfo.getAbsolutePathBuilder().path("{BBID}/analysis").queryParam("access_token", userContext.getToken().getOid()).build(item.getSelfRef());
 	}
 	
 	/**
@@ -310,7 +342,7 @@ public class BookmarkAnalysisServiceBaseImpl {
 			List<Project> projects = ((ProjectDAO) DAOFactory.getDAOFactory().getDAO(Project.class))
 					.findByCustomer(userContext, userContext.getCustomerPk());
 			for (Project project : projects) {
-				if (project.getName().equals(projectRef)) {
+				if (project.getName()!=null && project.getName().equals(projectRef)) {
 					return project;
 				}
 			}
@@ -372,6 +404,7 @@ public class BookmarkAnalysisServiceBaseImpl {
 				if (filters==null || filter(bookmark, project, filters)) {
 					String id = "@'"+bookmark.getId().getProjectId()+"'.[bookmark:'"+bookmark.getId().getBookmarkId()+"']";
 					NavigationItem item = new NavigationItem(query.getStyle().equals("HUMAN")?null:bookmark.getId(), name, bookmark.getDescription(), parent, id, BOOKMARK_TYPE);
+					if (query.getStyle()==Style.HUMAN) item.setLink(createLinkToAnalysis(userContext, item));
 					HashMap<String, String> attrs = new HashMap<>();
 					attrs.put("dictionary", project.getName());
 					item.setAttributes(attrs);
@@ -389,8 +422,9 @@ public class BookmarkAnalysisServiceBaseImpl {
 							String oid = Base64
 									.encodeBase64URLSafeString(selfpath.getBytes());
 							BookmarkFolderPK id = new BookmarkFolderPK(bookmark.getId().getParent(), oid);
-							NavigationItem item = new NavigationItem(query.getStyle().equals("HUMAN")?null:id, name, "", parent, selfpath, FOLDER_TYPE);
-							content.add(item);
+							NavigationItem folder = new NavigationItem(query.getStyle().equals("HUMAN")?null:id, name, "", parent, selfpath, FOLDER_TYPE);
+							if (query.getStyle()==Style.HUMAN) folder.setLink(createLinkToFolder(userContext, folder));
+							content.add(folder);
 							folders.add(selfpath);
 						}
 					}
@@ -743,7 +777,7 @@ public class BookmarkAnalysisServiceBaseImpl {
 			final AppContext userContext,
 			String BBID,
 			final AnalysisQuery query,
-			String filename,
+			final String filename,
 			String fileext,
 			String compression
 			)
@@ -761,7 +795,7 @@ public class BookmarkAnalysisServiceBaseImpl {
 			final ProjectAnalysisJob job = createAnalysisJob(space.getUniverse(), query, selection, OutputFormat.JSON);
 			//
 			final OutputFormat outFormat;
-			if (query.getFormat() == null) query.setFormat(fileext);
+			if (fileext != null) query.setFormat(fileext);
 			if (query.getFormat() == null) {
 				outFormat = OutputFormat.JSON;
 			} else {
@@ -797,26 +831,27 @@ public class BookmarkAnalysisServiceBaseImpl {
 
 			// build the response
 			ResponseBuilder response;
+			String outname = filename;
 			if (filename==null || filename.equals("")) {
-				filename = "job-" + (space.hasBookmark()?space.getBookmark().getName():space.getRoot().getName());
+				outname = "job-" + (space.hasBookmark()?space.getBookmark().getName():space.getRoot().getName());
 			}
 			String mediaType;
 			switch (outFormat) {
 			case CSV:
 				mediaType = "text/csv";
-				filename += "."+(fileext!=null?fileext:"csv");
+				outname += "."+(fileext!=null?fileext:"csv");
 				break;
 			case XLS:
 				mediaType = "application/vnd.ms-excel";
-				filename += "."+(fileext!=null?fileext:"xls");
+				outname += "."+(fileext!=null?fileext:"xls");
 				break;
 			case XLSX:
 				mediaType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-				filename += "."+(fileext!=null?fileext:"xlsx");
+				outname += "."+(fileext!=null?fileext:"xlsx");
 				break;
 			default:
 				mediaType = MediaType.APPLICATION_JSON_TYPE.toString();
-				filename += "."+(fileext!=null?fileext:"json");
+				outname += "."+(fileext!=null?fileext:"json");
 			}
 
 			switch (outCompression) {
@@ -824,7 +859,7 @@ public class BookmarkAnalysisServiceBaseImpl {
 				// note : setting "Content-Type:application/octet-stream" should
 				// disable interceptor's GZIP compression.
 				mediaType = MediaType.APPLICATION_OCTET_STREAM_TYPE.toString();
-				filename += "."+(compression!=null?compression:"gz");
+				outname += "."+(compression!=null?compression:"gz");
 				break;
 			default:
 				// NONE
@@ -832,9 +867,9 @@ public class BookmarkAnalysisServiceBaseImpl {
 
 			response = Response.ok(stream);
 			// response.header("Content-Type", mediaType);
-			if (filename!=null && ((outFormat != OutputFormat.JSON) || (outCompression != OutputCompression.NONE))) {
-				logger.info("returning results as " + mediaType + ", fileName : " + filename);
-				response.header("Content-Disposition", "attachment; filename=" + filename);
+			if ((filename!=null && filename.length()>0) && ((outFormat != OutputFormat.JSON) || (outCompression != OutputCompression.NONE))) {
+				logger.info("returning results as " + mediaType + ", fileName : " + outname);
+				response.header("Content-Disposition", "attachment; filename=" + outname);
 			}
 
 			return response.type(mediaType + "; charset=UTF-8").build();
@@ -1521,6 +1556,7 @@ public class BookmarkAnalysisServiceBaseImpl {
 	}
 
 	/**
+	 * @param uriInfo 
 	 * @param userContext
 	 * @param bBID
 	 * @param x
@@ -1532,7 +1568,12 @@ public class BookmarkAnalysisServiceBaseImpl {
 	 * @throws ComputingException 
 	 * @throws ScopeException 
 	 */
-	public VegaliteReply getVegalite(AppContext userContext, String BBID, String x, String y, String color,
+	public VegaliteReply getVegalite(
+			UriInfo uriInfo, 
+			AppContext userContext, 
+			String BBID, 
+			String x, String y, String color, String size,
+			String data,
 			AnalysisQuery query) throws ScopeException, ComputingException, InterruptedException {
 		Space space = getSpace(userContext, BBID);
 		//
@@ -1605,6 +1646,23 @@ public class BookmarkAnalysisServiceBaseImpl {
 			}
 			pos++;
 		}
+		if (size!=null) {
+			if (size.equals("__PERIOD")) {
+				size = query.getPeriod();
+				if (size==null) throw new ScopeException("no period defined, you cannot use __PERIOD alias");
+			}
+			ExpressionAST expr = localScope.parseExpression(size);
+			ChannelDef channel = createChannelDef(expr, required, options);
+			result.encoding.size = channel;
+			if (channel.type==DataType.temporal) {
+				isTemporal = true;
+				temporalPos = pos;
+			} else if (channel.type==DataType.quantitative) {
+				required.getOrderBy().add(new OrderBy(new Expression(size), Direction.DESC));
+				result.encoding.order = channel;
+			}
+			pos++;
+		}
 		//
 		// force using required
 		query.setGroupBy(required.getGroupBy());
@@ -1622,9 +1680,20 @@ public class BookmarkAnalysisServiceBaseImpl {
 			Index index = new Index(temporalPos);
 			job.setBeyondLimit(Collections.singletonList(index));
 		}
-		DataTable table = AnalysisJobComputer.INSTANCE.compute(userContext, job, query.getMaxResults(), query.getStartIndex(), false);
 		//
-		result.data = transformToVegaData(table);
+		// handling data
+		if (data.equals("EMBEDED")) {
+			DataTable table = AnalysisJobComputer.INSTANCE.compute(userContext, job, query.getMaxResults(), query.getStartIndex(), false);
+			result.data = transformToVegaData(table);
+		} else if (data.equals("URL")) {
+			URI uri = buildExportQuery(uriInfo, userContext, BBID, query, ".csv");
+			result.data = new Data();
+			result.data.url = uri.toString();
+			result.data.format = new Format();
+			result.data.format.type = FormatType.csv;// lowercase only!
+		} else {
+			throw new APIException("undefined value for data parameter, must be EMBEDED or URL");
+		}
 		//
 		result.mark = isTemporal?Mark.line:Mark.bar;
 		//
@@ -1634,6 +1703,59 @@ public class BookmarkAnalysisServiceBaseImpl {
 		return reply;
 	}
 	
+	/**
+	 * @param uriInfo
+	 * @param userContext 
+	 * @param BBID 
+	 * @param query
+	 * @return
+	 */
+	private URI buildExportQuery(UriInfo uriInfo, AppContext userContext, String BBID, AnalysisQuery query, String filename) {
+		UriBuilder builder = uriInfo.getBaseUriBuilder().
+			path("bb/{BBID}/export/{filename}");
+		if (query.getGroupBy()!=null) {
+			for (String item : query.getGroupBy()) {
+				builder.queryParam(GROUP_BY_PARAM, item);
+			}
+		}
+		if (query.getMetrics()!=null) {
+			for (String item : query.getMetrics()) {
+				builder.queryParam(METRICS_PARAM, item);
+			}
+		}
+		if (query.getFilters()!=null) {
+			for (String item : query.getFilters()) {
+				builder.queryParam(FILTERS_PARAM, item);
+			}
+		}
+		if (query.getPeriod()!=null) builder.queryParam(PERIOD_PARAM, query.getPeriod());
+		if (query.getTimeframe()!=null) {
+			for (String item : query.getTimeframe()) {
+				builder.queryParam(TIMEFRAME_PARAM, item);
+			}
+		}
+		if (query.getCompareframe()!=null) {
+			for (String item : query.getCompareframe()) {
+				builder.queryParam(COMPAREFRAME_PARAM, item);
+			}
+		}
+		if (query.getOrderBy()!=null) {
+			for (OrderBy item : query.getOrderBy()) {
+				String expr = item.getDirection()+"("+item.getExpression().getValue()+")";
+				builder.queryParam(ORDERBY_PARAM, expr);
+			}
+		}
+		if (query.getRollups()!=null) builder.queryParam(ROLLUP_PARAM, query.getRollups());
+		if (query.getLimit()!=null) builder.queryParam(LIMIT_PARAM, query.getLimit());
+		if (query.getFormat()!=null) builder.queryParam(FORMAT_PARAM, query.getFormat());
+		if (query.getMaxResults()!=null) builder.queryParam(MAX_RESULTS_PARAM, query.getMaxResults());
+		if (query.getStartIndex()!=null) builder.queryParam(START_INDEX_PARAM, query.getStartIndex());
+		if (query.getLazy()!=null) builder.queryParam(LAZY_PARAM, query.getLazy());
+		if (query.getStyle()!=null) builder.queryParam(STYLE_PARAM, query.getStyle());
+		builder.queryParam("access_token", userContext.getToken().getOid());
+		return builder.build(BBID, filename);
+	}
+
 	/**
 	 * @param table
 	 * @return
