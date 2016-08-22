@@ -23,6 +23,7 @@
  *******************************************************************************/
 package com.squid.kraken.v4.api.core.bb;
 
+import java.net.URI;
 import java.util.Map;
 
 import com.squid.kraken.v4.api.core.bb.NavigationQuery.Style;
@@ -49,6 +50,8 @@ public class NavigationItem {
 	private String selfRef;
 	
 	private String type;
+	
+	private URI link;
 	
 	/**
 	 * 
@@ -109,6 +112,16 @@ public class NavigationItem {
 		this.selfRef = selfRef;
 		this.type = type;
 	}
+	
+	public NavigationItem(NavigationItem copy) {
+		super();
+		this.id = copy.id;
+		this.name = copy.name;// avoid having undefined name make everyone happy
+		this.description = copy.description;
+		this.parentRef = copy.parentRef;
+		this.selfRef = copy.selfRef;
+		this.type = copy.type;
+	}
 
 	public CustomerPK getId() {
 		return id;
@@ -164,6 +177,14 @@ public class NavigationItem {
 
 	public void setType(String type) {
 		this.type = type;
+	}
+
+	public URI getLink() {
+		return link;
+	}
+
+	public void setLink(URI link) {
+		this.link = link;
 	}
 
 }
