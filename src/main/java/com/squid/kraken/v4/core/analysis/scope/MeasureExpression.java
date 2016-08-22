@@ -44,6 +44,25 @@ extends AnalysisExpression
 	}
 	
 	@Override
+	public String getName() {
+		// override to use the axis name if not overridden
+		final String name = super.getName();
+		if (name==null && value!=null) {
+			return value.getName();
+		}
+		return name;
+	}
+	
+	@Override
+	public void setName(String name) {
+		if (value!=null) {
+			value.setName(name);
+		} else {
+			super.setName(name);
+		}
+	}
+	
+	@Override
 	public Object getReference() {
 		return value;
 	}
