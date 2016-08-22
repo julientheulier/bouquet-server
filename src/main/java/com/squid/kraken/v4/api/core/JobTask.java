@@ -114,14 +114,18 @@ public class JobTask<T extends ComputationJob<PK, R>, PK extends GenericPK, R ex
 		AppContext app = ServiceUtils.getInstance().getRootUserContext(job.getCustomerId());
 		JobDAO<T, PK> dao = ((JobDAO<T, PK>) factory.getDAO(type));
 		try {
+
+			boolean lazyAnalysis = (lazy != null && (lazy.equals("true") || lazy.equals("noError")));
+
 			// set status to RUNNING
 			job.setStatistics(new ComputationJob.Statistics(System.currentTimeMillis()));
-			job.setStatus(Status.RUNNING);
-			dao.update(app, job);
+			if (!lazyAnalysis) {
+				job.setStatus(Status.RUNNING);
+				dao.update(app, job);
+			}
 
 			// compute and get the results
 			R results;
-			boolean lazyAnalysis = (lazy != null && (lazy.equals("true") || lazy.equals("noError")));
 
 			if (outputStream == null) {
 				results = computer.compute(ctx, job, maxResults, startIndex, lazyAnalysis);
@@ -136,6 +140,9 @@ public class JobTask<T extends ComputationJob<PK, R>, PK extends GenericPK, R ex
 				if (lazy.equals("noError")) {
 					// new way as of T453
 					job.setResults(null);
+					job.setStatus(Status.PENDING);
+					dao.update(app, job);
+
 				} else {
 					// old way
 					if (!this.returnJobIfNotInCache) {
