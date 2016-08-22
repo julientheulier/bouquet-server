@@ -108,16 +108,19 @@ public class DataTable extends JobResultBaseImpl {
         
         private String description;
         private String format;
+        
+        private int pos;
 
         public Col() {
         }
 
-        public Col(GenericPK pk, String name, ExtendedType extendedType, Role role) {
+        public Col(GenericPK pk, String name, ExtendedType extendedType, Role role, int pos) {
             super();
             this.pk = pk;
             this.name = name;
             this.extendedType = extendedType;
             this.role = role;
+            this.pos = pos;
         }
         
         public OriginType getOriginType() {
@@ -211,6 +214,13 @@ public class DataTable extends JobResultBaseImpl {
 		 */
 		public void setFormat(String format) {
 			this.format = format;
+		}
+		
+		/**
+		 * @return the position
+		 */
+		public int getPos() {
+			return pos;
 		}
 
         @Override
