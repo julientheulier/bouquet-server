@@ -32,6 +32,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Hashtable;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
@@ -118,6 +119,8 @@ import com.squid.kraken.v4.model.Bookmark;
 import com.squid.kraken.v4.model.BookmarkConfig;
 import com.squid.kraken.v4.model.BookmarkPK;
 import com.squid.kraken.v4.model.DataTable;
+import com.squid.kraken.v4.model.DataTable.Col;
+import com.squid.kraken.v4.model.DataTable.Row;
 import com.squid.kraken.v4.model.Dimension;
 import com.squid.kraken.v4.model.Dimension.Type;
 import com.squid.kraken.v4.model.Domain;
@@ -134,6 +137,7 @@ import com.squid.kraken.v4.model.ObjectType;
 import com.squid.kraken.v4.model.Project;
 import com.squid.kraken.v4.model.ProjectAnalysisJob;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.Direction;
+import com.squid.kraken.v4.model.ProjectAnalysisJob.Index;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.OrderBy;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.RollUp;
 import com.squid.kraken.v4.model.ProjectAnalysisJobPK;
@@ -144,6 +148,8 @@ import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DAOFactory;
 import com.squid.kraken.v4.persistence.dao.BookmarkDAO;
 import com.squid.kraken.v4.persistence.dao.ProjectDAO;
+import com.squid.kraken.v4.vegalite.VegaliteSpecs;
+import com.squid.kraken.v4.vegalite.VegaliteSpecs.*;
 
 /**
  * @author sergefantino
@@ -1163,7 +1169,7 @@ public class BookmarkAnalysisServiceBaseImpl {
 	}
 
 	private String formatName(String prettyPrint) {
-		return prettyPrint.replaceAll("[(),.]", " ").trim().replaceAll("[^ a-zA-Z_0-9]", "").replace(' ', '_');
+		return prettyPrint.replaceAll("[(),.]>", " ").trim().replaceAll("[^ a-zA-Z_0-9]", "").replace(' ', '_');
 	}
 	
 	private BookmarkConfig createBookmarkConfig(Space space, AnalysisQuery query) throws ScopeException {
@@ -1511,6 +1517,176 @@ public class BookmarkAnalysisServiceBaseImpl {
 			return config;
 		} catch (Exception e) {
 			throw new APIException(e);
+		}
+	}
+
+	/**
+	 * @param userContext
+	 * @param bBID
+	 * @param x
+	 * @param y
+	 * @param color
+	 * @param query
+	 * @return
+	 * @throws InterruptedException 
+	 * @throws ComputingException 
+	 * @throws ScopeException 
+	 */
+	public VegaliteReply getVegalite(AppContext userContext, String BBID, String x, String y, String color,
+			AnalysisQuery query) throws ScopeException, ComputingException, InterruptedException {
+		Space space = getSpace(userContext, BBID);
+		//
+		Bookmark bookmark = space.getBookmark();
+		BookmarkConfig config = readConfig(bookmark);
+		//
+		// merge the bookmark config with the query
+		mergeBoomarkConfig(space, query, config);
+		//
+		AnalysisQuery required = new AnalysisQueryImpl();
+		required.setGroupBy(new ArrayList<String>());
+		required.setMetrics(new ArrayList<String>());
+		required.setOrderBy(new ArrayList<OrderBy>());
+		PrettyPrintOptions options = new PrettyPrintOptions(ReferenceStyle.NAME, space.getImageDomain());
+		VegaliteSpecs result = new VegaliteSpecs();
+		result.encoding = new Encoding();
+		SpaceScope localScope = new SpaceScope(space);
+		boolean isTemporal = false;
+		int temporalPos = -1;
+		//
+		int pos = 0;
+		if (x!=null) {
+			if (x.equals("__PERIOD")) {
+				x = query.getPeriod();
+				if (x==null) throw new ScopeException("no period defined, you cannot use __PERIOD alias");
+			}
+			ExpressionAST expr = localScope.parseExpression(x);
+			ChannelDef channel = createChannelDef(expr, required, options);
+			result.encoding.x = channel;
+			if (channel.type==DataType.temporal) {
+				isTemporal = true;
+				temporalPos = pos;
+			} else if (channel.type==DataType.quantitative) {
+				required.getOrderBy().add(new OrderBy(new Expression(x), Direction.DESC));
+				result.encoding.order = channel;
+			}
+			pos++;
+		}
+		if (y!=null) {
+			if (y.equals("__PERIOD")) {
+				y = query.getPeriod();
+				if (y==null) throw new ScopeException("no period defined, you cannot use __PERIOD alias");
+			}
+			ExpressionAST expr = localScope.parseExpression(y);
+			ChannelDef channel = createChannelDef(expr, required, options);
+			result.encoding.y = channel;
+			if (channel.type==DataType.temporal) {
+				isTemporal = true;
+				temporalPos = pos;
+			} else if (channel.type==DataType.quantitative) {
+				required.getOrderBy().add(new OrderBy(new Expression(y), Direction.DESC));
+				result.encoding.order = channel;
+			}
+			pos++;
+		}
+		if (color!=null) {
+			if (color.equals("__PERIOD")) {
+				color = query.getPeriod();
+				if (color==null) throw new ScopeException("no period defined, you cannot use __PERIOD alias");
+			}
+			ExpressionAST expr = localScope.parseExpression(color);
+			ChannelDef channel = createChannelDef(expr, required, options);
+			result.encoding.color = channel;
+			if (channel.type==DataType.temporal) {
+				isTemporal = true;
+				temporalPos = pos;
+			} else if (channel.type==DataType.quantitative) {
+				required.getOrderBy().add(new OrderBy(new Expression(color), Direction.DESC));
+				result.encoding.order = channel;
+			}
+			pos++;
+		}
+		//
+		// force using required
+		query.setGroupBy(required.getGroupBy());
+		query.setMetrics(required.getMetrics());
+		query.setOrderBy(required.getOrderBy());
+		//
+		if (query.getLimit()==null) {
+			query.setLimit((long) 10);
+		}
+		// create the facet selection
+		FacetSelection selection = createFacetSelection(space, query);
+		final ProjectAnalysisJob job = createAnalysisJob(space.getUniverse(), query, selection, OutputFormat.JSON);
+		// beyond limit
+		if (isTemporal) {
+			Index index = new Index(temporalPos);
+			job.setBeyondLimit(Collections.singletonList(index));
+		}
+		DataTable table = AnalysisJobComputer.INSTANCE.compute(userContext, job, query.getMaxResults(), query.getStartIndex(), false);
+		//
+		result.data = transformToVegaData(table);
+		//
+		result.mark = isTemporal?Mark.line:Mark.bar;
+		//
+		VegaliteReply reply = new VegaliteReply();
+		reply.setQuery(query);
+		reply.setResult(result);
+		return reply;
+	}
+	
+	/**
+	 * @param table
+	 * @return
+	 */
+	private Data transformToVegaData(DataTable table) {
+		ArrayList<Object> value = new ArrayList<>();
+		for (Row row : table.getRows()) {
+			Hashtable<String, Object> line = new Hashtable<>(row.getV().length);
+			for (Col col : table.getCols()) {
+				line.put(col.getName(), row.getV()[col.getPos()]);
+			}
+			value.add(line);
+		}
+		Data data = new Data();
+		data.values = value.toArray();
+		return data;
+	}
+
+	private ChannelDef createChannelDef(ExpressionAST expr, AnalysisQuery required, PrettyPrintOptions options) {
+		ChannelDef channel = new ChannelDef();
+		channel.type = computeDataType(expr);
+		String name = expr.getName();
+		if (name==null) {
+			name = formatName(expr.prettyPrint());
+		} else {
+			name = formatName(name);
+		}
+		expr.setName(name);
+		channel.field = name;
+		String namedExpression = expr.prettyPrint(options) + " as '" + name +"'"; 
+		if (channel.type==DataType.quantitative) {
+			// it's a metric
+			required.getMetrics().add(namedExpression);
+		} else {
+			// it's a groupBy
+			required.getGroupBy().add(namedExpression);
+		}
+		return channel;
+	}
+	
+	private DataType computeDataType(ExpressionAST expr) {
+		IDomain image = expr.getImageDomain();
+		if (image.isInstanceOf(IDomain.AGGREGATE)) {
+			// it's a metric
+			return DataType.quantitative;
+		} else {
+			if (image.isInstanceOf(IDomain.TEMPORAL)) {
+				return DataType.temporal;
+			} else if (image.isInstanceOf(IDomain.NUMERIC)) {
+				return DataType.ordinal;
+			} else {
+				return DataType.nominal;
+			}
 		}
 	}
 
