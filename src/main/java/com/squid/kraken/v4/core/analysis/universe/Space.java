@@ -52,8 +52,6 @@ import com.squid.kraken.v4.model.Dimension;
 import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.DomainOption;
 import com.squid.kraken.v4.model.ExpressionObject;
-import com.squid.kraken.v4.model.GenericPK;
-import com.squid.kraken.v4.model.LzPersistentBaseImpl;
 import com.squid.kraken.v4.model.Metric;
 import com.squid.kraken.v4.model.Relation;
 import com.squid.core.expression.reference.RelationDirection;
@@ -70,6 +68,7 @@ public class Space {
 	private Space parent = null;
 	private Domain domain;
 	private Relation relation = null;
+	private RelationDirection direction = null;
 	private String ID = "";
 
 	private DomainOption domainOptions = null;
@@ -88,7 +87,7 @@ public class Space {
 		this.universe = parent.getUniverse();
 		this.rootDomain = parent.rootDomain;
 		this.parent = parent;
-		RelationDirection direction = relation.getDirection(parent.getDomain().getId());
+		this.direction = relation.getDirection(parent.getDomain().getId());
 		if (direction==RelationDirection.LEFT_TO_RIGHT) {
 			this.domain = universe.getDomain(relation.getRightId());
 		} else if (direction==RelationDirection.RIGHT_TO_LEFT) {
@@ -96,6 +95,15 @@ public class Space {
 		} else {
 			throw new ScopeException("Relation '"+relation.getName()+"' is not applicable to source domain '"+parent.getDomain().getName()+"'");
 		}
+		this.relation = relation;
+		this.ID = (parent!=null?parent.ID+"/":"")+relation.getId().toUUID();
+	}
+	
+	public Space(Space parent, Relation relation, RelationDirection direction) throws ScopeException {
+		this.universe = parent.getUniverse();
+		this.rootDomain = parent.rootDomain;
+		this.parent = parent;
+		this.direction = direction;
 		this.relation = relation;
 		this.ID = (parent!=null?parent.ID+"/":"")+relation.getId().toUUID();
 	}
@@ -134,7 +142,7 @@ public class Space {
 	        return new Space(universeAsRoot, rootDomain);
 	    } else {
 	        Space parentAsRoot = this.parent.asRootUserContext();
-	        return new Space(parentAsRoot, this.relation);
+	        return new Space(parentAsRoot, this.relation, this.direction);
 	    }
 	}
 	
@@ -218,7 +226,6 @@ public class Space {
 	
 	public String getRelationName() {
 		if (this.relation!=null && getParent()!=null && getParent().getDomain()!=null) {
-			RelationDirection direction = relation.getDirection(getParent().getDomain().getId());
 			if (direction==RelationDirection.LEFT_TO_RIGHT) {
 				return relation.getRightName();
 			} else if (direction==RelationDirection.RIGHT_TO_LEFT) {
@@ -536,9 +543,9 @@ public class Space {
 				pp = "."+pp;
 			}
 			if (parent.getParent()!=null) {
-				pp = prettyPrintObject(parent.relation, options)+pp;
+				pp = prettyPrintRelation(parent, options)+pp;
 			} else {
-				pp = prettyPrintObject(parent.getDomain(), options)+pp;
+				pp = prettyPrintDomain(parent, options)+pp;
 			}
 			parent = parent.getParent();
 		}
@@ -547,20 +554,39 @@ public class Space {
 	}
 
 	/**
-	 * utility method to pretty-print a object id
+	 * utility method to pretty-print the space getDomain()
 	 * @param object
 	 * @param options
 	 * @return
 	 */
-	private static String prettyPrintObject(LzPersistentBaseImpl<? extends GenericPK> object, PrettyPrintOptions options) {
+	private static String prettyPrintDomain(Space space, PrettyPrintOptions options) {
 		if (options!=null && options.getStyle()==ReferenceStyle.NAME) {
 			return PrettyPrintConstant.OPEN_IDENT
-	    			+object.getName()
+	    			+space.getDomain().getName()
 	    			+PrettyPrintConstant.CLOSE_IDENT;
 		} else {// krkn-84: default is ID
 			return PrettyPrintConstant.IDENTIFIER_TAG
 					+PrettyPrintConstant.OPEN_IDENT
-					+object.getOid()
+					+space.getDomain().getOid()
+					+PrettyPrintConstant.CLOSE_IDENT;
+		}
+	}
+
+	/**
+	 * utility method to pretty-print the space getReference()
+	 * @param object
+	 * @param options
+	 * @return
+	 */
+	private static String prettyPrintRelation(Space space, PrettyPrintOptions options) {
+		if (options!=null && options.getStyle()==ReferenceStyle.NAME) {
+			return PrettyPrintConstant.OPEN_IDENT
+	    			+space.getRelationName()
+	    			+PrettyPrintConstant.CLOSE_IDENT;
+		} else {// krkn-84: default is ID
+			return PrettyPrintConstant.IDENTIFIER_TAG
+					+PrettyPrintConstant.OPEN_IDENT
+					+space.getRelation().getOid()
 					+PrettyPrintConstant.CLOSE_IDENT;
 		}
 	}
