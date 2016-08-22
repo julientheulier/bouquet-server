@@ -311,6 +311,27 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest {
 		return delegate.runAnalysis(userContext, BBID, analysis, timeout);
 	}
 
+
+	@GET
+	@Path("{" + BBID_PARAM_NAME + "}/vegalite")
+	@ApiOperation(value = "Generate vegalite specs from a query")
+	public VegaliteReply getVegalite(
+			@Context HttpServletRequest request, 
+			@PathParam(BBID_PARAM_NAME) String BBID,
+			@QueryParam("x") String x,
+			@QueryParam("y") String y,
+			@QueryParam("color") String color,
+			@QueryParam("filter") String[] filterExpressions,
+			@QueryParam("period") String period,
+			@ApiParam(value="define the timeframe for the period. It can be a date range [lower,upper] or a special alias: ____ALL, ____LAST_DAY, ____LAST_7_DAYS, __CURRENT_MONTH, __PREVIOUS_MONTH, __CURRENT_MONTH, __PREVIOUS_YEAR", allowMultiple = true) 
+			@QueryParam("timeframe") String[] timeframe
+	) throws ScopeException, ComputingException, InterruptedException
+	{
+		AppContext userContext = getUserContext(request);
+		AnalysisQuery query = createAnalysisFromParams(null, null, filterExpressions, period, timeframe, null, null, null, null, null, null, null, null, null);
+		return delegate.getVegalite(userContext, BBID, x, y, color, query);
+	}
+
 	@GET
 	@Path("{" + BBID_PARAM_NAME + "}/export/" + "{filename}")
 	@ApiOperation(value = "Export an analysis results")
