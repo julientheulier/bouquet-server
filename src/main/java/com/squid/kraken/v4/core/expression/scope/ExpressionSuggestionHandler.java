@@ -35,7 +35,9 @@ import com.squid.core.domain.operators.ListContentAssistEntry;
 import com.squid.core.domain.operators.OperatorDefinition;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.ExpressionRef;
+import com.squid.core.expression.PrettyPrintOptions;
 import com.squid.core.expression.UndefinedExpression;
+import com.squid.core.expression.PrettyPrintOptions.ReferenceStyle;
 import com.squid.core.expression.parser.ParseException;
 import com.squid.core.expression.parser.TokenMgrError;
 import com.squid.core.expression.reference.ColumnReference;
@@ -218,11 +220,20 @@ public class ExpressionSuggestionHandler {
             List<ExpressionAST> definitions = actualScope.getDefinitions();//buildDefinitionList();
             //
             //System.out.println(prefix);
+            IDomain context = null;
+            try {
+            	ExpressionAST self = actualScope.parseExpression("$'SELF'");
+            	context = self.getImageDomain();
+            } catch (ScopeException e) {
+            	// ignore
+            	System.out.println("");
+            }
+            PrettyPrintOptions options = new PrettyPrintOptions(ReferenceStyle.NAME, context);
             for (ExpressionAST expression : definitions) {
                 if (expression != null) {
                     //Expression expression = actualScope.createReferringExpression(object);
                     if (expression != null) {
-                        String replacement = actualScope.prettyPrint(expression);
+                        String replacement = actualScope.prettyPrint(expression, options);
                         String upperCaseFilter = filter.toUpperCase();
                         boolean test = strict_mode ? replacement.toUpperCase().startsWith(upperCaseFilter) : replacement.toUpperCase().contains(upperCaseFilter);
                         if (test && replacement != null && !replacement.equals("")) {

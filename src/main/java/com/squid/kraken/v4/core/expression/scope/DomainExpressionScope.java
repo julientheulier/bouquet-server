@@ -35,6 +35,7 @@ import com.squid.core.database.model.Table;
 import com.squid.core.domain.IDomain;
 import com.squid.core.domain.operators.OperatorDefinition;
 import com.squid.core.expression.ExpressionAST;
+import com.squid.core.expression.PrettyPrintOptions;
 import com.squid.kraken.v4.core.expression.reference.ColumnDomainReference;
 import com.squid.kraken.v4.core.expression.reference.ParameterReference;
 import com.squid.kraken.v4.core.expression.reference.RelationReference;
@@ -200,6 +201,11 @@ public class DomainExpressionScope extends DefaultScope {
 
 	@Override
 	public Object lookupObject(IdentifierType identifierType, String identifier) throws ScopeException {
+		//
+		// SELF
+		if (getSpace()!=null && identifierType.equals(IdentifierType.PARAMETER) && identifier.equalsIgnoreCase("SELF")) {
+			return new ParameterReference("SELF", getSpace().getImageDomain());
+		}
 		//
 		// lookup a column if it is prefixed with #
 		if (identifierType==IdentifierType.COLUMN && table!=null) {
@@ -550,13 +556,13 @@ public class DomainExpressionScope extends DefaultScope {
 	}
 	
 	@Override
-	public String prettyPrint(ExpressionAST expression) {
+	public String prettyPrint(ExpressionAST expression, PrettyPrintOptions options) {
 		// check if it is a relation - 
 		// in that case add a trailing dot to force applying the current scope
 		if (expression instanceof RelationReference) {
-			return expression.prettyPrint()+".";
+			return expression.prettyPrint(options)+".";
 		} else {
-			return expression.prettyPrint();
+			return expression.prettyPrint(options);
 		}
 	}
 
