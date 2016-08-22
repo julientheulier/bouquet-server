@@ -710,11 +710,23 @@ public class DataMatrix {
 			return "%tY-%<tm-%<tdT%<tH:%<tM:%<tS.%<tLZ";
 		}
 		if (image.isInstanceOf(IDomain.NUMERIC)) {
-			if (type.getDataType() == Types.INTEGER) {
+			switch (type.getDataType()) {
+			case Types.INTEGER:
+			case Types.BIGINT:
+			case Types.DOUBLE:
+			case Types.SMALLINT:
+			case Types.TINYINT:
 				return "%,d";
-			}
-			if (type.getDataType() == Types.NUMERIC && type.getScale() > 0) {
-				return "%,." + type.getScale() + "f";
+			case Types.DECIMAL:
+			case Types.FLOAT:
+			case Types.NUMERIC:
+				if (type.getScale() > 0) {
+					return "%,." + type.getScale() + "f";
+				} else {
+					return "%,d";
+				}
+			default:
+				break;
 			}
 		}
 		// else
