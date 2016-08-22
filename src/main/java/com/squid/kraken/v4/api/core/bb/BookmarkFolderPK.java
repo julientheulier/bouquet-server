@@ -32,7 +32,9 @@ import com.squid.kraken.v4.model.ProjectPK;
  */
 public class BookmarkFolderPK extends ProjectPK {
 
-    private String bookmarkFolderId;
+	private static final long serialVersionUID = 6282495450897385099L;
+	
+	private String bookmarkFolderId;
     
 	public BookmarkFolderPK(ProjectPK parent, String oid) {
 		super(parent.getCustomerId(), parent.getProjectId());
