@@ -37,6 +37,7 @@ import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import javax.ws.rs.core.UriInfo;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -77,15 +78,19 @@ import com.wordnik.swagger.annotations.AuthorizationScope;
 		description = "this is the new bookmark API intented to provide all the fun without the pain",
 		authorizations = { @Authorization(value = "kraken_auth", type = "oauth2", scopes = { @AuthorizationScope(scope = "access", description = "Access") }) })
 @Produces({ MediaType.APPLICATION_JSON })
-public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest {
-
-	private BookmarkAnalysisServiceBaseImpl delegate = BookmarkAnalysisServiceBaseImpl
-			.INSTANCE;
+public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest implements BookmarkAnalysisServiceConstants {
 
 	static final Logger logger = LoggerFactory.getLogger(BookmarkAnalysisServiceRest.class);
 
 	private final static String BBID_PARAM_NAME = "BBID";
 	private final static String FACETID_PARAM_NAME = "FACETID";
+	
+	@Context
+	UriInfo uriInfo;
+	
+	private BookmarkAnalysisServiceBaseImpl getDelegate() {
+		return new BookmarkAnalysisServiceBaseImpl(uriInfo);
+	}
 	
 	public BookmarkAnalysisServiceRest() {
 	}
@@ -109,10 +114,10 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest {
 			@QueryParam("hierarchy") HierarchyMode hierarchyMode,
 			@ApiParam(
 					value="define the result style. If HUMAN, the API will try to use natural reference for objects, like 'My First Project', 'Account', 'Total Sales'... If MACHINE the API will use canonical references that are invariant, e.g. @'5603ca63c531d744b50823a3bis'. If LEGACY the API will also provide internal compound key to lookup objects in the management API.", allowableValues="LEGACY, MACHINE, HUMAN", defaultValue="HUMAN")
-			@QueryParam("style") Style style
+			@QueryParam(STYLE_PARAM) Style style
 		) throws ScopeException {
 		AppContext userContext = getUserContext(request);
-		return delegate.listContent(userContext, parent, search, hierarchyMode, style);
+		return getDelegate().listContent(userContext, parent, search, hierarchyMode, style);
 	}
 
 	@GET
@@ -122,7 +127,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest {
 			@Context HttpServletRequest request, 
 			@PathParam(BBID_PARAM_NAME) String BBID) throws ScopeException {
 		AppContext userContext = getUserContext(request);
-		return delegate.getItem(userContext, BBID);
+		return getDelegate().getItem(userContext, BBID);
 	}
 
 	@POST
@@ -138,7 +143,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest {
 			@ApiParam(value="the new bookmark folder, can be /MYBOOKMARKS, /MYBOOKMARKS/any/folders or /SHARED/any/folders") @QueryParam("parent") String parent)
 	{
 		AppContext userContext = getUserContext(request);
-		return delegate.createBookmark(userContext, query, BBID, name, parent);
+		return getDelegate().createBookmark(userContext, query, BBID, name, parent);
 	}
 	
 	/*
@@ -224,7 +229,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest {
 			) throws ScopeException
 	{
 		AppContext userContext = getUserContext(request);
-		return delegate.evaluateExpression(userContext, BBID, expression, offset, types, values);
+		return getDelegate().evaluateExpression(userContext, BBID, expression, offset, types, values);
 	}
 
 	@GET
@@ -238,14 +243,14 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest {
 			@ApiParam(
 					value = "Define the filters to apply to results. A filter must be a valid conditional expression. If empty, the subject default parameters will apply. You can use the * token to extend the subject default parameters.",
 					allowMultiple = true) 
-			@QueryParam("filter") String[] filters,
-			@ApiParam(value="maximum number of items to return per page") @QueryParam("maxResults") Integer maxResults,
-			@ApiParam(value="index of the first item to start the page") @QueryParam("startIndex") Integer startIndex,
-			@ApiParam(value="optional timeout in milliseconds") @QueryParam("timeout") Integer timeoutMs
+			@QueryParam(FILTERS_PARAM) String[] filters,
+			@ApiParam(value="maximum number of items to return per page") @QueryParam(MAX_RESULTS_PARAM) Integer maxResults,
+			@ApiParam(value="index of the first item to start the page") @QueryParam(START_INDEX_PARAM) Integer startIndex,
+			@ApiParam(value="optional timeout in milliseconds") @QueryParam(TIMEOUT_PARAM) Integer timeoutMs
 			) throws ComputingException {
 
 		AppContext userContext = getUserContext(request);
-		return delegate.getFacet(userContext, BBID, facetId, search, filters, maxResults, startIndex, timeoutMs);
+		return getDelegate().getFacet(userContext, BBID, facetId, search, filters, maxResults, startIndex, timeoutMs);
 	}
 
 	@POST
@@ -256,10 +261,10 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest {
 			@ApiParam(value="the analysis query definition", required=true) AnalysisQuery query,
 			@PathParam(BBID_PARAM_NAME) String BBID,
 			@ApiParam(value = "response timeout in milliseconds. If no timeout set, the method will return according to current job status.") 
-			@QueryParam("timeout") Integer timeout
+			@QueryParam(TIMEOUT_PARAM) Integer timeout
 			) throws ComputingException, ScopeException, InterruptedException {
 		AppContext userContext = getUserContext(request);
-		return delegate.runAnalysis(userContext, BBID, query, timeout);
+		return getDelegate().runAnalysis(userContext, BBID, query, timeout);
 	}
 
 	@GET
@@ -273,42 +278,43 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest {
 					value = "Define the group-by facets to apply to results. Facet can be defined using it's ID or any valid expression. If empty, the subject default parameters will apply. You can use the * token to extend the subject default parameters.",
 					allowMultiple = true
 					) 
-			@QueryParam("groupBy") String[] groupBy, 
+			@QueryParam(GROUP_BY_PARAM) String[] groupBy, 
 			// metric parameter
 			@ApiParam(
 					value = "Define the metrics to compute. Metric can be defined using it's ID or any valid expression. If empty, the subject default parameters will apply. You can use the * token to extend the subject default parameters.",
 					allowMultiple = true) 
-			@QueryParam("metric") String[] metrics, 
+			@QueryParam(METRICS_PARAM) String[] metrics, 
 			@ApiParam(
 					value = "Define the filters to apply to results. A filter must be a valid conditional expression. If empty, the subject default parameters will apply. You can use the * token to extend the subject default parameters.",
 					allowMultiple = true) 
-			@QueryParam("filter") String[] filterExpressions,
-			@QueryParam("period") String period,
+			@QueryParam(FILTERS_PARAM) String[] filterExpressions,
+			@QueryParam(PERIOD_PARAM) String period,
 			@ApiParam(value="define the timeframe for the period. It can be a date range [lower,upper] or a special alias: ____ALL, ____LAST_DAY, ____LAST_7_DAYS, __CURRENT_MONTH, __PREVIOUS_MONTH, __CURRENT_MONTH, __PREVIOUS_YEAR", allowMultiple = true) 
-			@QueryParam("timeframe") String[] timeframe,
+			@QueryParam(TIMEFRAME_PARAM) String[] timeframe,
 			@ApiParam(value="activate and define the compare to period. It can be a date range [lower,upper] or a special alias: __COMPARE_TO_PREVIOUS_PERIOD, __COMPARE_TO_PREVIOUS_MONTH, __COMPARE_TO_PREVIOUS_YEAR", allowMultiple = true) 
-			@QueryParam("compareframe") String[] compareframe,
+			@QueryParam(COMPAREFRAME_PARAM) String[] compareframe,
 			@ApiParam(allowMultiple = true) 
-			@QueryParam("orderby") String[] orderExpressions, 
+			@QueryParam(ORDERBY_PARAM) String[] orderExpressions, 
 			@ApiParam(allowMultiple = true) 
-			@QueryParam("rollup") String[] rollupExpressions,
-			@QueryParam("limit") Long limit,
+			@QueryParam(ROLLUP_PARAM) String[] rollupExpressions,
+			@QueryParam(LIMIT_PARAM) Long limit,
 			@ApiParam(
 					value="define the analysis data format.",
 					allowableValues="LEGACY,SQL,CSV")
-			@QueryParam("format") String format,
-			@ApiParam(value = "paging size") @QueryParam("maxResults") Integer maxResults,
-			@ApiParam(value = "paging start index") @QueryParam("startIndex") Integer startIndex,
-			@ApiParam(value = "if true, get the analysis only if already in cache, else throw a NotInCacheException; if noError returns a null result if the analysis is not in cache ; else regular analysis", defaultValue = "false") @QueryParam("lazy") String lazy,
+			@QueryParam(FORMAT_PARAM) String format,
+			@ApiParam(value = "paging size") @QueryParam(MAX_RESULTS_PARAM) Integer maxResults,
+			@ApiParam(value = "paging start index") @QueryParam(START_INDEX_PARAM) Integer startIndex,
+			@ApiParam(value = "if true, get the analysis only if already in cache, else throw a NotInCacheException; if noError returns a null result if the analysis is not in cache ; else regular analysis", defaultValue = "false") 
+			@QueryParam(LAZY_PARAM) String lazy,
 			@ApiParam(
 					value="define the result style. If HUMAN, the API will try to use natural reference for objects, like 'My First Project', 'Account', 'Total Sales'... If MACHINE the API will use canonical references that are invariant, e.g. @'5603ca63c531d744b50823a3bis'. If LEGACY the API will also provide internal compound key to lookup objects in the management API.", allowableValues="LEGACY, MACHINE, HUMAN", defaultValue="HUMAN")
-			@QueryParam("style") Style style,
+			@QueryParam(STYLE_PARAM) Style style,
 			@ApiParam(value = "response timeout in milliseconds. If no timeout set, the method will return according to current job status.") 
-			@QueryParam("timeout") Integer timeout
+			@QueryParam(TIMEOUT_PARAM) Integer timeout
 			) throws ComputingException, ScopeException, InterruptedException {
 		AppContext userContext = getUserContext(request);
 		AnalysisQuery analysis = createAnalysisFromParams(groupBy, metrics, filterExpressions, period, timeframe, compareframe, orderExpressions, rollupExpressions, limit, format, maxResults, startIndex, lazy, style);
-		return delegate.runAnalysis(userContext, BBID, analysis, timeout);
+		return getDelegate().runAnalysis(userContext, BBID, analysis, timeout);
 	}
 
 
@@ -321,15 +327,20 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest {
 			@QueryParam("x") String x,
 			@QueryParam("y") String y,
 			@QueryParam("color") String color,
-			@QueryParam("filter") String[] filterExpressions,
-			@QueryParam("period") String period,
+			@QueryParam("size") String size,
+			@ApiParam(
+					value="define how to provide the data, either EMBEDED or through an URL",
+					allowableValues="EMBEDED,URL", defaultValue="EMBEDED")
+			@QueryParam("data") String data,
+			@QueryParam(FILTERS_PARAM) String[] filterExpressions,
+			@QueryParam(PERIOD_PARAM) String period,
 			@ApiParam(value="define the timeframe for the period. It can be a date range [lower,upper] or a special alias: ____ALL, ____LAST_DAY, ____LAST_7_DAYS, __CURRENT_MONTH, __PREVIOUS_MONTH, __CURRENT_MONTH, __PREVIOUS_YEAR", allowMultiple = true) 
-			@QueryParam("timeframe") String[] timeframe
+			@QueryParam(TIMEFRAME_PARAM) String[] timeframe
 	) throws ScopeException, ComputingException, InterruptedException
 	{
 		AppContext userContext = getUserContext(request);
 		AnalysisQuery query = createAnalysisFromParams(null, null, filterExpressions, period, timeframe, null, null, null, null, null, null, null, null, null);
-		return delegate.getVegalite(userContext, BBID, x, y, color, query);
+		return getDelegate().getVegalite(uriInfo, userContext, BBID, x, y, color, size, data, query);
 	}
 
 	@GET
@@ -344,30 +355,30 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest {
 					value = "Define the group-by facets to apply to results. Facet can be defined using it's ID or any valid expression. If empty, the subject default parameters will apply. You can use the * token to extend the subject default parameters.",
 					allowMultiple = true
 					) 
-			@QueryParam("groupBy") String[] groupBy, 
+			@QueryParam(GROUP_BY_PARAM) String[] groupBy, 
 			// metric parameter
 			@ApiParam(
 					value = "Define the metrics to compute. Metric can be defined using it's ID or any valid expression. If empty, the subject default parameters will apply. You can use the * token to extend the subject default parameters.",
 					allowMultiple = true) 
-			@QueryParam("metric") String[] metrics, 
+			@QueryParam(METRICS_PARAM) String[] metrics, 
 			@ApiParam(
 					value = "Define the filters to apply to results. A filter must be a valid conditional expression. If empty, the subject default parameters will apply. You can use the * token to extend the subject default parameters.",
 					allowMultiple = true) 
-			@QueryParam("filter") String[] filterExpressions,
-			@QueryParam("period") String period,
+			@QueryParam(FILTERS_PARAM) String[] filterExpressions,
+			@QueryParam(PERIOD_PARAM) String period,
 			@ApiParam(value="define the timeframe for the period. It can be a date range [lower,upper] or a special alias: ____ALL, ____LAST_DAY, ____LAST_7_DAYS, __CURRENT_MONTH, __PREVIOUS_MONTH, __CURRENT_MONTH, __PREVIOUS_YEAR", allowMultiple = true) 
-			@QueryParam("timeframe") String[] timeframe,
+			@QueryParam(TIMEFRAME_PARAM) String[] timeframe,
 			@ApiParam(value="activate and define the compare to period. It can be a date range [lower,upper] or a special alias: __COMPARE_TO_PREVIOUS_PERIOD, __COMPARE_TO_PREVIOUS_MONTH, __COMPARE_TO_PREVIOUS_YEAR", allowMultiple = true) 
-			@QueryParam("compareframe") String[] compareframe,
+			@QueryParam(COMPAREFRAME_PARAM) String[] compareframe,
 			@ApiParam(allowMultiple = true) 
-			@QueryParam("orderby") String[] orderExpressions, 
+			@QueryParam(ORDERBY_PARAM) String[] orderExpressions, 
 			@ApiParam(allowMultiple = true) 
-			@QueryParam("rollup") String[] rollupExpressions,
-			@QueryParam("limit") Long limit,
+			@QueryParam(ROLLUP_PARAM) String[] rollupExpressions,
+			@QueryParam(LIMIT_PARAM) Long limit,
 			@ApiParam(
 					value="define the analysis data format.",
 					allowableValues="JSON,SQL,CSV")
-			@QueryParam("format") String format
+			@QueryParam(FORMAT_PARAM) String format
 			) throws ComputingException, ScopeException, InterruptedException {
 		AppContext userContext = getUserContext(request);
 		String[] split = filename.split("\\.");
@@ -387,7 +398,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest {
 			}
 		}
 		AnalysisQuery analysis = createAnalysisFromParams(groupBy, metrics, filterExpressions, period, timeframe, compareframe, orderExpressions, rollupExpressions, limit, format, null, null, null, null);
-		return delegate.exportAnalysis(userContext, BBID, analysis, filepart, fileext, compression);
+		return getDelegate().exportAnalysis(userContext, BBID, analysis, filepart, fileext, compression);
 	}
 	
 	/**
