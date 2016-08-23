@@ -545,9 +545,10 @@ public class DynamicManager {
 		Domain domain;
 		
 		// check if the domain is in legacy mode (i.e. default is to hide dynamic)
-		boolean isDomainLegacyMode = domain.getInternalVersion() == null;
+		boolean isDomainLegacyMode = true;
 		// domainInternalDefautDynamic flag: if legacy mode, hide dynamic object is the default
-		boolean domainInternalDefautDynamic = isDomainLegacyMode ? true : false;
+		boolean domainInternalDefautDynamic = true;
+		
 		// coverage Set: columns already available through defined dimensions
 		HashSet<Column> coverage = new HashSet<Column>();
 		HashSet<ExpressionAST> metricCoverage = new HashSet<ExpressionAST>();
@@ -566,6 +567,11 @@ public class DynamicManager {
 			this.space = space;
 			this.univ = space.getUniverse();
 			this.domain = space.getDomain();
+			//
+			// check if the domain is in legacy mode (i.e. default is to hide dynamic)
+			this.isDomainLegacyMode = domain.getInternalVersion() == null;
+			// domainInternalDefautDynamic flag: if legacy mode, hide dynamic object is the default
+			this.domainInternalDefautDynamic = isDomainLegacyMode ? true : false;
 			//
 			prefix = "dyn_"+space.getDomain().getId().toUUID()+"_dimension:";
 		}
