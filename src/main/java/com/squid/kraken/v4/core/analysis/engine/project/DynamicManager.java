@@ -474,37 +474,6 @@ public class DynamicManager {
 				} else {
 					// Use linked source or origin sources.
 					domain.getOptions().getLinkSource();
-					// Table table = root.getTable(domain);
-					// for (ForeignKey fk : getForeignKeys(table)) {
-					// Table targetTable = fk.getPrimaryTable();
-					// Domain target = coverage.get(targetTable);
-					// if (target != null) {
-					// // create a relation ?
-					// String id = "rel/" + domain.getId().toUUID() + "-" +
-					// target.getId().toUUID() + ":" + fk.getName();
-					// RelationPK relationPk = new RelationPK(project.getId(),
-					// digest(id));
-					// Relation relation =
-					// new Relation(relationPk,
-					// domain.getId(),
-					// Cardinality.MANY,
-					// target.getId(),
-					// Cardinality.ZERO_OR_ONE,
-					// domain.getName(),
-					// target.getName(),
-					// new Expression("'" + fk.getName() + "'"), true);
-					// relation.setAccessRights(accessRights);
-					// try {
-					// ExpressionAST check = root.getParser().parse(relation);
-					// if (!dedup.contains(check)) {
-					// relations.add(relation);
-					// }
-					// } catch (ScopeException e) {
-					// // ignore if invalid
-					// }
-					// }
-					// }
-
 				}
 			} catch (ScopeException e) {
 				logger.info(e.getMessage(), e);
@@ -624,7 +593,6 @@ public class DynamicManager {
 				if (object instanceof Dimension) {
 					// handle Dimension
 					Dimension dimension = (Dimension)object;
-					try {
 					if (dimension.getId()!=null) {
 						ids.add(dimension.getId().getDimensionId());
 						// add also the canonical ID
@@ -633,25 +601,6 @@ public class DynamicManager {
 						}
 						// add also the Axis ID
 						ids.add(space.A(dimension).getId());
-					}
-					ExpressionAST expr = parseResilient(univ, domain, dimension, scope);
-					scope.add(object);
-					IDomain image = expr.getImageDomain();
-					dimension.setImageDomain(image);
-					dimension.setValueType(computeValueType(image));
-					if (expr instanceof ColumnReference) {
-						ColumnReference ref = (ColumnReference) expr;
-						if (ref.getColumn() != null) {
-							coverage.add(ref.getColumn());
-						}
-					} else if (image.isInstanceOf(IDomain.OBJECT)) {
-						// it's an sub-domain, we build the space to connect and
-						// will dedup for dynamics
-						Space path = space.S(expr);
-						neighborhood.add(path);
-					}
-					if (dimension.getType() == Type.CONTINUOUS && image.isInstanceOf(IDomain.TEMPORAL)) {
-						isPeriodDefined = true;
 					}
 				} else if (object instanceof Metric) {
 					// handle Metric
@@ -708,7 +657,8 @@ public class DynamicManager {
 						ids.add(metric.getId().getMetricId());
 					}
 					if (metric.getExpression() != null) {
-						ExpressionAST expr = parseResilient(univ, domain, metric, scope);
+						ExpressionAST expr = parseResilient(univ, domain, metric, incrementalScope);
+						incrementalScope.add(metric);
 						scope.add(object);
 						metricCoverage.add(expr);
 					}
@@ -728,131 +678,173 @@ public class DynamicManager {
 	public void loadDomainDynamicContentConcreteTable(Space space, DomainContent content, Table table) {
 		Universe univ = space.getUniverse();
 		Domain domain = space.getDomain();
+		// check if the domain is in legacy mode (i.e. default is to hide
+		// dynamic)
+		boolean isDomainLegacyMode = domain.getInternalVersion() == null;
+		// domainInternalDefautDynamic flag: if legacy mode, hide dynamic object
+		// is the default
+		boolean domainInternalDefautDynamic = isDomainLegacyMode ? true : false;
 		DomainContentConcreteState state = new DomainContentConcreteState(space);
 		List<ExpressionObject<?>> concrete = state.registerConcreteContent(content);
 		content.setTable(table);// register before eval
-		{	
+		{
 			DomainContent incrementalScope = new DomainContent(domain);
 			incrementalScope.setTable(table);
 			state.evalConcreteContent(concrete, incrementalScope);
 		}
 		//
-		try {
-			//
-			// exclude keys
-			HashSet<Column> keys = new HashSet<Column>();
-			// filter out the primary-key
-			Index pk = table.getPrimaryKey();
-			if (pk!=null) {
-				for (Column col : pk.getColumns()) {
-					keys.add(col);
-				}
+		// exclude keys
+		HashSet<Column> keys = new HashSet<Column>();
+		// filter out the primary-key
+		Index pk = table.getPrimaryKey();
+		if (pk != null) {
+			for (Column col : pk.getColumns()) {
+				keys.add(col);
 			}
-			// filter out the foreign-keys
-			for (ForeignKey fk : table.getForeignKeys()) {
+		}
+		// filter out the foreign-keys
+		try {
+			for (ForeignKey fk : space.getTable().getForeignKeys()) {
 				for (KeyPair pair : fk.getKeys()) {
 					keys.add(pair.getExported());
 				}
 			}
-			// filter out the relations ?
-			ExtractColumns extractor = new ExtractColumns();
-			for (Space next : space.S()) {
-				Relation relation = next.getRelation();
+		} catch (ScopeException | ExecutionException e1) {
+			// ignore
+		}
+		// filter out the relations ?
+		ExtractColumns extractor = new ExtractColumns();
+		List<Space> subspaces = Collections.emptyList();
+		try {
+			subspaces = space.S();
+		} catch (ScopeException | ComputingException e1) {
+			// ignore
+		}
+		for (Space next : subspaces) {
+			Relation relation = next.getRelation();
+			try {
 				ExpressionAST expr = univ.getParser().parse(relation);
 				List<Column> cols = extractor.apply(expr);
 				keys.addAll(cols);
+			} catch (ScopeException e) {
+				// ignore
 			}
-			//
-			// populate dynamic dimensions
-			List<RawDImension> periodCandidates = new ArrayList<RawDImension>();
-			for (Column col : table.getColumns()) {
-				if (!keys.contains(col) && !state.coverage.contains(col) && includeColumnAsDimension(col)) {
-					ColumnReference ref = new ColumnReference(col);
-					String expr = ref.prettyPrint();
-					DimensionPK id = new DimensionPK(domain.getId(), digest(state.prefix+expr));
-					if (!state.ids.contains(id.getDimensionId())) {
-						Type type = Type.INDEX;
-						String name = checkName(normalizeObjectName(col.getName()),state.checkName);
-						Dimension dim = new Dimension(id, name, type, new Expression(expr),true);
-						dim.setImageDomain(col.getTypeDomain());
-						dim.setValueType(computeValueType(col.getTypeDomain()));
-						AccessRightsUtils.getInstance().setAccessRights(univ.getContext(), dim, domain);
-						content.add(dim);
-						state.checkName.add(name);
-						if (col.getTypeDomain().isInstanceOf(IDomain.TEMPORAL)&&!state.isPeriodDefined) {
-							periodCandidates.add(new RawDImension(col, dim));
+		}
+		//
+		// populate dynamic dimensions
+		List<RawDImension> periodCandidates = new ArrayList<RawDImension>();
+		List<Column> columns = Collections.emptyList();
+		try {
+			columns = space.getTable().getColumns();
+		} catch (ScopeException | ExecutionException e1) {
+			// ignore
+		}
+		for (Column col : columns) {
+			if (!keys.contains(col) && !state.coverage.contains(col) && includeColumnAsDimension(col)) {
+				ColumnReference ref = new ColumnReference(col);
+				String expr = ref.prettyPrint();
+				DimensionPK id = new DimensionPK(domain.getId(), digest(state.prefix + expr));
+				if (!state.ids.contains(id.getDimensionId())) {
+					Type type = Type.INDEX;
+					String name = checkName(normalizeObjectName(col.getName()), state.checkName);
+					Dimension dim = new Dimension(id, name, type, new Expression(expr), domainInternalDefautDynamic);
+					dim.setImageDomain(col.getTypeDomain());
+					dim.setValueType(computeValueType(col.getTypeDomain()));
+					AccessRightsUtils.getInstance().setAccessRights(univ.getContext(), dim, domain);
+					content.add(dim);
+					state.checkName.add(name);
+					if (col.getTypeDomain().isInstanceOf(IDomain.TEMPORAL) && !state.isPeriodDefined) {
+						periodCandidates.add(new RawDImension(col, dim));
+					}
+				}
+			}
+		}
+		// relation and FK
+		for (Space neighbor : subspaces) {
+			if (neighbor.length() == 1 // build only direct paths (the facet
+										// will populate the others
+					&& !state.neighborhood.contains(neighbor)) // dedup if
+																// already
+																// concrete
+																// associated
+																// with the same
+																// path
+			{
+				Relation relation = neighbor.getRelation();
+				try {
+					RelationReference ref = new RelationReference(space.getUniverse(), relation, space.getDomain(),
+							neighbor.getDomain());
+					if (useRelation(relation, ref)) {
+						state.checkName.add(ref.getReferenceName());
+						String expr = ref.prettyPrint() + ".$'SELF'";// add the
+																		// SELF
+																		// parameter
+						DimensionPK id = new DimensionPK(domain.getId(), digest(state.prefix + expr));
+						if (!state.ids.contains(id.getDimensionId())) {
+							String name = ref.getReferenceName();
+							if (isDomainLegacyMode) {
+								name = checkName(">" + name, state.checkName);
+							} else {
+								// this is the new naming convention for
+								// sub-domains
+								name = checkName(name + " > ", state.checkName);
+							}
+							Dimension dim = new Dimension(id, name, Type.INDEX, new Expression(expr),
+									domainInternalDefautDynamic);
+							dim.setValueType(ValueType.OBJECT);
+							dim.setImageDomain(ref.getImageDomain());
+							AccessRightsUtils.getInstance().setAccessRights(univ.getContext(), dim, domain);
+							content.add(dim);
+							state.checkName.add(name);
 						}
 					}
 				} catch (ScopeException e) {
 					// ignore
 				}
 			}
-			// relation and FK
-			for (Space neighbor : space.S()) {
-				if (neighbor.length()==1 // build only direct paths (the facet will populate the others
-						&& !state.neighborhood.contains(neighbor)) // dedup if already concrete associated with the same path
-				{
-					Relation relation = neighbor.getRelation();
-					try {
-						RelationReference ref = new RelationReference(space.getUniverse(), relation, space.getDomain(), neighbor.getDomain());
-						if (useRelation(relation, ref)) {
-							state.checkName.add(ref.getReferenceName());
-							String expr = ref.prettyPrint()+".$'SELF'";// add the SELF parameter
-							DimensionPK id = new DimensionPK(domain.getId(), digest(state.prefix+expr));
-							if (!state.ids.contains(id.getDimensionId())) {
-								String name = ref.getReferenceName();
-								name = checkName(">"+name,state.checkName);
-								Dimension dim = new Dimension(id, name, Type.INDEX, new Expression(expr), true);
-								dim.setValueType(ValueType.OBJECT);
-								dim.setImageDomain(ref.getImageDomain());
-								AccessRightsUtils.getInstance().setAccessRights(univ.getContext(), dim, domain);
-								content.add(dim);
-								state.checkName.add(name);
-							}
-						}
-					}
-				}
+		}
+		//
+		// populate dynamic metrics
+		//
+		// add count metric
+		ExpressionAST count = ExpressionMaker.COUNT();
+		if (!state.coverage.contains(count)) {
+			Expression expr = new Expression(count.prettyPrint());
+			MetricPK metricId = new MetricPK(domain.getId(), digest(state.prefix + expr.getValue()));
+			if (!state.ids.contains(metricId.getMetricId())) {// check for
+																// natural
+																// definition
+				String name = "COUNT " + domain.getName();
+				name = checkName(name, state.checkName);
+				Metric metric = new Metric(metricId, name, expr, true);
+				AccessRightsUtils.getInstance().setAccessRights(univ.getContext(), metric, domain);
+				content.add(metric);
+				state.checkName.add(name);
 			}
-			//
-			// populate dynamic metrics
-			//
-			// add count metric
-			ExpressionAST count = ExpressionMaker.COUNT();
-			if (!state.coverage.contains(count)) {
-				Expression expr = new Expression(count.prettyPrint());
-				MetricPK metricId = new MetricPK(domain.getId(), digest(state.prefix+expr.getValue()));
-				if (!state.ids.contains(metricId.getMetricId())) {// check for natural definition
-					String name = "COUNT "+domain.getName();
-					name = checkName(name, state.checkName);
-					Metric metric = new Metric(metricId, name, expr, true);
-					AccessRightsUtils.getInstance().setAccessRights(univ.getContext(), metric, domain);
-					content.add(metric);
-					state.checkName.add(name);
-				}
-			}
-			//
-			for (Column col : table.getColumns()) {
-				if (col.getTypeDomain().isInstanceOf(IDomain.NUMERIC)) {
-					if (!keys.contains(col)) {
-						ExpressionAST total = ExpressionMaker.SUM(new ColumnDomainReference(space, col));
-						if (!state.coverage.contains(total)) {
-							Expression expr = new Expression(total.prettyPrint());
-							MetricPK metricId = new MetricPK(domain.getId(), digest(state.prefix+expr.getValue()));
-							if (!state.ids.contains(metricId.getMetricId())) {// check for natural definition
-								String name = "SUM "+normalizeObjectName(col.getName());
-								name = checkName(name, state.checkName);
-								Metric metric = new Metric(metricId, name, expr, true);
-								AccessRightsUtils.getInstance().setAccessRights(univ.getContext(), metric, domain);
-								content.add(metric);
-								state.checkName.add(name);
-							}
+		}
+		//
+		for (Column col : columns) {
+			if (col.getTypeDomain().isInstanceOf(IDomain.NUMERIC)) {
+				if (!keys.contains(col)) {
+					ExpressionAST total = ExpressionMaker.SUM(new ColumnDomainReference(space, col));
+					if (!state.coverage.contains(total)) {
+						Expression expr = new Expression(total.prettyPrint());
+						MetricPK metricId = new MetricPK(domain.getId(), digest(state.prefix + expr.getValue()));
+						if (!state.ids.contains(metricId.getMetricId())) {// check
+																			// for
+																			// natural
+																			// definition
+							String name = "SUM " + normalizeObjectName(col.getName());
+							name = checkName(name, state.checkName);
+							Metric metric = new Metric(metricId, name, expr, true);
+							AccessRightsUtils.getInstance().setAccessRights(univ.getContext(), metric, domain);
+							content.add(metric);
+							state.checkName.add(name);
 						}
 					}
 				}
 			}
 		}
-		
-		
 		//
 		// try to recover failed ones
 		for (ExpressionObject<?> object : state.getFailed()) {
@@ -861,16 +853,16 @@ public class DynamicManager {
 					if (object instanceof Dimension) {
 						// handle Dimension
 						Dimension dimension = (Dimension) object;
-						ExpressionAST expr = parseResilient(univ, domain, dimension, scope);
-						scope.add(object);
+						ExpressionAST expr = parseResilient(univ, domain, dimension, content);
+						content.add((Dimension) object);
 						IDomain image = expr.getImageDomain();
 						dimension.setImageDomain(image);
 						dimension.setValueType(computeValueType(image));
 					} else if (object instanceof Metric) {
 						// handle Metric
 						Metric metric = (Metric) object;
-						ExpressionAST expr = parseResilient(univ, domain, metric, scope);
-						scope.add(object);
+						ExpressionAST expr = parseResilient(univ, domain, metric, content);
+						content.add((Metric) object);
 						IDomain image = expr.getImageDomain();
 						metric.setImageDomain(image);
 						metric.setValueType(computeValueType(image));
@@ -879,11 +871,12 @@ public class DynamicManager {
 			} catch (ScopeException | CyclicDependencyException e) {
 				// set as permanent error
 			}
-		
+		}
 		//
 		// select a Period if needed
 		boolean isFact = isFactDomain(univ.getContext(), domain.getId());
-		boolean needPeriod = !isPeriodDefined // if already defined, that's fine
+		boolean needPeriod = !state.isPeriodDefined // if already defined,
+													// that's fine
 				&& isFact // it must be a fact table, if not there is a good
 							// chance to pollute
 				&& content.getMetrics().size() > 1; // and we want at least a
@@ -896,8 +889,6 @@ public class DynamicManager {
 			if (candidate != null) {
 				candidate.dim.setType(Type.CONTINUOUS);
 			}
-		} catch (ScopeException | ExecutionException | ComputingException e) {
-			
 		}
 	}
 	
@@ -1255,24 +1246,6 @@ public class DynamicManager {
 			return functor;
 		} else {
 			return new ExpressionFunctor(join);
-		}
-	}
-	
-	private List<ExpressionPair> getExportedKeyOLD(Universe univ, Relation rel, RelationDirection direction) throws ScopeException, SQLScopeException {
-		ExpressionAST join = univ.getParser().parse(rel);
-		if (join instanceof ForeignKeyReference) {
-			ForeignKey fk = ((ForeignKeyReference)join).getForeignKey();
-			ArrayList<ExpressionPair> exported = new ArrayList<>();
-			for (KeyPair key : fk.getKeys()) {
-				exported.add(new ExpressionPair(
-						new ColumnReference(key.getExported()),
-						new ColumnReference(key.getPrimary()),
-						direction));
-			}
-			return exported;
-		} else {
-			// need to try harder...
-			return Collections.emptyList();
 		}
 	}
 	
