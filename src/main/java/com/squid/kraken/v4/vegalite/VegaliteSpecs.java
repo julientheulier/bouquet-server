@@ -44,7 +44,14 @@ public class VegaliteSpecs {
 		public String field;
 
 		public DataType type;
+		
+		public TimeUnit timeUnit;
 
+	}
+	
+	public enum TimeUnit {
+		year, yearmonth, yearmonthday, yearmonthdate, yearday, yeardate, yearmonthdayhours, yearmonthdayhoursminutes,
+		month, day, date, hours, minutes, seconds, milliseconds, hoursminutes, hoursminutesseconds, minutesseconds, secondsmilliseconds
 	}
 
 	public enum DataType {
