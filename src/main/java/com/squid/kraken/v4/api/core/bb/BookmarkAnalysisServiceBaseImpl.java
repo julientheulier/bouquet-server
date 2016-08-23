@@ -38,7 +38,6 @@ import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.zip.GZIPOutputStream;
 
@@ -81,14 +80,19 @@ import com.squid.kraken.v4.api.core.APIException;
 import com.squid.kraken.v4.api.core.AccessRightsUtils;
 import com.squid.kraken.v4.api.core.ComputingInProgressAPIException;
 import com.squid.kraken.v4.api.core.EngineUtils;
+import com.squid.kraken.v4.api.core.JobStats;
 import com.squid.kraken.v4.api.core.JobServiceBaseImpl.OutputCompression;
 import com.squid.kraken.v4.api.core.JobServiceBaseImpl.OutputFormat;
 import com.squid.kraken.v4.api.core.bb.BookmarkAnalysisServiceRest.HierarchyMode;
 import com.squid.kraken.v4.api.core.bb.NavigationQuery.Style;
 import com.squid.kraken.v4.api.core.ObjectNotFoundAPIException;
+import com.squid.kraken.v4.api.core.PerfDB;
 import com.squid.kraken.v4.api.core.bookmark.BookmarkServiceBaseImpl;
 import com.squid.kraken.v4.api.core.projectanalysisjob.AnalysisJobComputer;
 import com.squid.kraken.v4.caching.NotInCacheException;
+import com.squid.kraken.v4.core.analysis.datamatrix.AxisValues;
+import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
+import com.squid.kraken.v4.core.analysis.datamatrix.IndirectionRow;
 import com.squid.kraken.v4.core.analysis.engine.bookmark.BookmarkManager;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex.Status;
@@ -98,6 +102,7 @@ import com.squid.kraken.v4.core.analysis.engine.hierarchy.SegmentManager;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingService;
 import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
+import com.squid.kraken.v4.core.analysis.model.DashboardAnalysis;
 import com.squid.kraken.v4.core.analysis.model.DashboardSelection;
 import com.squid.kraken.v4.core.analysis.scope.AxisExpression;
 import com.squid.kraken.v4.core.analysis.scope.SpaceExpression;
@@ -402,7 +407,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 			if (path.equals(fullPath)) {
 				String name = bookmark.getName();
 				if (filters==null || filter(bookmark, project, filters)) {
-					String id = "@'"+bookmark.getId().getProjectId()+"'.[bookmark:'"+bookmark.getId().getBookmarkId()+"']";
+					String id = getBookmarkReference(query, project, bookmark);
 					NavigationItem item = new NavigationItem(query.getStyle().equals("HUMAN")?null:bookmark.getId(), name, bookmark.getDescription(), parent, id, BOOKMARK_TYPE);
 					if (query.getStyle()==Style.HUMAN) item.setLink(createLinkToAnalysis(userContext, item));
 					HashMap<String, String> attrs = new HashMap<>();
@@ -430,6 +435,16 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 					}
 				}
 			}
+		}
+	}
+	
+	private String getBookmarkReference(NavigationQuery query, Project project, Bookmark bookmark) {
+		if (query.getStyle()==Style.HUMAN) {
+			// only use the project name
+			// cannot rely on the bookmark name for lookup
+			return "'"+project.getName()+"'.[bookmark:'"+bookmark.getOid()+"']";
+		} else {
+			return "@'"+project.getOid()+"'.[bookmark:'"+bookmark.getOid()+"']";
 		}
 	}
 	
@@ -732,22 +747,22 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 			//
 			if (query.getFormat().equals("LEGACY")) {
 				try {
-					Callable<DataTable> task = new Callable<DataTable>() {
+					Callable<DataMatrix> task = new Callable<DataMatrix>() {
 						@Override
-						public DataTable call() throws Exception {
-							return AnalysisJobComputer.INSTANCE.compute(userContext, job, query.getMaxResults(), query.getStartIndex(), lazyFlag);
+						public DataMatrix call() throws Exception {
+							return compute(userContext, job, query.getMaxResults(), query.getStartIndex(), lazyFlag);
 						}
 					};
-					Future<DataTable> futur = ExecutionManager.INSTANCE.submit(userContext.getCustomerId(), task);
-					DataTable data = null;
+					Future<DataMatrix> futur = ExecutionManager.INSTANCE.submit(userContext.getCustomerId(), task);
+					DataMatrix data = null;
 					if (timeout==null) {
 						// using the customer execution engine to control load
 						data = futur.get();
 					} else {
-						data = futur.get(timeout>1000?timeout:1000, TimeUnit.MILLISECONDS);
+						data = futur.get(timeout>1000?timeout:1000, java.util.concurrent.TimeUnit.MILLISECONDS);
 					}
-					job.setResults(data);
-					result.setData(data);
+					//job.setResults(data);
+					result.setData(data.toDataTable(userContext, query.getMaxResults(), query.getStartIndex(), false, null));
 				} catch (NotInCacheException e) {
 					if (query.getLazy().equals("noError")) {
 						result.setData(new DataTable());
@@ -880,7 +895,9 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 	
 	private ExportSourceWriter getWriter(OutputFormat outFormat) {
 		if (outFormat==OutputFormat.CSV) {
-			return new ExportSourceWriterCSV();
+			ExportSourceWriterCSV exporter = new ExportSourceWriterCSV();
+		    //settings.setQuotechar('\0');
+			return exporter;
 		} else if (outFormat==OutputFormat.XLS) {
 			ExcelSettingsBean settings = new ExcelSettingsBean();
 			settings.setExcelFile(ExcelFile.XLS);
@@ -1683,7 +1700,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		//
 		// handling data
 		if (data.equals("EMBEDED")) {
-			DataTable table = AnalysisJobComputer.INSTANCE.compute(userContext, job, query.getMaxResults(), query.getStartIndex(), false);
+			DataMatrix table = compute(userContext, job, query.getMaxResults(), query.getStartIndex(), false);
 			result.data = transformToVegaData(table);
 		} else if (data.equals("URL")) {
 			URI uri = buildExportQuery(uriInfo, userContext, BBID, query, ".csv");
@@ -1773,16 +1790,49 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		data.values = value.toArray();
 		return data;
 	}
+	
+	private Data transformToVegaData(DataMatrix matrix) {
+		ArrayList<Object> records = new ArrayList<>();
+		for (IndirectionRow row : matrix.getRows()) {
+			Hashtable<String, Object> record = new Hashtable<>(row.size());
+			int i = 0;
+			for (AxisValues axis : matrix.getAxes()) {
+				Object value = row.getAxisValue(i++);
+				record.put(axis.getAxis().getName(), value);
+			}
+			int j = 0;
+			for (Measure measure : matrix.getKPIs()) {
+				Object value = row.getDataValue(j++);
+				record.put(measure.getName(), value);
+			}
+			records.add(record);
+		}
+		Data data = new Data();
+		data.values = records.toArray();
+		return data;
+	}
 
 	private ChannelDef createChannelDef(ExpressionAST expr, AnalysisQuery required, PrettyPrintOptions options) {
 		ChannelDef channel = new ChannelDef();
 		channel.type = computeDataType(expr);
+		if (channel.type==DataType.temporal) {
+			IDomain image = expr.getImageDomain();
+			if (image.isInstanceOf(IDomain.YEARLY)) {
+				channel.timeUnit = TimeUnit.year;
+			} else if (image.isInstanceOf(IDomain.MONTHLY)) {
+				channel.timeUnit = TimeUnit.yearmonth;
+			} else if (image.isInstanceOf(IDomain.DATE)) {
+				channel.timeUnit = TimeUnit.yearmonthdate;
+			}
+		}
 		String name = expr.getName();
 		if (name==null) {
 			name = formatName(expr.prettyPrint());
 		} else {
 			name = formatName(name);
 		}
+		// need to convert to lower-case because of CSV export...
+		name = name.toLowerCase();
 		expr.setName(name);
 		channel.field = name;
 		String namedExpression = expr.prettyPrint(options) + " as '" + name +"'"; 
@@ -1809,6 +1859,48 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 			} else {
 				return DataType.nominal;
 			}
+		}
+	}
+	
+	/**
+	 * moved some legacy code out of AnalysisJobComputer
+	 * => still need to bypass the ProjectAnalysisJob
+	 * @param ctx
+	 * @param job
+	 * @param maxResults
+	 * @param startIndex
+	 * @param lazy
+	 * @return
+	 * @throws ComputingException
+	 * @throws InterruptedException
+	 */
+	private DataMatrix compute(AppContext ctx, ProjectAnalysisJob job, Integer maxResults, Integer startIndex,
+			boolean lazy) throws ComputingException, InterruptedException {
+		// build the analysis
+		long start = System.currentTimeMillis();
+		logger.info("Starting preview compute for job " + job.getId());
+		DashboardAnalysis analysis;
+		try {
+			analysis = AnalysisJobComputer.buildDashboardAnalysis(ctx, job, lazy);
+		} catch (Exception e) {
+			throw new ComputingException(e);
+		}
+		// run the analysis
+		DataMatrix datamatrix = ComputingService.INSTANCE.glitterAnalysis(analysis, null);
+		if (lazy && (datamatrix == null)) {
+			throw new NotInCacheException("Lazy preview, analysis " + analysis.getJobId() + "  not in cache");
+		} else {
+			job.setRedisKey(datamatrix.getRedisKey());
+			long stop = System.currentTimeMillis();
+			logger.info("task=" + this.getClass().getName() + " method=compute" + " jobid="
+					+ job.getId().getAnalysisJobId() + " duration=" + (stop - start));
+			JobStats queryLog = new JobStats(job.getId().getAnalysisJobId(), "AnalysisJobComputer.compute",
+					(stop - start), job.getId().getProjectId());
+			queryLog.setError(false);
+			PerfDB.INSTANCE.save(queryLog);
+			DataTable res = datamatrix.toDataTable(ctx, maxResults, startIndex, false, job.getOptionKeys());
+			logger.debug("Is result set in REDIS complete? " + res.getFullset());
+			return datamatrix;
 		}
 	}
 
