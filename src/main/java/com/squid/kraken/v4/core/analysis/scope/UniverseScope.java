@@ -23,15 +23,12 @@
  *******************************************************************************/
 package com.squid.kraken.v4.core.analysis.scope;
 
-import java.util.List;
-
 import com.google.common.base.Optional;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.reference.ColumnReference;
 import com.squid.core.expression.scope.IdentifierType;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.core.analysis.engine.bookmark.BookmarkManager;
-import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
 import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.kraken.v4.model.Bookmark;
@@ -39,8 +36,6 @@ import com.squid.kraken.v4.model.BookmarkConfig;
 import com.squid.kraken.v4.model.BookmarkPK;
 import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.DomainPK;
-import com.squid.kraken.v4.persistence.DAOFactory;
-import com.squid.kraken.v4.persistence.dao.BookmarkDAO;
 
 public class UniverseScope 
 extends AnalysisScope
