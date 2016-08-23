@@ -43,7 +43,7 @@ public class IntervalleObject extends IntervalleAbstract implements Comparable<I
      */
 	public static IntervalleObject createInterval(Object lower, Object upper) {
 	    try {
-	        if (lower==null || upper==null) {
+	        if (lower==null && upper==null) {// T1769
 	            return null;
 	        } else {
 	            return new IntervalleObject(lower, upper);
@@ -108,7 +108,12 @@ public class IntervalleObject extends IntervalleAbstract implements Comparable<I
     
 	@SuppressWarnings("unchecked")
 	private <T> int compareTo(T o1, T o2) {
-    	if (o1.getClass().equals(o2.getClass()) && o1 instanceof Comparable<?>) {
+		if (o1==null) {
+			return -1;
+		} else if (o2==null) {
+			return 1;
+		}
+		else if (o1.getClass().equals(o2.getClass()) && o1 instanceof Comparable<?>) {
     		return ((Comparable<T>)o1).compareTo((T)o2);
     	} else {
     		return o1.toString().compareTo(o2.toString());
