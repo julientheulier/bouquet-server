@@ -59,7 +59,7 @@ public class AnalysisSmartCache {
 	private Set<String> contains = new HashSet<>();
 
 	// the structured lookup sets
-	private Map<String, Map<String, Map<AnalysisSmartCacheSignature, AnalysisSmartCacheSignature>>> lookup = new ConcurrentHashMap<>();
+	private Map<String, Map<String, HashSet<AnalysisSmartCacheSignature>>> lookup = new ConcurrentHashMap<>();
 
 	private AnalysisSmartCache() {
 		//
@@ -73,10 +73,10 @@ public class AnalysisSmartCache {
 	 */
 	public AnalysisSmartCacheMatch checkMatch(Universe universe, AnalysisSmartCacheRequest request) {
 		// check same axis
-		Map<String, Map<AnalysisSmartCacheSignature, AnalysisSmartCacheSignature>> sameAxes = lookup.get(request.getAxesSignature());
+		Map<String, HashSet<AnalysisSmartCacheSignature>> sameAxes = lookup.get(request.getAxesSignature());
 		if (sameAxes!=null) {
 			// check same filters
-			Map<AnalysisSmartCacheSignature, AnalysisSmartCacheSignature> sameFiltersCandidates = sameAxes.get(request.getFiltersSignature());
+			HashSet<AnalysisSmartCacheSignature> sameFiltersCandidates = sameAxes.get(request.getFiltersSignature());
 			if (sameFiltersCandidates!=null) {
 				AnalysisSmartCacheMatch match = checkMatchMany(null, request, sameFiltersCandidates);
 				if (match!=null) {
@@ -122,9 +122,9 @@ public class AnalysisSmartCache {
 	 * @return
 	 */
 	private AnalysisSmartCacheMatch checkMatchMany(Set<Axis> restrict, AnalysisSmartCacheRequest request,
-			Map<AnalysisSmartCacheSignature, AnalysisSmartCacheSignature> sameFiltersCandidates) {
+			HashSet<AnalysisSmartCacheSignature> sameFiltersCandidates) {
 		// iter to check if we found a compatible query
-		for (AnalysisSmartCacheSignature candidate : sameFiltersCandidates.keySet()) {
+		for (AnalysisSmartCacheSignature candidate : sameFiltersCandidates) {
 			if (request.getMeasures().getKPIs().size() <= candidate.getMeasures().getKPIs().size()) {
 				AnalysisSmartCacheMatch match = checkMatchSingle(restrict, request, candidate);
 				if (match!=null) {
@@ -265,13 +265,13 @@ public class AnalysisSmartCache {
 	 * @param signature
 	 */
 	public boolean remove(AnalysisSmartCacheRequest request) {
-		Map<String, Map<AnalysisSmartCacheSignature, AnalysisSmartCacheSignature>> sameAxes = lookup.get(request.getAxesSignature());
+		Map<String, HashSet<AnalysisSmartCacheSignature>> sameAxes = lookup.get(request.getAxesSignature());
 		if (sameAxes!=null) {
-			Map<AnalysisSmartCacheSignature, AnalysisSmartCacheSignature> sameFilters = sameAxes.get(request.getFiltersSignature());
+			HashSet<AnalysisSmartCacheSignature> sameFilters = sameAxes.get(request.getFiltersSignature());
 			if (sameFilters!=null) {
-				if (!sameFilters.containsKey(request.getKey())) {
-					AnalysisSmartCacheSignature check = sameFilters.remove(request.getKey());
-					return check!=null;
+				if (!sameFilters.contains(request.getKey())) {
+					boolean check = sameFilters.remove(request.getKey());
+					return check;
 				}
 			}
 		}
@@ -290,18 +290,18 @@ public class AnalysisSmartCache {
 	 * @param dm 
 	 */
 	public boolean put(AnalysisSmartCacheRequest request) {
-		Map<String, Map<AnalysisSmartCacheSignature, AnalysisSmartCacheSignature>> sameAxes = lookup.get(request.getAxesSignature());
+		Map<String, HashSet<AnalysisSmartCacheSignature>> sameAxes = lookup.get(request.getAxesSignature());
 		if (sameAxes==null) {
 			sameAxes = new ConcurrentHashMap<>();// create the filters map
 			lookup.put(request.getAxesSignature(), sameAxes);
 		}
-		Map<AnalysisSmartCacheSignature, AnalysisSmartCacheSignature> sameFilters = sameAxes.get(request.getFiltersSignature());
+		HashSet<AnalysisSmartCacheSignature> sameFilters = sameAxes.get(request.getFiltersSignature());
 		if (sameFilters==null) {
-			sameFilters = new ConcurrentHashMap<>();// create the signature set
+			sameFilters = new HashSet<AnalysisSmartCacheSignature>();// create the signature set
 			sameAxes.put(request.getFiltersSignature(), sameFilters);
 		}
-		if (!sameFilters.containsKey(request.getKey())) {
-			sameFilters.put(request.getKey(), request.getKey());
+		if (!sameFilters.contains(request.getKey())) {
+			sameFilters.add(request.getKey());
 		}
 		//
 		return contains.add(request.getKey().getHash());
