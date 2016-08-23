@@ -1777,7 +1777,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 	 * @param table
 	 * @return
 	 */
-	private Data transformToVegaData(DataTable table) {
+	protected Data transformToVegaData(DataTable table) {
 		ArrayList<Object> value = new ArrayList<>();
 		for (Row row : table.getRows()) {
 			Hashtable<String, Object> line = new Hashtable<>(row.getV().length);
