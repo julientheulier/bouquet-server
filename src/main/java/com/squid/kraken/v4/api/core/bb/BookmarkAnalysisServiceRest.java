@@ -313,7 +313,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 			@QueryParam(TIMEOUT_PARAM) Integer timeout
 			) throws ComputingException, ScopeException, InterruptedException {
 		AppContext userContext = getUserContext(request);
-		AnalysisQuery analysis = createAnalysisFromParams(groupBy, metrics, filterExpressions, period, timeframe, compareframe, orderExpressions, rollupExpressions, limit, format, maxResults, startIndex, lazy, style);
+		AnalysisQuery analysis = createAnalysisFromParams(BBID, groupBy, metrics, filterExpressions, period, timeframe, compareframe, orderExpressions, rollupExpressions, limit, format, maxResults, startIndex, lazy, style);
 		return getDelegate().runAnalysis(userContext, BBID, analysis, timeout);
 	}
 
@@ -328,18 +328,18 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 			@QueryParam("y") String y,
 			@QueryParam("color") String color,
 			@QueryParam("size") String size,
-			@ApiParam(
-					value="define how to provide the data, either EMBEDED or through an URL",
-					allowableValues="EMBEDED,URL", defaultValue="EMBEDED")
-			@QueryParam("data") String data,
 			@QueryParam(FILTERS_PARAM) String[] filterExpressions,
 			@QueryParam(PERIOD_PARAM) String period,
 			@ApiParam(value="define the timeframe for the period. It can be a date range [lower,upper] or a special alias: ____ALL, ____LAST_DAY, ____LAST_7_DAYS, __CURRENT_MONTH, __PREVIOUS_MONTH, __CURRENT_MONTH, __PREVIOUS_YEAR", allowMultiple = true) 
-			@QueryParam(TIMEFRAME_PARAM) String[] timeframe
+			@QueryParam(TIMEFRAME_PARAM) String[] timeframe,
+			@ApiParam(
+					value="define how to provide the data, either EMBEDED or through an URL",
+					allowableValues="EMBEDED,URL", defaultValue="EMBEDED")
+			@QueryParam("data") String data
 	) throws ScopeException, ComputingException, InterruptedException
 	{
 		AppContext userContext = getUserContext(request);
-		AnalysisQuery query = createAnalysisFromParams(null, null, filterExpressions, period, timeframe, null, null, null, null, null, null, null, null, null);
+		AnalysisQuery query = createAnalysisFromParams(BBID, null, null, filterExpressions, period, timeframe, null, null, null, null, null, null, null, null, null);
 		return getDelegate().getVegalite(uriInfo, userContext, BBID, x, y, color, size, data, query);
 	}
 
@@ -397,12 +397,13 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 				compression = "gzip";
 			}
 		}
-		AnalysisQuery analysis = createAnalysisFromParams(groupBy, metrics, filterExpressions, period, timeframe, compareframe, orderExpressions, rollupExpressions, limit, format, null, null, null, null);
+		AnalysisQuery analysis = createAnalysisFromParams(BBID, groupBy, metrics, filterExpressions, period, timeframe, compareframe, orderExpressions, rollupExpressions, limit, format, null, null, null, null);
 		return getDelegate().exportAnalysis(userContext, BBID, analysis, filepart, fileext, compression);
 	}
 	
 	/**
 	 * transform the GET query parameters into a AnalysisQuery similar to the one used for POST
+	 * @param bBID 
 	 * @param groupBy
 	 * @param metrics
 	 * @param filterExpressions
@@ -413,6 +414,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 	 * @throws ScopeException
 	 */
 	private AnalysisQuery createAnalysisFromParams(
+			String BBID, 
 			String[] groupBy, 
 			String[] metrics, 
 			String[] filterExpressions,
@@ -429,25 +431,26 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 			Style style
 		) throws ScopeException {
 		// init the analysis query using the query parameters
-		AnalysisQuery analysis = new AnalysisQueryImpl();
+		AnalysisQuery query = new AnalysisQueryImpl();
+		query.setBBID(BBID);
 		int groupByLength = groupBy!=null?groupBy.length:0;
 		if (groupByLength > 0) {
-			analysis.setGroupBy(Arrays.asList(groupBy));
+			query.setGroupBy(Arrays.asList(groupBy));
 		}
 		if ((metrics != null) && (metrics.length > 0)) {
-			analysis.setMetrics(Arrays.asList(metrics));
+			query.setMetrics(Arrays.asList(metrics));
 		}
 		if ((filterExpressions != null) && (filterExpressions.length > 0)) {
-			analysis.setFilters(Arrays.asList(filterExpressions));
+			query.setFilters(Arrays.asList(filterExpressions));
 		}
 		if (period!=null) {
-			analysis.setPeriod(period);
+			query.setPeriod(period);
 		}
 		if (timeframe != null && timeframe.length>0) {
-			analysis.setTimeframe(timeframe);
+			query.setTimeframe(timeframe);
 		}
 		if (compareframe != null && compareframe.length>0) {
-			analysis.setCompareframe(compareframe);
+			query.setCompareframe(compareframe);
 		}
 		if ((orderExpressions != null) && (orderExpressions.length > 0)) {
 			List<OrderBy> orders = new ArrayList<OrderBy>();
@@ -456,7 +459,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 				order.setExpression(new Expression(orderExpressions[i]));
 				orders.add(order);
 			}
-			analysis.setOrderBy(orders);
+			query.setOrderBy(orders);
 		}
 		if ((rollupExpressions != null) && (rollupExpressions.length > 0)) {
 			List<RollUp> rollups = new ArrayList<RollUp>();
@@ -485,15 +488,15 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 				}
 				rollups.add(rollup);
 			}
-			analysis.setRollups(rollups);
+			query.setRollups(rollups);
 		}
-		if (limit!=null) analysis.setLimit(limit);
-		if (format!=null) analysis.setFormat(format);
-		if (maxResults!=null) analysis.setMaxResults(maxResults);
-		if (startIndex!=null) analysis.setStartIndex(startIndex);
-		if (lazy!=null) analysis.setLazy(lazy);
-		if (style!=null) analysis.setStyle(style);
-		return analysis;
+		if (limit!=null) query.setLimit(limit);
+		if (format!=null) query.setFormat(format);
+		if (maxResults!=null) query.setMaxResults(maxResults);
+		if (startIndex!=null) query.setStartIndex(startIndex);
+		if (lazy!=null) query.setLazy(lazy);
+		if (style!=null) query.setStyle(style);
+		return query;
 	}
 	
 	public enum HierarchyMode {
