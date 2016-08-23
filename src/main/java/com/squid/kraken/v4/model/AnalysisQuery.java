@@ -10,6 +10,10 @@ import com.squid.kraken.v4.model.ProjectAnalysisJob.RollUp;
 
 @JsonDeserialize(as = AnalysisQueryImpl.class)
 public interface AnalysisQuery {
+	
+	public String getBBID();
+	
+	void setBBID(String BBID);
 
 	public String getDomain();
 

@@ -7,6 +7,8 @@ import com.squid.kraken.v4.model.ProjectAnalysisJob.OrderBy;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.RollUp;
 
 public class AnalysisQueryImpl implements AnalysisQuery {
+	
+	private String BBID;
 
 	private String domain;
 	
@@ -45,17 +47,21 @@ public class AnalysisQueryImpl implements AnalysisQuery {
 	public AnalysisQueryImpl() {
 	}
 	
-	/* (non-Javadoc)
-	 * @see com.squid.kraken.v4.model.Analysis#getDomain()
-	 */
+	@Override
+	public String getBBID() {
+		return BBID;
+	}
+	
+	@Override
+	public void setBBID(String BBID) {
+		this.BBID = BBID;
+	}
+	
 	@Override
 	public String getDomain() {
 		return domain;
 	}
-
-	/* (non-Javadoc)
-	 * @see com.squid.kraken.v4.model.Analysis#setDomain(java.lang.String)
-	 */
+	
 	@Override
 	public void setDomain(String domain) {
 		this.domain = domain;
