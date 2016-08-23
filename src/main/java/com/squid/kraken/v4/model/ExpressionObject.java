@@ -23,8 +23,23 @@
  *******************************************************************************/
 package com.squid.kraken.v4.model;
 
+import org.mongodb.morphia.annotations.Transient;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.squid.core.domain.IDomain;
+
 @SuppressWarnings("serial")
 public abstract class ExpressionObject<PK extends GenericPK> extends DynamicObject<PK> {
+
+    @Transient
+    transient private ValueType valueType = null;
+    
+    @Transient
+    transient private IDomain imageDomain = null;
+	
+	public ExpressionObject() {
+		super();
+	}
 
 	public ExpressionObject(PK id, boolean isDynamic) {
 		super(id, isDynamic);
@@ -47,5 +62,23 @@ public abstract class ExpressionObject<PK extends GenericPK> extends DynamicObje
 	}
 
 	public abstract Expression getExpression();
+
+	
+	public ValueType getValueType() {
+		return valueType;
+	}
+	
+	public void setValueType(ValueType valueType) {
+		this.valueType = valueType;
+	}
+	
+	@JsonIgnore
+	public IDomain getImageDomain() {
+		return imageDomain!=null?imageDomain:IDomain.UNKNOWN;
+	}
+	
+	public void setImageDomain(IDomain imageDomain) {
+		this.imageDomain = imageDomain;
+	}
 
 }

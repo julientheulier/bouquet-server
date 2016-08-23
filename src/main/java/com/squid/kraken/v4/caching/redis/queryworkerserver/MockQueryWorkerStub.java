@@ -23,6 +23,10 @@
  *******************************************************************************/
 package com.squid.kraken.v4.caching.redis.queryworkerserver;
 
+import java.util.List;
+
+import javax.ws.rs.core.GenericType;
+
 import org.apache.cxf.jaxrs.client.WebClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,47 +35,46 @@ import com.squid.kraken.v4.caching.redis.ServerID;
 
 public class MockQueryWorkerStub implements IQueryWorkerServer {
 
-    static final Logger logger = LoggerFactory.getLogger(MockQueryWorkerStub.class);
+	static final Logger logger = LoggerFactory.getLogger(MockQueryWorkerStub.class);
 
 	private String host;
 	private int port;
 	private String appName;
-	
-	private String  baseURL;
-	
-	public MockQueryWorkerStub(ServerID self, String appName){
+
+	private String baseURL;
+
+	public MockQueryWorkerStub(ServerID self, String appName) {
 		this.port = self.port;
-		this.host= self.host;		
-		this.appName= appName;
-		logger.info(" new Mock Query Worker Stub " + this.host + " "+ this.port);
+		this.host = self.host;
+		this.appName = appName;
+		logger.info(" new Mock Query Worker Stub " + this.host + " " + this.port);
 	}
-	
+
 	@Override
-	public boolean fetch(String k, String SQLQuery, String RSjdbcURL, String username, String pwd, int ttl, long limit) {
-		if(logger.isDebugEnabled()){logger.debug((k));}
-		if(logger.isDebugEnabled()){logger.debug((SQLQuery));}
-		
+	public int fetch(QueryWorkerJobRequest request) {
+		if (logger.isDebugEnabled()) {
+			logger.debug((request.getKey()));
+		}
+		if (logger.isDebugEnabled()) {
+			logger.debug((request.getSQLQuery()));
+		}
 		WebClient client = WebClient.create(baseURL);
 		client.path("fetch");
-		client.query("sqlquery", SQLQuery);
-		client.query("key", k);
-		client.query("jdbc", RSjdbcURL);
-		client.query("pwd", pwd);
-		client.query("ttl", ttl);
-		client.query("limit", limit);
-
-		boolean res  = client.get(Boolean.class);
+		client.query("request", request);
+		int res = client.get(Integer.class);
 		return res;
 	}
-	
+
+
 	@Override
-	public void start(){
-		logger.info(" starting Mock Query Worker Stub" + this.host + " "+ this.port);
-		 this.baseURL = "http://"+this.host+":"+this.port+"/"+ appName+"/cache/queryworker";
-		 logger.info("base URL " + baseURL);
+	public void start() {
+		logger.info(" starting Mock Query Worker Stub" + this.host + " " + this.port);
+		this.baseURL = "http://" + this.host + ":" + this.port + "/" + appName + "/cache/queryworker";
+		logger.info("base URL " + baseURL);
 	}
+
 	@Override
-	public String hello(){
+	public String hello() {
 		return "Hello Mock Query Worker Stub server";
 	}
 
@@ -79,6 +82,41 @@ public class MockQueryWorkerStub implements IQueryWorkerServer {
 	public int getLoad() {
 		return 0;
 	}
+
+	@Override
+	public boolean isQueryOngoing(String k) {
+		if (logger.isDebugEnabled()) {
+			logger.debug((k));
+		}
+
+		WebClient client = WebClient.create(baseURL);
+		client.path("ongoing");
+		client.query("key", k);
+		boolean res = client.get(Boolean.class);
+		return res;
+	}
 	
+	@Override
+	public List<QueryWorkerJobStatus> getOngoingQueries(String customerId) {
+		WebClient client = WebClient.create(baseURL);
+		client.path("queries");
+		client.query("customerId", customerId);
+		GenericType<List<QueryWorkerJobStatus>> type = new GenericType<List<QueryWorkerJobStatus>>() {};
+		List<QueryWorkerJobStatus> res = client.get(type);
+		return res;
+	}
+	
+	/* (non-Javadoc)
+	 * @see com.squid.kraken.v4.caching.redis.queryworkerserver.IQueryWorkerServer#cancelOngoingQuery(java.lang.String, java.lang.String)
+	 */
+	@Override
+	public boolean cancelOngoingQuery(String customerId, String key) {
+		WebClient client = WebClient.create(baseURL);
+		client.path("cancel");
+		client.query("customerId",  customerId);
+		client.query("key",  key);
+		boolean res = client.get(Boolean.class);
+		return res;
+	}
 
 }

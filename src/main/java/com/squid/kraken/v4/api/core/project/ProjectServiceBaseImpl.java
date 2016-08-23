@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 
+import com.squid.kraken.v4.model.*;
 import org.bson.types.ObjectId;
 import org.mongodb.morphia.Datastore;
 import org.mongodb.morphia.query.Query;
@@ -47,30 +48,14 @@ import com.squid.kraken.v4.api.core.ObjectNotFoundAPIException;
 import com.squid.kraken.v4.api.core.ServiceUtils;
 import com.squid.kraken.v4.api.core.annotation.AnnotationServiceBaseImpl;
 import com.squid.kraken.v4.api.core.projectuser.ProjectUserServiceBaseImpl;
-import com.squid.kraken.v4.caching.redis.SimpleDatabaseManager;
 import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.kraken.v4.core.database.impl.DatabaseServiceImpl;
+import com.squid.kraken.v4.core.database.impl.SimpleDatabaseManager;
 import com.squid.kraken.v4.core.expression.scope.ExpressionSuggestionHandler;
 import com.squid.kraken.v4.core.expression.scope.ProjectExpressionScope;
 import com.squid.kraken.v4.core.expression.scope.RelationExpressionScope;
-import com.squid.kraken.v4.model.AccessRight;
 import com.squid.kraken.v4.model.AccessRight.Role;
-import com.squid.kraken.v4.model.Annotation;
-import com.squid.kraken.v4.model.AnnotationList;
-import com.squid.kraken.v4.model.AnnotationPK;
-import com.squid.kraken.v4.model.Customer;
-import com.squid.kraken.v4.model.Domain;
-import com.squid.kraken.v4.model.DomainPK;
-import com.squid.kraken.v4.model.ExpressionSuggestion;
-import com.squid.kraken.v4.model.GenericPK;
-import com.squid.kraken.v4.model.Persistent;
-import com.squid.kraken.v4.model.Project;
-import com.squid.kraken.v4.model.ProjectPK;
-import com.squid.kraken.v4.model.ProjectUser;
-import com.squid.kraken.v4.model.ProjectUserPK;
-import com.squid.kraken.v4.model.UserGroup;
-import com.squid.kraken.v4.model.UserGroupPK;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DAOFactory;
 import com.squid.kraken.v4.persistence.MongoDBHelper;
@@ -186,7 +171,7 @@ public class ProjectServiceBaseImpl extends GenericServiceImpl<Project, ProjectP
      *            if null, will use expression's length
      * @return ExpressionSuggestion
      */
-    public ExpressionSuggestion getDomainSuggestion(AppContext ctx, String projectId, String expression, Integer offset) {
+    public ExpressionSuggestion getDomainSuggestion(AppContext ctx, String projectId, String expression, Integer offset, ValueType filterType) {
         //
     	try {
 	        ProjectPK projectPK = new ProjectPK(ctx.getCustomerId(), projectId);
@@ -195,10 +180,16 @@ public class ProjectServiceBaseImpl extends GenericServiceImpl<Project, ProjectP
 	        Universe universe = new Universe(ctx, project);
 	        ProjectExpressionScope scope = new ProjectExpressionScope(universe);
 	        ExpressionSuggestionHandler handler = new ExpressionSuggestionHandler(scope);
-	        if (offset == null) {
-	            offset = expression.length();
-	        }
-	        return handler.getSuggestion(expression, offset);
+            String expression_final = expression;
+            if (offset == null) {
+                if(expression_final == null){
+                    offset = 1;
+                    expression_final = "";
+                }else{
+                    offset = expression_final.length()+1;
+                }
+            }
+            return handler.getSuggestion(expression_final, offset, filterType);
     	} catch (ScopeException e) {
     		throw new ObjectNotFoundAPIException(e.getMessage(), e, false);
     	}
@@ -248,7 +239,7 @@ public class ProjectServiceBaseImpl extends GenericServiceImpl<Project, ProjectP
     }
 
 	public ExpressionSuggestion getRelationSuggestion(AppContext ctx,
-			String projectId, String leftId, String rightId, String expression, int offset) {
+			String projectId, String leftId, String rightId, String expression, Integer offset, ValueType filterType) {
 	    
 	    if ((leftId == null) || leftId.isEmpty() || (rightId == null) || rightId.isEmpty()) {
 	        ExpressionSuggestion error = new ExpressionSuggestion();
@@ -268,10 +259,14 @@ public class ProjectServiceBaseImpl extends GenericServiceImpl<Project, ProjectP
             Universe universe = new Universe(ctx, project);
 	        RelationExpressionScope scope = new RelationExpressionScope(universe, left, right);
 	        ExpressionSuggestionHandler handler = new ExpressionSuggestionHandler(scope);
-	        if (offset == 0) {
-	            offset = expression.length();
+	        if (offset == null) {
+                if(expression == null){
+                    offset = 1;
+                }else{
+                    offset = expression.length()+1;
+                }
 	        }
-	        return handler.getSuggestion(expression, offset);
+	        return handler.getSuggestion(expression, offset, filterType);
         } catch (ScopeException e) {
         	ExpressionSuggestion error = new ExpressionSuggestion();
         	error.setValidateMessage(e.getLocalizedMessage());

@@ -43,6 +43,7 @@ import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.ESIndexFacade.ESIndexFacade;
 import com.squid.kraken.v4.ESIndexFacade.ESIndexFacade.MappingState;
 import com.squid.kraken.v4.ESIndexFacade.ESIndexFacadeException;
+import com.squid.kraken.v4.ESIndexFacade.ESIndexFacadeUtilities;
 import com.squid.kraken.v4.ESIndexFacade.ESMapping;
 import com.squid.kraken.v4.ESIndexFacade.ESMapping.ESIndexMapping;
 import com.squid.kraken.v4.ESIndexFacade.ESMapping.ESTypeMapping;
@@ -395,6 +396,8 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 					attributes.put(idName_mapping, ID);
 				} else {
 					attributes.put(idName_mapping, ID.toString());
+					attributes.put(ESIndexFacadeUtilities.sortKey, ID.toString().toLowerCase());
+					
 					if (mapping.containsKey(idName_mapping+"_raw")){
 						attributes.put(idName_mapping+"_raw", ID);
 					}
@@ -474,7 +477,7 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 				List<Map<String, Object>> elements = master
 						.searchDimensionMembersByTokensAndLocalFilter(
 								indexName, dimensionTypeName, tokens, offset,
-								size, mapping).hits;
+								size, mapping, idName_mapping).hits;
 				return readMembersWithAttrs(elements);
 			} else {
 				return new ArrayList<DimensionMember>();

@@ -36,6 +36,7 @@ public class MetricExt extends Metric {
 		setDynamic(metric.isDynamic());
 		setExpression(metric.getExpression());
 		setName(metric.getName());
+		setDescription(metric.getDescription());
 		setObjectType(metric.getObjectType());
 		setUserRole(metric.getUserRole());
 		this.definition = definition;

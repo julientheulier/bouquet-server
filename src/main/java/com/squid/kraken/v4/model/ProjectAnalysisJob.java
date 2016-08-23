@@ -26,6 +26,7 @@ package com.squid.kraken.v4.model;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import javax.xml.bind.annotation.XmlRootElement;
 import javax.xml.bind.annotation.XmlTransient;
@@ -85,6 +86,8 @@ public class ProjectAnalysisJob extends JobBaseImpl<ProjectAnalysisJobPK, DataTa
 	private List<Index> beyondLimit;
 
 	private String redisKey;
+	
+	private Map<String, Object> optionKeys = null;
 	
 	@XmlTransient
 	@JsonIgnore
@@ -230,6 +233,20 @@ public class ProjectAnalysisJob extends JobBaseImpl<ProjectAnalysisJobPK, DataTa
 	
 	public void setBeyondLimit(List<Index> noLimit) {
 		this.beyondLimit = noLimit;
+	}
+	
+	/**
+	 * @return the optionKeys
+	 */
+	public Map<String, Object> getOptionKeys() {
+		return optionKeys;
+	}
+	
+	/**
+	 * @param optionKeys the optionKeys to set
+	 */
+	public void setOptionKeys(Map<String, Object> optionKeys) {
+		this.optionKeys = optionKeys;
 	}
 
 	@XmlTransient
@@ -404,6 +421,14 @@ public class ProjectAnalysisJob extends JobBaseImpl<ProjectAnalysisJobPK, DataTa
 		
 		public void setExpression(Expression expression) {
 			this.expression = expression;
+		}
+		
+		/* (non-Javadoc)
+		 * @see java.lang.Object#toString()
+		 */
+		@Override
+		public String toString() {
+			return this.direction+" "+this.expression;
 		}
 		
 	}

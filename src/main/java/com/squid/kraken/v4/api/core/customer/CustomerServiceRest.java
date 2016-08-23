@@ -23,7 +23,6 @@
  *******************************************************************************/
 package com.squid.kraken.v4.api.core.customer;
 
-import java.util.Arrays;
 import java.util.Set;
 
 import javax.servlet.http.HttpServletRequest;
@@ -45,6 +44,7 @@ import com.squid.core.jdbc.vendor.VendorSupportRegistry;
 import com.squid.kraken.v4.api.core.APIException;
 import com.squid.kraken.v4.api.core.EmailHelperImpl;
 import com.squid.kraken.v4.api.core.ServiceUtils;
+import com.squid.kraken.v4.api.core.bookmark.BookmarkFolderServiceRest;
 import com.squid.kraken.v4.api.core.client.ClientServiceRest;
 import com.squid.kraken.v4.api.core.connection.ConnectionServiceRest;
 import com.squid.kraken.v4.api.core.internalAnalysisJob.InternalAnalysisJobServiceRest;
@@ -60,7 +60,6 @@ import com.squid.kraken.v4.model.ClientPK;
 import com.squid.kraken.v4.model.CustomerInfo;
 import com.squid.kraken.v4.model.CustomerPK;
 import com.squid.kraken.v4.model.User;
-import com.squid.kraken.v4.model.UserPK;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DAOFactory;
 import com.wordnik.swagger.annotations.Api;
@@ -72,7 +71,7 @@ import com.wordnik.swagger.annotations.AuthorizationScope;
 @Path("/rs")
 @Api(value = "All", authorizations = { @Authorization(value = "kraken_auth", type = "oauth2", scopes = { @AuthorizationScope(scope = "access", description = "Access")}) })
 @Produces({ MediaType.APPLICATION_JSON })
-public class CustomerServiceRest {
+public class CustomerServiceRest extends CoreAuthenticatedServiceRest {
 
 	static private CustomerServiceRest instance;
 
@@ -82,12 +81,6 @@ public class CustomerServiceRest {
 		}
 		return instance;
 	}
-
-	static public final String PARAM_REFRESH = "refresh";
-
-	static public final String PARAM_DEEP_READ = "deepread";
-
-	static public final String PARAM_OPTION = "option";
 
 	private CustomerServiceBaseImpl delegate = CustomerServiceBaseImpl
 			.getInstance();
@@ -124,6 +117,14 @@ public class CustomerServiceRest {
 
 	@Path("/usergroups")
 	@ApiOperation(value = "Gets UserGroups")
+	public UserGroupServiceRest getUserGroupServiceDeprecated(
+			@Context HttpServletRequest request) {
+		AppContext userContext = getUserContext(request);
+		return new UserGroupServiceRest(userContext);
+	}
+	
+	@Path("/userGroups")
+	@ApiOperation(value = "Gets UserGroups")
 	public UserGroupServiceRest getUserGroupService(
 			@Context HttpServletRequest request) {
 		AppContext userContext = getUserContext(request);
@@ -152,7 +153,23 @@ public class CustomerServiceRest {
 		AppContext userContext = getUserContext(request);
 		return new ShortcutServiceRest(userContext);
 	}
+	
+	@Path("/bookmarkfolders")
+	@ApiOperation(value = "Gets bookmarkFolders")
+	public BookmarkFolderServiceRest getBookmarkFolderService(
+			@Context HttpServletRequest request) {
+		AppContext userContext = getUserContext(request);
+		return new BookmarkFolderServiceRest(userContext);
+	}
 
+	
+	@Path("/queries")
+	@ApiOperation(value = "Gets ongoing queries")
+	public QueriesServiceRest getQueriesService(
+			@Context HttpServletRequest request) {
+		AppContext userContext = getUserContext(request);
+		return new QueriesServiceRest(userContext);
+	}
 
 	@Path("/internalanalysisjobs")
 	@ApiOperation(value = "Gets internal analysis jobs")
@@ -503,7 +520,11 @@ public class CustomerServiceRest {
 				first = false;
 			}
 			res += "{\"" + plugin.getVendorId() + "\" : \""
-					+ plugin.getVendorVersion() + "\"}";
+					+ plugin.getVendorVersion() + "\"";
+			res += ",\"vendorId\":\"" + plugin.getVendorId() + "\"";
+			res += ",\"version\":\"" + plugin.getVendorVersion() + "\"";
+			res += ",\"jdbcTemplate\":" + plugin.getJdbcUrlTemplate();
+			res +=  "}";
 		}
 		res += "]";
 		CoreVersion version = new CoreVersion();
@@ -513,83 +534,4 @@ public class CustomerServiceRest {
 		return res;
 	}
 
-	// some utility methods
-
-	/**
-	 * Build an {@link AppContext} from an {@link HttpServletRequest} and log
-	 * the request.
-	 * 
-	 * @return an {@link AppContext}
-	 * @throws TokenExpiredException
-	 *             if the token has expired.
-	 */
-	private AppContext getUserContext(HttpServletRequest request) {
-		ServiceUtils sutils = ServiceUtils.getInstance();
-		AccessToken token = null;
-		AppContext ctx = null;
-		try {
-			// retrieve the token
-			token = sutils.getToken(request);
-
-			// retrieve the User
-			AppContext root = ServiceUtils.getInstance().getRootUserContext(
-					token.getCustomerId());
-			User user = DAOFactory
-					.getDAOFactory()
-					.getDAO(User.class)
-					.readNotNull(
-							root,
-							new UserPK(token.getCustomerId(), token.getUserId()));
-
-			// build the context
-			boolean dryRun = sutils.isDryRunEnabled(request);
-			boolean noError = sutils.isNoErrorEnabled(request);
-			String locale = sutils.getLocale(request);
-			AppContext.Builder ctxb = new AppContext.Builder(token, user)
-					.setDryRun(dryRun).setLocale(locale).setNoError(noError);
-			if (request.getParameter(PARAM_REFRESH) != null) {
-				// cache invalidation
-				ctxb.setRefresh(true);
-			}
-			if (request.getParameter(PARAM_DEEP_READ) != null) {
-				ctxb.setDeepRead(true);
-			}
-
-			String[] options = request.getParameterValues(PARAM_OPTION);
-			if (options != null) {
-				ctxb.setOptions(Arrays.asList(options));
-			}
-			ctx = ctxb.build();
-			return ctx;
-		} finally {
-			// log the request
-			sutils.logAPIRequest(ctx, request);
-		}
-	}
-
-	/**
-	 * Build an {@link AppContext} from an {@link HttpServletRequest}
-	 */
-	private AppContext getAnonymousUserContext(HttpServletRequest request,
-			String customerId, String clientId) {
-		ServiceUtils sutils = ServiceUtils.getInstance();
-		AppContext ctx = null;
-		try {
-			boolean dryRun = sutils.isDryRunEnabled(request);
-			boolean noError = sutils.isNoErrorEnabled(request);
-			String locale = sutils.getLocale(request);
-			AppContext.Builder ctxb = new AppContext.Builder(customerId,
-					clientId).setDryRun(dryRun).setLocale(locale)
-					.setNoError(noError);
-			if (request.getParameter(PARAM_REFRESH) != null) {
-				// perform cache invalidation
-				ctxb.setRefresh(true);
-			}
-			ctx = ctxb.build();
-			return ctx;
-		} finally {
-			// log the request
-			sutils.logAPIRequest(ctx, request);
-		}
-	}
 }

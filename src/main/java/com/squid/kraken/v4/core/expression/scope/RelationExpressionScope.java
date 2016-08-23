@@ -33,6 +33,7 @@ import com.squid.core.database.model.ForeignKey;
 import com.squid.core.database.model.Table;
 import com.squid.core.domain.IDomain;
 import com.squid.core.expression.ExpressionAST;
+import com.squid.core.expression.PrettyPrintOptions;
 import com.squid.kraken.v4.core.expression.reference.DomainReference;
 import com.squid.kraken.v4.core.expression.reference.ParameterReference;
 import com.squid.core.expression.reference.ColumnReference;
@@ -352,13 +353,13 @@ public class RelationExpressionScope extends DefaultScope {
 	}
 
 	@Override
-	public String prettyPrint(ExpressionAST expression) {
+	public String prettyPrint(ExpressionAST expression, PrettyPrintOptions options) {
 		// check if it is a relation - 
-		// in that case add a trailing dot to force applyin the current scope
+		// in that case add a trailing dot to force applying the current scope
 		if (expression.getImageDomain().isInstanceOf(DomainDomain.DOMAIN)) {
-			return expression.prettyPrint()+".";
+			return expression.prettyPrint(options)+".";
 		} else {
-			return expression.prettyPrint();
+			return expression.prettyPrint(options);
 		}
 	}
 

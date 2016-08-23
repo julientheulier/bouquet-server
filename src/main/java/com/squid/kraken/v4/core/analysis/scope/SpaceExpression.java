@@ -24,6 +24,8 @@
 package com.squid.kraken.v4.core.analysis.scope;
 
 import com.squid.core.domain.IDomain;
+import com.squid.core.expression.PrettyPrintOptions;
+import com.squid.core.expression.scope.IdentifierType;
 import com.squid.kraken.v4.core.analysis.universe.Space;
 
 public class SpaceExpression 
@@ -56,7 +58,11 @@ extends AnalysisExpression
 	
 	@Override
 	public String getReferenceIdentifier() {
-		// TODO Auto-generated method stub
+		return null;
+	}
+	
+	@Override
+	public IdentifierType getReferenceType() {
 		return null;
 	}
 	
@@ -76,7 +82,7 @@ extends AnalysisExpression
     }
     
     @Override
-    public String prettyPrint() {
+    public String prettyPrint(PrettyPrintOptions options) {
         return value!=null?value.prettyPrint():"{space:undefined}";
     }
 

@@ -87,6 +87,7 @@ public class DAOFactory {
 
     private DataStore defaultDataStore;
     private DataStore baseDataStore;
+    private DataStore rootDataStore;
 
     private static Map<Class<?>, GenericDAO<?, ? extends GenericPK>> daoCache;
 
@@ -95,9 +96,10 @@ public class DAOFactory {
             daoCache = new HashMap<Class<?>, GenericDAO<?, ? extends GenericPK>>();
         }
         this.baseDataStore = new GenericDataStoreDecorator(baseDataStore);
+        this.rootDataStore = new LocalizationDataStoreDecorator(
+                this.baseDataStore);
         // decorated DS
-        this.defaultDataStore = new CustomerDataStoreDecorator(new LocalizationDataStoreDecorator(
-                this.baseDataStore));
+        this.defaultDataStore = new CustomerDataStoreDecorator(rootDataStore);
     }
 
     public <T extends Persistent<PK>, PK extends GenericPK> GenericDAO<T, PK> getDAO(Class<T> type) {
@@ -105,7 +107,7 @@ public class DAOFactory {
         if (dao == null) {
             String typeName = type.getName();
             if (typeName.equals(Customer.class.getName())) {
-                dao = new CustomerDAO(defaultDataStore);
+                dao = new CustomerDAO(rootDataStore);
             } else if (typeName.equals(Domain.class.getName())) {
                 dao = new DomainDAO(defaultDataStore);
             } else if (typeName.equals(Project.class.getName())) {

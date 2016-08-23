@@ -50,50 +50,52 @@ public class AccessRightsUtils {
 		if (user.isSuperUser()) {
 			hasRole = true;
 		} else {
-			for (AccessRight right : accessRights) {
-				boolean roleOk = false;
-				switch (role) {
-				case OWNER:
-					if (right.getRole() == Role.OWNER) {
-						roleOk = true;
+			if (accessRights != null) {
+				for (AccessRight right : accessRights) {
+					boolean roleOk = false;
+					switch (role) {
+					case OWNER:
+						if (right.getRole() == Role.OWNER) {
+							roleOk = true;
+						}
+						break;
+					case WRITE:
+						if (right.getRole() == Role.OWNER
+								|| right.getRole() == Role.WRITE) {
+							roleOk = true;
+						}
+						break;
+					case READ:
+						if (right.getRole() == Role.OWNER
+								|| right.getRole() == Role.WRITE
+								|| right.getRole() == Role.READ) {
+							roleOk = true;
+						}
+						break;
+					case NONE:
+						if (right.getRole() == Role.OWNER
+								|| right.getRole() == Role.WRITE
+								|| right.getRole() == Role.READ
+								|| right.getRole() == Role.NONE) {
+							roleOk = true;
+						}
+						break;
 					}
-					break;
-				case WRITE:
-					if (right.getRole() == Role.OWNER
-							|| right.getRole() == Role.WRITE) {
-						roleOk = true;
-					}
-					break;
-				case READ:
-					if (right.getRole() == Role.OWNER
-							|| right.getRole() == Role.WRITE
-							|| right.getRole() == Role.READ) {
-						roleOk = true;
-					}
-					break;
-				case NONE:
-					if (right.getRole() == Role.OWNER
-							|| right.getRole() == Role.WRITE
-							|| right.getRole() == Role.READ
-							|| right.getRole() == Role.NONE) {
-						roleOk = true;
-					}
-					break;
-				}
-				if (roleOk) {
-					// check if user has right
-					if ((right.getUserId() != null)
-							&& right.getUserId().equals(
-									user.getId().getUserId())) {
-						hasRole = true;
-						return hasRole;// since hasRole will stay true, we can exit now
-					} else {
-						// check if one of user's groups has right
-						for (String group : user.getGroups()) {
-							if ((right.getGroupId() != null)
-									&& right.getGroupId().equals(group)) {
-								hasRole = true;
-								return hasRole;// since hasRole will stay true, we can exit now
+					if (roleOk) {
+						// check if user has right
+						if ((right.getUserId() != null)
+								&& right.getUserId().equals(
+										user.getId().getUserId())) {
+							hasRole = true;
+							return hasRole;// since hasRole will stay true, we can exit now
+						} else {
+							// check if one of user's groups has right
+							for (String group : user.getGroups()) {
+								if ((right.getGroupId() != null)
+										&& right.getGroupId().equals(group)) {
+									hasRole = true;
+									return hasRole;// since hasRole will stay true, we can exit now
+								}
 							}
 						}
 					}

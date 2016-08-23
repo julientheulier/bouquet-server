@@ -29,6 +29,7 @@ import com.squid.core.domain.set.SetDomain;
 import com.squid.core.expression.ExpressionRef;
 import com.squid.core.expression.PrettyPrintConstant;
 import com.squid.core.expression.reference.RelationDirection;
+import com.squid.core.expression.scope.IdentifierType;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.core.sql.render.SQLSkin;
@@ -75,6 +76,10 @@ public class RelationReference extends ExpressionRef {
 	
 	public Relation getRelation() {
 		return relation;
+	}
+
+	public String getDescription() {
+		return this.relation.getDescription();
 	}
 
 	@Override
@@ -140,15 +145,25 @@ public class RelationReference extends ExpressionRef {
 				getReferenceName()+
 				PrettyPrintConstant.CLOSE_IDENT;
 	}
-	
+
 	@Override
 	public String getReferenceIdentifier() {
+		return relation.getOid();
+	}
+	
+	@Override
+	public IdentifierType getReferenceType() {
+		return null;
+	}
+	
+	@Override
+	public String prettyPrintIdentifier() {
 		return relation!=null?
 				(PrettyPrintConstant.IDENTIFIER_TAG
 				+PrettyPrintConstant.OPEN_IDENT
 				+relation.getOid()
 				+PrettyPrintConstant.CLOSE_IDENT)
-			:null;
+			:"undefined";
 	}
 	
 	@Override

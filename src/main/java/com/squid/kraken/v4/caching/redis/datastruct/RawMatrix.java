@@ -58,7 +58,6 @@ public class RawMatrix extends RedisCacheValue {
 	private transient ArrayList<String> colNames;
 	private transient boolean moreData;
 
-	private transient boolean fromCache = false;
 	private transient Date executionDate = new Date();
 
 	// used to deserialize /compatibility with older version
@@ -106,14 +105,6 @@ public class RawMatrix extends RedisCacheValue {
 			i++;
 		}
 		return test;
-	}
-
-	public boolean isFromCache() {
-		return fromCache;
-	}
-
-	public void setFromCache(boolean fromCache) {
-		this.fromCache = fromCache;
 	}
 
 	public Date getExecutionDate() {
@@ -301,7 +292,7 @@ public class RawMatrix extends RedisCacheValue {
 	// (value+future reference)
 	private static final int MEMBER_VALUE = 3;// this is a simple value
 
-	public static RawMatrixStreamExecRes streamExecutionItemToByteArray(IExecutionItem item, long maxRecords,
+	public static RawMatrixStreamExecRes streamExecutionItemToByteArray(IExecutionItem item,
 			long nbLinesExpectedLeft) throws IOException, SQLException {
 
 		RawMatrixStreamExecRes res = new RawMatrixStreamExecRes();
@@ -394,8 +385,6 @@ public class RawMatrix extends RedisCacheValue {
 		int index = 0;
 		boolean moreData = false;
 		boolean maxSizeReached = false;
-		// while ((count<maxRecords || maxRecords<0) && (moreData =
-		// result.next())) {
 
 		while ((!maxSizeReached) && (moreData = result.next())) {
 			i = 0;
@@ -856,7 +845,7 @@ public class RawMatrix extends RedisCacheValue {
 		}
 		mergeInto.getRows().addAll(toMerge.getRows());
 		mergeInto.setExecutionDate(toMerge.getExecutionDate());
-		mergeInto.setFromCache(toMerge.fromCache);
+		mergeInto.setFromCache(toMerge.isFromCache());
 		mergeInto.setMoreData(toMerge.moreData);
 		mergeInto.setRedisKey(null);
 		return mergeInto;

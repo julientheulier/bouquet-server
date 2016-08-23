@@ -29,7 +29,10 @@ import com.squid.core.domain.aggregate.AggregateDomain;
 import com.squid.core.domain.associative.AssociativeDomainInformation;
 import com.squid.core.domain.operators.OperatorScope;
 import com.squid.core.expression.ExpressionAST;
+import com.squid.core.expression.PrettyPrintConstant;
+import com.squid.core.expression.PrettyPrintOptions;
 import com.squid.core.expression.UndefinedExpression;
+import com.squid.core.expression.PrettyPrintOptions.ReferenceStyle;
 import com.squid.core.expression.scope.ExpressionMaker;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.core.analysis.scope.AnalysisScope;
@@ -37,6 +40,8 @@ import com.squid.kraken.v4.core.analysis.scope.MeasureExpression;
 import com.squid.kraken.v4.core.model.domain.DomainDomain;
 import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.ExpressionObject;
+import com.squid.kraken.v4.model.GenericPK;
+import com.squid.kraken.v4.model.LzPersistentBaseImpl;
 import com.squid.kraken.v4.model.Metric;
 
 // Measure
@@ -50,6 +55,9 @@ public class Measure implements Property {
 	private ExpressionAST definition = null;
 	
 	private OriginType originType = OriginType.USER;// default to User type
+	
+	private String description = null;
+	private String format = null;
 	
 	public Measure(Measure copy) {
 		this.parent = copy.parent;
@@ -78,6 +86,8 @@ public class Measure implements Property {
 		    if (!this.parent.getTable().equals(domain.getTable())) {
                 throw new ScopeException("Invalid expression: incompatible domain for "+definition.prettyPrint());
 		    }
+		} else if (source.equals(IDomain.NULL)) {
+			// count() ?
 		} else {
             throw new ScopeException("Invalid expression: incompatible domain for "+definition.prettyPrint());
         }
@@ -143,7 +153,7 @@ public class Measure implements Property {
 	    } else if (metric!=null) {
 			return metric.getName();
 		} else {
-			return "metric_"+definition.prettyPrint();
+			return definition.prettyPrint();
 		}
 	}
     
@@ -163,6 +173,36 @@ public class Measure implements Property {
 	public Measure withName(String name) {
 	    this.name = name;
 	    return this;
+	}
+	
+	/* (non-Javadoc)
+	 * @see com.squid.kraken.v4.core.analysis.universe.Property#getDescription()
+	 */
+	@Override
+	public String getDescription() {
+		return this.description!=null?this.description:(this.metric!=null?this.metric.getDescription():null);
+	}
+	
+	/**
+	 * @param description the description to set
+	 */
+	public void setDescription(String description) {
+		this.description = description;
+	}
+	
+	/* (non-Javadoc)
+	 * @see com.squid.kraken.v4.core.analysis.universe.Property#getFormat()
+	 */
+	@Override
+	public String getFormat() {
+		return this.format;
+	}
+	
+	/**
+	 * @param format the format to set
+	 */
+	public void setFormat(String format) {
+		this.format = format;
 	}
 	
 	@Override
@@ -202,20 +242,54 @@ public class Measure implements Property {
      * @return
      */
     public String prettyPrint() {
+    	return prettyPrint(null);
+    }
+
+	/**
+	 * return a V4 compatible expression attached to the provided scope: that is the expression could be parsed in this scope
+	 * @scope the parent scope or null for Universe
+	 * @return
+	 */
+    public String prettyPrint(PrettyPrintOptions options) {
         if (metric!=null || definition==null) {
-            String pp = getParent().prettyPrint();
+            String pp = getParent().prettyPrint(options);
             if (pp!="") {
                 pp += ".";
             }
+            String print_measure = prettyPrintObject(metric, options);
             if (originType==OriginType.COMPARETO) {
-            	return "compareTo("+pp+"["+AnalysisScope.MEASURE.getToken()+":'"+(metric!=null?metric.getName():getName())+"'])";
+            	return "compareTo("+pp+print_measure+")";
+            } else if (originType==OriginType.GROWTH) {
+                	return "growth("+pp+print_measure+")";
             } else {
-            	return pp+"["+AnalysisScope.MEASURE.getToken()+":'"+getName()+"']";
+            	return pp+print_measure;
             }
         } else {
             return definition.prettyPrint();
         }
     }
+    
+	/**
+	 * utility method to pretty-print a object id
+	 * @param object
+	 * @param options
+	 * @return
+	 */
+	protected static String prettyPrintObject(LzPersistentBaseImpl<? extends GenericPK> object, PrettyPrintOptions options) {
+		if (object==null) return "{undefined metric}";
+		if (options==null || options.getStyle()==ReferenceStyle.LEGACY) {
+			return "["+AnalysisScope.MEASURE.getToken()+":'"+object.getName()+"']";
+		} else if (options!=null && options.getStyle()==ReferenceStyle.NAME) {
+			return PrettyPrintConstant.OPEN_IDENT
+	    			+object.getName()
+	    			+PrettyPrintConstant.CLOSE_IDENT;
+		} else {// krkn-84: default is ID
+			return PrettyPrintConstant.IDENTIFIER_TAG
+	    			+PrettyPrintConstant.OPEN_IDENT
+					+object.getOid()
+					+PrettyPrintConstant.CLOSE_IDENT;
+		}
+	}
 	
 	@Override
 	public boolean equals(Object obj) {

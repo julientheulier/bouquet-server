@@ -1,6 +1,7 @@
 package com.squid.kraken.v4.model;
 
 import java.util.List;
+import java.util.Map;
 
 import com.squid.kraken.v4.model.ProjectAnalysisJob.OrderBy;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.RollUp;
@@ -20,6 +21,22 @@ public class BookmarkConfig {
 	private String[] chosenDimensions;
 	
 	private String[] chosenMetrics;
+	
+	private String[] availableDimensions;
+	
+	private String[] availableMetrics;
+	
+	// handling timeframe
+	private Map<String, String> period;
+	
+	private String timeUnit;
+	
+	/**
+	 * 
+	 */
+	public BookmarkConfig() {
+		// TODO Auto-generated constructor stub
+	}
 
 	public List<RollUp> getRollups() {
 		return rollups;
@@ -75,6 +92,38 @@ public class BookmarkConfig {
 
 	public void setChosenMetrics(String[] chosenMetrics) {
 		this.chosenMetrics = chosenMetrics;
+	}
+
+	public String[] getAvailableDimensions() {
+		return availableDimensions;
+	}
+
+	public void setAvailableDimensions(String[] availableDimensions) {
+		this.availableDimensions = availableDimensions;
+	}
+
+	public String[] getAvailableMetrics() {
+		return availableMetrics;
+	}
+
+	public void setAvailableMetrics(String[] availableMetrics) {
+		this.availableMetrics = availableMetrics;
+	}
+
+	public Map<String, String> getPeriod() {
+		return period;
+	}
+
+	public void setPeriod(Map<String, String> period) {
+		this.period = period;
+	}
+
+	public String getTimeUnit() {
+		return timeUnit;
+	}
+
+	public void setTimeUnit(String timeUnit) {
+		this.timeUnit = timeUnit;
 	}
 
 }

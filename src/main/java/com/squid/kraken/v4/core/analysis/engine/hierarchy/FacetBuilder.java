@@ -73,7 +73,8 @@ public class FacetBuilder {
 		Facet resultFacet = new Facet();
 		// TODO better way of localizing
 		resultFacet.setDimension(index.getDimension());
-		resultFacet.setProxy(index  instanceof DimensionIndexProxy);
+		resultFacet.setProxy(index instanceof DimensionIndexProxy);
+		resultFacet.setCompositeName(index.isCompositeName());
 		// override the dimension name
 		resultFacet.setName(index.getDimensionName());
 		String id = index.getAxis().prettyPrint();
@@ -171,8 +172,8 @@ public class FacetBuilder {
 			return new FacetMemberInterval(lowerTime, upperTime);
 		} else {
 			// todo: format number ?
-			return new FacetMemberInterval(interval.getLowerBound().toString(),
-					interval.getUpperBound().toString());
+			return new FacetMemberInterval(interval.getLowerBound()!=null?interval.getLowerBound().toString():"",
+					interval.getUpperBound()!=null?interval.getUpperBound().toString():"");
 		}
 	}
 

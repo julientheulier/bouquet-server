@@ -33,10 +33,11 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Enumeration;
 import java.util.HashMap;
-import java.util.Map;
 import java.util.List;
+import java.util.Map;
 import java.util.StringTokenizer;
 import java.util.TimeZone;
+import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -46,30 +47,38 @@ import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.xml.bind.DatatypeConverter;
 
-import com.squid.kraken.v4.api.core.user.UserServiceBaseImpl;
 import org.apache.commons.lang3.StringUtils;
 import org.bson.types.ObjectId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Optional;
+import com.squid.kraken.v4.KrakenConfig;
 import com.squid.kraken.v4.api.core.customer.AuthServiceImpl;
 import com.squid.kraken.v4.api.core.customer.StateServiceBaseImpl;
 import com.squid.kraken.v4.api.core.customer.TokenExpiredException;
 import com.squid.kraken.v4.api.core.projectanalysisjob.AnalysisJobServiceBaseImpl;
 import com.squid.kraken.v4.api.core.projectfacetjob.FacetJobServiceBaseImpl;
+import com.squid.kraken.v4.api.core.user.UserServiceBaseImpl;
 import com.squid.kraken.v4.core.analysis.engine.cache.MetaModelObserver;
+import com.squid.kraken.v4.model.AccessRight;
 import com.squid.kraken.v4.model.AccessToken;
 import com.squid.kraken.v4.model.AccessTokenPK;
+import com.squid.kraken.v4.model.ClientPK;
 import com.squid.kraken.v4.model.Customer;
 import com.squid.kraken.v4.model.CustomerPK;
 import com.squid.kraken.v4.model.User;
 import com.squid.kraken.v4.model.UserPK;
+import com.squid.kraken.v4.model.AccessRight.Role;
+import com.squid.kraken.v4.model.Customer.AUTH_MODE;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DAOFactory;
 import com.squid.kraken.v4.persistence.DataStoreEventBus;
+import com.squid.kraken.v4.persistence.dao.CustomerDAO;
 
 public class ServiceUtils {
+
+	private static final String NULL = "null";
 
 	private static final String AUTHORIZATION = "Authorization";
 
@@ -143,9 +152,11 @@ public class ServiceUtils {
 		for (AppContext ctx : rootUsers.values()){
 			List<User> users = UserServiceBaseImpl.getInstance().readAll(ctx);
 			for(User user : users){
-				if(user.isSuperUser()){
-					return true;
-				}
+						if (user.getGroups() == null) {
+							return (false || user.isSuperUser());
+						}else{
+							return (user.getGroups().contains("superuser") || user.isSuperUser());
+						}
 			}
 		}
 
@@ -186,27 +197,103 @@ public class ServiceUtils {
 	 * Retrieve a {@link AccessToken}.
 	 * 
 	 * @param tokenId
-	 * @return the AccessToken associated to this token or
-	 *         <tt>null</null> if none found.
+	 * @return the AccessToken associated to this token or a super-user token if authMode is BYPASS or
+	 *         <tt>null</null>d.
 	 * @throws TokenExpiredException
 	 *             if the token has expired.
 	 */
 	public AccessToken getToken(String tokenId) throws TokenExpiredException {
-		Optional<AccessToken> tokenOpt = DAOFactory.getDAOFactory()
-				.getDAO(AccessToken.class)
-				.read(null, new AccessTokenPK(tokenId));
-		if (tokenOpt.isPresent()) {
-			AccessToken token = tokenOpt.get();
-			long now = System.currentTimeMillis();
-			long validity = token.getExpirationDateMillis();
-			if ((validity - now) > 0) {
-				return token;
-			} else {
-				throw new TokenExpiredException(tokenId);
+		AccessToken token = null;
+		if ((tokenId != null) && (!tokenId.equals(NULL))){
+			Optional<AccessToken> tokenOpt = DAOFactory.getDAOFactory()
+					.getDAO(AccessToken.class)
+					.read(null, new AccessTokenPK(tokenId));
+			if (tokenOpt.isPresent()) {
+				token = tokenOpt.get();
+				long now = System.currentTimeMillis();
+				long validity = token.getExpirationDateMillis();
+				if ((validity - now) > 0) {
+					return token;
+				} else {
+					throw new TokenExpiredException(tokenId);
+				}
 			}
-		} else {
-			return null;
 		}
+		if (token == null) {
+			if (KrakenConfig.getAuthMode() == AUTH_MODE.BYPASS) {
+				// look for a Customer that has a a bypass auth mode
+				Customer singleCustomer = null;
+				AppContext ctx = new AppContext.Builder().build();
+				List<Customer> all = ((CustomerDAO) DAOFactory.getDAOFactory()
+						.getDAO(Customer.class)).findAll(ctx);
+				for (Customer customer : all) {
+					if (customer.getAuthMode() == AUTH_MODE.BYPASS) {
+						singleCustomer = customer;
+					}
+				}
+				if (singleCustomer != null) {
+					// generate a new token
+					token = createSuperUserToken(singleCustomer);
+				}
+			}
+		}
+		return token;
+	}
+
+	/**
+	 * Create a special super-user token
+	 * @param customer
+	 * @return
+	 */
+	private AccessToken createSuperUserToken(Customer customer) {
+		// get the customer owner user
+		String userId = null;
+		for (AccessRight r : customer.getAccessRights()) {
+			userId  = r.getUserId();
+			if ((r.getRole() == Role.OWNER) && (userId != null)) {
+				break; 
+			}
+		}
+		return this.createToken(customer.getOid(), null, userId,
+				System.currentTimeMillis(), ServiceUtils
+				.getInstance().getTokenExpirationPeriodMillis(), AccessToken.Type.NORMAL,
+				null);
+	}
+	
+	/**
+	 * Create a new Token.
+	 * 
+	 * @param clientPk
+	 * @param userId
+	 * @param creationTimestamp
+	 *            custom creation date or current date if <tt>null</tt>
+	 * @param validityMillis
+	 *            the token validity in milliseconds.
+	 * @param token
+	 *            type (or null)
+	 * @return an AccessToken
+	 */
+	public AccessToken createToken(String customerId, ClientPK clientPk,
+			String userId, Long creationTimestamp, Long validityMillis,
+			AccessToken.Type type, String refreshTokenId) {
+		AppContext rootContext = ServiceUtils.getInstance().getRootUserContext(
+				customerId);
+		Long exp = null;
+		if (validityMillis != null) {
+			exp = (creationTimestamp == null) ? System.currentTimeMillis()
+					: creationTimestamp;
+			exp += validityMillis;
+		}
+		AccessTokenPK tokenId = new AccessTokenPK(UUID.randomUUID().toString());
+		String clientId = clientPk == null ? null : clientPk.getClientId();
+		AccessToken newToken = new AccessToken(tokenId, customerId, clientId,
+				exp);
+		newToken.setUserId(userId);
+		newToken.setType(type);
+		newToken.setRefreshToken(refreshTokenId);
+		AccessToken token = DAOFactory.getDAOFactory()
+				.getDAO(AccessToken.class).create(rootContext, newToken);
+		return token;
 	}
 
 	public long getResetPasswordTokenExpirationPeriodMillis() {
@@ -255,7 +342,6 @@ public class ServiceUtils {
 		}
 		if (tokenId == null) {
 			// try with Bearer header
-			@SuppressWarnings("unchecked")
 			Enumeration<String> headers = request.getHeaders(AUTHORIZATION);
 			while(headers.hasMoreElements()) {
 				String auth = headers.nextElement();
@@ -265,20 +351,19 @@ public class ServiceUtils {
 				}
 			}
 		}
-		if (tokenId != null) {
-			try {
-				AccessToken token = getToken(tokenId);
-				if (token != null) {
-					return token;
-				}
-			} catch (TokenExpiredException e) {
-				throw new InvalidTokenAPIException("Auth failed : expired "
+		try {
+			AccessToken token = getToken(tokenId);
+			if (token != null) {
+				return token;
+			} else {
+				// no token id found
+				throw new InvalidTokenAPIException("Auth failed : invalid "
 						+ TOKEN_PARAM, isNoErrorEnabled(request));
 			}
+		} catch (TokenExpiredException e) {
+			throw new InvalidTokenAPIException("Auth failed : expired "
+					+ TOKEN_PARAM, isNoErrorEnabled(request));
 		}
-		// no token id found
-		throw new InvalidTokenAPIException("Auth failed : invalid "
-				+ TOKEN_PARAM, isNoErrorEnabled(request));
 	}
 
 	public String getLocale(HttpServletRequest request) {

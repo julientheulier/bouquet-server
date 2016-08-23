@@ -34,6 +34,7 @@ import javax.ws.rs.core.MediaType;
 import com.squid.kraken.v4.KrakenConfig;
 import com.squid.kraken.v4.api.core.EmailHelperImpl;
 import com.squid.kraken.v4.api.core.ServiceUtils;
+import com.squid.kraken.v4.model.Customer.AUTH_MODE;
 import com.squid.kraken.v4.model.CustomerInfo;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.wordnik.swagger.annotations.Api;
@@ -106,7 +107,7 @@ public class AdminServiceRest {
 		String reqIP = ServiceUtils.getInstance().getRemoteIP(request);
 		String defaultClientURL = KrakenConfig.getProperty(
 				"default.client.url", true);
-		AppContext ctx = delegate.accessRequest(customerName, email, login, password, locale,
+		AppContext ctx = delegate.accessRequest(AUTH_MODE.OAUTH, customerName, email, login, password, locale,
 				reqIP, linkURL, defaultClientURL, EmailHelperImpl.getInstance());
 		return delegate.readCustomerInfo(ctx);
 	}

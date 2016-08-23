@@ -68,7 +68,7 @@ public class Relation extends DynamicObject<RelationPK> implements Cloneable {
      * Default constructor (required for jaxb).
      */
     public Relation() {
-        super(null);
+        super();
     }
     
     public Relation(RelationPK id) {

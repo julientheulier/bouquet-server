@@ -26,7 +26,7 @@ package com.squid.kraken.v4.model;
 public enum ValueType {
 	OBJECT,
 	NUMERIC,
-	METRIC,
+	AGGREGATE,
 	DATE,
 	STRING,
 	CONDITION,

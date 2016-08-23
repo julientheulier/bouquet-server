@@ -33,6 +33,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.squid.kraken.v4.config.KrakenConfigV2;
+import com.squid.kraken.v4.model.Customer.AUTH_MODE;
 
 //import com.squid.kraken.v4.KrakenConfigV2.MailConfig;
 
@@ -44,8 +45,7 @@ import com.squid.kraken.v4.config.KrakenConfigV2;
  */
 public class KrakenConfig {
 
-	private static final Logger logger = LoggerFactory
-			.getLogger(KrakenConfig.class);
+	private static final Logger logger = LoggerFactory.getLogger(KrakenConfig.class);
 
 	public static String SYSTEM_PROPERTY_CONFIG_FILE = "kraken.config.file";
 	public static String SYSTEM_PROPERTY_CONFIG_FILE_V2 = "bouquet.config.file";
@@ -72,8 +72,7 @@ public class KrakenConfig {
 	 *            a default value
 	 * @return the property or the default value if the key ins't found.
 	 */
-	public static synchronized String getProperty(String key,
-			String defaultValue) {
+	public static synchronized String getProperty(String key, String defaultValue) {
 		try {
 			return getProperty(key, false);
 		} catch (RuntimeException e) {
@@ -102,10 +101,8 @@ public class KrakenConfig {
 			p = System.getProperty(key);
 		}
 		if ((p == null) && (!allowsNull)) {
-			throw new RuntimeException(
-					"Configuration property '"
-							+ key
-							+ "' must be declared either as a system property or in the 'kraken.config.file'");
+			throw new RuntimeException("Configuration property '" + key
+					+ "' must be declared either as a system property or in the 'kraken.config.file'");
 		}
 		return p;
 	}
@@ -123,48 +120,81 @@ public class KrakenConfig {
 
 		String filePathV2 = System.getProperty(SYSTEM_PROPERTY_CONFIG_FILE_V2);
 
-		logger.info(filePath);
-
 		if (filePath == null && filePathV2 == null) {
-			logger.warn("either " + SYSTEM_PROPERTY_CONFIG_FILE + " or "
-					+ SYSTEM_PROPERTY_CONFIG_FILE_V2
+			logger.warn("either " + SYSTEM_PROPERTY_CONFIG_FILE + " or " + SYSTEM_PROPERTY_CONFIG_FILE_V2
 					+ " system property should be set");
 		} else {
 			if (filePathV2 != null) {
-					try {
-						KrakenConfigV2  confV2 = KrakenConfigV2.loadFromjson(filePathV2);
-//						logger.info("using conf V2\n" + confV2.toString());
-						
-						props.setProperty("kraken.ws.host",confV2.getWsHost());
-						
-						props.setProperty("kraken.mongodb.host",confV2.getMongodb().getHost());
-						props.setProperty("kraken.mongodb.port", confV2.getMongodb().getPort());
-						props.setProperty("kraken.mongodb.dbname",confV2.getMongodb().getDbname());
-						if (confV2.getMongodb().getUser() !=null){
-							props.setProperty("kraken.mongodb.user",confV2.getMongodb().getUser());
-						}
-						if(confV2.getMongodb().getPassword() !=null){
-							props.setProperty("kraken.mongodb.password",confV2.getMongodb().getPassword());
-						}
-						props.setProperty("signup.email.bcc",confV2.getSignupEmailBCC());
-						props.setProperty("mail.senderPassword",confV2.getMail().getSenderPassword());
-						props.setProperty("mail.hostName",confV2.getMail().getHostname());
-						props.setProperty("mail.sslPort", new Integer(confV2.getMail().getSslPort()).toString());		
-						props.setProperty("mail.senderName", confV2.getMail().getSenderName());
-						props.setProperty("mail.senderEmail",confV2.getMail().getSenderEmail());
-						
-						props.setProperty("default.client.url",confV2.getDefaultClientURL());
-						props.setProperty("kraken.oauth.endpoint",confV2.getKrakenOAuthEndpoint());
-						props.setProperty("kraken.ws.api",confV2.getKrakenWSAPI());
-						props.setProperty("elastic.local",Boolean.toString(confV2.getElasticLocal()) );
-						props.setProperty("feature.dynamic",Boolean.toString(confV2.getFeatureDynamic()));
-						
-						props.setProperty("ehcache.path",confV2.getEHCachePath());
-						
-					} catch (IOException e) {
-						logger.error("Could not load config file : " + filePathV2);
+				try {
+					KrakenConfigV2 confV2 = KrakenConfigV2.loadFromjson(filePathV2);
+					// logger.info("using conf V2\n" + confV2.toString());
+
+					if (confV2.getWsHost() != null) {
+						props.setProperty("kraken.ws.host", confV2.getWsHost());
 					}
-					
+
+					if (confV2.getMongodb().getHost() != null) {
+						props.setProperty("kraken.mongodb.host", confV2.getMongodb().getHost());
+					}
+					if (props.setProperty("kraken.mongodb.port", confV2.getMongodb().getPort()) != null) {
+						props.setProperty("kraken.mongodb.port", confV2.getMongodb().getPort());
+					}
+					if (confV2.getMongodb().getDbname() != null) {
+						props.setProperty("kraken.mongodb.dbname", confV2.getMongodb().getDbname());
+
+					}
+					if (confV2.getMongodb().getUser() != null) {
+						props.setProperty("kraken.mongodb.user", confV2.getMongodb().getUser());
+					}
+					if (confV2.getMongodb().getPassword() != null) {
+						props.setProperty("kraken.mongodb.password", confV2.getMongodb().getPassword());
+					}
+					if (confV2.getSignupEmailBCC() != null) {
+						props.setProperty("signup.email.bcc", confV2.getSignupEmailBCC());
+					}
+					if (confV2.getMail().getSenderPassword() != null) {
+						props.setProperty("mail.senderPassword", confV2.getMail().getSenderPassword());
+					}
+					if (confV2.getMail().getHostname() != null) {
+						props.setProperty("mail.hostName", confV2.getMail().getHostname());
+					}
+
+					props.setProperty("mail.sslPort", new Integer(confV2.getMail().getSslPort()).toString());
+
+					if (confV2.getMail().getSenderName() != null) {
+						props.setProperty("mail.senderName", confV2.getMail().getSenderName());
+					}
+					if (confV2.getMail().getSenderEmail() != null) {
+						props.setProperty("mail.senderEmail", confV2.getMail().getSenderEmail());
+					}
+					if (confV2.getServerMode() != null) {
+						props.setProperty("kraken.server.mode", confV2.getServerMode());
+					}
+					if (confV2.getDefaultClientURL() != null) {
+						props.setProperty("default.client.url", confV2.getDefaultClientURL());
+					}
+					if (confV2.getKrakenOAuthEndpoint() != null) {
+						props.setProperty("kraken.oauth.endpoint", confV2.getKrakenOAuthEndpoint());
+					}
+					if (confV2.getKrakenWSAPI() != null) {
+						props.setProperty("kraken.ws.api", confV2.getKrakenWSAPI());
+					}
+					if (confV2.getKrakenWSVersion() != null) {
+						props.setProperty("kraken.ws.version", confV2.getKrakenWSVersion());
+
+					}
+
+					props.setProperty("elastic.local", Boolean.toString(confV2.getElasticLocal()));
+					props.setProperty("feature.dynamic", Boolean.toString(confV2.getFeatureDynamic()));
+					props.setProperty("authMode", confV2.getAuthMode().toString());
+
+					if (confV2.getEHCachePath() != null) {
+						props.setProperty("ehcache.path", confV2.getEHCachePath());
+					}
+
+				} catch (IOException e) {
+					logger.error("Could not load config file : " + filePathV2);
+				}
 
 			} else {
 
@@ -176,8 +206,7 @@ public class KrakenConfig {
 					// try to load from classpath
 					logger.warn("Failed, try loading config from classpath");
 					try {
-						InputStream in = KrakenConfig.class.getClassLoader()
-								.getResourceAsStream(filePath);
+						InputStream in = KrakenConfig.class.getClassLoader().getResourceAsStream(filePath);
 						load(in, props);
 					} catch (Exception e1) {
 						logger.error("Could not load config file : " + filePath);
@@ -200,10 +229,13 @@ public class KrakenConfig {
 				}
 			}
 		} catch (Exception e) {
-			logger.warn("Could not load Kraken config file for stream : " + in,
-					e);
+			logger.warn("Could not load Kraken config file for stream : " + in, e);
 		}
 
+	}
+	
+	public static AUTH_MODE getAuthMode() {
+		return AUTH_MODE.valueOf(KrakenConfig.getProperty("authMode", AUTH_MODE.BYPASS.toString()));
 	}
 
 }

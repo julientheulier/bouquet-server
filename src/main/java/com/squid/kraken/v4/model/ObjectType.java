@@ -28,8 +28,9 @@ public enum ObjectType {
 	COLUMN,
 	FOREIGNKEY,
 	RELATION,
-	DOMAIN,
-	DIMENSION,
-	METRIC,
-	FORMULA
+	DOMAIN,// a domain, or a domain reference
+	DIMENSION,// this is a dimension
+	METRIC,// this is a metric
+	EXPRESSION,// this is a generic expression
+	FUNCTION// this is a function prototype
 }

@@ -23,6 +23,7 @@
  *******************************************************************************/
 package com.squid.kraken.v4.api.core.metric;
 
+import java.util.Collection;
 import java.util.List;
 
 import com.squid.core.expression.ExpressionAST;
@@ -33,12 +34,13 @@ import com.squid.kraken.v4.api.core.ObjectNotFoundAPIException;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainHierarchy;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainHierarchyManager;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
-import com.squid.kraken.v4.core.analysis.engine.project.DynamicManager;
 import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
+import com.squid.kraken.v4.model.Dimension;
 import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.DomainPK;
 import com.squid.kraken.v4.model.DynamicObject;
+import com.squid.kraken.v4.model.ExpressionObject;
 import com.squid.kraken.v4.model.Metric;
 import com.squid.kraken.v4.model.MetricExt;
 import com.squid.kraken.v4.model.MetricPK;
@@ -68,7 +70,7 @@ public class MetricServiceBaseImpl extends GenericServiceImpl<Metric, MetricPK> 
 	        ProjectPK projectPk = new ProjectPK(ctx.getCustomerId(), domainPk.getProjectId());
 	    	// T70
 	        Domain domain = ProjectManager.INSTANCE.getDomain(ctx, domainPk);
-	    	DomainHierarchy domainHierarchy = DomainHierarchyManager.INSTANCE.getHierarchy(projectPk, domain);
+	    	DomainHierarchy domainHierarchy = DomainHierarchyManager.INSTANCE.getHierarchy(projectPk, domain, true);
 	    	return domainHierarchy.getMetricsExt(ctx);
     	} catch (InterruptedException | ComputingException e) {
     		throw new APIException(e, true);
@@ -85,7 +87,7 @@ public class MetricServiceBaseImpl extends GenericServiceImpl<Metric, MetricPK> 
 				ProjectPK projectPk = domainPk.getParent();
 				// T70
 		        Domain domain = ProjectManager.INSTANCE.getDomain(ctx, domainPk);
-		    	DomainHierarchy domainHierarchy = DomainHierarchyManager.INSTANCE.getHierarchy(projectPk, domain);
+		    	DomainHierarchy domainHierarchy = DomainHierarchyManager.INSTANCE.getHierarchy(projectPk, domain, true);
 				Metric metric = domainHierarchy.getMetric(ctx, metricId.getMetricId());
 				return metric;
 	    	} catch (InterruptedException | ComputingException e) {
@@ -117,11 +119,12 @@ public class MetricServiceBaseImpl extends GenericServiceImpl<Metric, MetricPK> 
 	        if (metric.getName()==null || metric.getName().length()==0) {
 	        	throw new APIException("Metric name must be defined", ctx.isNoError());
 	        }
-	        DomainHierarchy hierarchy = DomainHierarchyManager.INSTANCE.getHierarchy(domainPk.getParent(), domain);
+	        DomainHierarchy hierarchy = DomainHierarchyManager.INSTANCE.getHierarchy(domainPk.getParent(), domain, true);
 			// check if exists
 	        Metric old = null;
 	        try {
 	        	old = hierarchy.getMetric(ctx, metricPk.getMetricId());
+	        	/*
 	        	if (!old.isDynamic() && metric.isDynamic()) {
 	        		// turn the dimension back to dynamic => delete it
 	        		if (DynamicManager.INSTANCE.isNatural(metric)) {
@@ -132,6 +135,7 @@ public class MetricServiceBaseImpl extends GenericServiceImpl<Metric, MetricPK> 
 	        		// else
 	        		// let me store it... keep continuing
 	        	}
+	        	*/
 	        } catch (Exception e) {
 	        	// ok, ignore
 	        }
@@ -161,7 +165,8 @@ public class MetricServiceBaseImpl extends GenericServiceImpl<Metric, MetricPK> 
 			Project project = ProjectManager.INSTANCE.getProject(ctx, metric.getId().getParent().getParent());
 	        Universe universe = new Universe(ctx, project);
 	        ExpressionAST expr = universe.getParser().parse(domain, metric);
-	        universe.getParser().analyzeExpression(metric.getId(), metric.getExpression(), expr);
+	        Collection<ExpressionObject<?>> references = universe.getParser().analyzeExpression(metric.getId(), metric.getExpression(), expr);
+	        universe.getParser().saveReferences(references);
 	        // ok
 			return super.store(ctx, metric);
 		} catch (ScopeException | ComputingException | InterruptedException e) {

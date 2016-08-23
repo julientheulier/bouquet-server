@@ -29,34 +29,28 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.squid.kraken.v4.caching.redis.queryworkerserver.IQueryWorkerServer;
+import com.squid.kraken.v4.caching.redis.queryworkerserver.QueryWorkerJobRequest;
 
-public class CallableFetch implements Callable<Boolean> {
-	private String key;
-	private String query;
+public class CallableFetch implements Callable<Integer> {
+
+	private QueryWorkerJobRequest request;
 	private IQueryWorkerServer worker;
-	private String RSjdbcURL;
-	private String pwd;
-	private String username;
-	private int ttl;
-	private long limit;
-	
-    static final Logger logger = LoggerFactory.getLogger(CallableFetch.class);
 
-	public CallableFetch(String key, String SQLQuery, IQueryWorkerServer w,  String RSjdbcURL, String username, String pwd, int ttl, long limit){
-		if(logger.isDebugEnabled()){logger.debug(( "new  callablefetch " + RSjdbcURL +" "+ username +  " "+pwd ));}
-		this.key = key;
-		this.query= SQLQuery;
-		this.worker =w;
-		this.RSjdbcURL= RSjdbcURL;
-		this.pwd = pwd;
-		this.username = username;
-		this.ttl =ttl;
-		this.limit = limit;
+	static final Logger logger = LoggerFactory.getLogger(CallableFetch.class);
+
+	public CallableFetch(QueryWorkerJobRequest request, IQueryWorkerServer w) {
+		if (logger.isDebugEnabled()) {
+			logger.debug(("new  callablefetch " + request.getJdbcURL() + " " + request.getUsername()));
+		}
+		this.request = request;
+		this.worker = w;
 	}
-	
+
 	@Override
-	public Boolean call(){
-		if(logger.isDebugEnabled()){logger.debug(( "callablefetch " + RSjdbcURL +" "+ username +  " "+pwd ));}
-		return worker.fetch(key, query, RSjdbcURL, username, pwd,  ttl, limit);
+	public Integer call() {
+		if (logger.isDebugEnabled()) {
+			logger.debug(("callablefetch " + request.getJdbcURL() + " " + request.getUsername()));
+		}
+		return worker.fetch(request);
 	}
 }

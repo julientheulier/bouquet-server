@@ -75,6 +75,7 @@ public class DimensionIndex {
 	
 	// in case of a dynamic dimension, this is the raw path (krkn-110)
 	private String dimensionPath = null;
+	private boolean isCompositeName = false;
 	
 	// override the model dimension name
 	private String dimensionName = null;
@@ -109,6 +110,9 @@ public class DimensionIndex {
         init(dimension);
         //
         this.status = readStatus();
+        if (this.status == Status.ERROR){
+        	this.setStale();
+        }
         //
         setParent(parent);
 	}
@@ -207,7 +211,7 @@ public class DimensionIndex {
 	 * @return
 	 */
 	public boolean isVisible() {
-		return getDomain().isDynamic() || !dimension.isDynamic();
+		return getDomain().isDynamic() || dimension.isVisible();
 	}
 	
 	protected Domain getDomain() {
@@ -277,9 +281,24 @@ public class DimensionIndex {
 	public void setDimensionName(String name) {
 	    this.dimensionName = name;
 	}
+
+	/**
+	 * true if the index name is a composite name based on the proxy name, or false if it is the dimension name
+	 * @return
+	 */
+	public boolean isCompositeName() {
+		return isCompositeName;
+	}
+	
+	/**
+	 * @param isCompositeName the isCompositeName to set
+	 */
+	public void setCompositeName(boolean isCompositeName) {
+		this.isCompositeName = isCompositeName;
+	}
 	
 	public String getDimensionPath() {
-	    return dimensionPath==null?dimension.getName():dimensionPath;
+	    return dimensionPath==null?"":dimensionPath;
 	}
 	
 	public void setDimensionPath(String dimensionPath) {

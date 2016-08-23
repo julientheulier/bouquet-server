@@ -36,12 +36,16 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import com.squid.kraken.v4.model.AccessRight.Role;
+import com.squid.kraken.v4.model.Customer.AUTH_MODE;
 import com.wordnik.swagger.annotations.ApiModelProperty;
 
 @XmlType(namespace = "http://model.v4.kraken.squid.com")
 @XmlRootElement
 @JsonTypeName("Customer")
-public class CustomerInfo implements HasAccessRights {
+public class CustomerInfo implements HasAccessRights, HasChildren  {
+	
+	private static String[] CHILDREN = { "users", "userGroups", "clients",
+		"projects", "shortcuts" };
 
 	private String id;
 
@@ -51,28 +55,23 @@ public class CustomerInfo implements HasAccessRights {
 	
 	private String AWSClientId;
 	
-	
     transient private List<User> users;
-
     
     transient private List<UserGroup> userGroups;
-
     
     transient private List<Client> clients;
-
     
     transient private List<Project> projects;
-    
-    
+      
     transient private List<Shortcut> shortcuts;
-    
-    
+   
     transient private List<State> states;
-	
-    
+
     private Set<AccessRight> accessRights;
 	
     private Role userRole;
+    
+    private AUTH_MODE authMode = AUTH_MODE.OAUTH;
 
 	public CustomerInfo() {
 	}
@@ -83,6 +82,7 @@ public class CustomerInfo implements HasAccessRights {
 		this.defaultLocale = customer.getDefaultLocale();
 		this.id = customer.getOid();
 		this.accessRights = customer.getAccessRights();
+		this.authMode = customer.getAuthMode();
 	}
 
 	/**
@@ -180,9 +180,12 @@ public class CustomerInfo implements HasAccessRights {
 	public void setStates(List<State> states) {
 		this.states = states;
 	}
-
 	
-    @Override
+    public List<BookmarkFolder> getBookmarkfolders() {
+    	return Collections.<BookmarkFolder> emptyList();
+	}
+
+	@Override
     public Set<AccessRight> getAccessRights() {
         if (accessRights == null) {
             accessRights = new HashSet<AccessRight>();
@@ -205,5 +208,18 @@ public class CustomerInfo implements HasAccessRights {
     @JsonIgnore
 	public void setUserRole(Role role) {
 		this.userRole = role;
+	}
+    
+	@Override
+	public String[] getChildren() {
+		return CHILDREN;
+	}
+	
+	public AUTH_MODE getAuthMode() {
+		return authMode;
+	}
+
+	public void setAuthMode(AUTH_MODE authMode) {
+		this.authMode = authMode;
 	}
 }

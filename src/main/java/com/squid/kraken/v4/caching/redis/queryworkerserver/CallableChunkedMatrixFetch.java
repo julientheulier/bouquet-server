@@ -48,27 +48,33 @@ class CallableChunkedMatrixFetch implements Callable<Boolean> {
 
 	static final Logger logger = LoggerFactory.getLogger(CallableChunkedMatrixFetch.class);
 
-	private String key;
+	private QueryWorkerJobRequest request;
+	
 	private IExecutionItem item;
-	private int ttl;
 	private long nbLinesLeftToRead;
 	private int nbBatches;
 	private long batchLowerBound;
 	private long batchUpperBound;
 	private RedisCacheValuesList valuesList;
 	private QueryWorkerServer server;
+	private String workerId;
+	private long start;
+	
+	private volatile boolean cancel = false;
 
-	public CallableChunkedMatrixFetch(QueryWorkerServer server, String key, RedisCacheValuesList valuesList,
-			IExecutionItem item, int ttl, long nbLinesRead, long limit) {
+	public CallableChunkedMatrixFetch(QueryWorkerServer server, QueryWorkerJobRequest request,
+			RedisCacheValuesList valuesList, 
+			IExecutionItem item, long nbLinesRead, long start) {
 		this.server = server;
-		this.key = key;
+		this.request = request;
 		this.item = item;
-		this.ttl = ttl;
-		this.nbLinesLeftToRead = limit - nbLinesRead;
+		this.nbLinesLeftToRead = request.getLimit() - nbLinesRead;
 		this.batchLowerBound = 0;
 		this.batchUpperBound = nbLinesRead;
 		this.valuesList = valuesList;
 		this.nbBatches = 1;
+		this.workerId = this.server.getWorkerId();
+		this.start = start;
 	}
 
 	@Override
@@ -76,23 +82,24 @@ class CallableChunkedMatrixFetch implements Callable<Boolean> {
 		boolean done = false;
 		RawMatrixStreamExecRes nextBatch = null;
 		boolean error = false;
+		long end = System.currentTimeMillis();
 		try {
 			server.incrementLoad();
 			do {
 				try {
-					nextBatch = RawMatrix.streamExecutionItemToByteArray(item, server.getMaxRecords(),
-							nbLinesLeftToRead);
+					nextBatch = RawMatrix.streamExecutionItemToByteArray(item, nbLinesLeftToRead);
+					end = System.currentTimeMillis();
 				} catch (IOException | SQLException e) {
 					error = true;
 				}
-				if (error) {
+				if (error || cancel) {
 					valuesList.setError();
 				} else {
 					nbLinesLeftToRead -= nextBatch.getNbLines();
 					batchLowerBound = batchUpperBound;
 					batchUpperBound = batchLowerBound + nextBatch.getNbLines();
-					String batchKey = key + "_" + batchLowerBound + "-" + (batchUpperBound - 1);
-					if (server.put(batchKey, nextBatch.getStreamedMatrix(), ttl)) {
+					String batchKey = request.getKey() + "_" + batchLowerBound + "-" + (batchUpperBound - 1);
+					if (server.put(batchKey, nextBatch.getStreamedMatrix(), request.getTTL())) {
 						valuesList.addReferenceKey(new ChunkRef(batchKey, batchLowerBound, batchUpperBound));
 						if (!nextBatch.hasMore()) {
 							valuesList.setDone();
@@ -103,23 +110,53 @@ class CallableChunkedMatrixFetch implements Callable<Boolean> {
 						error = true;
 					}
 				}
-				server.put(key, valuesList);
+				server.put(request.getKey(), valuesList);
 				this.nbBatches += 1;
 
-			} while (!done && !error);
+			} while (!done && !error && !cancel);
 
+			if (cancel && !done) {
+				logger.info("Canceling SQLQuery#" + item.getID() + " jobId " + request.getJobId() + " on worker " + workerId
+						+ " duration=" + (end-start) + " ms; read=" + batchUpperBound + " lines; queryid=" + item.getID());
+				throw new RedisCacheException("Canceling read result for queryid=" + item.getID()
+						+ " jobId " + request.getJobId() + " on worker " + workerId + " in redis");
+			} else
 			if (error) {
-				throw new RedisCacheException(
-						"We did not manage to store the result for queryid #" + item.getID() + "in redis");
+				throw new RedisCacheException("We did not manage to store the result for queryid=" + item.getID()
+						+ " jobId " + request.getJobId() + " on worker " + workerId + " in redis");
 			} else {
-				logger.info("Result for SQLQuery#" + item.getID() + "was split into " + nbBatches + " batches; queryid=#" + item.getID());
+				logger.info("Result for SQLQuery#" + item.getID() + " jobId " + request.getJobId() + " on worker " + workerId
+						+ "was split into " + nbBatches + " batches; duration=" + (end-start) + " ms; read=" + batchUpperBound + " lines; queryid=" + item.getID());
 			}
 			return true;
 		} finally {
 			server.decrementLoad();
-			if (item != null)
+			server.removeOngoingQuery(request.getKey());
+			if (item != null) {
 				item.close();
+			}
+		}
+	}
 
+	/**
+	 * cancel the fetch execution
+	 * @return
+	 */
+	public boolean cancel() {
+		cancel = true;
+		return true;
+	}
+	
+	/**
+	 * return the associated Query status
+	 * @return
+	 */
+	public QueryWorkerJobStatus getStatus() {
+		if (item!=null) {
+			long elapse = System.currentTimeMillis() - start;
+			return new QueryWorkerJobStatus(request, item, start, elapse, batchUpperBound, nbBatches);
+		} else {
+			return null;
 		}
 	}
 

@@ -43,6 +43,11 @@ import javax.ws.rs.core.Response;
 import com.google.common.base.Optional;
 import com.squid.core.database.impl.DatabaseServiceException;
 import com.squid.core.database.model.Database;
+import com.squid.core.domain.OperatorUndefinedType;
+import com.squid.core.domain.operators.IntrinsicOperators;
+import com.squid.core.domain.operators.ListContentAssistEntry;
+import com.squid.core.domain.operators.OperatorDefinition;
+import com.squid.core.domain.operators.OperatorScope;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.api.core.APIException;
 import com.squid.kraken.v4.api.core.AccessRightsUtils;
@@ -57,18 +62,7 @@ import com.squid.kraken.v4.api.core.relation.RelationServiceRest;
 import com.squid.kraken.v4.api.core.simpleanalysisjob.SimpleAnalysisJobServiceRest;
 import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
 import com.squid.kraken.v4.core.database.impl.DatabaseServiceImpl;
-import com.squid.kraken.v4.model.AccessRight;
-import com.squid.kraken.v4.model.Annotation;
-import com.squid.kraken.v4.model.AnnotationList;
-import com.squid.kraken.v4.model.AnnotationPK;
-import com.squid.kraken.v4.model.Domain;
-import com.squid.kraken.v4.model.DomainOption;
-import com.squid.kraken.v4.model.DomainPK;
-import com.squid.kraken.v4.model.ExpressionSuggestion;
-import com.squid.kraken.v4.model.GenericPK;
-import com.squid.kraken.v4.model.Persistent;
-import com.squid.kraken.v4.model.Project;
-import com.squid.kraken.v4.model.ProjectPK;
+import com.squid.kraken.v4.model.*;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DAOFactory;
 import com.squid.kraken.v4.persistence.dao.ProjectDAO;
@@ -146,7 +140,7 @@ public class ProjectServiceRest extends BaseServiceRest {
 	@GET
 	@Path("{"+PARAM_NAME+"}"+"/features")
 	@ApiOperation(value = "Give the functions supported by the project")
-	public List<String> features(@PathParam(PARAM_NAME) String objectId) {
+	public String features(@PathParam(PARAM_NAME) String objectId) {
 		ProjectPK projectPK = new ProjectPK(userContext.getCustomerId(),
 				objectId);
 		Optional<Project> project = ((ProjectDAO) DAOFactory.getDAOFactory().getDAO(Project.class)).read(
@@ -154,7 +148,28 @@ public class ProjectServiceRest extends BaseServiceRest {
 		if (project.isPresent()) {
 			try {
 				Database db = DatabaseServiceImpl.INSTANCE.getDatabase(project.get());
-				return db.getSkin().canRender();
+
+				String res = "{";
+				for (OperatorDefinition opDef: OperatorScope.getDefault().getRegisteredOperators()){
+					if(opDef.getExtendedID().contains(IntrinsicOperators.INTRINSIC_EXTENDED_ID)){
+						res 	+= "{" + opDef.getName() + ":";
+							ListContentAssistEntry contentAssist = opDef.getListContentAssistEntry();
+							if(contentAssist !=null){
+								res+=opDef.getListContentAssistEntry().toString();
+							}
+							res += "}";
+					}else{
+						res+= "{" + opDef.getExtendedID() + ":";
+							ListContentAssistEntry contentAssist = opDef.getListContentAssistEntry();
+							if(contentAssist !=null){
+								res+=opDef.getListContentAssistEntry().toString();
+							}
+							res += "}";
+
+					}
+				}
+				res += "}";
+				return res;
 			} catch (DatabaseServiceException e) {
 				throw new APIException(e.getMessage(), e, false);
 			}
@@ -359,9 +374,10 @@ public class ProjectServiceRest extends BaseServiceRest {
 	public ExpressionSuggestion getDomainSuggestion(
 			@PathParam("projectId") String projectId,
 			@QueryParam("expression") String expression,
-			@QueryParam("offset") int offset) {
+			@QueryParam("offset") Integer offset,
+			@QueryParam("filterType") ValueType filterType) {
 		return delegate.getDomainSuggestion(userContext, projectId, expression,
-				offset);
+				offset, filterType);
 	}
 
 	@Path("{"+PARAM_NAME+"}"+"/schemas-suggestion")
@@ -397,13 +413,14 @@ public class ProjectServiceRest extends BaseServiceRest {
 	@GET
 	@ApiOperation(value = "Gets suggestions for Relations")
 	public ExpressionSuggestion getRelationSuggestion(
-			@PathParam("projectId") String projectId,
-			@QueryParam("leftDomainId") String leftDomainId,
-			@QueryParam("rightDomainId") String rightDomainId,
-			@QueryParam("expression") String expression,
-			@QueryParam("offset") int offset) {
-		return delegate.getRelationSuggestion(userContext, projectId,
-				leftDomainId, rightDomainId, expression, offset);
+            @PathParam("projectId") String projectId,
+            @QueryParam("leftDomainId") String leftDomainId,
+            @QueryParam("rightDomainId") String rightDomainId,
+            @QueryParam("expression") String expression,
+            @QueryParam("offset") int offset,
+            @QueryParam("filterType") ValueType filterType) {
+            return delegate.getRelationSuggestion(userContext, projectId,
+				leftDomainId, rightDomainId, expression, offset, filterType);
 	}
 
 	// annotations

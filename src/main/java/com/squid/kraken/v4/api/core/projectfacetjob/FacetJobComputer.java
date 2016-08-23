@@ -78,7 +78,7 @@ public class FacetJobComputer implements
 		logger.debug("FacetJobComputer.compute(): stepB in "
 				+ ((new Date().getTime()) - start) + " ms");
 		// make sure user can read the project
-		projService.read(ctx, projectPK, true);
+		projService.read(ctx, projectPK, false);// turn deep-read to false - why load all each time ???
 		logger.debug("FacetJobComputer.compute(): stepA in "
 				+ ((new Date().getTime()) - start) + " ms");
 

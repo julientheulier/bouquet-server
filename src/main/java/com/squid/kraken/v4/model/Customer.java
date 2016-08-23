@@ -46,7 +46,12 @@ import com.wordnik.swagger.annotations.ApiModelProperty;
 @XmlType(namespace = "http://model.v4.kraken.squid.com")
 @XmlRootElement
 @SuppressWarnings("serial")
-public class Customer extends PersistentBaseImpl<CustomerPK> {
+public class Customer extends PersistentBaseImpl<CustomerPK> implements HasChildren {
+	
+	static public enum AUTH_MODE { BYPASS, OAUTH, NONE };
+	
+	private static String[] CHILDREN = { "users", "userGroups", "clients",
+			"projects", "shortcuts" };
 
     private String name;
 
@@ -55,6 +60,8 @@ public class Customer extends PersistentBaseImpl<CustomerPK> {
     private String MD5Salt;
     
     private String AWSClientId;
+    
+    private AUTH_MODE authMode = AUTH_MODE.OAUTH;
 
 	
     @Transient
@@ -216,6 +223,10 @@ public class Customer extends PersistentBaseImpl<CustomerPK> {
 	public void setStates(List<State> states) {
 		this.states = states;
 	}
+	
+    public List<BookmarkFolder> getBookmarkfolders() {
+    	return Collections.<BookmarkFolder> emptyList();
+	}
 
 	public String getAWSClientId() {
 		return AWSClientId;
@@ -223,6 +234,19 @@ public class Customer extends PersistentBaseImpl<CustomerPK> {
 
 	public void setAWSClientId(String aWSClientId) {
 		AWSClientId = aWSClientId;
+	}
+	
+	@Override
+	public String[] getChildren() {
+		return CHILDREN;
+	}
+
+	public AUTH_MODE getAuthMode() {
+		return authMode;
+	}
+
+	public void setAuthMode(AUTH_MODE authMode) {
+		this.authMode = authMode;
 	}
 
 }

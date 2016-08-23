@@ -31,12 +31,14 @@ import com.squid.core.domain.DomainConstant;
 import com.squid.core.domain.IConstantValueDomain;
 import com.squid.core.domain.IDomain;
 import com.squid.core.expression.ExpressionAST;
+import com.squid.core.expression.UndefinedExpression;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.core.analysis.engine.index.DimensionStoreException;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
 import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.core.expression.visitor.ExtractOutcomes;
+import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.Dimension.Type;
 
 public class DimensionIndexCreationUtils {
@@ -53,6 +55,13 @@ public class DimensionIndexCreationUtils {
     }
     
     public static DimensionIndex createIndex(DimensionIndex parent, Axis axis, IDomain type) throws InterruptedException, DimensionStoreException {
+
+    	ExpressionAST def = axis.getDefinitionSafe();
+    	if (def instanceof UndefinedExpression){
+    		UndefinedExpression undef =(UndefinedExpression) def;
+    		return createInvalidIndex(parent, axis, undef.getMalformedValue() + " " + undef.getErrorMessage());    		
+    	}
+    	
     	if (type.isInstanceOf(IDomain.CONDITIONAL) && parent==null) {
             return createConditionalIndex(parent, axis, type);
         } else if (type.isInstanceOf(DomainConstant.DOMAIN)) {
@@ -67,6 +76,9 @@ public class DimensionIndexCreationUtils {
     }
     
     public static List<DimensionIndex> createProxyIndexes(Space space, DomainHierarchy hierarchy, Axis source) throws ComputingException, ScopeException, InterruptedException{
+    	// check legacy mode
+    	Domain domain = space.getDomain();
+    	boolean isDomainLegacyMode = domain.getInternalVersion()==null;
     	List<DimensionIndex> result = new ArrayList<DimensionIndex>();
     	List<DimensionIndex> indexes = hierarchy.getDimensionIndexes();
         HashMap<DimensionIndex, DimensionIndex> parenting = new HashMap<>();
@@ -81,8 +93,22 @@ public class DimensionIndexCreationUtils {
 	            DimensionIndex proxy = new DimensionIndexProxy(source, new_parent, relink, index);
 	            // - default is to concatenate source dimension name and sub dimension name
 	            // - but you can bypass that logic by prefixing the source dimension name with underscore (krkn-110)
-	            if (!source.getDimension().getName().startsWith("_")) {
+	            if (!isDomainLegacyMode && source.getDimension().getName().startsWith("__")) {
+	            	proxy.setDimensionName(index.getDimension().getName());
+	            } else if (isDomainLegacyMode && source.getDimension().getName().startsWith("_")) {
+	            	proxy.setDimensionName(index.getDimension().getName());
+	            } else if (source.getDimension().getName().startsWith("_")) {
+	            	proxy.setDimensionName(index.getDimensionName());
+	            } else {
+	            	// default is to concat the subdomain with the target name
 	            	proxy.setDimensionName(source.getDimension().getName() + " " + index.getDimensionName());
+	            	proxy.setCompositeName(true);// it's composite - UI can manage it independently
+	            }
+	            // update the path
+	            if (index.getDimensionPath().equals("")) {
+	            	proxy.setDimensionPath(getCleanName(source.getDimension().getName()));
+	            } else {
+	            	proxy.setDimensionPath(index.getDimensionPath()+"/"+getCleanName(source.getDimension().getName()));
 	            }
 	            parenting.put(index, proxy);
 	 //           logger.info("adding proxy " + proxy.toString());
@@ -90,9 +116,19 @@ public class DimensionIndexCreationUtils {
         	}
         }
         return result;
-    	
     }
     
+    private static String getCleanName(String dimensionName) {
+    	if (dimensionName.startsWith(">")) {
+    		return dimensionName.substring(1);
+    	} else if (dimensionName.startsWith("__")) {
+    		return dimensionName.substring(2);
+    	} else if (dimensionName.startsWith("_")) {
+    		return dimensionName.substring(1);
+    	} else {
+    		return dimensionName;
+    	}
+    }
     
     public static DimensionIndex createConstantIndex(DimensionIndex parent, Axis axis, IDomain type)  {
 //    	logger.info("create constant index for " +axis.toString());

@@ -25,7 +25,11 @@ package com.squid.kraken.v4.caching.redis.queryworkerserver;
 
 import java.io.IOException;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -40,12 +44,13 @@ import com.squid.kraken.v4.caching.redis.RedisCacheConfig;
 import com.squid.kraken.v4.caching.redis.RedisCacheException;
 import com.squid.kraken.v4.caching.redis.RedisCacheProxy;
 import com.squid.kraken.v4.caching.redis.ServerID;
-import com.squid.kraken.v4.caching.redis.SimpleDatabaseManager;
 import com.squid.kraken.v4.caching.redis.datastruct.ChunkRef;
 import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
 import com.squid.kraken.v4.caching.redis.datastruct.RawMatrixStreamExecRes;
 import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValuesList;
-import com.squid.kraken.v4.core.database.impl.DatabaseServiceImpl;
+import com.squid.kraken.v4.core.database.impl.ExecuteQueryTask;
+import com.squid.kraken.v4.core.database.impl.SimpleDatabaseManager;
+import com.squid.kraken.v4.model.ProjectPK;
 
 public class QueryWorkerServer implements IQueryWorkerServer {
 
@@ -63,16 +68,15 @@ public class QueryWorkerServer implements IQueryWorkerServer {
 	private AtomicInteger load;
 	private ExecutorService executor;
 
-	// private int maxRecords=1024;
-
-	private int maxRecords = -1;
-
 	private int defaultTTLinSec = 3600;
 
 	// redis
 	private String REDIS_SERVER_HOST;
 	private int REDIS_SERVER_PORT;
 	private IRedisCacheProxy redis;
+
+	private Map<String, QueryWorkerJob> executingQueries;
+	private Map<String, CallableChunkedMatrixFetch> longRunningQueries;
 
 	public QueryWorkerServer(RedisCacheConfig conf) {
 		this.load = new AtomicInteger(0);
@@ -83,22 +87,18 @@ public class QueryWorkerServer implements IQueryWorkerServer {
 		this.REDIS_SERVER_HOST = conf.getRedisID().host;
 		this.REDIS_SERVER_PORT = conf.getRedisID().port;
 		this.managers = new HashMap<String, SimpleDatabaseManager>();
-		this.maxRecords = conf.getMaxRecord();
 		this.defaultTTLinSec = conf.getTtlInSecond();
 
 		RawMatrix.setMaxChunkSizeInMB(conf.getMaxChunkSizeInMByte());
 
+		this.executingQueries = new ConcurrentHashMap<>();
+		this.longRunningQueries = new ConcurrentHashMap<>();
+
 		logger.info("New Query Worker " + this.host + " " + this.port);
 	}
 
-	public int getMaxRecords() {
-		return maxRecords;
-	}
-
 	public void start() {
-		logger.info("Starting query worker " + this.host + " " + this.port + " max record " + this.maxRecords);
-		// load the drivers
-		DatabaseServiceImpl.initDriver();
+		logger.info("Starting query worker " + this.host + " " + this.port);
 		redis = RedisCacheProxy.getInstance(new ServerID(this.REDIS_SERVER_HOST, this.REDIS_SERVER_PORT));
 	}
 
@@ -110,60 +110,76 @@ public class QueryWorkerServer implements IQueryWorkerServer {
 	public String hello() {
 		return "Hello Query Worker server";
 	}
-
+	
 	@Override
-	public boolean fetch(String k, String SQLQuery, String RSjdbcURL, String username, String pwd, int ttl,
-			long limit) {
+	public int fetch(QueryWorkerJobRequest request) {
 		IExecutionItem item = null;
-		String dbKey = username + "\\" + RSjdbcURL + "\\" + pwd;
+		String dbKey = request.getUsername() + "\\" + request.getJdbcURL() + "\\" + request.getPwd();
 		try {
 			SimpleDatabaseManager db;
 			synchronized (managers) {
 				db = managers.get(dbKey);
 				if (db == null) {
-					db = new SimpleDatabaseManager(RSjdbcURL, username, pwd);
+					db = new SimpleDatabaseManager(request.getJdbcURL(), request.getUsername(), request.getPwd());
 					managers.put(dbKey, db);
 				}
 			}
 
-			item = db.executeQuery(SQLQuery);
+			ExecuteQueryTask exec = db.createExecuteQueryTask(request.getSQLQuery());
+			exec.setWorkerId(this.host + ":" + this.port);
+			exec.setJobId(request.getJobId());
+			executingQueries.put(request.getKey(), new QueryWorkerJob(request, exec));
+			item = exec.call();
 
-			RawMatrixStreamExecRes serializedRes = RawMatrix.streamExecutionItemToByteArray(item, maxRecords, limit);
-			logger.info("limit " + limit + ", linesProcessed " + serializedRes.getNbLines() + " hasMore:"
+			long start = System.currentTimeMillis();
+			
+			RawMatrixStreamExecRes serializedRes = RawMatrix.streamExecutionItemToByteArray(item, request.getLimit());
+
+			long end = System.currentTimeMillis();
+			
+			logger.debug("limit " + request.getLimit() + ", linesProcessed " + serializedRes.getNbLines() + " hasMore:"
 					+ serializedRes.hasMore());
 			if (!serializedRes.hasMore()) {
 				try {
-					logger.info("SQLQuery #" + item.getID() + " fits in one chunk; queryid=" + item.getID());
-					if (!put(k, serializedRes.getStreamedMatrix(), ttl)) {
-						throw new RedisCacheException(
-								"We did not manage to store the result for queryid=#" + item.getID() + "in redis");
+					logger.info("SQLQuery #" + item.getID() + " jobId " + request.getJobId() + " fits in one chunk; duration="+ (end-start) +"lines=" + (serializedRes.getNbLines() - 1) + "; queryid="
+							+ item.getID());
+					if (!put(request.getKey(), serializedRes.getStreamedMatrix(), request.getTTL())) {
+						throw new RedisCacheException("We did not manage to store the result for queryid=#"
+								+ item.getID() + "jobId " + request.getJobId() + "in redis");
 					}
 				} finally {
-					if (item != null)
+					this.executingQueries.remove(request.getKey());
+					// in this case the reading is complete, we must close the item
+					if (item != null) {
 						item.close();
+					}
 				}
 
 			} else {
-				logger.info("SQLQuery #" + item.getID() + " does not fit in one chunk; queryid=" + item.getID());
+				logger.info("SQLQuery #" + item.getID() + " jobId " + request.getJobId() + " does not fit in one chunk; queryid="
+						+ item.getID());
 				// store first batch
-				String batchKey = k + "_" + 0 + "-" + (serializedRes.getNbLines() - 1);
-				if (!put(batchKey, serializedRes.getStreamedMatrix(), ttl)) {
-					throw new RedisCacheException(
-							"We did not manage to store the result for queryid=#" + item.getID() + "in redis");
+				String batchKey = request.getKey() + "_" + 0 + "-" + (serializedRes.getNbLines() - 1);
+				if (!put(batchKey, serializedRes.getStreamedMatrix(), request.getTTL())) {
+					throw new RedisCacheException("We did not manage to store the result for queryid=" + item.getID()
+							+ " jobId " + request.getJobId() + " in redis");
 				}
 				// save the batch list under the main key
 				RedisCacheValuesList valuesList = new RedisCacheValuesList();
 				valuesList.addReferenceKey(new ChunkRef(batchKey, 0, serializedRes.getNbLines() - 1));
-				put(k, valuesList);
+				put(request.getKey(), valuesList);
 				// process the remaining row in a separate thread
-				CallableChunkedMatrixFetch chunkedMatrixFetch = new CallableChunkedMatrixFetch(this, k, valuesList,
-						item, ttl, serializedRes.getNbLines(), limit);
+				CallableChunkedMatrixFetch chunkedMatrixFetch = new CallableChunkedMatrixFetch(this, request, valuesList, item, serializedRes.getNbLines(), start);
 				this.executor.submit(chunkedMatrixFetch);
+				this.executingQueries.remove(request.getKey());
+				this.longRunningQueries.put(request.getKey(), chunkedMatrixFetch);
 			}
-			return true;
-		} catch (ExecutionException e) {
-			throw new RedisCacheException(e);
-		} catch (SQLException | IOException e) {
+			return item.getID();
+		} catch (ExecutionException | SQLException | IOException e) {
+			if (item != null) {
+				item.close();
+			}
+			this.executingQueries.remove(request.getKey());
 			throw new RedisCacheException(e);
 		}
 	}
@@ -195,6 +211,60 @@ public class QueryWorkerServer implements IQueryWorkerServer {
 
 	public void decrementLoad() {
 		load.decrementAndGet();
+	}
+
+	public void removeOngoingQuery(String k) {
+		this.longRunningQueries.remove(k);
+	}
+
+	public String getWorkerId() {
+		return this.host + ":" + this.port;
+	}
+
+	@Override
+	public boolean isQueryOngoing(String k) {
+		return (this.longRunningQueries.containsKey(k));
+	}
+	
+	@Override
+	public List<QueryWorkerJobStatus> getOngoingQueries(String customerId) {
+		ArrayList<QueryWorkerJobStatus> queries = new ArrayList<>();
+		for (QueryWorkerJob job : executingQueries.values()) {
+			QueryWorkerJobStatus status = job.getStatus();
+			if (status.getProjectPK()!=null && status.getProjectPK().getCustomerId().equals(customerId)) {
+				queries.add(status);
+			}
+		}
+		for (CallableChunkedMatrixFetch fetch : longRunningQueries.values()) {
+			QueryWorkerJobStatus status = fetch.getStatus();
+			if (status.getProjectPK()!=null && status.getProjectPK().getCustomerId().equals(customerId)) {
+				queries.add(status);
+			}
+		}
+		return queries;
+	}
+	
+	@Override
+	public boolean cancelOngoingQuery(String customerId, String key) {
+		// executing ?
+		QueryWorkerJob job = executingQueries.get(key);
+		if (job!=null) {
+			ProjectPK projectPK = job.getStatus().getProjectPK();
+			if (projectPK!=null && projectPK.getCustomerId().equals(customerId)) {
+				job.cancel();
+				return true;
+			}
+		}
+		// reading ?
+		CallableChunkedMatrixFetch query = longRunningQueries.get(key);
+		if (query!=null) {
+			ProjectPK projectPK = query.getStatus().getProjectPK();
+			if (projectPK!=null && projectPK.getCustomerId().equals(customerId)) {
+				return query.cancel();
+			}
+		}
+		// else
+		return false;
 	}
 
 }

@@ -116,6 +116,12 @@ public class ProjectExpressionScope extends DefaultScope {
 	}
 
 	@Override
+	public IdentifierType lookupIdentifierType(String image)
+			throws ScopeException {
+		throw new ScopeException("cannot lookup the image "+image+"");
+	}
+
+	@Override
 	public Object lookupObject(IdentifierType identifierType, String identifier)
 			throws ScopeException {
 		//

@@ -179,14 +179,19 @@ public class EngineUtils {
      * @return
      * @throws ParseException
      * @throws ScopeException
+     * @throws ComputingException 
      */
 	public Date convertToDate(Universe universe, DimensionIndex index, Bound bound, String value, IntervalleObject compareFromInterval)
-			throws ParseException, ScopeException {
+			throws ParseException, ScopeException, ComputingException {
 		if (value.startsWith("__")) {
 			//
 			// support hard-coded shortcuts
-			if (compareFromInterval!=null) {
+			if (value.toUpperCase().startsWith("__COMPARE_TO_")) {
 				// for compareTo
+				if (compareFromInterval==null) {
+					// invalid compare_to selection...
+					return null;
+				}
 				if (value.equalsIgnoreCase("__COMPARE_TO_PREVIOUS_PERIOD")) {
 					LocalDate localLower = new LocalDate(((Date)compareFromInterval.getLowerBound()).getTime());
 					if (bound==Bound.UPPER) {
@@ -237,10 +242,27 @@ public class EngineUtils {
 								range = (Intervalle)object;
 							}
 						}
+					} else {
+						try {
+							DomainHierarchy hierarchy = universe.getDomainHierarchy(index.getAxis().getParent().getDomain());
+							hierarchy.isDone(index, null);
+						} catch (ComputingException | InterruptedException | ExecutionException | TimeoutException e) {
+							throw new ComputingException("failed to retrieve period interval");
+						}
 					}
 				}
 				if (range==null) {
 					range = IntervalleObject.createInterval(new Date(), new Date());
+				}
+				if (value.equalsIgnoreCase("__ALL")) {
+					if (index.getDimension().getType() != Type.CONTINUOUS) {
+						return null;
+					}
+					if (bound==Bound.UPPER) {
+						return (Date)range.getUpperBound();
+					} else {
+						return (Date)range.getLowerBound();
+					}
 				}
 				if (value.equalsIgnoreCase("__LAST_DAY")) {
 					if (bound==Bound.UPPER) {
@@ -305,14 +327,16 @@ public class EngineUtils {
 			// evaluated
 			try {
 				String expr = value.substring(1);
-				// check if the index content is available and give some extra time to wait before using a default value
-				DomainHierarchy hierarchy = universe.getDomainHierarchy(index.getAxis().getParent().getDomain());
-				hierarchy.isDone(index, 10000);
+				// check if the index content is available or wait for it
+				DomainHierarchy hierarchy = universe.getDomainHierarchy(index.getAxis().getParent().getDomain(), true);
+				hierarchy.isDone(index, null);
 				// evaluate the expression
 				Object defaultValue = evaluateExpression(universe, index, expr, compareFromInterval);
 				// check we can use it
 				if (defaultValue == null) {
-					throw new ScopeException("unable to parse the facet expression as a constant: " + expr);
+					//throw new ScopeException("unable to parse the facet expression as a constant: " + expr);
+					// T1769: it's ok to return null
+					return null;
 				}
 				if (!(defaultValue instanceof Date)) {
 					throw new ScopeException("unable to parse the facet expression as a date: " + expr);
@@ -321,8 +345,7 @@ public class EngineUtils {
 				return (Date) defaultValue;
 			} catch (ComputingException | InterruptedException | ExecutionException
 					| TimeoutException e) {
-				logger.error("unable to parse computed selection for " + index.getAxis());
-				return null;
+				throw new ComputingException("failed to retrieve period interval");
 			}
 		} else {
 			return ServiceUtils.getInstance().toDate(value);
@@ -341,8 +364,8 @@ public class EngineUtils {
 			// provide sensible default for MIN & MAX -- we don't want the parser to fail is not set
 			Calendar calendar = Calendar.getInstance();
 			evaluator.setParameterValue("MAX", calendar.getTime());
-			calendar.add(Calendar.MONTH, -1);
-			evaluator.setParameterValue("MIN", calendar.getTime());
+			// there is no sensible default for MIN
+			evaluator.setParameterValue("MIN", null);
 			// handle compareFrom interval values if available
 			if (compareFromInterval!=null) {
 				evaluator.setParameterValue("LOWER", compareFromInterval.getLowerBound());
@@ -387,7 +410,7 @@ public class EngineUtils {
         //
         // krkn-61: handling dimension options
         for (Domain domain : domains) {
-        	DomainHierarchy hierarchy = universe.getDomainHierarchy(domain);
+        	DomainHierarchy hierarchy = universe.getDomainHierarchy(domain, true);
         	for (DimensionIndex index : hierarchy.getDimensionIndexes()) {
         		DimensionOption option = DimensionOptionUtils.computeContextOption(index.getDimension(), ctx);
         		if (option!=null) {
@@ -458,8 +481,18 @@ public class EngineUtils {
                 if (axis!=null) {
                     Domain domain = axis.getParent().getRoot();
                     DimensionIndex index = universe.
-                            getDomainHierarchy(domain).
+                            getDomainHierarchy(domain, true).
                             getDimensionIndex(axis);
+                    if (index==null) {
+                    	if (axis.getDimension()!=null) {
+                    		Domain shortcut = axis.getParent().getDomain();
+                    		index = universe.
+                                    getDomainHierarchy(shortcut, true).
+                                    getDimensionIndex(axis.prune());
+                    	} else {
+                    		throw new ScopeException("unable to filter on "+axis.getDefinitionSafe().prettyPrint());
+                    	}
+                    }
                     AccessRightsUtils.getInstance().checkRole(ctx, index.getDimension(), Role.READ);
                     for (FacetMember selectedItem : facetSel.getSelectedItems()) {
                         if (selectedItem instanceof FacetMemberInterval) {
@@ -478,6 +511,7 @@ public class EngineUtils {
                                 Date lowerDate = convertToDate(universe, index, Bound.LOWER, fmi.getLowerBound(), compareFromInterval);
                                 Date upperDate = convertToDate(universe, index, Bound.UPPER, fmi.getUpperBound(), compareFromInterval);
                                 // add as a Date Interval
+                                // T1769: if lower&upper are null, this is no-op
                                 ds.add(axis, IntervalleObject.createInterval(lowerDate, upperDate));
                             } catch (java.text.ParseException e) {
                                 throw new ComputingException(e);

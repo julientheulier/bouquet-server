@@ -26,9 +26,12 @@ package com.squid.kraken.v4.core.analysis.datamatrix;
 import java.util.Date;
 
 import org.joda.time.LocalDate;
+import org.joda.time.Period;
 
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
+import com.squid.kraken.v4.core.analysis.universe.Measure;
+import com.squid.kraken.v4.core.analysis.universe.Property.OriginType;
 
 /**
  * specialized version to support date comparison
@@ -37,9 +40,16 @@ import com.squid.kraken.v4.core.analysis.universe.Axis;
  */
 public class CompareMerger extends JoinMerger {
 
-	private int offset;
+	private Period offset;
+	
+	private boolean computeGrowth = false;
 
-	public CompareMerger(DataMatrix left, DataMatrix right, int[] mergeOrder, Axis join, int offset) throws ScopeException {
+	public CompareMerger(DataMatrix left, DataMatrix right, int[] mergeOrder, Axis join, Period offset, boolean computeGrowth) throws ScopeException {
+		this(left, right, mergeOrder, join, offset);
+		this.computeGrowth = computeGrowth;
+	}
+
+	public CompareMerger(DataMatrix left, DataMatrix right, int[] mergeOrder, Axis join, Period offset) throws ScopeException {
 		super(left, right, mergeOrder, join);
 		this.offset = offset;
 		// check measures
@@ -50,8 +60,8 @@ public class CompareMerger extends JoinMerger {
 	
 	@Override
 	protected Object translateRightToLeft(Object right) {
-		if (right instanceof Date) {
-			LocalDate delta = (new LocalDate(((Date)right).getTime())).plusDays(offset);
+		if (right instanceof Date && offset!=null) {
+			LocalDate delta = (new LocalDate(((Date)right).getTime())).plus(offset);
 			return new java.sql.Date(delta.toDate().getTime());
 		} else {
 			return right;
@@ -60,8 +70,8 @@ public class CompareMerger extends JoinMerger {
 	
 	@Override
 	protected Object translateLeftToRight(Object left) {
-		if (left instanceof Date) {
-			LocalDate delta = (new LocalDate(((Date)left).getTime())).minusDays(offset);
+		if (left instanceof Date && offset!=null) {
+			LocalDate delta = (new LocalDate(((Date)left).getTime())).minus(offset);
 			return new java.sql.Date(delta.toDate().getTime());
 		} else {
 			return right;
@@ -70,10 +80,26 @@ public class CompareMerger extends JoinMerger {
 	
 	@Override
 	protected int compareJoinValue(int pos, Object left, Object right) {
-		if (right instanceof Date) {
-			return ((Date)left).compareTo((new LocalDate(((Date)right).getTime())).plusDays(offset).toDate());
+		if (right instanceof Date && offset!=null) {
+			return ((Date)left).compareTo((new LocalDate(((Date)right).getTime())).plus(offset).toDate());
 		} else {
 			return super.compareJoinValue(pos, left, right);
+		}
+	}
+	
+	/* (non-Javadoc)
+	 * @see com.squid.kraken.v4.core.analysis.datamatrix.Merger#createDefaultIndirectionRow()
+	 */
+	@Override
+	protected IndirectionRow createDefaultIndirectionRow() throws ScopeException {
+		if (left.getDataSize()!=right.getDataSize()) {
+			throw new ScopeException("Invalid matrix layout for comparaison, both matrices must have the same columns");
+		}
+		if (computeGrowth) {
+			// add a column to compute the growth
+			return createDefaultIndirectionRow(left.getAxes().size(),3*left.getDataSize());
+		} else {
+			return createDefaultIndirectionRow(left.getAxes().size(),2*left.getDataSize());
 		}
 	}
 	
@@ -83,15 +109,29 @@ public class CompareMerger extends JoinMerger {
 	@Override
 	protected void mergeMeasures(IndirectionRow left, IndirectionRow right, IndirectionRow merged) {
 		int pos = merged.getAxesCount();// start after axes
-		for (int i = 0; i < merged.getDataCount()/2; i++) {
-			if (left!=null) {
-				merged.rawrow[pos] = left.getDataValue(i);
+		int size = left!=null?left.getDataCount():(right!=null?right.getDataCount():0);
+		for (int i = 0; i < size; i++) {
+			Object leftValue = left!=null?left.getDataValue(i):null;
+			Object rightValue = right!=null?right.getDataValue(i):null;
+			merged.rawrow[pos++] = leftValue;
+			merged.rawrow[pos++] = rightValue;
+			// compute growth ?
+			if (computeGrowth) {
+				if (leftValue!=null && rightValue!=null) {
+					if (leftValue instanceof Number && rightValue instanceof Number) {
+						float leftf = ((Number)leftValue).floatValue();
+						float rightf = ((Number)rightValue).floatValue();
+						// compute the growth in %
+						if (rightf!=0) {
+							float growth = (leftf-rightf)*100/rightf;
+							//String output = String.format("%+.2f%%", growth);
+							merged.rawrow[pos] = growth;
+						}
+					}
+				}
+				// always advance
+				pos++;
 			}
-			pos++;// always advance
-			if (right!=null) {
-				merged.rawrow[pos] = right.getDataValue(i);
-			}
-			pos++;// always advance
 		}
 	}
 	
@@ -101,6 +141,14 @@ public class CompareMerger extends JoinMerger {
 		for (int i=0; i<left.getKPIs().size(); i++) {
 			merge.getKPIs().add(left.getKPIs().get(i));
 			merge.getKPIs().add(right.getKPIs().get(i));
+			if (computeGrowth) {
+				// add the growth definition...
+				Measure growth = new Measure(left.getKPIs().get(i));
+				growth.setOriginType(OriginType.GROWTH);
+				growth.setName(growth.getName() + " [growth]");
+				growth.setFormat("%+.2f%%");
+				merge.getKPIs().add(growth);
+			}
 		}
 	}
 

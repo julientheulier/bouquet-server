@@ -23,9 +23,11 @@
  *******************************************************************************/
 package com.squid.kraken.v4.api.core.dimension;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
+import com.squid.kraken.v4.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,20 +43,11 @@ import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndexProxy;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainHierarchy;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainHierarchyManager;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
-import com.squid.kraken.v4.core.analysis.engine.project.DynamicManager;
 import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.kraken.v4.core.expression.scope.AttributeExpressionScope;
 import com.squid.kraken.v4.core.expression.scope.ExpressionSuggestionHandler;
 import com.squid.kraken.v4.model.AccessRight.Role;
-import com.squid.kraken.v4.model.Dimension;
-import com.squid.kraken.v4.model.DimensionPK;
-import com.squid.kraken.v4.model.Domain;
-import com.squid.kraken.v4.model.DomainPK;
-import com.squid.kraken.v4.model.DynamicObject;
-import com.squid.kraken.v4.model.ExpressionSuggestion;
-import com.squid.kraken.v4.model.Project;
-import com.squid.kraken.v4.model.ProjectPK;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DAOFactory;
 import com.squid.kraken.v4.persistence.dao.DimensionDAO;
@@ -92,7 +85,7 @@ public class DimensionServiceBaseImpl extends
 	        ProjectPK projectPk = new ProjectPK(ctx.getCustomerId(), domainPk.getProjectId());
 	    	// T70
 	        Domain domain = ProjectManager.INSTANCE.getDomain(ctx, domainPk);
-	    	DomainHierarchy domainHierarchy = DomainHierarchyManager.INSTANCE.getHierarchy(projectPk, domain);
+	    	DomainHierarchy domainHierarchy = DomainHierarchyManager.INSTANCE.getHierarchy(projectPk, domain, true);
 	    	return domainHierarchy.getDimensions(ctx);
     	} catch (InterruptedException | ComputingException | ScopeException e) {
     		throw new APIException(e, true);
@@ -108,7 +101,7 @@ public class DimensionServiceBaseImpl extends
 	    		ProjectPK projectPk = domainPk.getParent();
 		    	// T70
 		        Domain domain = ProjectManager.INSTANCE.getDomain(ctx, domainPk);
-		    	DomainHierarchy domainHierarchy = DomainHierarchyManager.INSTANCE.getHierarchy(projectPk, domain);
+		    	DomainHierarchy domainHierarchy = DomainHierarchyManager.INSTANCE.getHierarchy(projectPk, domain, true);
 		    	for (DimensionIndex index : domainHierarchy.getDimensionIndexes()) {
 		    		if (!(index instanceof DimensionIndexProxy)) {
 		    			Dimension dimension = index.getDimension();
@@ -131,7 +124,7 @@ public class DimensionServiceBaseImpl extends
 
 	public ExpressionSuggestion getAttributeSuggestion(AppContext ctx,
 			String projectId, String domainId, String dimensionId,
-			String expression, int offset) {
+			String expression, int offset, ValueType filterType) {
 		//
 		ProjectPK projectPk = new ProjectPK(ctx.getCustomerId(), projectId);
 		Project project = ((ProjectDAO) factory.getDAO(Project.class)).read(
@@ -148,7 +141,7 @@ public class DimensionServiceBaseImpl extends
 			if (offset == 0) {
 				offset = expression.length();
 			}
-			return handler.getSuggestion(expression, offset);
+			return handler.getSuggestion(expression, offset, filterType);
 		} catch (ScopeException e) {
 			ExpressionSuggestion error = new ExpressionSuggestion();
 			error.setValidateMessage(e.getLocalizedMessage());
@@ -189,11 +182,12 @@ public class DimensionServiceBaseImpl extends
 	        if (dimension.getName()==null || dimension.getName().length()==0) {
 	        	throw new APIException("Dimension name must be defined", ctx.isNoError());
 	        }
-	        DomainHierarchy hierarchy = DomainHierarchyManager.INSTANCE.getHierarchy(domainPk.getParent(), domain);
+	        DomainHierarchy hierarchy = DomainHierarchyManager.INSTANCE.getHierarchy(domainPk.getParent(), domain, true); 
 			// check if exists
 	        Dimension old = null;
 	        try {
 	        	old = hierarchy.findDimension(ctx, dimensionPk);
+        		/*
 	        	if (old!=null && !old.isDynamic() && dimension.isDynamic()) {
 	        		// turn the dimension back to dynamic => delete it
 	        		if (DynamicManager.INSTANCE.isNatural(dimension)) {
@@ -204,6 +198,7 @@ public class DimensionServiceBaseImpl extends
 	        		// else
 	        		// let me store it... keep continuing
 	        	}
+	        	*/
 	        } catch (Exception e) {
 	        	// ok, ignore
 	        }
@@ -254,7 +249,8 @@ public class DimensionServiceBaseImpl extends
 			Project project = ProjectManager.INSTANCE.getProject(ctx, dimension.getId().getParent().getParent());
 	        Universe universe = new Universe(ctx, project);
 	        ExpressionAST expr = universe.getParser().parse(domain, dimension);
-	        universe.getParser().analyzeExpression(dimension.getId(), dimension.getExpression(), expr);
+	        Collection<ExpressionObject<?>> references = universe.getParser().analyzeExpression(dimension.getId(), dimension.getExpression(), expr);
+	        universe.getParser().saveReferences(references);
 	        // ok
 			return super.store(ctx, dimension);
 		} catch (ScopeException | ComputingException | InterruptedException e) {

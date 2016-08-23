@@ -24,7 +24,6 @@
 package com.squid.kraken.v4.config;
 
 import java.io.File;
-
 import java.io.IOException;
 
 import org.slf4j.Logger;
@@ -33,40 +32,49 @@ import org.slf4j.LoggerFactory;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.squid.kraken.v4.caching.redis.RedisCacheConfig;
+import com.squid.kraken.v4.model.Customer.AUTH_MODE;
 
 public class KrakenConfigV2 {
 
-	
-	static final Logger logger = LoggerFactory
-			.getLogger(KrakenConfigV2.class);
-	
-	private RedisCacheConfig cache ;
-	
-	
-	private String  serverMode ;
+	static final Logger logger = LoggerFactory.getLogger(KrakenConfigV2.class);
+
+	private RedisCacheConfig cache;
+
+	private String serverMode;
 	private String signupEmailBCC;
 	private String wsHost;
-	
-	//private RestConfig rest;
+
+	// private RestConfig rest;
 	private MongodbConfig mongodb;
 	private MailConfig mail;
-	//public AWSConfig aws;
-	
-	
-	public boolean featureDynamic ; 
-	
-	public boolean elasticLocal ;
-	
+	// public AWSConfig aws;
+
+	public boolean featureDynamic;
+
+	public boolean elasticLocal;
+
 	public String defaultClientURL;
 	public String krakenWSAPI;
+	public String krakenWSVersion;
+
 	public String krakenOAuthEndpoint;
-	
+
 	public String EHCachePath;
 	
-	public KrakenConfigV2(){
-		
+	public AUTH_MODE authMode = AUTH_MODE.BYPASS;
+
+	public String getKrakenWSVersion() {
+		return krakenWSVersion;
 	}
-	
+
+	public void setKrakenWSVersion(String krakenWSVersion) {
+		this.krakenWSVersion = krakenWSVersion;
+	}
+
+	public KrakenConfigV2() {
+
+	}
+
 	public RedisCacheConfig getCache() {
 		return cache;
 	}
@@ -95,12 +103,9 @@ public class KrakenConfigV2 {
 		return wsHost;
 	}
 
-
-
 	public void setWsHost(String wSHost) {
 		wsHost = wSHost;
 	}
-
 
 	public MongodbConfig getMongodb() {
 		return mongodb;
@@ -118,18 +123,13 @@ public class KrakenConfigV2 {
 		this.mail = mail;
 	}
 
-	
-
-
 	@Override
 	public String toString() {
-		return "KrakenConfigV2 [cache=" + cache + ", serverMode=" + serverMode
-				+ ", signupEmailBCC=" + signupEmailBCC + ", WSHost=" + wsHost
-				+ ", mongodb=" + mongodb + ", mail=" + mail
-				+ ", featureDynamic=" + featureDynamic + ", elasticLocal="
-				+ elasticLocal + ", defaultClientURL=" + defaultClientURL
-				+ ", krakenWSAPI=" + krakenWSAPI + ", krakenOAuthEndpoint="
-				+ krakenOAuthEndpoint + "EHCawche path"+ EHCachePath + "]";
+		return "KrakenConfigV2 [cache=" + cache + ", serverMode=" + serverMode + ", signupEmailBCC=" + signupEmailBCC
+				+ ", WSHost=" + wsHost + ", mongodb=" + mongodb + ", mail=" + mail + ", featureDynamic="
+				+ featureDynamic + ", elasticLocal=" + elasticLocal + ", defaultClientURL=" + defaultClientURL
+				+ ", krakenWSAPI=" + krakenWSAPI + ", krakenWSVersion=" + krakenWSVersion + ", krakenOAuthEndpoint="
+				+ krakenOAuthEndpoint + "EHCawche path" + EHCachePath + "]";
 	}
 
 	public boolean getFeatureDynamic() {
@@ -180,24 +180,28 @@ public class KrakenConfigV2 {
 		EHCachePath = eHCachePath;
 	}
 
-	public static KrakenConfigV2 loadFromjson(String filename) throws IOException{
-		
-        File file = new File(filename);
-        if (!file.exists() || !file.canRead()) {        	
-        	logger.info("can't read config file " + filename);
-        	logger.info("can't read config file " + file.getAbsolutePath());
-        	logger.info("exists? " +file.exists());
-        	logger.info("canRead? " +file.canRead());        	
-        	return null;
-        } 
-        ObjectMapper mapper = new ObjectMapper();
-        mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-        
-        return mapper.readValue(file, KrakenConfigV2.class);
+	public AUTH_MODE getAuthMode() {
+		return authMode;
 	}
 
+	public void setAuthMode(AUTH_MODE authMode) {
+		this.authMode = authMode;
+	}
 
-	
+	public static KrakenConfigV2 loadFromjson(String filename) throws IOException {
 
+		File file = new File(filename);
+		if (!file.exists() || !file.canRead()) {
+			logger.info("can't read config file " + filename);
+			logger.info("can't read config file " + file.getAbsolutePath());
+			logger.info("exists? " + file.exists());
+			logger.info("canRead? " + file.canRead());
+			return null;
+		}
+		ObjectMapper mapper = new ObjectMapper();
+		mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+
+		return mapper.readValue(file, KrakenConfigV2.class);
+	}
 
 }

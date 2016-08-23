@@ -23,13 +23,19 @@
  *******************************************************************************/
 package com.squid.kraken.v4.core.analysis.scope;
 
+import com.google.common.base.Optional;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.reference.ColumnReference;
 import com.squid.core.expression.scope.IdentifierType;
 import com.squid.core.expression.scope.ScopeException;
+import com.squid.kraken.v4.core.analysis.engine.bookmark.BookmarkManager;
 import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
+import com.squid.kraken.v4.model.Bookmark;
+import com.squid.kraken.v4.model.BookmarkConfig;
+import com.squid.kraken.v4.model.BookmarkPK;
 import com.squid.kraken.v4.model.Domain;
+import com.squid.kraken.v4.model.DomainPK;
 
 public class UniverseScope 
 extends AnalysisScope
@@ -64,12 +70,26 @@ extends AnalysisScope
 				}
 			}
 		}
+		// lookup domain by ID
         else if (identifierType==IdentifierType.IDENTIFIER) {
             for (Domain domain : universe.getDomains()) {
                 if (domain.getOid().equals(name)) {
                     return new Space(universe, domain);
                 }
             }
+        }
+		// lookup bookmark by ID
+        else if (identifierType==BOOKMARK) {
+        	BookmarkPK bookmarkPk = new BookmarkPK(universe.getProject().getId(), name);
+        	Optional<Bookmark> obookmark = BookmarkManager.INSTANCE.readBookmark(universe.getContext(), bookmarkPk);
+        	if (obookmark.isPresent()) {
+        		Bookmark bookmark = obookmark.get();
+        		BookmarkConfig config = BookmarkManager.INSTANCE.readConfig(bookmark);
+        		String domainId = config.getDomain();
+        		DomainPK domainPk = new DomainPK(bookmark.getId().getParent(), domainId);
+        		Domain domain = universe.getDomain(domainPk);
+        		return new Space(universe, domain, obookmark.get());
+        	}
         }
 		// else
 		throw new ScopeException("identifier not found: "+name);

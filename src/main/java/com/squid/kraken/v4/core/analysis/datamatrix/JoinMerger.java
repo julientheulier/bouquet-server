@@ -96,13 +96,16 @@ public class JoinMerger extends Merger {
 		return null;
 	}
 	
+	/* (non-Javadoc)
+	 * @see com.squid.kraken.v4.core.analysis.datamatrix.Merger#createDefaultIndirectionRow(int, int)
+	 */
 	@Override
-	protected IndirectionRow createDefaultIndirectionRow() {
+	protected IndirectionRow createDefaultIndirectionRow(int axes, int metrics) {
 		if (joinRight!=null) {
 			// add the join copy for comparison
-			return createDefaultIndirectionRow(left.getAxes().size()+1,left.getDataSize()+right.getDataSize());
+			return super.createDefaultIndirectionRow(axes+1, metrics);
 		} else {
-			return createDefaultIndirectionRow(left.getAxes().size(),left.getDataSize()+right.getDataSize());
+			return super.createDefaultIndirectionRow(axes, metrics);
 		}
 	}
 	

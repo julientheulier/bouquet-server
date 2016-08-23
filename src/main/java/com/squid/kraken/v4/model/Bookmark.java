@@ -67,10 +67,16 @@ public class Bookmark extends DynamicObject<BookmarkPK> implements HasConfig {
 	 * Default constructor (required for jaxb).
 	 */
 	public Bookmark() {
+		super();
 	}
 
 	public Bookmark(BookmarkPK id) {
-		setId(id);
+		super(id);
+	}
+	
+	public String getBBID() {
+		if (getId()==null) return "";
+		return id.getProjectId()+":"+id.getBookmarkId();
 	}
 
 	public String getName() {

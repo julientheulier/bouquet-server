@@ -27,6 +27,8 @@ import java.util.List;
 
 import org.apache.commons.codec.digest.DigestUtils;
 
+import com.squid.core.database.impl.DataSourceReliable.FeatureSupport;
+import com.squid.core.sql.render.ISkinFeatureSupport;
 import com.squid.core.sql.render.RenderingException;
 import com.squid.core.sql.render.SQLSkin;
 import com.squid.kraken.v4.core.analysis.engine.query.SimpleQuery;
@@ -76,7 +78,10 @@ public class AssociativeTemporaryRollupStrategy extends AssociativeRollupStrateg
 	@Override
 	protected void renderFinalStep(SQLSkin skin, StringBuilder sql, String tempTableName) {
         // drop temporary table
-        sql.append("\nDROP TABLE "+skin.quoteTableIdentifier(tempTableName)+";\n");
+		// T1196: if not autocommit=true, cannot drop the table before we read the resultset
+		if(skin.getFeatureSupport(FeatureSupport.AUTOCOMMIT) == ISkinFeatureSupport.IS_SUPPORTED) {
+			sql.append("\nDROP TABLE "+skin.quoteTableIdentifier(tempTableName)+";\n");
+		}
 	}
 
 }

@@ -28,9 +28,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 
-import com.squid.kraken.v4.model.Domain;
-import com.squid.kraken.v4.model.DomainPK;
-
 /**
  * A map that can lock access by Key
  * @author sergefantino
@@ -77,7 +74,7 @@ public class LockableMap<KEY, VALUE>  extends ConcurrentHashMap<KEY, VALUE> {
 			return lock(key, 0);
 		} catch (InterruptedException e) {
 			// we never get there
-			throw new RuntimeException("impossible exception",e);
+			throw new CyclicDependencyException("Cyclic dependency detected", e);
 		}
 	}
 	

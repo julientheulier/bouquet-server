@@ -38,6 +38,9 @@ public abstract class LzPersistentBaseImpl<PK extends GenericPK> extends Persist
 
     @Property("name")
     private String name;
+    
+    @Property("description")
+    private String description;
 
     public LzPersistentBaseImpl(PK id) {
         super(id);
@@ -60,6 +63,20 @@ public abstract class LzPersistentBaseImpl<PK extends GenericPK> extends Persist
     public void setName(String name) {
         this.name = name;
     }
+    
+    /**
+	 * @return the description
+	 */
+	public String getDescription() {
+		return description;
+	}
+	
+	/**
+	 * @param description the description to set
+	 */
+	public void setDescription(String description) {
+		this.description = description;
+	}
 
     /**
      * The localized version of the name (localized according to {@link AppContext}'s locale).

@@ -55,9 +55,6 @@ public class RedisCacheConfig {
 
 	private int querieServerThreadPoolSize = 5;
 
-	private static final int MAX_RECORD_DEFAULT = -1;// by default turn off maxRecord for now - need to provide control from the API first
-
-	private int maxRecord = MAX_RECORD_DEFAULT;
 	
 	private int ttlInSecond = 24*60*60;
 	
@@ -76,7 +73,6 @@ public class RedisCacheConfig {
 		defconf.setQueriesServerID(defServ);
 		defconf.appName="v4-kraken";
 		defconf.querieServerThreadPoolSize = 5;
-		defconf.maxRecord = MAX_RECORD_DEFAULT;
 		return defconf;
 	}
 	
@@ -140,14 +136,6 @@ public class RedisCacheConfig {
 
 	public void setTtlInSecond(int ttlInSecond) {
 		this.ttlInSecond = ttlInSecond;
-	}
-
-	public int getMaxRecord() {
-		return maxRecord;
-	}
-
-	public void setMaxRecord(int maxRecord) {
-		this.maxRecord = maxRecord;
 	}
 
 	public int getMaxChunkSizeInMByte() {

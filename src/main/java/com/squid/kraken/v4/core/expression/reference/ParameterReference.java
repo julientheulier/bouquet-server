@@ -27,6 +27,8 @@ import com.squid.core.domain.IDomain;
 import com.squid.core.domain.operators.ExtendedType;
 import com.squid.core.expression.ExpressionRef;
 import com.squid.core.expression.PrettyPrintConstant;
+import com.squid.core.expression.PrettyPrintOptions;
+import com.squid.core.expression.scope.IdentifierType;
 import com.squid.core.sql.render.SQLSkin;
 
 
@@ -72,13 +74,18 @@ public class ParameterReference extends ExpressionRef {
 	
 	@Override
 	public String getReferenceIdentifier() {
-		// TODO Auto-generated method stub
+		return null;// don't want rewriting
+	}
+	
+	@Override
+	public IdentifierType getReferenceType() {
 		return null;
 	}
 	
 	@Override
-	public String prettyPrint() {
-		return PrettyPrintConstant.PARAMETER_TAG+PrettyPrintConstant.OPEN_IDENT+parameterName+PrettyPrintConstant.CLOSE_IDENT;
+	public String prettyPrint(PrettyPrintOptions options) {
+		// $'name'
+		return IdentifierType.PARAMETER+PrettyPrintConstant.OPEN_IDENT+parameterName+PrettyPrintConstant.CLOSE_IDENT;
 	}
 
 }

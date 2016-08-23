@@ -36,8 +36,8 @@ public class DatabaseInfo {
 	
 	public DatabaseInfo(DatasourceDefinition dd) {
 		this.connectionOK = true;
-		this.skin = dd.getSkin().getClass().getName();
-		this.product = dd.getDatabase().getProductFullName();
+		this.skin = dd.getDBManager().getSkin().getClass().getName();
+		this.product = dd.getDBManager().getDatabase().getProductFullName();
 	}
 
 	public boolean isConnectionOK() {

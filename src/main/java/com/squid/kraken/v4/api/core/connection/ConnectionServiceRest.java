@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.concurrent.ExecutionException;
 
 import javax.ws.rs.GET;
+import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
@@ -40,13 +41,15 @@ import com.squid.core.database.lazy.LazyDatabaseFactory;
 import com.squid.core.database.model.Database;
 import com.squid.core.database.model.Schema;
 import com.squid.core.expression.scope.ScopeException;
+import com.squid.core.jdbc.vendor.IVendorSupport;
+import com.squid.core.jdbc.vendor.VendorSupportRegistry;
 import com.squid.kraken.v4.api.core.APIException;
 import com.squid.kraken.v4.api.core.AccessRightsUtils;
 import com.squid.kraken.v4.api.core.BaseServiceRest;
 import com.squid.kraken.v4.api.core.ServiceUtils;
-import com.squid.kraken.v4.caching.redis.SimpleDatabaseManager;
 import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
 import com.squid.kraken.v4.core.database.impl.DatabaseServiceImpl;
+import com.squid.kraken.v4.core.database.impl.SimpleDatabaseManager;
 import com.squid.kraken.v4.model.AccessRight.Role;
 import com.squid.kraken.v4.model.Customer;
 import com.squid.kraken.v4.model.ExpressionSuggestion;
@@ -135,6 +138,86 @@ public class ConnectionServiceRest extends BaseServiceRest {
 	        }
 	        result.setDefinitions(schemaNames);
 	        return result;
+		} catch (ExecutionException | ScopeException e) {
+			throw new APIException(e.getMessage(), e, false);
+		} finally {
+			if (manager!=null) {
+				manager.close();
+			}
+		}
+	}
+
+	/**
+	 * validate the JDBC connection parameters (without requiring an actual project), and return a list of schemas or an error
+	 */
+	@PUT
+	@Path("/validate")
+	@ApiOperation(value = "Validate connection definition and return a list of available schemas as a suggestion")
+	public ConnectionInfo validatePost(
+			@ApiParam(value = "the project connection information") Project project
+			) {
+		//
+		// check user role
+		Customer customer = DAOFactory.getDAOFactory().getDAO(Customer.class).readNotNull(userContext, userContext.getCustomerPk());
+		AccessRightsUtils.getInstance().checkRole(userContext, customer, Role.WRITE);
+ 		//
+		SimpleDatabaseManager manager = null;
+		try {
+			boolean useExistingDatabase = false;
+			String vendorId = project.getDbVendorId();
+			// get url, user and pwd
+			String url = project.getDbUrl();
+			String username = project.getDbUser();
+			String password = project.getDbPassword();
+			// generate the URL ?
+			if (vendorId!=null && project.getDbArguments()!=null && !project.getDbArguments().isEmpty()) {
+				IVendorSupport vendor = VendorSupportRegistry.INSTANCE.getVendorSupportByID(vendorId);
+				if (vendor==null) {
+					throw new IllegalArgumentException("Invalid database vendorId, or this one is not available - check installed plugins in the $DRIVER folder");
+				}
+				url = vendor.buildJdbcUrl(project.getDbArguments());
+			}
+			// if the projectId is set, load it
+			String projectId = project.getId()!=null?project.getId().getProjectId():null;
+			Project checkProject = checkProject(projectId);
+			// if the projectId is provided and no password, try to use the stored password
+			if (checkProject!=null) {
+				if (url==null && username==null && password==null) {
+					// just check
+					useExistingDatabase = true;
+				} else
+				if (url!=null && url.equals(checkProject.getDbUrl()) && username!=null && username.equals(checkProject.getDbUser())) {
+					if (password==null || password.length()==0) {
+						// ok, we will use the project password,
+						// but then it can just look up the database schemas
+						useExistingDatabase = true;
+					} else if (password.equals(checkProject.getDbPassword())) {
+						// same password
+						useExistingDatabase = true;
+					}
+				} else
+				if (url==null || username==null || password==null) {
+					throw new APIException("invalid request, must specify {url,username,password}", false);
+				}
+			}
+			List<Schema> schemas = null;
+			if (useExistingDatabase) {
+				// just lookup existing database schemas
+				schemas = DatabaseServiceImpl.INSTANCE.getSchemas(checkProject);
+			} else {
+				manager = new SimpleDatabaseManager(url, username, password);
+				LazyDatabaseFactory factory = new LazyDatabaseFactory(manager);
+				Database database = factory.createDatabase();
+				vendorId = manager.getVendor().getVendorId();
+				schemas = database.getSchemas();
+			}
+	        List<String> schemaNames = new ArrayList<String>();
+	        for (Schema schema : schemas) {
+	        	if (!schema.isSystem()) {
+	        		schemaNames.add(schema.getName());
+	        	}
+	        }
+	        return new ConnectionInfo(vendorId, url, schemaNames);
 		} catch (ExecutionException | ScopeException e) {
 			throw new APIException(e.getMessage(), e, false);
 		} finally {

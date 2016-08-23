@@ -55,9 +55,8 @@ public class DimensionIndexProxy extends DimensionIndex {
 	public boolean isProxy() {
 		return true;
 	}
-
 	
-	protected DimensionIndex getSourceIndex() {
+	public DimensionIndex getSourceIndex() {
 		return sourceIndex;
 	}
 	

@@ -23,6 +23,8 @@
  *******************************************************************************/
 package com.squid.kraken.v4.caching.redis.queryworkerserver;
 
+import java.util.List;
+
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.QueryParam;
@@ -30,41 +32,46 @@ import javax.ws.rs.QueryParam;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-
 public class QueryWorkerRestService {
 
-	private  IQueryWorkerServer serv;
-	
+	private IQueryWorkerServer serv;
 
 	static final Logger logger = LoggerFactory.getLogger(QueryWorkerRestService.class);
-	
-	public QueryWorkerRestService(IQueryWorkerServer s){
+
+	public QueryWorkerRestService(IQueryWorkerServer s) {
 		logger.info(" new Query Worker Rest");
-		this.serv=s;
+		this.serv = s;
 	}
 
 	@GET
 	@Path("/fetch")
-	public boolean fetch(@QueryParam("key") String key, 
-			@QueryParam("sqlquery") String SQLQuery,
-			@QueryParam("jdbc") String RSjdbcURL, 
-			@QueryParam("user") String username,
-			@QueryParam("pwd") String pwd,
-			@QueryParam("ttl") int ttl,
-			@QueryParam("limit") long limit) throws InterruptedException{
-		return this.serv.fetch(key,SQLQuery,RSjdbcURL, username, pwd, ttl, limit) ;
+	public int fetch(@QueryParam("request") QueryWorkerJobRequest request) throws InterruptedException {
+		return this.serv.fetch(request);
 	}
-	
+
 	@GET
 	@Path("/hello")
-	public String hello(){
-		return serv.hello();		
+	public String hello() {
+		return serv.hello();
+	}
+
+	@GET
+	@Path("/load")
+	public int getLoad() {
+		return this.serv.getLoad();
+	}
+
+	@GET
+	@Path("/ongoing")
+	public boolean fetch(@QueryParam("key") String key, @QueryParam("sqlquery") String SQLQuery)
+			throws InterruptedException {
+		return this.serv.isQueryOngoing(key);
 	}
 	
 	@GET
-	@Path("/load")
-	public int getLoad(){
-		return this.serv.getLoad();
+	@Path("/queries")
+	public List<QueryWorkerJobStatus> queries(@QueryParam("customerId") String customerId) {
+		return this.serv.getOngoingQueries(customerId);
 	}
-	
+
 }

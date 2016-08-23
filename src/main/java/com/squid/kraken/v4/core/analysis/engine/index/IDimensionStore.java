@@ -34,93 +34,103 @@ import com.squid.kraken.v4.model.Attribute;
 
 public interface IDimensionStore {
 
-    int getSize();
+	int getSize();
 
-    String index(List<DimensionMember> members, boolean wait) throws IndexationException;
+	String index(List<DimensionMember> members, boolean wait) throws IndexationException;
 
-    void index(DimensionMember member);
+	void index(DimensionMember member);
 
-    List<DimensionMember> getMembers();
+	List<DimensionMember> getMembers();
 
-    DimensionMember getMember(int index);
+	DimensionMember getMember(int index);
 
-    DimensionMember getMemberByID(Object iD);
+	DimensionMember getMemberByID(Object iD);
 
-    List<Attribute> getAttributes();
+	List<Attribute> getAttributes();
 
-    DimensionIndex getDimensionIndex();
-    
-    // new API
-    
-    /**
-     * return true if the store has been restored from a cache - so no need to recompute for instance
-     * @return
-     */
-    boolean isCached();
+	DimensionIndex getDimensionIndex();
 
-    /**
-     * index this raw member
-     * @param raw
-     * @return
-     */
-    DimensionMember index(Object[] raw);
+	// new API
 
-    /**
-     * return a page of members
-     * @param offset
-     * @param size
-     * @return
-     */
-    List<DimensionMember> getMembers(int offset, int size);
+	/**
+	 * return true if the store has been restored from a cache - so no need to
+	 * recompute for instance
+	 * 
+	 * @return
+	 */
+	boolean isCached();
 
-    List<DimensionMember> getMembers(String filter, int offset, int size);
+	/**
+	 * index this raw member
+	 * 
+	 * @param raw
+	 * @return
+	 */
+	DimensionMember index(Object[] raw);
 
-    /**
-     * return a page filtered by parents selection
-     * @param selections
-     * @param offset
-     * @param size
-     * @return
-     */
-    List<DimensionMember> getMembersFilterByParents(
-            Map<DimensionIndex, List<DimensionMember>> selections, int offset,
-            int size);
+	/**
+	 * return a page of members
+	 * 
+	 * @param offset
+	 * @param size
+	 * @return
+	 */
+	List<DimensionMember> getMembers(int offset, int size);
 
-    List<DimensionMember> getMembersFilterByParents(
-            Map<DimensionIndex, List<DimensionMember>> selections, 
-            String filter, int offset, int size);
+	List<DimensionMember> getMembers(String filter, int offset, int size);
 
-    /**
-     * return a member by its key
-     * @param key
-     * @return
-     */
-    DimensionMember getMemberByKey(String key);
+	/**
+	 * return a page filtered by parents selection
+	 * 
+	 * @param selections
+	 * @param offset
+	 * @param size
+	 * @return
+	 */
+	List<DimensionMember> getMembersFilterByParents(Map<DimensionIndex, List<DimensionMember>> selections, int offset,
+			int size);
 
-    /**
-     * register the correlations 
-     * @param types the type of each value
-     * @param values the values to index
-     */
-    String indexCorrelations(List<DimensionIndex> types, List<DimensionMember> values)  throws IndexationException;
-    
-    /**
-     * register a batch of correlations
-     * @param types
-     * @param values
-     */
-    String indexCorrelations(List<DimensionIndex> types, Collection<List<DimensionMember>> values, boolean wait)  throws IndexationException;
+	List<DimensionMember> getMembersFilterByParents(Map<DimensionIndex, List<DimensionMember>> selections,
+			String filter, int offset, int size);
 
-    /**
-     * initialize the hierarchy mapping
-     * @param hierarchy
-     */
-    boolean initCorrelationMapping(List<DimensionIndex> hierarchy);
+	/**
+	 * return a member by its key
+	 * 
+	 * @param key
+	 * @return
+	 */
+	DimensionMember getMemberByKey(String key);
+
+	/**
+	 * register the correlations
+	 * 
+	 * @param types
+	 *            the type of each value
+	 * @param values
+	 *            the values to index
+	 */
+	String indexCorrelations(List<DimensionIndex> types, List<DimensionMember> values) throws IndexationException;
+
+	/**
+	 * register a batch of correlations
+	 * 
+	 * @param types
+	 * @param values
+	 */
+	String indexCorrelations(List<DimensionIndex> types, Collection<List<DimensionMember>> values, boolean wait)
+			throws IndexationException;
+
+	/**
+	 * initialize the hierarchy mapping
+	 * 
+	 * @param hierarchy
+	 */
+	boolean initCorrelationMapping(List<DimensionIndex> hierarchy);
 
 	boolean isDimensionIndexationDone(String lastIndexedDimension);
+
 	boolean isCorrelationIndexationDone(String lastIndexedCorrelation);
 
-	void setup(DimensionIndex index, String query)
-			throws ESIndexFacadeException;
+	void setup(DimensionIndex index, String query) throws ESIndexFacadeException;
 
 }

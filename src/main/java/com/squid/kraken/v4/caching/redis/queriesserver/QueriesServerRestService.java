@@ -23,35 +23,45 @@
  *******************************************************************************/
 package com.squid.kraken.v4.caching.redis.queriesserver;
 
+import java.util.List;
+
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.QueryParam;
 
+import com.squid.kraken.v4.caching.redis.queryworkerserver.QueryWorkerJobRequest;
+import com.squid.kraken.v4.caching.redis.queryworkerserver.QueryWorkerJobStatus;
 
 public class QueriesServerRestService {
-	
+
 	private QueriesServer delegate;
-	
-	public QueriesServerRestService(QueriesServer s){
-		
-		this.delegate=s; 
+
+	public QueriesServerRestService(QueriesServer s) {
+
+		this.delegate = s;
+	}
+
+	@GET
+	@Path("/fetch")
+	public int fetch(@QueryParam("request") QueryWorkerJobRequest request) throws InterruptedException {
+		return this.delegate.fetch(request);
+	}
+
+	@GET
+	@Path("/ongoing")
+	public boolean ongoing(@QueryParam("key") String key) {
+		return this.delegate.isQueryOngoing(key);
 	}
 	
 	@GET
-	@Path("/fetch")
-	public boolean fetch(@QueryParam("key") String key, 
-			@QueryParam("sqlquery") String SQLQuery, 
-			@QueryParam("jdbc") String RSjdbcURL,
-			@QueryParam("user") String username, 
-			@QueryParam("pwd") String pwd,
-			@QueryParam("ttl") int ttl,
-			@QueryParam("limit") long limit) throws InterruptedException{
-		return this.delegate.fetch(key,SQLQuery, RSjdbcURL, username, pwd, ttl, limit) ;
+	@Path("/queries")
+	public List<QueryWorkerJobStatus> queries(@QueryParam("customerId") String customerId) {
+		return this.delegate.getOngoingQueries(customerId);
 	}
 
 	@GET
 	@Path("/hello")
-	public String hello(){
+	public String hello() {
 		return delegate.hello();
 	}
 }

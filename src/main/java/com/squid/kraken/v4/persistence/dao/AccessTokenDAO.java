@@ -94,7 +94,7 @@ public class AccessTokenDAO extends PersistentDAO<AccessToken, AccessTokenPK>
 			ds.create(ctx, newInstance);
 			// publish
 			DataStoreEventBus.getInstance().publishEvent(
-					new DataStoreEvent(newInstance,
+					new DataStoreEvent(ctx, newInstance,
 							DataStoreEvent.Type.CREATION));
 		}
 		return newInstance;
@@ -105,7 +105,7 @@ public class AccessTokenDAO extends PersistentDAO<AccessToken, AccessTokenPK>
 			ds.delete(ctx, type, id);
 			// publish
 			DataStoreEventBus.getInstance().publishEvent(
-					new DataStoreEvent(id, DataStoreEvent.Type.DELETE));
+					new DataStoreEvent(ctx, id, DataStoreEvent.Type.DELETE));
 		}
 	}
 
