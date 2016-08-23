@@ -221,12 +221,18 @@ public abstract class JobServiceBaseImpl<T extends ComputationJob<PK, R>, PK ext
 				throw new ComputingInProgressAPIException(null, ctx.isNoError(), null);
 			}
 		} else if (job.getStatus().equals(Status.PENDING)) {
-			// start the job
-			job = runJob(ctx, job, timeoutMs, forceRun, maxResults, startIndex, lazy);
-			if (job.getStatus().equals(Status.DONE)) {
-				return job.getResults();
+			boolean lazyAnalysis = (lazy != null) && (lazy.equals("true") || lazy.equals("noError"));
+
+			if (lazyAnalysis) {
+				return null;
 			} else {
-				throw new ComputingInProgressAPIException(null, ctx.isNoError(), null);
+				// start the job
+				job = runJob(ctx, job, timeoutMs, forceRun, maxResults, startIndex, lazy);
+				if (job.getStatus().equals(Status.DONE)) {
+					return job.getResults();
+				} else {
+					throw new ComputingInProgressAPIException(null, ctx.isNoError(), null);
+				}
 			}
 		} else if ((job.getError() == null) || (job.getError().isEnableRerun())) {
 			// DONE
