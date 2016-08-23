@@ -7,6 +7,7 @@ import com.squid.core.domain.IDomain;
 import com.squid.core.domain.operators.ExtendedType;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.NamedExpression;
+import com.squid.core.expression.PrettyPrintOptions;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.core.sql.render.SQLSkin;
 
@@ -88,16 +89,16 @@ public class QueryExpression extends NamedExpression implements ExpressionAST {
 	}
 
 	@Override
-	public String prettyPrint() {
-		StringBuffer print = new StringBuffer(subject.prettyPrint());
+	public String prettyPrint(PrettyPrintOptions options) {
+		StringBuffer print = new StringBuffer(subject.prettyPrint(options));
 		for (ExpressionAST filter : filters) {
-			print.append(" FILTER ").append(filter.prettyPrint());
+			print.append(" FILTER ").append(filter.prettyPrint(options));
 		}
 		for (ExpressionAST facet : facets) {
-			print.append(" FILTER ").append(facet.prettyPrint());
+			print.append(" FACET ").append(facet.prettyPrint(options));
 		}
 		for (ExpressionAST metric : metrics) {
-			print.append(" FILTER ").append(metric.prettyPrint());
+			print.append(" METRIC ").append(metric.prettyPrint(options));
 		}
 		return print.toString();
 	}
