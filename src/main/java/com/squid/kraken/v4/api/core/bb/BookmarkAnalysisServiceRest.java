@@ -44,6 +44,7 @@ import org.slf4j.LoggerFactory;
 
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.api.core.bb.NavigationQuery.Style;
+import com.squid.kraken.v4.api.core.bb.NavigationQuery.Visibility;
 import com.squid.kraken.v4.api.core.customer.CoreAuthenticatedServiceRest;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.model.AnalysisQuery;
@@ -114,10 +115,13 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 			@QueryParam("hierarchy") HierarchyMode hierarchyMode,
 			@ApiParam(
 					value="define the result style. If HUMAN, the API will try to use natural reference for objects, like 'My First Project', 'Account', 'Total Sales'... If MACHINE the API will use canonical references that are invariant, e.g. @'5603ca63c531d744b50823a3bis'. If LEGACY the API will also provide internal compound key to lookup objects in the management API.", allowableValues="LEGACY, MACHINE, HUMAN", defaultValue="HUMAN")
-			@QueryParam(STYLE_PARAM) Style style
+			@QueryParam(STYLE_PARAM) Style style,
+			@ApiParam(
+					value="filter the result depending on the object visibility", allowableValues="VISIBLE, ALL, HIDDEN", defaultValue="VISIBLE")
+			@QueryParam(VISIBILITY_PARAM) Visibility visibility
 		) throws ScopeException {
 		AppContext userContext = getUserContext(request);
-		return getDelegate().listContent(userContext, parent, search, hierarchyMode, style);
+		return getDelegate().listContent(userContext, parent, search, hierarchyMode, style, visibility);
 	}
 
 	@GET
@@ -288,6 +292,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 					value = "Define the filters to apply to results. A filter must be a valid conditional expression. If empty, the subject default parameters will apply. You can use the * token to extend the subject default parameters.",
 					allowMultiple = true) 
 			@QueryParam(FILTERS_PARAM) String[] filterExpressions,
+			@ApiParam(value="define the main period. It must be a valid expression of type Date, Time or Timestamp. If not set the API will use the default one or try to figure out a sensible choice.") 
 			@QueryParam(PERIOD_PARAM) String period,
 			@ApiParam(value="define the timeframe for the period. It can be a date range [lower,upper] or a special alias: ____ALL, ____LAST_DAY, ____LAST_7_DAYS, __CURRENT_MONTH, __PREVIOUS_MONTH, __CURRENT_MONTH, __PREVIOUS_YEAR", allowMultiple = true) 
 			@QueryParam(TIMEFRAME_PARAM) String[] timeframe,
@@ -297,6 +302,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 			@QueryParam(ORDERBY_PARAM) String[] orderExpressions, 
 			@ApiParam(allowMultiple = true) 
 			@QueryParam(ROLLUP_PARAM) String[] rollupExpressions,
+			@ApiParam(value="limit the resultset size as computed by the database. Note that this is independant from the paging size.")
 			@QueryParam(LIMIT_PARAM) Long limit,
 			@ApiParam(
 					value="define the analysis data format.",
@@ -324,14 +330,28 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 	public VegaliteReply getVegalite(
 			@Context HttpServletRequest request, 
 			@PathParam(BBID_PARAM_NAME) String BBID,
+			@ApiParam(
+					value="set the x axis channel. This must be a valid expression or the special alias __PERIOD to refer to the main period.")
 			@QueryParam("x") String x,
+			@ApiParam(
+					value="set the y axis channel. This must be a valid expression or the special alias __PERIOD to refer to the main period.")
 			@QueryParam("y") String y,
+			@ApiParam(
+					value="set a series channel, displayed using a color palette. This must be a valid expression or the special alias __PERIOD to refer to the main period.")
 			@QueryParam("color") String color,
+			@ApiParam(
+					value="set a series channel, displayed using the marker size. This must be a valid expression or the special alias __PERIOD to refer to the main period.")
 			@QueryParam("size") String size,
+			@ApiParam(
+					value = "Define the filters to apply to results. A filter must be a valid conditional expression. If empty, the subject default parameters will apply. You can use the * token to extend the subject default parameters.",
+					allowMultiple = true) 
 			@QueryParam(FILTERS_PARAM) String[] filterExpressions,
+			@ApiParam(value="define the main period. It must be a valid expression of type Date, Time or Timestamp. If not set the API will use the default one or try to figure out a sensible choice.") 
 			@QueryParam(PERIOD_PARAM) String period,
 			@ApiParam(value="define the timeframe for the period. It can be a date range [lower,upper] or a special alias: ____ALL, ____LAST_DAY, ____LAST_7_DAYS, __CURRENT_MONTH, __PREVIOUS_MONTH, __CURRENT_MONTH, __PREVIOUS_YEAR", allowMultiple = true) 
 			@QueryParam(TIMEFRAME_PARAM) String[] timeframe,
+			@ApiParam(value="limit the resultset size as computed by the database. Note that this is independant from the paging size.")
+			@QueryParam(LIMIT_PARAM) Long limit,
 			@ApiParam(
 					value="define how to provide the data, either EMBEDED or through an URL",
 					allowableValues="EMBEDED,URL", defaultValue="EMBEDED")
@@ -339,7 +359,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 	) throws ScopeException, ComputingException, InterruptedException
 	{
 		AppContext userContext = getUserContext(request);
-		AnalysisQuery query = createAnalysisFromParams(BBID, null, null, filterExpressions, period, timeframe, null, null, null, null, null, null, null, null, null);
+		AnalysisQuery query = createAnalysisFromParams(BBID, null, null, filterExpressions, period, timeframe, null, null, null, limit, null, null, null, null, null);
 		return getDelegate().getVegalite(uriInfo, userContext, BBID, x, y, color, size, data, query);
 	}
 
