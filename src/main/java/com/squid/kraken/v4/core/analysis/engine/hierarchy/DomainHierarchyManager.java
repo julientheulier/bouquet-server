@@ -207,12 +207,15 @@ public class DomainHierarchyManager {
 				if (hierarchy != null) {
 					return hierarchy;
 				} else {
-					if (lock == null)
-						lock = hierarchies.lock(domain.getId(), timeoutMs);// if
-																			// it's
-																			// a
-																			// new
-																			// one
+					if (lock == null) {
+						// if it's a new one
+						try {
+							lock = hierarchies.lock(domain.getId(), 30000);
+						} catch (InterruptedException e) {
+							logger.error("failed to lock the hierarchy for domain '"+domain.getName()+"' (@"+domain.getOid()+")");
+							throw e;
+						}
+					}
 					// check race condition
 					hierarchy = hierarchies.get(domain.getId());
 					if (hierarchy == null) {
