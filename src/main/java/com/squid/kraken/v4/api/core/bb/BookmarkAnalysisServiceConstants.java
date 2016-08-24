@@ -44,5 +44,6 @@ public interface BookmarkAnalysisServiceConstants {
 	public static final String TIMEOUT_PARAM = "timeout";
 	public static final String FILTERS_PARAM = "filters";
 	public static final String STYLE_PARAM = "style";
+	public static final String VISIBILITY_PARAM = "visibility";
 
 }
