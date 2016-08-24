@@ -192,8 +192,8 @@ public class SimpleDatabaseManager extends DatabaseManager {
 	}
 	
 	public ExecuteQueryTask createExecuteQueryTask(String sql){
-		  int queryNum = queryCnt.incrementAndGet();
-	        return new ExecuteQueryTask(this, queryNum, sql);
+		int queryNum = queryCnt.incrementAndGet();
+	    return new ExecuteQueryTask(this, queryNum, sql);
 	}
 	
 	public Boolean execute(String sql)
