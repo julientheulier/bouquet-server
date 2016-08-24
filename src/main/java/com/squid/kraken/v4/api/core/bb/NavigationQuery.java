@@ -23,6 +23,8 @@
  *******************************************************************************/
 package com.squid.kraken.v4.api.core.bb;
 
+import java.net.URI;
+
 import com.squid.kraken.v4.api.core.bb.BookmarkAnalysisServiceRest.HierarchyMode;
 
 /**
@@ -36,6 +38,10 @@ public class NavigationQuery {
 		HUMAN, LEGACY, MACHINE
 	}
 	
+	public enum Visibility {
+		ALL, VISIBLE, HIDDEN
+	}
+	
 	private String parent;
 	
 	private String q;
@@ -43,6 +49,10 @@ public class NavigationQuery {
 	private HierarchyMode hiearchy;
 	
 	private Style style;
+	
+	private Visibility visibility;
+	
+	private URI link;
 	
 	/**
 	 * 
@@ -81,6 +91,22 @@ public class NavigationQuery {
 
 	public void setStyle(Style style) {
 		this.style = style;
+	}
+
+	public Visibility getVisibility() {
+		return visibility;
+	}
+
+	public void setVisibility(Visibility visibility) {
+		this.visibility = visibility;
+	}
+
+	public URI getLink() {
+		return link;
+	}
+
+	public void setLink(URI link) {
+		this.link = link;
 	}
 
 }
