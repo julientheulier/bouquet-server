@@ -85,6 +85,7 @@ import com.squid.kraken.v4.api.core.JobServiceBaseImpl.OutputCompression;
 import com.squid.kraken.v4.api.core.JobServiceBaseImpl.OutputFormat;
 import com.squid.kraken.v4.api.core.bb.BookmarkAnalysisServiceRest.HierarchyMode;
 import com.squid.kraken.v4.api.core.bb.NavigationQuery.Style;
+import com.squid.kraken.v4.api.core.bb.NavigationQuery.Visibility;
 import com.squid.kraken.v4.api.core.ObjectNotFoundAPIException;
 import com.squid.kraken.v4.api.core.PerfDB;
 import com.squid.kraken.v4.api.core.bookmark.BookmarkServiceBaseImpl;
@@ -189,7 +190,8 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 			String parent,
 			String search,
 			HierarchyMode hierarchyMode, 
-			Style style
+			Style style,
+			Visibility visibility
 		) throws ScopeException {
 		List<NavigationItem> content = new ArrayList<>();
 		if (parent !=null && parent.endsWith("/")) {
@@ -200,6 +202,9 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		query.setQ(search);
 		query.setHiearchy(hierarchyMode);
 		query.setStyle(style!=null?style:Style.HUMAN);
+		query.setVisibility(visibility!=null?visibility:Visibility.VISIBLE);
+		//
+		query.setLink(createLinkToFolder(userContext, query, parent));
 		//
 		// tokenize the search string
 		String[] filters = null;
@@ -234,7 +239,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 	private NavigationItem createLinkableFolder(AppContext userContext, NavigationQuery query, NavigationItem folder) {
 		if (query.getStyle()==Style.HUMAN) {
 			NavigationItem copy = new NavigationItem(folder);
-			copy.setLink(createLinkToFolder(userContext, copy));
+			copy.setLink(createLinkToFolder(userContext, query, copy));
 			return copy;
 		} else {
 			return folder;
@@ -288,7 +293,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 			for (Project project : projects) {
 				if (filters==null || filter(project, filters)) {
 					NavigationItem folder = new NavigationItem(query, project, parent);
-					if (query.getStyle()==Style.HUMAN) folder.setLink(createLinkToFolder(userContext, folder));
+					if (query.getStyle()==Style.HUMAN) folder.setLink(createLinkToFolder(userContext, query, folder));
 					HashMap<String, String> attrs = new HashMap<>();
 					attrs.put("jdbc", project.getDbUrl());
 					folder.setAttributes(attrs);
@@ -299,15 +304,18 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 			String projectRef = parent.substring(PROJECTS_FOLDER.getSelfRef().length()+1);// remove /PROJECTS/ part
 			Project project = findProject(userContext, projectRef);
 			List<Domain> domains = ProjectManager.INSTANCE.getDomains(userContext, project.getId());
+			Visibility visibility = query.getVisibility();
 			for (Domain domain : domains) {
-				String name = domain.getName();
-				if (filters==null || filter(name, filters)) {
-					NavigationItem item = new NavigationItem(query, project, domain, parent);
-					if (query.getStyle()==Style.HUMAN) item.setLink(createLinkToAnalysis(userContext, item));
-					HashMap<String, String> attrs = new HashMap<>();
-					attrs.put("dictionary", project.getName());
-					item.setAttributes(attrs);
-					content.add(item);
+				if (visibility==Visibility.ALL || isVisible(userContext, domain, visibility)) {
+					String name = domain.getName();
+					if (filters==null || filter(name, filters)) {
+						NavigationItem item = new NavigationItem(query, project, domain, parent);
+						if (query.getStyle()==Style.HUMAN) item.setLink(createLinkToAnalysis(userContext, item));
+						HashMap<String, String> attrs = new HashMap<>();
+						attrs.put("dictionary", project.getName());
+						item.setAttributes(attrs);
+						content.add(item);
+					}
 				}
 			}
 		} else {
@@ -316,18 +324,52 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 	}
 	
 	/**
+	 * @param userContext
+	 * @param domain
+	 * @param visibility
+	 * @return
+	 */
+	private boolean isVisible(AppContext ctx, Domain domain, Visibility visibility) {
+		boolean visible = ProjectManager.INSTANCE.isVisible(ctx, domain);
+		if (!visible) return false;
+		if (visibility==Visibility.ALL) return true;
+		if (visibility==Visibility.VISIBLE) {
+			return !domain.isDynamic();
+		} else if (visibility==Visibility.HIDDEN) {
+			return domain.isDynamic();
+		} else {
+			return false;
+		}
+	}
+
+	/**
 	 * create a link to the NavigationItem
 	 * @param item
 	 * @return
 	 */
-	private URI createLinkToFolder(AppContext userContext, NavigationItem item) {
+	private URI createLinkToFolder(AppContext userContext, NavigationQuery query, NavigationItem item) {
 		return
-				uriInfo.getAbsolutePathBuilder().path("").queryParam("parent", item.getSelfRef()).queryParam("access_token", userContext.getToken().getOid()).build();
+				createNavigationQuery(userContext, query).build(item.getSelfRef());
+	}
+	
+	private URI createLinkToFolder(AppContext userContext, NavigationQuery query, String selfRef) {
+		return
+				createNavigationQuery(userContext, query).build(selfRef!=null?selfRef:"");
 	}
 	
 	private URI createLinkToAnalysis(AppContext userContext, NavigationItem item) {
 		return
 				uriInfo.getAbsolutePathBuilder().path("{BBID}/analysis").queryParam("access_token", userContext.getToken().getOid()).build(item.getSelfRef());
+	}
+	
+	private UriBuilder createNavigationQuery(AppContext userContext, NavigationQuery query) {
+		UriBuilder builder = 
+			uriInfo.getAbsolutePathBuilder().path("").queryParam("parent", "{PARENT}");
+		if (query.getHiearchy()!=null) builder.queryParam("hierarchy", query.getHiearchy());
+		if (query.getStyle()!=null) builder.queryParam(STYLE_PARAM, query.getStyle());
+		if (query.getVisibility()!=null) builder.queryParam(VISIBILITY_PARAM, query.getVisibility());
+		builder.queryParam("access_token", userContext.getToken().getOid());
+		return builder;
 	}
 	
 	/**
@@ -404,11 +446,16 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 			Project project = ProjectManager.INSTANCE.getProject(userContext, bookmark.getId().getParent());
 			String path = bookmark.getPath();
 			// only handle the exact path
-			if (path.equals(fullPath)) {
+			boolean checkParent = (hierarchyMode==HierarchyMode.FLAT)?path.startsWith(fullPath):path.equals(fullPath);
+			if (checkParent) {
 				String name = bookmark.getName();
 				if (filters==null || filter(bookmark, project, filters)) {
 					String id = getBookmarkReference(query, project, bookmark);
-					NavigationItem item = new NavigationItem(query.getStyle().equals("HUMAN")?null:bookmark.getId(), name, bookmark.getDescription(), parent, id, BOOKMARK_TYPE);
+					String actualParent = parent;
+					if (hierarchyMode==HierarchyMode.FLAT) {
+						actualParent = (parent + path.substring(fullPath.length()));
+					}
+					NavigationItem item = new NavigationItem(query.getStyle().equals("HUMAN")?null:bookmark.getId(), name, bookmark.getDescription(), actualParent, id, BOOKMARK_TYPE);
 					if (query.getStyle()==Style.HUMAN) item.setLink(createLinkToAnalysis(userContext, item));
 					HashMap<String, String> attrs = new HashMap<>();
 					attrs.put("dictionary", project.getName());
@@ -428,7 +475,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 									.encodeBase64URLSafeString(selfpath.getBytes());
 							BookmarkFolderPK id = new BookmarkFolderPK(bookmark.getId().getParent(), oid);
 							NavigationItem folder = new NavigationItem(query.getStyle().equals("HUMAN")?null:id, name, "", parent, selfpath, FOLDER_TYPE);
-							if (query.getStyle()==Style.HUMAN) folder.setLink(createLinkToFolder(userContext, folder));
+							if (query.getStyle()==Style.HUMAN) folder.setLink(createLinkToFolder(userContext, query, folder));
 							content.add(folder);
 							folders.add(selfpath);
 						}
@@ -1597,8 +1644,14 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		Bookmark bookmark = space.getBookmark();
 		BookmarkConfig config = readConfig(bookmark);
 		//
+		// handle the limit
+		Long explicitLimit = query.getLimit()==null?10:query.getLimit();
 		// merge the bookmark config with the query
 		mergeBoomarkConfig(space, query, config);
+		// enforce the explicit limit
+		if (query.getLimit()!=null && query.getLimit()>explicitLimit) {
+			query.setLimit(explicitLimit);
+		}
 		//
 		AnalysisQuery required = new AnalysisQueryImpl();
 		required.setGroupBy(new ArrayList<String>());
@@ -1686,9 +1739,6 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		query.setMetrics(required.getMetrics());
 		query.setOrderBy(required.getOrderBy());
 		//
-		if (query.getLimit()==null) {
-			query.setLimit((long) 10);
-		}
 		// create the facet selection
 		FacetSelection selection = createFacetSelection(space, query);
 		final ProjectAnalysisJob job = createAnalysisJob(space.getUniverse(), query, selection, OutputFormat.JSON);
@@ -1794,7 +1844,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 	private Data transformToVegaData(DataMatrix matrix) {
 		ArrayList<Object> records = new ArrayList<>();
 		for (IndirectionRow row : matrix.getRows()) {
-			Hashtable<String, Object> record = new Hashtable<>(row.size());
+			HashMap<String, Object> record = new HashMap<>(row.size());
 			int i = 0;
 			for (AxisValues axis : matrix.getAxes()) {
 				Object value = row.getAxisValue(i++);
