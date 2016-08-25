@@ -257,7 +257,7 @@ public class AnalysisJobComputer implements JobComputer<ProjectAnalysisJob, Proj
 		DashboardAnalysis dash = new DashboardAnalysis(universe);
 
 		dash.lazy(lazy);
-		dash.setJobId(job.getId().getAnalysisJobId());
+		dash.setJobId(job.getOid());
 		// setup the metrics
 		List<Metric> metrics = job.getMetricList();
 
