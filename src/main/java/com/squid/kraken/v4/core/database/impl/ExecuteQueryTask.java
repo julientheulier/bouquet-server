@@ -218,7 +218,7 @@ public class ExecuteQueryTask implements CancellableCallable<IExecutionItem> {
 			}
 		} catch (Exception e) {
 			if (connection != null) {
-				if (!connection.getMetaData().getDatabaseProductName().equals("Spark SQL")) {
+				if (ds.getVendor().getVendorId().equals("Spark SQL")) {
 					connection.close();
 					ds.getDatasource().releaseSemaphore();
 				}

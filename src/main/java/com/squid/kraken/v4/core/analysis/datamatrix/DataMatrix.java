@@ -825,9 +825,19 @@ public int getDataIndirection(int i) {
 	}
 
 
-	private String computeFormat(Property px, ExtendedType type) {
-		if (px.getFormat() != null) {
-			return px.getFormat();
+	private String computeFormat(Axis axis, ExtendedType type) {
+		IDomain image = axis.getDefinitionSafe().getImageDomain();
+		if (image.isInstanceOf(IDomain.NUMERIC)) return null;
+		if (axis.getFormat() != null) {
+			return axis.getFormat();
+		} else {
+			return computeFormat(type);
+		}
+	}
+
+	private String computeFormat(Measure measure, ExtendedType type) {
+		if (measure.getFormat() != null) {
+			return measure.getFormat();
 		} else {
 			return computeFormat(type);
 		}
@@ -843,11 +853,23 @@ public int getDataIndirection(int i) {
 			return "%tY-%<tm-%<tdT%<tH:%<tM:%<tS.%<tLZ";
 		}
 		if (image.isInstanceOf(IDomain.NUMERIC)) {
-			if (type.getDataType() == Types.INTEGER) {
+			switch (type.getDataType()) {
+			case Types.INTEGER:
+			case Types.BIGINT:
+			case Types.DOUBLE:
+			case Types.SMALLINT:
+			case Types.TINYINT:
 				return "%,d";
-			}
-			if (type.getDataType() == Types.NUMERIC && type.getScale() > 0) {
-				return "%,." + type.getScale() + "f";
+			case Types.DECIMAL:
+			case Types.FLOAT:
+			case Types.NUMERIC:
+				if (type.getScale() > 0) {
+					return "%,." + type.getScale() + "f";
+				} else {
+					return "%,d";
+				}
+			default:
+				break;
 			}
 		}
 		// else

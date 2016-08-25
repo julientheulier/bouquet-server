@@ -108,9 +108,9 @@ public class DimensionDefaultValueScope extends DefaultScope {
 							}
 						}
 					}
-					// else - cannot evaluate but it's OK to try
-					return new ParameterReference("MAX",index.getAxis().getDefinition().getImageDomain());
 				}
+				// else - cannot evaluate but it's OK to try
+				return new ParameterReference("MAX",index.getAxis().getDefinition().getImageDomain());
 			} else if (name.equalsIgnoreCase("MIN")) {
 				if (index.getDimension().getType() == Type.CONTINUOUS) {
 					if (index.getStatus()==Status.DONE) {
@@ -124,9 +124,9 @@ public class DimensionDefaultValueScope extends DefaultScope {
 							}
 						}
 					}
-					// else - cannot evaluate but it's OK to try
-					return new ParameterReference("MIN",index.getAxis().getDefinitionSafe().getImageDomain());
 				}
+				// else - cannot evaluate but it's OK to try
+				return new ParameterReference("MIN",index.getAxis().getDefinitionSafe().getImageDomain());
 			} else if (params.containsKey(name.toUpperCase())) {
 				return new ParameterReference(name.toUpperCase(), params.get(name.toUpperCase()));
 			}

@@ -254,6 +254,16 @@ public class EngineUtils {
 				if (range==null) {
 					range = IntervalleObject.createInterval(new Date(), new Date());
 				}
+				if (value.equalsIgnoreCase("__ALL")) {
+					if (index.getDimension().getType() != Type.CONTINUOUS) {
+						return null;
+					}
+					if (bound==Bound.UPPER) {
+						return (Date)range.getUpperBound();
+					} else {
+						return (Date)range.getLowerBound();
+					}
+				}
 				if (value.equalsIgnoreCase("__LAST_DAY")) {
 					if (bound==Bound.UPPER) {
 						return (Date)range.getUpperBound();
@@ -324,7 +334,9 @@ public class EngineUtils {
 				Object defaultValue = evaluateExpression(universe, index, expr, compareFromInterval);
 				// check we can use it
 				if (defaultValue == null) {
-					throw new ScopeException("unable to parse the facet expression as a constant: " + expr);
+					//throw new ScopeException("unable to parse the facet expression as a constant: " + expr);
+					// T1769: it's ok to return null
+					return null;
 				}
 				if (!(defaultValue instanceof Date)) {
 					throw new ScopeException("unable to parse the facet expression as a date: " + expr);
@@ -358,8 +370,8 @@ public class EngineUtils {
 			// provide sensible default for MIN & MAX -- we don't want the parser to fail is not set
 			Calendar calendar = Calendar.getInstance();
 			evaluator.setParameterValue("MAX", calendar.getTime());
-			calendar.add(Calendar.MONTH, -1);
-			evaluator.setParameterValue("MIN", calendar.getTime());
+			// there is no sensible default for MIN
+			evaluator.setParameterValue("MIN", null);
 			// handle compareFrom interval values if available
 			if (compareFromInterval!=null) {
 				evaluator.setParameterValue("LOWER", compareFromInterval.getLowerBound());
@@ -495,6 +507,7 @@ public class EngineUtils {
                                 Date lowerDate = convertToDate(universe, index, Bound.LOWER, fmi.getLowerBound(), compareFromInterval);
                                 Date upperDate = convertToDate(universe, index, Bound.UPPER, fmi.getUpperBound(), compareFromInterval);
                                 // add as a Date Interval
+                                // T1769: if lower&upper are null, this is no-op
                                 ds.add(axis, IntervalleObject.createInterval(lowerDate, upperDate));
                             } catch (java.text.ParseException e) {
                                 throw new ComputingException(e);

@@ -110,6 +110,9 @@ public class DimensionIndex {
         init(dimension);
         //
         this.status = readStatus();
+        if (this.status == Status.ERROR){
+        	this.setStale();
+        }
         //
         setParent(parent);
 	}

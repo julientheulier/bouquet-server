@@ -24,6 +24,7 @@
 package com.squid.kraken.v4.api.core.bookmark;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -81,8 +82,8 @@ public class BookmarkFolderServiceBaseImpl {
 		List<Bookmark> bookmarks = ((BookmarkDAO) factory
 				.getDAO(Bookmark.class)).findByPath(ctx, path);
 		if ((bookmarks.size() == 0) && (!isRoot)) {
-			throw new ObjectNotFoundAPIException("No folder found for path : "
-					+ path, ctx.isNoError());
+			// T1705: return an empty list if no bookmarks instad of an error
+			return Collections.emptyList();
 		} else {
 			return bookmarks;
 		}
