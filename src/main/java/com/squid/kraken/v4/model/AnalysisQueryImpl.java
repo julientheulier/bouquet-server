@@ -1,5 +1,6 @@
 package com.squid.kraken.v4.model;
 
+import java.util.Arrays;
 import java.util.List;
 
 import com.squid.kraken.v4.api.core.bb.NavigationQuery.Style;
@@ -245,6 +246,21 @@ public class AnalysisQueryImpl implements AnalysisQuery {
 	@Override
 	public void setStyle(Style style) {
 		this.style = style;
+	}
+
+	@Override
+	public String getQueryID() {
+		return org.apache.commons.codec.digest.DigestUtils.sha256Hex(toString());
+	}
+	
+	@Override
+	public String toString() {
+		return "AnalysisQueryImpl [BBID=" + BBID + ", domain=" + domain + ", groupBy=" + groupBy + ", metrics="
+				+ metrics + ", filters=" + filters + ", orderBy=" + orderBy + ", rollups=" + rollups + ", period="
+				+ period + ", timeframe=" + Arrays.toString(timeframe) + ", compareframe="
+				+ Arrays.toString(compareframe) + ", offset=" + offset + ", limit=" + limit + ", bookmarkId="
+				+ bookmarkId + ", format=" + format + ", maxResults=" + maxResults + ", startIndex=" + startIndex
+				+ ", lazy=" + lazy + ", style=" + style + "]";
 	}
 
 

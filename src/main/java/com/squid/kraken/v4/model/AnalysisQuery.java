@@ -88,6 +88,12 @@ public interface AnalysisQuery {
 
 	String getFormat();
 
+	/**
+	 * return an unique identifier based on the query value, i.e. two identical queries will have the same ID.
+	 * @return
+	 */
+	String getQueryID();
+
 	@JsonDeserialize(as = AnalysisFacetImpl.class)
 	static public interface AnalysisFacet {
 		

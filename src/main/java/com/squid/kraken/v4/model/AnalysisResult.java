@@ -39,7 +39,7 @@ public class AnalysisResult {
 	private FacetSelection selection;
 	
 	// the resulting dataTable
-	private DataTable data;
+	private Object data;// this may depend on the output format
 	// the sql code
 	private String sql;
 	
@@ -67,11 +67,11 @@ public class AnalysisResult {
 		this.selection = selection;
 	}
 
-	public DataTable getData() {
+	public Object getData() {
 		return data;
 	}
 
-	public void setData(DataTable data) {
+	public void setData(Object data) {
 		this.data = data;
 	}
 
