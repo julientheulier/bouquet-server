@@ -91,9 +91,7 @@ import com.squid.kraken.v4.api.core.PerfDB;
 import com.squid.kraken.v4.api.core.bookmark.BookmarkServiceBaseImpl;
 import com.squid.kraken.v4.api.core.projectanalysisjob.AnalysisJobComputer;
 import com.squid.kraken.v4.caching.NotInCacheException;
-import com.squid.kraken.v4.core.analysis.datamatrix.AxisValues;
 import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
-import com.squid.kraken.v4.core.analysis.datamatrix.IndirectionRow;
 import com.squid.kraken.v4.core.analysis.engine.bookmark.BookmarkManager;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex.Status;
@@ -155,7 +153,6 @@ import com.squid.kraken.v4.model.ProjectPK;
 import com.squid.kraken.v4.model.ValueType;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DAOFactory;
-import com.squid.kraken.v4.persistence.dao.BookmarkDAO;
 import com.squid.kraken.v4.persistence.dao.ProjectDAO;
 import com.squid.kraken.v4.vegalite.VegaliteSpecs;
 import com.squid.kraken.v4.vegalite.VegaliteSpecs.*;
@@ -408,7 +405,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 	 */
 	private void listMyBoomarks(AppContext userContext, NavigationQuery query, String parent, String[] filters, HierarchyMode hierarchyMode, List<NavigationItem> content) throws ScopeException {
 		// list mybookmark related resources
-		String fullPath = getMyBookmarkPath(userContext);
+		String fullPath = BookmarkManager.INSTANCE.getMyBookmarkPath(userContext);
 		if (parent.equals(MYBOOKMARKS_FOLDER.getSelfRef())) {
 			// just keep the fullpath
 		} else {
@@ -439,8 +436,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 
 	private void listBoomarks(AppContext userContext, NavigationQuery query, String parent, String[] filters, HierarchyMode hierarchyMode, String fullPath, List<NavigationItem> content) throws ScopeException {
 		// list the content first
-		List<Bookmark> bookmarks = ((BookmarkDAO) DAOFactory.getDAOFactory()
-				.getDAO(Bookmark.class)).findByPath(userContext, fullPath);
+		List<Bookmark> bookmarks = BookmarkManager.INSTANCE.findBookmarksByParent(userContext, fullPath);
 		HashSet<String> folders = new HashSet<>();
 		for (Bookmark bookmark : bookmarks) {
 			Project project = ProjectManager.INSTANCE.getProject(userContext, bookmark.getId().getParent());
@@ -536,15 +532,6 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		}
 		return true;
 	}
-	
-	/**
-	 * compute the MyBookmark path for the current user
-	 * @param ctx
-	 */
-	private String getMyBookmarkPath(AppContext ctx) {
-		return Bookmark.SEPARATOR + Bookmark.Folder.USER
-					+ Bookmark.SEPARATOR + ctx.getUser().getOid();
-	}
 
 	/**
 	 * @param userContext
@@ -580,12 +567,12 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 			String path = "";
 			if (parent.startsWith(MYBOOKMARKS_FOLDER.getSelfRef())) {
 				path = parent.substring(MYBOOKMARKS_FOLDER.getSelfRef().length());
-				path = getMyBookmarkPath(userContext)+path;
+				path = BookmarkManager.INSTANCE.getMyBookmarkPath(userContext)+path;
 			} else if (parent.startsWith(SHARED_FOLDER.getSelfRef())) {
 				path = parent.substring(SHARED_FOLDER.getSelfRef().length());
 				path += Bookmark.SEPARATOR + Bookmark.Folder.SHARED + path;
 			} else if (!parent.startsWith("/")) {
-				path = getMyBookmarkPath(userContext)+"/"+parent;
+				path = BookmarkManager.INSTANCE.getMyBookmarkPath(userContext)+"/"+parent;
 			} else {
 				throw new ObjectNotFoundAPIException("unable to save a bookmark in this path: "+parent, true);
 			}
@@ -771,7 +758,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 			Space space = getSpace(userContext, BBID);
 			//
 			Bookmark bookmark = space.getBookmark();
-			BookmarkConfig config = readConfig(bookmark);
+			BookmarkConfig config = BookmarkManager.INSTANCE.readConfig(bookmark);
 			//
 			// merge the bookmark config with the query
 			mergeBoomarkConfig(space, query, config);
@@ -792,7 +779,12 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 			}
 			result.setQuery(query);
 			//
-			if (query.getFormat().equals("LEGACY")) {
+			if (query.getFormat().equals("SQL")) {
+				// bypassing the ComputingService
+				AnalysisJobComputer computer = new AnalysisJobComputer();
+				String sql = computer.viewSQL(userContext, job);
+				result.setSQL(sql);
+			} else {
 				try {
 					Callable<DataMatrix> task = new Callable<DataMatrix>() {
 						@Override
@@ -808,8 +800,12 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 					} else {
 						data = futur.get(timeout>1000?timeout:1000, java.util.concurrent.TimeUnit.MILLISECONDS);
 					}
-					//job.setResults(data);
-					result.setData(data.toDataTable(userContext, query.getMaxResults(), query.getStartIndex(), false, null));
+					if (query.getFormat().equals("RECORDS")) {
+						RecordConverter converter = new RecordConverter();
+						result.setData(converter.convert(data));
+					} else {
+						result.setData(data.toDataTable(userContext, query.getMaxResults(), query.getStartIndex(), false, null));
+					}
 				} catch (NotInCacheException e) {
 					if (query.getLazy().equals("noError")) {
 						result.setData(new DataTable());
@@ -819,14 +815,8 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 				} catch (ExecutionException e) {
 					throw new APIException(e);
 				} catch (TimeoutException e) {
-					throw new ComputingInProgressAPIException("computing in progress", true, timeout*2);
+					throw new ComputingInProgressAPIException("computing in progress while running queryID="+query.getQueryID(), true, timeout*2);
 				}
-			}
-			if (query.getFormat().equals("SQL")) {
-				// bypassing the ComputingService
-				AnalysisJobComputer computer = new AnalysisJobComputer();
-				String sql = computer.viewSQL(userContext, job);
-				result.setSQL(sql);
 			}
 			//
 			return result;
@@ -848,7 +838,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 			Space space = getSpace(userContext, BBID);
 			//
 			Bookmark bookmark = space.getBookmark();
-			BookmarkConfig config = readConfig(bookmark);
+			BookmarkConfig config = BookmarkManager.INSTANCE.readConfig(bookmark);
 			//
 			// merge the bookmark config with the query
 			mergeBoomarkConfig(space, query, config);
@@ -1210,8 +1200,9 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 			}
 		}
 
-		// create
-		ProjectAnalysisJobPK pk = new ProjectAnalysisJobPK(universe.getProject().getId(), null);
+		// create the actual job
+		// - using the AnalysisQuery.getQueryID() as the job OID: this one is unique for a given query
+		ProjectAnalysisJobPK pk = new ProjectAnalysisJobPK(universe.getProject().getId(), analysis.getQueryID());
 		ProjectAnalysisJob analysisJob = new ProjectAnalysisJob(pk);
 		analysisJob.setDomains(Collections.singletonList(domain.getId()));
 		analysisJob.setMetricList(metrics);
@@ -1606,18 +1597,6 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 			return expr.prettyPrint();
 		}
 	}
-	
-	private BookmarkConfig readConfig(Bookmark bookmark) {
-		if (bookmark==null) return null;
-		ObjectMapper mapper = new ObjectMapper();
-		mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-		try {
-			BookmarkConfig config = mapper.readValue(bookmark.getConfig(), BookmarkConfig.class);
-			return config;
-		} catch (Exception e) {
-			throw new APIException(e);
-		}
-	}
 
 	/**
 	 * @param uriInfo 
@@ -1642,7 +1621,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		Space space = getSpace(userContext, BBID);
 		//
 		Bookmark bookmark = space.getBookmark();
-		BookmarkConfig config = readConfig(bookmark);
+		BookmarkConfig config = BookmarkManager.INSTANCE.readConfig(bookmark);
 		//
 		// handle the limit
 		Long explicitLimit = query.getLimit()==null?10:query.getLimit();
@@ -1842,23 +1821,9 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 	}
 	
 	private Data transformToVegaData(DataMatrix matrix) {
-		ArrayList<Object> records = new ArrayList<>();
-		for (IndirectionRow row : matrix.getRows()) {
-			HashMap<String, Object> record = new HashMap<>(row.size());
-			int i = 0;
-			for (AxisValues axis : matrix.getAxes()) {
-				Object value = row.getAxisValue(i++);
-				record.put(axis.getAxis().getName(), value);
-			}
-			int j = 0;
-			for (Measure measure : matrix.getKPIs()) {
-				Object value = row.getDataValue(j++);
-				record.put(measure.getName(), value);
-			}
-			records.add(record);
-		}
+		RecordConverter converter = new RecordConverter();
 		Data data = new Data();
-		data.values = records.toArray();
+		data.values = converter.convert(matrix);
 		return data;
 	}
 
