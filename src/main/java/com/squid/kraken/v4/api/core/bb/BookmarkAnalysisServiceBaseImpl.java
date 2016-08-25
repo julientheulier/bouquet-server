@@ -91,6 +91,8 @@ import com.squid.kraken.v4.api.core.PerfDB;
 import com.squid.kraken.v4.api.core.bookmark.BookmarkServiceBaseImpl;
 import com.squid.kraken.v4.api.core.projectanalysisjob.AnalysisJobComputer;
 import com.squid.kraken.v4.caching.NotInCacheException;
+import com.squid.kraken.v4.caching.redis.RedisCacheManager;
+import com.squid.kraken.v4.caching.redis.queryworkerserver.QueryWorkerJobStatus;
 import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
 import com.squid.kraken.v4.core.analysis.engine.bookmark.BookmarkManager;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex;
@@ -151,12 +153,14 @@ import com.squid.kraken.v4.model.ProjectAnalysisJobPK;
 import com.squid.kraken.v4.model.ProjectFacetJob;
 import com.squid.kraken.v4.model.ProjectPK;
 import com.squid.kraken.v4.model.ValueType;
+import com.squid.kraken.v4.model.AccessRight.Role;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DAOFactory;
 import com.squid.kraken.v4.persistence.dao.ProjectDAO;
 import com.squid.kraken.v4.vegalite.VegaliteSpecs;
 import com.squid.kraken.v4.vegalite.VegaliteSpecs.*;
 import com.squid.kraken.v4.vegalite.VegaliteSpecs.Format;
+import com.wordnik.swagger.annotations.ApiOperation;
 
 /**
  * @author sergefantino
@@ -1917,6 +1921,69 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 			logger.debug("Is result set in REDIS complete? " + res.getFullset());
 			return datamatrix;
 		}
+	}
+	
+	// Execution management
+	
+	/**
+	 * list the execution status for a given analysis. Note: an analysis can spam multiple queries.
+	 * @param request
+	 * @param key
+	 * @return
+	 */
+	public List<QueryWorkerJobStatus> getStatus(
+			AppContext userContext,
+			String key) {
+		// first check if the query is available
+		String customerId = userContext.getCustomerId();
+		List<QueryWorkerJobStatus> queries = RedisCacheManager.getInstance().getQueryServer().getOngoingQueries(customerId);
+		queries.addAll(DomainHierarchyManager.INSTANCE.getOngoingQueries(customerId));
+		List<QueryWorkerJobStatus> results = new ArrayList<>();
+		for (QueryWorkerJobStatus query : queries) {
+			if (query.getJobID().equals(key)) {
+				ProjectPK projectPK = query.getProjectPK();
+				try {
+					Project project = ProjectManager.INSTANCE.getProject(userContext, projectPK);
+					// restrict to privileged user
+					if (checkACL(userContext, project, query)) {
+						results.add(query);
+					}
+				} catch (ScopeException e) {
+					// ignore
+				}
+			}
+		}
+		//
+		return results;
+	}
+
+	/**
+	 * @param userContext
+	 * @param key
+	 * @return
+	 */
+	public boolean cancelQuery(AppContext userContext, String key) {
+		List<QueryWorkerJobStatus> jobs = getStatus(userContext, key);
+		boolean result = true;
+		for (QueryWorkerJobStatus job : jobs) {
+			if (!RedisCacheManager.getInstance().getQueryServer().cancelOngoingQuery(userContext.getCustomerId(), job.getKey())) {
+				result = false;
+			}
+		}
+		return result;
+	}
+
+	private boolean checkACL(AppContext userContext, Project project, QueryWorkerJobStatus query) {
+		if (AccessRightsUtils.getInstance().hasRole(userContext, project, Role.WRITE)) {
+			return true;
+		}  else if (AccessRightsUtils.getInstance().hasRole(userContext, project, Role.READ)) {
+			// or to the query owner
+			if (query.getUserID().equals(userContext.getUser().getOid())) {
+				return true;
+			}
+		}
+		// else
+		return false;
 	}
 
 }

@@ -43,15 +43,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.squid.core.expression.scope.ScopeException;
-import com.squid.kraken.v4.api.core.AccessRightsUtils;
 import com.squid.kraken.v4.api.core.bb.NavigationQuery.Style;
 import com.squid.kraken.v4.api.core.bb.NavigationQuery.Visibility;
 import com.squid.kraken.v4.api.core.customer.CoreAuthenticatedServiceRest;
-import com.squid.kraken.v4.caching.redis.RedisCacheManager;
 import com.squid.kraken.v4.caching.redis.queryworkerserver.QueryWorkerJobStatus;
-import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainHierarchyManager;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
-import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
 import com.squid.kraken.v4.model.AnalysisQuery;
 import com.squid.kraken.v4.model.AnalysisQueryImpl;
 import com.squid.kraken.v4.model.AnalysisResult;
@@ -157,64 +153,6 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 		AppContext userContext = getUserContext(request);
 		return getDelegate().createBookmark(userContext, query, BBID, name, parent);
 	}
-	
-	/*
-	@GET
-	@Path("{" + PARAM_NAME + "}/dimensions")
-	@ApiOperation(
-			value = "Gets the bookmark's dimensions", 
-			notes = "This is only usefull in case we want to provide editing capabilities from the bookmark. But it can be ambiguous how to use it in conjonction with the /facets operation",
-			response = Dimension.class)
-	public List<Dimension> getDimensions(@Context HttpServletRequest request, @PathParam(PARAM_NAME) String BBID) {
-		AppContext userContext = getUserContext(request);
-		Bookmark bookmark = getBookmark(userContext, BBID);
-		BookmarkConfig config = readConfig(bookmark);
-		String domainId = config.getDomain();
-		DomainPK domainPk = new DomainPK(bookmark.getId().getParent(), domainId);
-		List<Dimension> dimensions = DimensionServiceBaseImpl.getInstance().readAll(userContext, domainPk);
-		return dimensions;
-	}
-	*/
-	
-	/*
-	@GET
-	@Path("{" + BBID_PARAM_NAME + "}/metrics")
-	@ApiOperation(value = "Get the bookmark's metrics", response = MetricExt.class)
-	public List<MetricExt> getMetrics(@Context HttpServletRequest request, @PathParam(BBID_PARAM_NAME) String BBID) {
-		AppContext userContext = getUserContext(request);
-		Bookmark bookmark = getBookmark(userContext, BBID);
-		BookmarkConfig config = readConfig(bookmark);
-		String domainId = config.getDomain();
-		DomainPK domainPk = new DomainPK(bookmark.getId().getParent(), domainId);
-		List<MetricExt> metrics = MetricServiceBaseImpl.getInstance().readAll(userContext, domainPk);
-		return metrics;
-	}
-	*/
-	
-	/*
-	@GET
-	@Path("{" + BBID_PARAM_NAME + "}/facets")
-	@ApiOperation(value = "Get the bookmark's facets using the default BB selection")
-	public FacetSelection getFacets(
-			@Context HttpServletRequest request, 
-			@PathParam(BBID_PARAM_NAME) String BBID
-		) throws ComputingException {
-		AppContext userContext = getUserContext(request);
-		return runFacets(userContext, BBID, null);
-	}
-	
-	@POST
-	@Path("{" + BBID_PARAM_NAME + "}/facets")
-	@ApiOperation(value = "Get the bookmark's facets using a custom selection")
-	public FacetSelection postFacets(
-			@Context HttpServletRequest request, 
-			@PathParam(BBID_PARAM_NAME) String BBID,
-			@ApiParam(value="the selection", required=true) FacetSelection selection
-		) throws ComputingException {
-		AppContext userContext = getUserContext(request);
-		return runFacets(userContext, BBID, selection);
-	}
-	*/
 	
 	@GET
 	@Path("{" + BBID_PARAM_NAME + "}/scope")
@@ -432,44 +370,21 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 	@GET
     @Path("/status/{"+"QUERYID"+"}")
 	@ApiOperation(value = "get the ongoing status of the analysis identified by its QueryID")
-	public List<QueryWorkerJobStatus> getQuery(
+	public List<QueryWorkerJobStatus> getStatus(
 			@Context HttpServletRequest request, 
-			@PathParam("QUERYID") String key) {
+			@ApiParam(value="this is the AnalysisQuery QueryID") @PathParam("QUERYID") String key) {
 		AppContext userContext = getUserContext(request);
-		// first check if the query is available
-		String customerId = userContext.getCustomerId();
-		List<QueryWorkerJobStatus> queries = RedisCacheManager.getInstance().getQueryServer().getOngoingQueries(customerId);
-		queries.addAll(DomainHierarchyManager.INSTANCE.getOngoingQueries(customerId));
-		List<QueryWorkerJobStatus> results = new ArrayList<>();
-		for (QueryWorkerJobStatus query : queries) {
-			if (query.getJobID().equals(key)) {
-				ProjectPK projectPK = query.getProjectPK();
-				try {
-					Project project = ProjectManager.INSTANCE.getProject(userContext, projectPK);
-					// restrict to privileged user
-					if (checkACL(userContext, project, query)) {
-						results.add(query);
-					}
-				} catch (ScopeException e) {
-					// ignore
-				}
-			}
-		}
-		//
-		return results;
+		return getDelegate().getStatus(userContext, key);
 	}
-
-	private boolean checkACL(AppContext userContext, Project project, QueryWorkerJobStatus query) {
-		if (AccessRightsUtils.getInstance().hasRole(userContext, project, Role.WRITE)) {
-			return true;
-		}  else if (AccessRightsUtils.getInstance().hasRole(userContext, project, Role.READ)) {
-			// or to the query owner
-			if (query.getUserID().equals(userContext.getUser().getOid())) {
-				return true;
-			}
-		}
-		// else
-		return false;
+	
+	@GET
+    @Path("/status/{"+"QUERYID"+"}/cancel")
+	@ApiOperation(value = "cancel the execution of the analysis identified by its QueryID")
+	public boolean cancelQuery(
+			@Context HttpServletRequest request, 
+			@ApiParam(value="this is the AnalysisQuery QueryID") @PathParam("QUERYID") String key) {
+		AppContext userContext = getUserContext(request);
+		return getDelegate().cancelQuery(userContext, key);
 	}
 	
 	/**
