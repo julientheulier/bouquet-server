@@ -84,8 +84,6 @@ import com.squid.kraken.v4.api.core.JobStats;
 import com.squid.kraken.v4.api.core.JobServiceBaseImpl.OutputCompression;
 import com.squid.kraken.v4.api.core.JobServiceBaseImpl.OutputFormat;
 import com.squid.kraken.v4.api.core.bb.BookmarkAnalysisServiceRest.HierarchyMode;
-import com.squid.kraken.v4.api.core.bb.NavigationQuery.Style;
-import com.squid.kraken.v4.api.core.bb.NavigationQuery.Visibility;
 import com.squid.kraken.v4.api.core.ObjectNotFoundAPIException;
 import com.squid.kraken.v4.api.core.PerfDB;
 import com.squid.kraken.v4.api.core.bookmark.BookmarkServiceBaseImpl;
@@ -94,6 +92,7 @@ import com.squid.kraken.v4.caching.NotInCacheException;
 import com.squid.kraken.v4.caching.redis.RedisCacheManager;
 import com.squid.kraken.v4.caching.redis.queryworkerserver.QueryWorkerJobStatus;
 import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
+import com.squid.kraken.v4.core.analysis.datamatrix.RecordConverter;
 import com.squid.kraken.v4.core.analysis.engine.bookmark.BookmarkManager;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex.Status;
@@ -106,6 +105,7 @@ import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
 import com.squid.kraken.v4.core.analysis.model.DashboardAnalysis;
 import com.squid.kraken.v4.core.analysis.model.DashboardSelection;
 import com.squid.kraken.v4.core.analysis.scope.AxisExpression;
+import com.squid.kraken.v4.core.analysis.scope.GlobalExpressionScope;
 import com.squid.kraken.v4.core.analysis.scope.SpaceExpression;
 import com.squid.kraken.v4.core.analysis.scope.SpaceScope;
 import com.squid.kraken.v4.core.analysis.scope.UniverseScope;
@@ -126,12 +126,15 @@ import com.squid.kraken.v4.model.AnalysisQueryImpl;
 import com.squid.kraken.v4.model.AnalysisResult;
 import com.squid.kraken.v4.model.Bookmark;
 import com.squid.kraken.v4.model.BookmarkConfig;
+import com.squid.kraken.v4.model.BookmarkFolderPK;
 import com.squid.kraken.v4.model.BookmarkPK;
 import com.squid.kraken.v4.model.DataTable;
 import com.squid.kraken.v4.model.DataTable.Col;
 import com.squid.kraken.v4.model.DataTable.Row;
 import com.squid.kraken.v4.model.Dimension;
 import com.squid.kraken.v4.model.Dimension.Type;
+import com.squid.kraken.v4.model.NavigationQuery.Style;
+import com.squid.kraken.v4.model.NavigationQuery.Visibility;
 import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.Expression;
 import com.squid.kraken.v4.model.ExpressionSuggestion;
@@ -142,6 +145,9 @@ import com.squid.kraken.v4.model.FacetMemberInterval;
 import com.squid.kraken.v4.model.FacetMemberString;
 import com.squid.kraken.v4.model.FacetSelection;
 import com.squid.kraken.v4.model.Metric;
+import com.squid.kraken.v4.model.NavigationItem;
+import com.squid.kraken.v4.model.NavigationQuery;
+import com.squid.kraken.v4.model.NavigationReply;
 import com.squid.kraken.v4.model.ObjectType;
 import com.squid.kraken.v4.model.Project;
 import com.squid.kraken.v4.model.ProjectAnalysisJob;
@@ -153,10 +159,12 @@ import com.squid.kraken.v4.model.ProjectAnalysisJobPK;
 import com.squid.kraken.v4.model.ProjectFacetJob;
 import com.squid.kraken.v4.model.ProjectPK;
 import com.squid.kraken.v4.model.ValueType;
+import com.squid.kraken.v4.model.VegaliteReply;
 import com.squid.kraken.v4.model.AccessRight.Role;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DAOFactory;
 import com.squid.kraken.v4.persistence.dao.ProjectDAO;
+import com.squid.kraken.v4.vegalite.VegaliteConfigurator;
 import com.squid.kraken.v4.vegalite.VegaliteSpecs;
 import com.squid.kraken.v4.vegalite.VegaliteSpecs.*;
 import com.squid.kraken.v4.vegalite.VegaliteSpecs.Format;
@@ -472,7 +480,8 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 						if (filters==null || filter(name, filters)) {
 							String oid = Base64
 									.encodeBase64URLSafeString(selfpath.getBytes());
-							BookmarkFolderPK id = new BookmarkFolderPK(bookmark.getId().getParent(), oid);
+							// legacy folder PK support
+							BookmarkFolderPK id = new BookmarkFolderPK(bookmark.getId().getCustomerId(), oid);
 							NavigationItem folder = new NavigationItem(query.getStyle().equals("HUMAN")?null:id, name, "", parent, selfpath, FOLDER_TYPE);
 							if (query.getStyle()==Style.HUMAN) folder.setLink(createLinkToFolder(userContext, query, folder));
 							content.add(folder);
@@ -1260,10 +1269,6 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		// else
 		return null;
 	}
-
-	private String formatName(String prettyPrint) {
-		return prettyPrint.replaceAll("[(),.]>", " ").trim().replaceAll("[^ a-zA-Z_0-9]", "").replace(' ', '_');
-	}
 	
 	private BookmarkConfig createBookmarkConfig(Space space, AnalysisQuery query) throws ScopeException {
 		SpaceScope scope = new SpaceScope(space);
@@ -1619,136 +1624,77 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 			AppContext userContext, 
 			String BBID, 
 			String x, String y, String color, String size,
+			String column, String row,
 			String data,
 			AnalysisQuery query) throws ScopeException, ComputingException, InterruptedException {
 		Space space = getSpace(userContext, BBID);
+		//
+		if (data==null) data="EMBEDED";
 		//
 		Bookmark bookmark = space.getBookmark();
 		BookmarkConfig config = BookmarkManager.INSTANCE.readConfig(bookmark);
 		//
 		// handle the limit
-		Long explicitLimit = query.getLimit()==null?10:query.getLimit();
+		Long explicitLimit = query.getLimit();
 		// merge the bookmark config with the query
 		mergeBoomarkConfig(space, query, config);
-		// enforce the explicit limit
-		if (query.getLimit()!=null && query.getLimit()>explicitLimit) {
-			query.setLimit(explicitLimit);
-		}
 		//
-		AnalysisQuery required = new AnalysisQueryImpl();
-		required.setGroupBy(new ArrayList<String>());
-		required.setMetrics(new ArrayList<String>());
-		required.setOrderBy(new ArrayList<OrderBy>());
-		PrettyPrintOptions options = new PrettyPrintOptions(ReferenceStyle.NAME, space.getImageDomain());
-		VegaliteSpecs result = new VegaliteSpecs();
-		result.encoding = new Encoding();
 		SpaceScope localScope = new SpaceScope(space);
-		boolean isTemporal = false;
-		int temporalPos = -1;
 		//
-		int pos = 0;
-		if (x!=null) {
-			if (x.equals("__PERIOD")) {
-				x = query.getPeriod();
-				if (x==null) throw new ScopeException("no period defined, you cannot use __PERIOD alias");
-			}
-			ExpressionAST expr = localScope.parseExpression(x);
-			ChannelDef channel = createChannelDef(expr, required, options);
-			result.encoding.x = channel;
-			if (channel.type==DataType.temporal) {
-				isTemporal = true;
-				temporalPos = pos;
-			} else if (channel.type==DataType.quantitative) {
-				required.getOrderBy().add(new OrderBy(new Expression(x), Direction.DESC));
-				result.encoding.order = channel;
-			}
-			pos++;
-		}
-		if (y!=null) {
-			if (y.equals("__PERIOD")) {
-				y = query.getPeriod();
-				if (y==null) throw new ScopeException("no period defined, you cannot use __PERIOD alias");
-			}
-			ExpressionAST expr = localScope.parseExpression(y);
-			ChannelDef channel = createChannelDef(expr, required, options);
-			result.encoding.y = channel;
-			if (channel.type==DataType.temporal) {
-				isTemporal = true;
-				temporalPos = pos;
-			} else if (channel.type==DataType.quantitative) {
-				required.getOrderBy().add(new OrderBy(new Expression(y), Direction.DESC));
-				result.encoding.order = channel;
-			}
-			pos++;
-		}
-		if (color!=null) {
-			if (color.equals("__PERIOD")) {
-				color = query.getPeriod();
-				if (color==null) throw new ScopeException("no period defined, you cannot use __PERIOD alias");
-			}
-			ExpressionAST expr = localScope.parseExpression(color);
-			ChannelDef channel = createChannelDef(expr, required, options);
-			result.encoding.color = channel;
-			if (channel.type==DataType.temporal) {
-				isTemporal = true;
-				temporalPos = pos;
-			} else if (channel.type==DataType.quantitative) {
-				required.getOrderBy().add(new OrderBy(new Expression(color), Direction.DESC));
-				result.encoding.order = channel;
-			}
-			pos++;
-		}
-		if (size!=null) {
-			if (size.equals("__PERIOD")) {
-				size = query.getPeriod();
-				if (size==null) throw new ScopeException("no period defined, you cannot use __PERIOD alias");
-			}
-			ExpressionAST expr = localScope.parseExpression(size);
-			ChannelDef channel = createChannelDef(expr, required, options);
-			result.encoding.size = channel;
-			if (channel.type==DataType.temporal) {
-				isTemporal = true;
-				temporalPos = pos;
-			} else if (channel.type==DataType.quantitative) {
-				required.getOrderBy().add(new OrderBy(new Expression(size), Direction.DESC));
-				result.encoding.order = channel;
-			}
-			pos++;
-		}
+		VegaliteConfigurator configurator = new VegaliteConfigurator(space, query);
+		VegaliteSpecs specs = configurator.getSpecs();
+		specs.encoding.x = configurator.createChannelDef("x", localScope, x);
+		specs.encoding.y = configurator.createChannelDef("y", localScope, y);
+		specs.encoding.color = configurator.createChannelDef("color", localScope, color);
+		specs.encoding.size = configurator.createChannelDef("size", localScope, size);
+		specs.encoding.column = configurator.createChannelDef("column", localScope, column);
+		specs.encoding.row = configurator.createChannelDef("row", localScope, row);
 		//
 		// force using required
-		query.setGroupBy(required.getGroupBy());
-		query.setMetrics(required.getMetrics());
-		query.setOrderBy(required.getOrderBy());
+		query.setGroupBy(configurator.getRequired().getGroupBy());
+		query.setMetrics(configurator.getRequired().getMetrics());
+		//
+		// enforce the explicit limit
+		if (explicitLimit==null) {// compute the default
+			int dims = query.getGroupBy().size();
+			if (configurator.isTimeseries()) dims--;
+			if (dims>0) {
+				explicitLimit = 10L;// keep 10 for each dim
+				for (int i = dims; i>0; i--) explicitLimit = explicitLimit*10;// get the power
+			}
+		}
+		if (query.getLimit()==null || query.getLimit()>explicitLimit) {
+			query.setLimit(explicitLimit);
+		}
 		//
 		// create the facet selection
 		FacetSelection selection = createFacetSelection(space, query);
 		final ProjectAnalysisJob job = createAnalysisJob(space.getUniverse(), query, selection, OutputFormat.JSON);
 		// beyond limit
-		if (isTemporal) {
-			Index index = new Index(temporalPos);
+		if (configurator.isTimeseries()) {
+			Index index = new Index(configurator.getTimeseriesPosition());
 			job.setBeyondLimit(Collections.singletonList(index));
 		}
 		//
 		// handling data
 		if (data.equals("EMBEDED")) {
 			DataMatrix table = compute(userContext, job, query.getMaxResults(), query.getStartIndex(), false);
-			result.data = transformToVegaData(table);
+			specs.data = transformToVegaData(table);
 		} else if (data.equals("URL")) {
 			URI uri = buildExportQuery(uriInfo, userContext, BBID, query, ".csv");
-			result.data = new Data();
-			result.data.url = uri.toString();
-			result.data.format = new Format();
-			result.data.format.type = FormatType.csv;// lowercase only!
+			specs.data = new Data();
+			specs.data.url = uri.toString();
+			specs.data.format = new Format();
+			specs.data.format.type = FormatType.csv;// lowercase only!
 		} else {
 			throw new APIException("undefined value for data parameter, must be EMBEDED or URL");
 		}
 		//
-		result.mark = isTemporal?Mark.line:Mark.bar;
+		specs.mark = configurator.isTimeseries()?Mark.line:Mark.bar;
 		//
 		VegaliteReply reply = new VegaliteReply();
 		reply.setQuery(query);
-		reply.setResult(result);
+		reply.setResult(specs);
 		return reply;
 	}
 	
@@ -1828,56 +1774,6 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		Data data = new Data();
 		data.values = converter.convert(matrix);
 		return data;
-	}
-
-	private ChannelDef createChannelDef(ExpressionAST expr, AnalysisQuery required, PrettyPrintOptions options) {
-		ChannelDef channel = new ChannelDef();
-		channel.type = computeDataType(expr);
-		if (channel.type==DataType.temporal) {
-			IDomain image = expr.getImageDomain();
-			if (image.isInstanceOf(IDomain.YEARLY)) {
-				channel.timeUnit = TimeUnit.year;
-			} else if (image.isInstanceOf(IDomain.MONTHLY)) {
-				channel.timeUnit = TimeUnit.yearmonth;
-			} else if (image.isInstanceOf(IDomain.DATE)) {
-				channel.timeUnit = TimeUnit.yearmonthdate;
-			}
-		}
-		String name = expr.getName();
-		if (name==null) {
-			name = formatName(expr.prettyPrint());
-		} else {
-			name = formatName(name);
-		}
-		// need to convert to lower-case because of CSV export...
-		name = name.toLowerCase();
-		expr.setName(name);
-		channel.field = name;
-		String namedExpression = expr.prettyPrint(options) + " as '" + name +"'"; 
-		if (channel.type==DataType.quantitative) {
-			// it's a metric
-			required.getMetrics().add(namedExpression);
-		} else {
-			// it's a groupBy
-			required.getGroupBy().add(namedExpression);
-		}
-		return channel;
-	}
-	
-	private DataType computeDataType(ExpressionAST expr) {
-		IDomain image = expr.getImageDomain();
-		if (image.isInstanceOf(IDomain.AGGREGATE)) {
-			// it's a metric
-			return DataType.quantitative;
-		} else {
-			if (image.isInstanceOf(IDomain.TEMPORAL)) {
-				return DataType.temporal;
-			} else if (image.isInstanceOf(IDomain.NUMERIC)) {
-				return DataType.ordinal;
-			} else {
-				return DataType.nominal;
-			}
-		}
 	}
 	
 	/**

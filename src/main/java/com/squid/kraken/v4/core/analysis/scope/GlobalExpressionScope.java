@@ -21,7 +21,7 @@
  * you and Squid Solutions (above licenses and LICENSE.txt included).
  * See http://www.squidsolutions.com/EnterpriseBouquet/
  *******************************************************************************/
-package com.squid.kraken.v4.api.core.bb;
+package com.squid.kraken.v4.core.analysis.scope;
 
 import java.util.List;
 
@@ -30,7 +30,6 @@ import com.squid.core.expression.scope.DefaultScope;
 import com.squid.core.expression.scope.ExpressionScope;
 import com.squid.core.expression.scope.IdentifierType;
 import com.squid.core.expression.scope.ScopeException;
-import com.squid.kraken.v4.core.analysis.scope.UniverseScope;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.kraken.v4.model.Project;
 import com.squid.kraken.v4.persistence.AppContext;

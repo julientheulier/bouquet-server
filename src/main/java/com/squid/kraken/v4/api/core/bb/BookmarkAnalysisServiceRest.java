@@ -43,8 +43,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.squid.core.expression.scope.ScopeException;
-import com.squid.kraken.v4.api.core.bb.NavigationQuery.Style;
-import com.squid.kraken.v4.api.core.bb.NavigationQuery.Visibility;
 import com.squid.kraken.v4.api.core.customer.CoreAuthenticatedServiceRest;
 import com.squid.kraken.v4.caching.redis.queryworkerserver.QueryWorkerJobStatus;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
@@ -55,11 +53,15 @@ import com.squid.kraken.v4.model.Bookmark;
 import com.squid.kraken.v4.model.Expression;
 import com.squid.kraken.v4.model.ExpressionSuggestion;
 import com.squid.kraken.v4.model.Facet;
+import com.squid.kraken.v4.model.NavigationReply;
 import com.squid.kraken.v4.model.ObjectType;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.OrderBy;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.Position;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.RollUp;
 import com.squid.kraken.v4.model.ValueType;
+import com.squid.kraken.v4.model.VegaliteReply;
+import com.squid.kraken.v4.model.NavigationQuery.Style;
+import com.squid.kraken.v4.model.NavigationQuery.Visibility;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.wordnik.swagger.annotations.Api;
 import com.wordnik.swagger.annotations.ApiOperation;
@@ -242,11 +244,11 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 			@ApiParam(value="activate and define the compare to period. It can be a date range [lower,upper] or a special alias: __COMPARE_TO_PREVIOUS_PERIOD, __COMPARE_TO_PREVIOUS_MONTH, __COMPARE_TO_PREVIOUS_YEAR", allowMultiple = true) 
 			@QueryParam(COMPAREFRAME_PARAM) String[] compareframe,
 			@ApiParam(allowMultiple = true) 
-			@QueryParam(ORDERBY_PARAM) String[] orderExpressions, 
-			@ApiParam(allowMultiple = true) 
-			@QueryParam(ROLLUP_PARAM) String[] rollupExpressions,
+			@QueryParam(ORDERBY_PARAM) String[] orderExpressions,
 			@ApiParam(value="limit the resultset size as computed by the database. Note that this is independant from the paging size.")
 			@QueryParam(LIMIT_PARAM) Long limit,
+			@ApiParam(allowMultiple = true) 
+			@QueryParam(ROLLUP_PARAM) String[] rollupExpressions,
 			@ApiParam(
 					value="define the analysis data format.",
 					allowableValues="LEGACY,SQL,CSV")
@@ -277,14 +279,20 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 					value="set the x axis channel. This must be a valid expression or the special alias __PERIOD to refer to the main period.")
 			@QueryParam("x") String x,
 			@ApiParam(
-					value="set the y axis channel. This must be a valid expression or the special alias __PERIOD to refer to the main period.")
+					value="set the y axis channel. This must be a valid expression.")
 			@QueryParam("y") String y,
 			@ApiParam(
-					value="set a series channel, displayed using a color palette. This must be a valid expression or the special alias __PERIOD to refer to the main period.")
+					value="set a series channel, displayed using a color palette. This must be a valid expression.")
 			@QueryParam("color") String color,
 			@ApiParam(
-					value="set a series channel, displayed using the marker size. This must be a valid expression or the special alias __PERIOD to refer to the main period.")
+					value="set a series channel, displayed using the marker size. This must be a valid expression.")
 			@QueryParam("size") String size,
+			@ApiParam(
+					value="set a facetted channel, displayed as columns. This must be a valid expression.")
+			@QueryParam("column") String column,
+			@ApiParam(
+					value="set a facetted channel, displayed as rows. This must be a valid expression.")
+			@QueryParam("row") String row,
 			@ApiParam(
 					value = "Define the filters to apply to results. A filter must be a valid conditional expression. If empty, the subject default parameters will apply. You can use the * token to extend the subject default parameters.",
 					allowMultiple = true) 
@@ -293,6 +301,8 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 			@QueryParam(PERIOD_PARAM) String period,
 			@ApiParam(value="define the timeframe for the period. It can be a date range [lower,upper] or a special alias: ____ALL, ____LAST_DAY, ____LAST_7_DAYS, __CURRENT_MONTH, __PREVIOUS_MONTH, __CURRENT_MONTH, __PREVIOUS_YEAR", allowMultiple = true) 
 			@QueryParam(TIMEFRAME_PARAM) String[] timeframe,
+			@ApiParam(allowMultiple = true) 
+			@QueryParam(ORDERBY_PARAM) String[] orderby, 
 			@ApiParam(value="limit the resultset size as computed by the database. Note that this is independant from the paging size.")
 			@QueryParam(LIMIT_PARAM) Long limit,
 			@ApiParam(
@@ -302,8 +312,8 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 	) throws ScopeException, ComputingException, InterruptedException
 	{
 		AppContext userContext = getUserContext(request);
-		AnalysisQuery query = createAnalysisFromParams(BBID, null, null, filterExpressions, period, timeframe, null, null, null, limit, null, null, null, null, null);
-		return getDelegate().getVegalite(uriInfo, userContext, BBID, x, y, color, size, data, query);
+		AnalysisQuery query = createAnalysisFromParams(BBID, null, null, filterExpressions, period, timeframe, null, orderby, null, limit, null, null, null, null, null);
+		return getDelegate().getVegalite(uriInfo, userContext, BBID, x, y, color, size, column, row, data, query);
 	}
 
 	@GET

@@ -58,6 +58,7 @@ public class BookmarkManager {
 	public BookmarkDAO getDAO() { return delegate; }
 	
 	public BookmarkConfig readConfig(Bookmark bookmark) {
+		if (bookmark==null) return null;
 		ObjectMapper mapper = new ObjectMapper();
 		mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 		try {

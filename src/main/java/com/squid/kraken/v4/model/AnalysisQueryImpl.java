@@ -3,7 +3,7 @@ package com.squid.kraken.v4.model;
 import java.util.Arrays;
 import java.util.List;
 
-import com.squid.kraken.v4.api.core.bb.NavigationQuery.Style;
+import com.squid.kraken.v4.model.NavigationQuery.Style;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.OrderBy;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.RollUp;
 

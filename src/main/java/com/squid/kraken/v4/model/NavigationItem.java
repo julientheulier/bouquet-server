@@ -21,15 +21,13 @@
  * you and Squid Solutions (above licenses and LICENSE.txt included).
  * See http://www.squidsolutions.com/EnterpriseBouquet/
  *******************************************************************************/
-package com.squid.kraken.v4.api.core.bb;
+package com.squid.kraken.v4.model;
 
 import java.net.URI;
 import java.util.Map;
 
-import com.squid.kraken.v4.api.core.bb.NavigationQuery.Style;
-import com.squid.kraken.v4.model.CustomerPK;
-import com.squid.kraken.v4.model.Domain;
-import com.squid.kraken.v4.model.Project;
+import com.squid.kraken.v4.api.core.bb.BookmarkAnalysisServiceBaseImpl;
+import com.squid.kraken.v4.model.NavigationQuery.Style;
 
 /**
  * @author sergefantino

@@ -21,9 +21,7 @@
  * you and Squid Solutions (above licenses and LICENSE.txt included).
  * See http://www.squidsolutions.com/EnterpriseBouquet/
  *******************************************************************************/
-package com.squid.kraken.v4.api.core.bb;
-
-import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
+package com.squid.kraken.v4.core.analysis.datamatrix;
 
 /**
  * simple class to output a DataMatrix as a formatted output
