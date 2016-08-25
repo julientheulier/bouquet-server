@@ -152,7 +152,10 @@ public class ExecuteHierarchyQuery implements CancellableCallable<ExecuteHierarc
 			jobStatus = QueryWorkerJobStatus.Status.INDEXING;
 		}
 
-		QueryWorkerJobStatus status = new QueryWorkerJobStatus(jobStatus, projectPK, this.key, this.itemId, SQL,
+		QueryWorkerJobStatus status = 
+				new QueryWorkerJobStatus(jobStatus, projectPK, 
+						"",// no jobID yet, see 
+						this.key, this.itemId, SQL,
 				this.count, this.metter_start, elapse);
 
 		return status;
