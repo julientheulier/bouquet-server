@@ -160,7 +160,6 @@ import com.squid.kraken.v4.persistence.dao.ProjectDAO;
 import com.squid.kraken.v4.vegalite.VegaliteSpecs;
 import com.squid.kraken.v4.vegalite.VegaliteSpecs.*;
 import com.squid.kraken.v4.vegalite.VegaliteSpecs.Format;
-import com.wordnik.swagger.annotations.ApiOperation;
 
 /**
  * @author sergefantino
