@@ -48,7 +48,8 @@ public class QueryWorkerJob {
 		long elapse = System.currentTimeMillis() - start;
 		return new QueryWorkerJobStatus(
 				request.getUserID(), 
-				request.getProjectPK(), 
+				request.getProjectPK(),
+				request.getJobId(),
 				request.getKey(), 
 				job.getID(), 
 				request.getSQLQuery(),
