@@ -23,16 +23,23 @@
  *******************************************************************************/
 package com.squid.kraken.v4.core.analysis.engine.bookmark;
 
+import java.util.List;
+
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Optional;
+import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.api.core.APIException;
+import com.squid.kraken.v4.core.analysis.universe.Space;
+import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.kraken.v4.model.Bookmark;
 import com.squid.kraken.v4.model.BookmarkConfig;
 import com.squid.kraken.v4.model.BookmarkPK;
+import com.squid.kraken.v4.model.Domain;
+import com.squid.kraken.v4.model.DomainPK;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DAOFactory;
-import com.squid.kraken.v4.persistence.GenericDAO;
+import com.squid.kraken.v4.persistence.dao.BookmarkDAO;
 
 /**
  * @author sergefantino
@@ -42,11 +49,13 @@ public class BookmarkManager {
 	
 	public static final BookmarkManager INSTANCE = new BookmarkManager();
 	
-	private GenericDAO<Bookmark, BookmarkPK> delegate = DAOFactory.getDAOFactory().getDAO(Bookmark.class);
+	private BookmarkDAO delegate = (BookmarkDAO)DAOFactory.getDAOFactory().getDAO(Bookmark.class);
 	
 	private BookmarkManager() {
 		//
 	}
+	
+	public BookmarkDAO getDAO() { return delegate; }
 	
 	public BookmarkConfig readConfig(Bookmark bookmark) {
 		ObjectMapper mapper = new ObjectMapper();
@@ -61,6 +70,27 @@ public class BookmarkManager {
 	
 	public Optional<Bookmark> readBookmark(AppContext userContext, BookmarkPK bookmarkPk) {
 		return delegate.read(userContext, bookmarkPk);
+	}
+	
+	public List<Bookmark> findBookmarksByParent(AppContext userContext, String parentPath) {
+		return delegate.findByPath(userContext, parentPath);
+	}
+
+	public String getMyBookmarkPath(AppContext ctx) {
+		return Bookmark.SEPARATOR + Bookmark.Folder.USER
+					+ Bookmark.SEPARATOR + ctx.getUser().getOid();
+	}
+	
+	public Space getBookmarkSpace(Universe universe, Bookmark bookmark) throws ScopeException {
+		BookmarkConfig config = BookmarkManager.INSTANCE.readConfig(bookmark);
+		return getBookmarkSpace(universe, bookmark, config);
+	}
+	
+	public Space getBookmarkSpace(Universe universe, Bookmark bookmark, BookmarkConfig config) throws ScopeException {
+		String domainId = config.getDomain();
+		DomainPK domainPk = new DomainPK(bookmark.getId().getParent(), domainId);
+		Domain domain = universe.getDomain(domainPk);
+		return new Space(universe, domain, bookmark);
 	}
 
 }
