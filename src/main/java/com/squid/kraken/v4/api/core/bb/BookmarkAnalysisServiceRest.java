@@ -43,10 +43,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.squid.core.expression.scope.ScopeException;
+import com.squid.kraken.v4.api.core.AccessRightsUtils;
 import com.squid.kraken.v4.api.core.bb.NavigationQuery.Style;
 import com.squid.kraken.v4.api.core.bb.NavigationQuery.Visibility;
 import com.squid.kraken.v4.api.core.customer.CoreAuthenticatedServiceRest;
+import com.squid.kraken.v4.caching.redis.RedisCacheManager;
+import com.squid.kraken.v4.caching.redis.queryworkerserver.QueryWorkerJobStatus;
+import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainHierarchyManager;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
+import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
 import com.squid.kraken.v4.model.AnalysisQuery;
 import com.squid.kraken.v4.model.AnalysisQueryImpl;
 import com.squid.kraken.v4.model.AnalysisResult;
@@ -55,10 +60,13 @@ import com.squid.kraken.v4.model.Expression;
 import com.squid.kraken.v4.model.ExpressionSuggestion;
 import com.squid.kraken.v4.model.Facet;
 import com.squid.kraken.v4.model.ObjectType;
+import com.squid.kraken.v4.model.Project;
+import com.squid.kraken.v4.model.ProjectPK;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.OrderBy;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.Position;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.RollUp;
 import com.squid.kraken.v4.model.ValueType;
+import com.squid.kraken.v4.model.AccessRight.Role;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.wordnik.swagger.annotations.Api;
 import com.wordnik.swagger.annotations.ApiOperation;
@@ -419,6 +427,49 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 		}
 		AnalysisQuery analysis = createAnalysisFromParams(BBID, groupBy, metrics, filterExpressions, period, timeframe, compareframe, orderExpressions, rollupExpressions, limit, format, null, null, null, null);
 		return getDelegate().exportAnalysis(userContext, BBID, analysis, filepart, fileext, compression);
+	}
+	
+	@GET
+    @Path("/status/{"+"QUERYID"+"}")
+	@ApiOperation(value = "get the ongoing status of the analysis identified by its QueryID")
+	public List<QueryWorkerJobStatus> getQuery(
+			@Context HttpServletRequest request, 
+			@PathParam("QUERYID") String key) {
+		AppContext userContext = getUserContext(request);
+		// first check if the query is available
+		String customerId = userContext.getCustomerId();
+		List<QueryWorkerJobStatus> queries = RedisCacheManager.getInstance().getQueryServer().getOngoingQueries(customerId);
+		queries.addAll(DomainHierarchyManager.INSTANCE.getOngoingQueries(customerId));
+		List<QueryWorkerJobStatus> results = new ArrayList<>();
+		for (QueryWorkerJobStatus query : queries) {
+			if (query.getJobID().equals(key)) {
+				ProjectPK projectPK = query.getProjectPK();
+				try {
+					Project project = ProjectManager.INSTANCE.getProject(userContext, projectPK);
+					// restrict to privileged user
+					if (checkACL(userContext, project, query)) {
+						results.add(query);
+					}
+				} catch (ScopeException e) {
+					// ignore
+				}
+			}
+		}
+		//
+		return results;
+	}
+
+	private boolean checkACL(AppContext userContext, Project project, QueryWorkerJobStatus query) {
+		if (AccessRightsUtils.getInstance().hasRole(userContext, project, Role.WRITE)) {
+			return true;
+		}  else if (AccessRightsUtils.getInstance().hasRole(userContext, project, Role.READ)) {
+			// or to the query owner
+			if (query.getUserID().equals(userContext.getUser().getOid())) {
+				return true;
+			}
+		}
+		// else
+		return false;
 	}
 	
 	/**
