@@ -31,7 +31,6 @@ import java.util.Set;
 
 import org.apache.commons.codec.binary.Base64;
 
-import com.squid.kraken.v4.api.core.ObjectNotFoundAPIException;
 import com.squid.kraken.v4.model.Bookmark;
 import com.squid.kraken.v4.model.BookmarkFolder;
 import com.squid.kraken.v4.model.BookmarkFolder.BookmarkLink;
