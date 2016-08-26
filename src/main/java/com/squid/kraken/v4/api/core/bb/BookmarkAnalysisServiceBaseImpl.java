@@ -367,7 +367,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 	
 	private URI createLinkToAnalysis(AppContext userContext, NavigationItem item) {
 		return
-				uriInfo.getAbsolutePathBuilder().path("{BBID}/analysis").queryParam("access_token", userContext.getToken().getOid()).build(item.getSelfRef());
+				uriInfo.getAbsolutePathBuilder().path("/{BBID}/query").queryParam("access_token", userContext.getToken().getOid()).build(item.getSelfRef());
 	}
 	
 	private UriBuilder createNavigationQuery(AppContext userContext, NavigationQuery query) {

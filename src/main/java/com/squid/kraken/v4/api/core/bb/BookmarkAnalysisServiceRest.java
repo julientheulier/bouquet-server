@@ -75,9 +75,9 @@ import com.wordnik.swagger.annotations.AuthorizationScope;
  * @author sergefantino
  *
  */
-@Path("/bb")
+@Path("")
 @Api(
-		value = "bookmark-analysis", 
+		value = "analytics", 
 		hidden = false, 
 		description = "this is the new bookmark API intented to provide all the fun without the pain",
 		authorizations = { @Authorization(value = "kraken_auth", type = "oauth2", scopes = { @AuthorizationScope(scope = "access", description = "Access") }) })
@@ -100,7 +100,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 	}
 
 	@GET
-	@Path("")
+	@Path("/analytics")
 	@ApiOperation(
 			value = "List available content",
 			notes = "It provides a comprehensive view including projects, domains, folders and bookmarks."
@@ -128,7 +128,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 	}
 
 	@GET
-	@Path("{" + BBID_PARAM_NAME + "}")
+	@Path("/analytics/{" + BBID_PARAM_NAME + "}")
 	@ApiOperation(value = "Get an item, can be a Domain or a Bookmark")
 	public Object getItem(
 			@Context HttpServletRequest request, 
@@ -138,7 +138,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 	}
 
 	@POST
-	@Path("{" + BBID_PARAM_NAME + "}")
+	@Path("/analytics/{" + BBID_PARAM_NAME + "}")
 	@ApiOperation(
 			value = "create a new bookmark",
 			notes = "")
@@ -154,7 +154,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 	}
 	
 	@GET
-	@Path("{" + BBID_PARAM_NAME + "}/scope")
+	@Path("/analytics/{" + BBID_PARAM_NAME + "}/scope")
 	@ApiOperation(
 			value = "Provide information about the expressions available in the bookmark scope",
 			notes = "It also allows to check if a given expression is valid in the scope, and further explore the scope if the expression is an object. Using the offset parameter you can get suggestion at the caret position instead of the complete expression value.")
@@ -182,7 +182,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 	}
 
 	@GET
-	@Path("{" + BBID_PARAM_NAME + "}/facets/{" + FACETID_PARAM_NAME + "}")
+	@Path("/analytics/{" + BBID_PARAM_NAME + "}/facets/{" + FACETID_PARAM_NAME + "}")
 	@ApiOperation(value = "Get facet content using the default BB selection")
 	public Facet getFacet(
 			@Context HttpServletRequest request, 
@@ -203,7 +203,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 	}
 
 	@POST
-	@Path("{" + BBID_PARAM_NAME + "}/analysis")
+	@Path("/analytics/{" + BBID_PARAM_NAME + "}/query")
 	@ApiOperation(value = "Run a new Analysis based on the Bookmark scope")
 	public AnalysisResult postAnalysis(
 			@Context HttpServletRequest request, 
@@ -217,7 +217,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 	}
 
 	@GET
-	@Path("{" + BBID_PARAM_NAME + "}/analysis")
+	@Path("/analytics/{" + BBID_PARAM_NAME + "}/query")
 	@ApiOperation(value = "Compute an analysis for the subject")
 	public AnalysisResult runAnalysis(
 			@Context HttpServletRequest request, 
@@ -270,7 +270,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 
 
 	@GET
-	@Path("{" + BBID_PARAM_NAME + "}/vegalite")
+	@Path("/analytics/{" + BBID_PARAM_NAME + "}/vegalite")
 	@ApiOperation(value = "Generate vegalite specs from a query")
 	public VegaliteReply getVegalite(
 			@Context HttpServletRequest request, 
@@ -317,7 +317,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 	}
 
 	@GET
-	@Path("{" + BBID_PARAM_NAME + "}/export/" + "{filename}")
+	@Path("/analytics/{" + BBID_PARAM_NAME + "}/export/" + "{filename}")
 	@ApiOperation(value = "Export an analysis results")
 	public Response exportAnalysis(
 			@Context HttpServletRequest request, 
