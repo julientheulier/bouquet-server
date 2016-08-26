@@ -21,16 +21,15 @@
  * you and Squid Solutions (above licenses and LICENSE.txt included).
  * See http://www.squidsolutions.com/EnterpriseBouquet/
  *******************************************************************************/
-package com.squid.kraken.v4.model;
+package com.squid.kraken.v4.core.analysis.datamatrix;
 
-public enum ObjectType {
-	TABLE,
-	COLUMN,
-	FOREIGNKEY,
-	RELATION,
-	DOMAIN,// a domain, or a domain reference
-	DIMENSION,// this is a dimension
-	METRIC,// this is a metric
-	EXPRESSION,// this is a generic expression
-	FUNCTION// this is a function prototype
+/**
+ * simple class to output a DataMatrix as a formatted output
+ * @author sergefantino
+ *
+ */
+public interface IDataMatrixConverter<Data> {
+	
+	public Data convert(DataMatrix matrix);
+
 }

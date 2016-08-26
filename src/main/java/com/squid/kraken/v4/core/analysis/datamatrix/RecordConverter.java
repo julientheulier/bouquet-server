@@ -21,16 +21,41 @@
  * you and Squid Solutions (above licenses and LICENSE.txt included).
  * See http://www.squidsolutions.com/EnterpriseBouquet/
  *******************************************************************************/
-package com.squid.kraken.v4.model;
+package com.squid.kraken.v4.core.analysis.datamatrix;
 
-public enum ObjectType {
-	TABLE,
-	COLUMN,
-	FOREIGNKEY,
-	RELATION,
-	DOMAIN,// a domain, or a domain reference
-	DIMENSION,// this is a dimension
-	METRIC,// this is a metric
-	EXPRESSION,// this is a generic expression
-	FUNCTION// this is a function prototype
+import java.util.ArrayList;
+import java.util.HashMap;
+
+import com.squid.kraken.v4.core.analysis.universe.Measure;
+
+/**
+ * return the DataMatrix as a array of records
+ * @author sergefantino
+ *
+ */
+public class RecordConverter implements IDataMatrixConverter<Object[]> {
+
+	/* (non-Javadoc)
+	 * @see com.squid.kraken.v4.api.core.bb.IDataMatrixConverter#convert(com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix)
+	 */
+	@Override
+	public Object[] convert(DataMatrix matrix) {
+		ArrayList<Object> records = new ArrayList<>();
+		for (IndirectionRow row : matrix.getRows()) {
+			HashMap<String, Object> record = new HashMap<>(row.size());
+			int i = 0;
+			for (AxisValues axis : matrix.getAxes()) {
+				Object value = row.getAxisValue(i++);
+				record.put(axis.getAxis().getName(), value);
+			}
+			int j = 0;
+			for (Measure measure : matrix.getKPIs()) {
+				Object value = row.getDataValue(j++);
+				record.put(measure.getName(), value);
+			}
+			records.add(record);
+		}
+		return records.toArray();
+	}
+
 }

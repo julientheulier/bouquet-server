@@ -124,7 +124,7 @@ public class SegmentManager {
 			String formula = filter.substring(1);
 			ExpressionAST condition = null;
 			try {
-				SegmentExpressionScope scope = new SegmentExpressionScope(universe, domain);
+				SegmentExpressionScope scope = new SegmentExpressionScope(universe.S(domain));
 				condition = universe.getParser().parse(hierarchy.getRoot().getDomain().getId(), scope, formula);
 				if (condition.getImageDomain() != IDomain.UNKNOWN) {
 					FacetMemberString openFilter = newOpenFilter(condition, formula);
@@ -221,7 +221,7 @@ public class SegmentManager {
 													// it
 						formula = formula.substring(1);
 					}
-					SegmentExpressionScope scope = new SegmentExpressionScope(universe, domain);
+					SegmentExpressionScope scope = new SegmentExpressionScope(universe.S(domain));
 					ExpressionAST condition = universe.getParser().parse(pk, scope, formula);
 					ds.add(new ExpressionInput(formula, condition));
 				} else {
@@ -251,7 +251,7 @@ public class SegmentManager {
 	 * @param id
 	 * @return
 	 */
-	private static boolean isOpenFilter(FacetMemberString member) {
+	public static boolean isOpenFilter(FacetMemberString member) {
 		return member.getId() != null && member.getValue() != null && member.getId().startsWith(OPEN_FILTER_ID);
 	}
 

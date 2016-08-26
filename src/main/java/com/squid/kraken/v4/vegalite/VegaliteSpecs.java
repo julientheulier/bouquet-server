@@ -21,47 +21,72 @@
  * you and Squid Solutions (above licenses and LICENSE.txt included).
  * See http://www.squidsolutions.com/EnterpriseBouquet/
  *******************************************************************************/
-package com.squid.kraken.v4.caching.redis.queryworkerserver;
-
-import com.squid.kraken.v4.core.database.impl.ExecuteQueryTask;
+package com.squid.kraken.v4.vegalite;
 
 /**
- * A simple wrapper to keep track of the job
+ * Java mapping of the Vegalite specs, cf.
+ * https://vega.github.io/vega-lite/docs/spec.html
+ * 
  * @author sergefantino
  *
  */
-public class QueryWorkerJob {
-	
-	private QueryWorkerJobRequest request;
-	private ExecuteQueryTask job;
-	
-	private long start;
-	
-	public QueryWorkerJob(QueryWorkerJobRequest request, ExecuteQueryTask job) {
-		super();
-		this.request = request;
-		this.job = job;
-		this.start = System.currentTimeMillis();
-	}
-	
-	public QueryWorkerJobStatus getStatus() {
-		long elapse = System.currentTimeMillis() - start;
-		return new QueryWorkerJobStatus(
-				request.getUserID(), 
-				request.getProjectPK(),
-				request.getJobId(),
-				request.getKey(), 
-				job.getID(), 
-				request.getSQLQuery(),
-				start,
-				elapse);
+public class VegaliteSpecs {
+
+	public static class Encoding {
+
+		public ChannelDef x, y, color, opacity, shape, size, text, column, row;
+
+		public ChannelDef detail, order, path;
 	}
 
-	/**
-	 * @return
-	 */
-	public void cancel() {
-		job.cancel();
+	public static class ChannelDef {
+
+		public String field;
+
+		public DataType type;
+		
+		public TimeUnit timeUnit;
+
 	}
+	
+	public enum TimeUnit {
+		year, yearmonth, yearmonthday, yearmonthdate, yearday, yeardate, yearmonthdayhours, yearmonthdayhoursminutes,
+		month, day, date, hours, minutes, seconds, milliseconds, hoursminutes, hoursminutesseconds, minutesseconds, secondsmilliseconds
+	}
+
+	public enum DataType {
+		quantitative, temporal, ordinal, nominal
+	}
+
+	public enum Mark {
+		point, circle, square, text, tick, bar, line, area
+	}
+
+	public static class Data {
+
+		public Object[] values;
+
+		public String url;
+
+		public Format format;
+
+	}
+
+	public static class Format {
+
+		public FormatType type;
+
+		public Object parse;
+	}
+	
+	public enum FormatType {
+		json, csv, tsv, topojson// lowercase is mandatory
+	}
+
+	public Data data;
+
+	public Mark mark;
+
+	public Encoding encoding;
 
 }

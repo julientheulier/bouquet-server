@@ -73,6 +73,11 @@ public class Bookmark extends DynamicObject<BookmarkPK> implements HasConfig {
 	public Bookmark(BookmarkPK id) {
 		super(id);
 	}
+	
+	public String getBBID() {
+		if (getId()==null) return "";
+		return id.getProjectId()+":"+id.getBookmarkId();
+	}
 
 	public String getName() {
 		return name;

@@ -113,9 +113,6 @@ public class DimensionExpressionScope extends DomainExpressionScope {
 	@Override
 	public Object lookupObject(IdentifierType identifierType, String identifier)
 			throws ScopeException {
-		if (getSpace().getParent()!=null && identifierType.equals(IdentifierType.PARAMETER) && identifier.equalsIgnoreCase("SELF")) {
-			return new ParameterReference("SELF", getSpace().getImageDomain());
-		}
 		return super.lookupObject(identifierType, identifier);
 	}
 	

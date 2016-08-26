@@ -23,14 +23,31 @@
  *******************************************************************************/
 package com.squid.kraken.v4.model;
 
-public enum ObjectType {
-	TABLE,
-	COLUMN,
-	FOREIGNKEY,
-	RELATION,
-	DOMAIN,// a domain, or a domain reference
-	DIMENSION,// this is a dimension
-	METRIC,// this is a metric
-	EXPRESSION,// this is a generic expression
-	FUNCTION// this is a function prototype
+import java.util.List;
+
+/**
+ *  This is a simple pojo that wraps the navigation reply
+ * @author sergefantino
+ *
+ */
+public class NavigationReply {
+	
+	private NavigationQuery query;
+	
+	private List<NavigationItem> result;
+
+	public NavigationReply(NavigationQuery query, List<NavigationItem> result) {
+		super();
+		this.query = query;
+		this.result = result;
+	}
+
+	public NavigationQuery getQuery() {
+		return query;
+	}
+
+	public List<NavigationItem> getResult() {
+		return result;
+	}
+
 }

@@ -23,14 +23,35 @@
  *******************************************************************************/
 package com.squid.kraken.v4.model;
 
-public enum ObjectType {
-	TABLE,
-	COLUMN,
-	FOREIGNKEY,
-	RELATION,
-	DOMAIN,// a domain, or a domain reference
-	DIMENSION,// this is a dimension
-	METRIC,// this is a metric
-	EXPRESSION,// this is a generic expression
-	FUNCTION// this is a function prototype
+import com.squid.kraken.v4.vegalite.VegaliteSpecs;
+
+/**
+ * @author sergefantino
+ *
+ */
+public class VegaliteReply {
+	
+	private AnalysisQuery query;
+	
+	private VegaliteSpecs result;
+	
+	public VegaliteReply() {
+	}
+
+	public AnalysisQuery getQuery() {
+		return query;
+	}
+
+	public void setQuery(AnalysisQuery query) {
+		this.query = query;
+	}
+
+	public VegaliteSpecs getResult() {
+		return result;
+	}
+
+	public void setResult(VegaliteSpecs result) {
+		this.result = result;
+	}
+
 }

@@ -56,7 +56,7 @@ public class DataTable extends JobResultBaseImpl {
     
     private boolean fromCache = false;// true if the data comes from the cache
     
-    private Date executionDate = null;
+    private String executionDate = null;
 
     private boolean fullset = true; //true if the whole dataset fits in  REDIS cache  (ie : number of row < LIMIT)
     
@@ -108,16 +108,19 @@ public class DataTable extends JobResultBaseImpl {
         
         private String description;
         private String format;
+        
+        private int pos;
 
         public Col() {
         }
 
-        public Col(GenericPK pk, String name, ExtendedType extendedType, Role role) {
+        public Col(GenericPK pk, String name, ExtendedType extendedType, Role role, int pos) {
             super();
             this.pk = pk;
             this.name = name;
             this.extendedType = extendedType;
             this.role = role;
+            this.pos = pos;
         }
         
         public OriginType getOriginType() {
@@ -212,6 +215,13 @@ public class DataTable extends JobResultBaseImpl {
 		public void setFormat(String format) {
 			this.format = format;
 		}
+		
+		/**
+		 * @return the position
+		 */
+		public int getPos() {
+			return pos;
+		}
 
         @Override
         public String toString() {
@@ -277,12 +287,12 @@ public class DataTable extends JobResultBaseImpl {
         this.fromCache = fromCache;
     }
     
-    public Date getExecutionDate() {
+    public String getExecutionDate() {
         return executionDate;
     }
     
     public void setExecutionDate(Date executionDate) {
-        this.executionDate = executionDate;
+        this.executionDate = executionDate.toString();
     }
 
 	public boolean getFullset() {

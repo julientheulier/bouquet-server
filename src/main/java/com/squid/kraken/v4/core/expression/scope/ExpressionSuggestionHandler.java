@@ -35,7 +35,9 @@ import com.squid.core.domain.operators.ListContentAssistEntry;
 import com.squid.core.domain.operators.OperatorDefinition;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.ExpressionRef;
+import com.squid.core.expression.PrettyPrintOptions;
 import com.squid.core.expression.UndefinedExpression;
+import com.squid.core.expression.PrettyPrintOptions.ReferenceStyle;
 import com.squid.core.expression.parser.ParseException;
 import com.squid.core.expression.parser.TokenMgrError;
 import com.squid.core.expression.reference.ColumnReference;
@@ -45,6 +47,7 @@ import com.squid.core.expression.scope.ExpressionScope;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.core.analysis.scope.AxisExpression;
 import com.squid.kraken.v4.core.analysis.scope.MeasureExpression;
+import com.squid.kraken.v4.core.analysis.scope.SpaceExpression;
 import com.squid.kraken.v4.core.expression.reference.DomainReference;
 import com.squid.kraken.v4.core.expression.reference.ParameterReference;
 import com.squid.kraken.v4.core.expression.reference.RelationReference;
@@ -110,7 +113,11 @@ public class ExpressionSuggestionHandler {
     }
 
 
-    public ExpressionSuggestion getSuggestion(String expression, int offset, ValueType filterType) {
+    public ExpressionSuggestion getSuggestion(String expression, int offset, ValueType valueTypes) {
+    	return getSuggestion(expression, offset, null, valueTypes!=null?Collections.singletonList(valueTypes):null);
+    }
+
+    public ExpressionSuggestion getSuggestion(String expression, int offset, Collection<ObjectType> objectTypes, Collection<ValueType> valueTypes) {
         ExpressionSuggestion result = new ExpressionSuggestion();
         boolean isParseSubExpression = false;
         if(expression != null){
@@ -123,18 +130,20 @@ public class ExpressionSuggestionHandler {
             ParseException parseError = (ParseException) error.getCause();
             switch (checkIdentifier(parseError.expectedTokenSequences, parseError.tokenImage)) {
                 case IDENTIFIER:
-                    updateProposal(result, expressionToParse, filterType);
+                case FUNCTION:
+                    updateProposal(result, expressionToParse, objectTypes, valueTypes);
                     break;
-                case FUNCTION://T1102
-                    updateProposalWithFunctions(result, expressionToParse, filterType);
                 default:
             }
         } else if (error != null && (error.getCause() instanceof TokenMgrError)) {
-            updateProposal(result, expressionToParse, filterType);
+            updateProposal(result, expressionToParse, objectTypes, valueTypes);
         }
         if (isParseSubExpression) {
             // parse the full expression to get the correct parsing error
             parseExpression(expression, result);
+        } else {
+        	// just update the proposal
+        	updateProposal(result, expressionToParse, objectTypes, valueTypes);
         }
         return result;
     }
@@ -157,11 +166,7 @@ public class ExpressionSuggestionHandler {
         return null;
     }
 
-    private void updateProposalWithFunctions(ExpressionSuggestion exSuggestion, String text, ValueType filter) {
-        updateProposal(exSuggestion, text, filter);
-    }
-
-    private void updateProposal(ExpressionSuggestion exSuggestion, String text, ValueType filterType) {
+    private void updateProposal(ExpressionSuggestion exSuggestion, String text, Collection<ObjectType> objectTypes, Collection<ValueType> valueTypes) {
         //
         ExpressionScope actualScope = this.scope;
         String filter = "";
@@ -215,11 +220,20 @@ public class ExpressionSuggestionHandler {
             List<ExpressionAST> definitions = actualScope.getDefinitions();//buildDefinitionList();
             //
             //System.out.println(prefix);
+            IDomain context = null;
+            try {
+            	ExpressionAST self = actualScope.parseExpression("$'SELF'");
+            	context = self.getImageDomain();
+            } catch (ScopeException e) {
+            	// ignore
+            	System.out.println("");
+            }
+            PrettyPrintOptions options = new PrettyPrintOptions(ReferenceStyle.NAME, context);
             for (ExpressionAST expression : definitions) {
                 if (expression != null) {
                     //Expression expression = actualScope.createReferringExpression(object);
                     if (expression != null) {
-                        String replacement = actualScope.prettyPrint(expression);
+                        String replacement = actualScope.prettyPrint(expression, options);
                         String upperCaseFilter = filter.toUpperCase();
                         boolean test = strict_mode ? replacement.toUpperCase().startsWith(upperCaseFilter) : replacement.toUpperCase().contains(upperCaseFilter);
                         if (test && replacement != null && !replacement.equals("")) {
@@ -229,12 +243,15 @@ public class ExpressionSuggestionHandler {
 	                        String displayString = replacement;
 	                        proposals.add(displayString);
 	                        */
+                        	// filter results
                             ExpressionSuggestionItem item = createItem(replacement, expression);
                             if (item.getValueType() != ValueType.ERROR ) {
-                                if(filterType == null || item.getValueType() == filterType) {
-                                    if (proposals.size() < PROPOSAL_MAX_SIZE) {
-                                        proposals.add(item);
-                                    }
+                                if(valueTypes == null || valueTypes.contains(item.getValueType())) {
+                                	if (objectTypes == null || objectTypes.contains(item.getObjectType())) {
+                                		if (proposals.size() < PROPOSAL_MAX_SIZE) {
+                                			proposals.add(item);
+                                		}
+                                	}
                                 }
                             }
                         }
@@ -252,34 +269,37 @@ public class ExpressionSuggestionHandler {
 
             }
             try {
-                Set<OperatorDefinition> opDefs = this.scope.looseLookup(text); //test if it is a function
-                for (OperatorDefinition opDef : opDefs) {
-                    List<List> poly = opDef.getParametersTypes();
-                    ListContentAssistEntry listContentAssistEntry = opDef.getListContentAssistEntry();
-                    if (listContentAssistEntry != null) {
-                        if (listContentAssistEntry.getContentAssistEntries() != null)
-                            for (ContentAssistEntry contentAssistEntry : listContentAssistEntry.getContentAssistEntries()) {
-                                //TODO this code should disappear when we get to XTEXT
-                                ExpressionSuggestionItem item =
-                                        new ExpressionSuggestionItem(
-                                                opDef.getSymbol() + "(" + contentAssistEntry.getLabel() + ")",
-                                                contentAssistEntry.getDescription(),
-                                                opDef.getSymbol() + "(" + contentAssistEntry.getLabel() + ")",
-                                                opDef.getSymbol() + "(" + contentAssistEntry.getProposal() + ")",
-                                                ObjectType.FUNCTION,
-                                                computeValueTypeFromImage(opDef.computeImageDomain(poly.get(listContentAssistEntry.getContentAssistEntries().indexOf(contentAssistEntry)))),
-                                                0);//computeValueTypeFromImage(opDef.computeImageDomain(type)));
-                                if (item.getValueType() != ValueType.ERROR) {
-                                    if(filterType == null || item.getValueType() == filterType) {
-                                        if (proposals.size() < PROPOSAL_MAX_SIZE) {
-                                            proposals.add(item);
-                                        }
-                                    }
-                                }
-                            }
-                    }
-                }
-
+            	if (objectTypes == null || objectTypes.contains(ObjectType.FUNCTION)) {
+            		//test if it is a function
+	                Set<OperatorDefinition> opDefs = this.scope.looseLookup(text);
+	                for (OperatorDefinition opDef : opDefs) {
+	                    List<List> poly = opDef.getParametersTypes();
+	                    ListContentAssistEntry listContentAssistEntry = opDef.getListContentAssistEntry();
+	                    if (listContentAssistEntry != null) {
+	                        if (listContentAssistEntry.getContentAssistEntries() != null) {
+	                            for (ContentAssistEntry contentAssistEntry : listContentAssistEntry.getContentAssistEntries()) {
+	                                //TODO this code should disappear when we get to XTEXT
+	                                ExpressionSuggestionItem item =
+	                                        new ExpressionSuggestionItem(
+	                                                opDef.getSymbol() + "(" + contentAssistEntry.getLabel() + ")",
+	                                                contentAssistEntry.getDescription(),
+	                                                opDef.getSymbol() + "(" + contentAssistEntry.getLabel() + ")",
+	                                                opDef.getSymbol() + "(" + contentAssistEntry.getProposal() + ")",
+	                                                ObjectType.FUNCTION,
+	                                                computeValueTypeFromImage(opDef.computeImageDomain(poly.get(listContentAssistEntry.getContentAssistEntries().indexOf(contentAssistEntry)))),
+	                                                0);//computeValueTypeFromImage(opDef.computeImageDomain(type)));
+	                                if (item.getValueType() != ValueType.ERROR) {
+	                                    if(valueTypes == null || valueTypes.contains(item.getValueType())) {
+	                                        if (proposals.size() < PROPOSAL_MAX_SIZE) {
+	                                            proposals.add(item);
+	                                        }
+	                                    }
+	                                }
+	                            }
+	                        }
+	                    }
+	                }
+            	}
             } catch (ScopeException e) {
                 //ignoring
             }
@@ -375,17 +395,19 @@ public class ExpressionSuggestionHandler {
         } else if (expr instanceof RelationReference) {
             return ObjectType.RELATION;
         } else if (expr instanceof AxisExpression) {
-            return ObjectType.FORMULA;// simplify ?
+            return ObjectType.DIMENSION;// simplify ?
         } else if (expr instanceof MeasureExpression) {
-            return ObjectType.FORMULA;// simplify ?
+            return ObjectType.METRIC;// simplify ?
+        } else if (expr instanceof SpaceExpression) {
+            return ObjectType.DOMAIN;// simplify ?
         } else if (expr instanceof ParameterReference) {
             IDomain image = expr.getImageDomain();
             if (image.isInstanceOf(IDomain.OBJECT)) {
                 return ObjectType.DOMAIN;
             } else {
-                return ObjectType.FORMULA;
+                return ObjectType.EXPRESSION;
             }
-        } else return ObjectType.FORMULA;
+        } else return ObjectType.EXPRESSION;
     }
 
     private ValueType computeValueType(ExpressionAST expr) {
@@ -398,7 +420,7 @@ public class ExpressionSuggestionHandler {
         if (image.isInstanceOf(IDomain.AGGREGATE))
 
         {
-            return ValueType.METRIC;
+            return ValueType.AGGREGATE;
         } else if (image.isInstanceOf(IDomain.STRING))
 
         {
@@ -448,7 +470,7 @@ public class ExpressionSuggestionHandler {
         switch (objectType) {
             case FOREIGNKEY:
                 return -1;
-            case FORMULA:
+            case EXPRESSION:
             case DIMENSION:
             case METRIC:
                 return 0;

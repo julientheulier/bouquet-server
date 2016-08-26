@@ -21,71 +21,79 @@
  * you and Squid Solutions (above licenses and LICENSE.txt included).
  * See http://www.squidsolutions.com/EnterpriseBouquet/
  *******************************************************************************/
-package com.squid.kraken.v4.core.expression.reference;
+package com.squid.kraken.v4.core.analysis.scope;
 
 import com.squid.core.domain.IDomain;
 import com.squid.core.domain.operators.ExtendedType;
 import com.squid.core.expression.ExpressionRef;
-import com.squid.core.expression.PrettyPrintConstant;
-import com.squid.core.expression.PrettyPrintOptions;
 import com.squid.core.expression.scope.IdentifierType;
 import com.squid.core.sql.render.SQLSkin;
+import com.squid.kraken.v4.core.model.domain.DomainDomain;
+import com.squid.kraken.v4.model.Project;
 
-
-public class ParameterReference extends ExpressionRef {
+/**
+ * @author sergefantino
+ *
+ */
+public class ProjectExpressionRef extends ExpressionRef {
 	
-	private String parameterName;
-	private IDomain image;
+	private Project project;
 	
-	public ParameterReference(String parameterName, IDomain image) {
+	public ProjectExpressionRef(Project project) {
 		super();
-		this.parameterName = parameterName;
-		this.image = image;
-	}
-	
-	public String getParameterName() {
-		return parameterName;
+		this.project = project;
 	}
 
+	/* (non-Javadoc)
+	 * @see com.squid.core.expression.ExpressionAST#computeType(com.squid.core.sql.render.SQLSkin)
+	 */
 	@Override
 	public ExtendedType computeType(SQLSkin skin) {
-		return image.computeType(skin);
+		// TODO Auto-generated method stub
+		return null;
 	}
 
+	/* (non-Javadoc)
+	 * @see com.squid.core.expression.ExpressionAST#getImageDomain()
+	 */
 	@Override
 	public IDomain getImageDomain() {
-		return image;
+		return DomainDomain.DOMAIN;
 	}
 
+	/* (non-Javadoc)
+	 * @see com.squid.core.expression.ExpressionAST#getSourceDomain()
+	 */
 	@Override
 	public IDomain getSourceDomain() {
 		return IDomain.NULL;
 	}
 
-	@Override
-	public String getReferenceName() {
-		return parameterName;
-	}
-	
+	/* (non-Javadoc)
+	 * @see com.squid.core.expression.ExpressionRef#getReference()
+	 */
 	@Override
 	public Object getReference() {
-		return parameterName;
+		return project;
 	}
 	
+	public Project getProject() {
+		return project;
+	}
+
+	@Override
+	public String getReferenceName() {
+		return project.getName();
+	}
+
 	@Override
 	public String getReferenceIdentifier() {
-		return null;// don't want rewriting
+		return project.getId().getProjectId();
 	}
 	
 	@Override
 	public IdentifierType getReferenceType() {
 		return null;
-	}
-	
-	@Override
-	public String prettyPrint(PrettyPrintOptions options) {
-		// $'name'
-		return IdentifierType.PARAMETER+PrettyPrintConstant.OPEN_IDENT+parameterName+PrettyPrintConstant.CLOSE_IDENT;
 	}
 
 }

@@ -23,38 +23,29 @@
  *******************************************************************************/
 package com.squid.kraken.v4.core.expression.scope;
 
-import java.util.List; 
+import java.util.List;
 import java.util.concurrent.ExecutionException;
 
 import com.squid.core.database.model.Column;
 import com.squid.core.database.model.Table;
 import com.squid.core.domain.IDomain;
 import com.squid.core.expression.ExpressionAST;
-import com.squid.core.expression.scope.DefaultScope;
 import com.squid.core.expression.scope.ExpressionDiagnostic;
 import com.squid.core.expression.scope.IdentifierType;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.api.core.AccessRightsUtils;
-import com.squid.kraken.v4.core.analysis.scope.AxisExpression;
-import com.squid.kraken.v4.core.analysis.scope.MeasureExpression;
-import com.squid.kraken.v4.core.analysis.universe.Axis;
-import com.squid.kraken.v4.core.analysis.universe.Measure;
+import com.squid.kraken.v4.core.analysis.scope.SpaceScope;
 import com.squid.kraken.v4.core.analysis.universe.Space;
-import com.squid.kraken.v4.core.analysis.universe.Universe;
-import com.squid.kraken.v4.core.expression.reference.ColumnDomainReference;
-import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.AccessRight.Role;
 
-public class SegmentExpressionScope extends DefaultScope {
+public class SegmentExpressionScope extends SpaceScope {
 
-    private Space space;
     private Table table;
 
-    public SegmentExpressionScope(Universe universe, Domain domain)
+    public SegmentExpressionScope(Space root)
             throws ScopeException {
-        super();
-        this.space = universe.S(domain);
-        this.table = space.getTable();
+        super(root);
+        this.table = getSpace().getTable();
     }
     
     @Override
@@ -75,30 +66,14 @@ public class SegmentExpressionScope extends DefaultScope {
     		//
     	}
     	//
-        definitions.addAll(space.M());
-    }
-    
-
-    @Override
-    public IdentifierType lookupIdentifierType(String image) {
-        // TODO Auto-generated method stub
-        return IdentifierType.DEFAULT;
+    	super.buildDefinitionList(definitions);
     }
 
     @Override
     public Object lookupObject(IdentifierType identifierType, String identifier) throws ScopeException {
-    	//
-    	Axis axis = space.A(identifier);
-    	if (axis!=null) return axis;
-    	try {
-    		Measure measure = space.M(identifier);
-    		if (measure!=null) return measure;
-    	} catch (ScopeException e) {
-    		// ignore
-    	}
         //
         // check for column only if user as privilege
-        if (table!=null && AccessRightsUtils.getInstance().hasRole(space.getUniverse().getContext(), space.getDomain(), Role.WRITE)) {
+        if (table!=null && AccessRightsUtils.getInstance().hasRole(getSpace().getUniverse().getContext(), getSpace().getDomain(), Role.WRITE)) {
         	try {
 				Column col = table.findColumnByName(identifier);
 				if (col!=null) {
@@ -111,6 +86,7 @@ public class SegmentExpressionScope extends DefaultScope {
         return super.lookupObject(identifierType, identifier);
     }
     
+    /*
     @Override
     public ExpressionAST createReferringExpression(Object reference)
             throws ScopeException {
@@ -125,5 +101,6 @@ public class SegmentExpressionScope extends DefaultScope {
         }
         return super.createReferringExpression(reference);
     }
+    */
 
 }

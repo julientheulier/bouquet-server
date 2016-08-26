@@ -423,6 +423,14 @@ public class ProjectAnalysisJob extends JobBaseImpl<ProjectAnalysisJobPK, DataTa
 			this.expression = expression;
 		}
 		
+		/* (non-Javadoc)
+		 * @see java.lang.Object#toString()
+		 */
+		@Override
+		public String toString() {
+			return this.direction+" "+this.expression;
+		}
+		
 	}
 
 }

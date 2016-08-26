@@ -23,14 +23,64 @@
  *******************************************************************************/
 package com.squid.kraken.v4.model;
 
-public enum ObjectType {
-	TABLE,
-	COLUMN,
-	FOREIGNKEY,
-	RELATION,
-	DOMAIN,// a domain, or a domain reference
-	DIMENSION,// this is a dimension
-	METRIC,// this is a metric
-	EXPRESSION,// this is a generic expression
-	FUNCTION// this is a function prototype
+import com.wordnik.swagger.annotations.ApiModelProperty;
+
+/**
+ * This is the result of an analysis
+ * @author sergefantino
+ *
+ */
+public class AnalysisResult {
+	
+	// this is the query that generated this analysis
+	private AnalysisQuery query;
+	
+	// the analysis selection
+	private FacetSelection selection;
+	
+	// the resulting dataTable
+	private Object data;// this may depend on the output format
+	// the sql code
+	private String sql;
+	
+	/**
+	 * 
+	 */
+	public AnalysisResult() {
+		// TODO Auto-generated constructor stub
+	}
+
+	public AnalysisQuery getQuery() {
+		return query;
+	}
+
+	public void setQuery(AnalysisQuery query) {
+		this.query = query;
+	}
+
+	@ApiModelProperty(hidden=true)// only used for LEGACY mode, so don't mess user with it
+	public FacetSelection getSelection() {
+		return selection;
+	}
+
+	public void setSelection(FacetSelection selection) {
+		this.selection = selection;
+	}
+
+	public Object getData() {
+		return data;
+	}
+
+	public void setData(Object data) {
+		this.data = data;
+	}
+
+	public String getSQL() {
+		return sql;
+	}
+	
+	public void setSQL(String sql) {
+		this.sql = sql;
+	}
+
 }

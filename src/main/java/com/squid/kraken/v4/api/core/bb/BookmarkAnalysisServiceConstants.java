@@ -21,16 +21,32 @@
  * you and Squid Solutions (above licenses and LICENSE.txt included).
  * See http://www.squidsolutions.com/EnterpriseBouquet/
  *******************************************************************************/
-package com.squid.kraken.v4.model;
+package com.squid.kraken.v4.api.core.bb;
 
-public enum ObjectType {
-	TABLE,
-	COLUMN,
-	FOREIGNKEY,
-	RELATION,
-	DOMAIN,// a domain, or a domain reference
-	DIMENSION,// this is a dimension
-	METRIC,// this is a metric
-	EXPRESSION,// this is a generic expression
-	FUNCTION// this is a function prototype
+/**
+ * @author sergefantino
+ *
+ */
+public interface BookmarkAnalysisServiceConstants {
+
+	public final static String BBID_PARAM_NAME = "REFERENCE";
+	public final static String FACETID_PARAM_NAME = "FACETID";
+
+	public static final String LAZY_PARAM = "lazy";
+	public static final String START_INDEX_PARAM = "startIndex";
+	public static final String MAX_RESULTS_PARAM = "maxResults";
+	public static final String FORMAT_PARAM = "format";
+	public static final String LIMIT_PARAM = "limit";
+	public static final String ROLLUP_PARAM = "rollup";
+	public static final String ORDERBY_PARAM = "orderby";
+	public static final String COMPAREFRAME_PARAM = "compareframe";
+	public static final String TIMEFRAME_PARAM = "timeframe";
+	public static final String PERIOD_PARAM = "period";
+	public static final String METRICS_PARAM = "metrics";
+	public static final String GROUP_BY_PARAM = "groupBy";
+	public static final String TIMEOUT_PARAM = "timeout";
+	public static final String FILTERS_PARAM = "filters";
+	public static final String STYLE_PARAM = "style";
+	public static final String VISIBILITY_PARAM = "visibility";
+
 }

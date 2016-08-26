@@ -106,8 +106,9 @@ public class SimpleQuery extends BaseQuery {
 	public void select(Measure measure, ExpressionAST expr) throws SQLScopeException, ScopeException {
 		try {
 			ISelectPiece piece = select.select(expr,measure.getName());
-			piece.addComment(measure.getName()+" (Metric)");
-			setComment("\ncomputing KPI '"+measure.getName()+"'");
+			String name = measure.getName();
+			piece.addComment(name+" (Metric)");
+			setComment("\ncomputing KPI '"+name+"'");
 			select.getScope().put(measure, expr);// register the measure in the select context
 			MeasureMapping kx = new MeasureMapping(piece, measure);
 			add(kx);
