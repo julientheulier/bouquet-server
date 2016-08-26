@@ -45,7 +45,7 @@ import com.squid.kraken.v4.KrakenConfig;
 import com.squid.kraken.v4.ESIndexFacade.ESIndexFacadeConfiguration;
 import com.squid.kraken.v4.api.core.EmailHelperImpl;
 import com.squid.kraken.v4.api.core.ServiceUtils;
-import com.squid.kraken.v4.api.core.bb.BookmarkAnalysisServiceRest;
+import com.squid.kraken.v4.api.core.analytics.BookmarkAnalysisServiceRest;
 import com.squid.kraken.v4.api.core.customer.AdminServiceRest;
 import com.squid.kraken.v4.api.core.customer.CustomerServiceBaseImpl;
 import com.squid.kraken.v4.api.core.customer.CustomerServiceRest;
