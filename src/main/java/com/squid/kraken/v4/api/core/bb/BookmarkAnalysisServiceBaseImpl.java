@@ -367,7 +367,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 	
 	private URI createLinkToAnalysis(AppContext userContext, NavigationItem item) {
 		return
-				uriInfo.getAbsolutePathBuilder().path("/{BBID}/query").queryParam("access_token", userContext.getToken().getOid()).build(item.getSelfRef());
+				uriInfo.getAbsolutePathBuilder().path("/{"+BBID_PARAM_NAME+"}/query").queryParam("access_token", userContext.getToken().getOid()).build(item.getSelfRef());
 	}
 	
 	private UriBuilder createNavigationQuery(AppContext userContext, NavigationQuery query) {
@@ -563,7 +563,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 			}
 			String domainID = "@'"+space.getDomain().getOid()+"'";
 			if (!query.getDomain().equals(domainID)) {
-				throw new APIException("invalid domain definition for the query, doesn't not match the BBID");
+				throw new APIException("invalid domain definition for the query, doesn't not match the REFERENCE");
 			}
 			Bookmark bookmark = new Bookmark();
 			BookmarkPK bookmarkPK = new BookmarkPK(space.getUniverse().getProject().getId());
@@ -595,7 +595,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		} catch (IOException e) {
 			throw new APIException("cannot create the bookmark: JSON error: "+e.getMessage());
 		} catch (ScopeException e) {
-			throw new ObjectNotFoundAPIException("invalid BBID :" + e.getMessage(), true);
+			throw new ObjectNotFoundAPIException("invalid REFERENCE :" + e.getMessage(), true);
 		}
 	}
 	
@@ -621,10 +621,10 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 				return space;
 			}
 		} catch (ScopeException e) {
-			throw new ObjectNotFoundAPIException("invalid BBID: "+e.getMessage(), true);
+			throw new ObjectNotFoundAPIException("invalid REFERENCE: "+e.getMessage(), true);
 		}
 		// else
-		throw new ObjectNotFoundAPIException("invalid BBID", true);
+		throw new ObjectNotFoundAPIException("invalid REFERENCE", true);
 	}
 	
 	public Facet getFacet(
@@ -1707,7 +1707,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 	 */
 	private URI buildExportQuery(UriInfo uriInfo, AppContext userContext, String BBID, AnalysisQuery query, String filename) {
 		UriBuilder builder = uriInfo.getBaseUriBuilder().
-			path("bb/{BBID}/export/{filename}");
+			path("/analytics/{"+BBID_PARAM_NAME+"}/export/{filename}");
 		if (query.getGroupBy()!=null) {
 			for (String item : query.getGroupBy()) {
 				builder.queryParam(GROUP_BY_PARAM, item);

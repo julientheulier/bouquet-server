@@ -85,9 +85,6 @@ import com.wordnik.swagger.annotations.AuthorizationScope;
 public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest implements BookmarkAnalysisServiceConstants {
 
 	static final Logger logger = LoggerFactory.getLogger(BookmarkAnalysisServiceRest.class);
-
-	private final static String BBID_PARAM_NAME = "BBID";
-	private final static String FACETID_PARAM_NAME = "FACETID";
 	
 	@Context
 	UriInfo uriInfo;

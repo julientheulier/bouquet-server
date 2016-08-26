@@ -29,6 +29,9 @@ package com.squid.kraken.v4.api.core.bb;
  */
 public interface BookmarkAnalysisServiceConstants {
 
+	public final static String BBID_PARAM_NAME = "REFERENCE";
+	public final static String FACETID_PARAM_NAME = "FACETID";
+
 	public static final String LAZY_PARAM = "lazy";
 	public static final String START_INDEX_PARAM = "startIndex";
 	public static final String MAX_RESULTS_PARAM = "maxResults";
