@@ -26,7 +26,6 @@ package com.squid.kraken.v4.model;
 import java.net.URI;
 import java.util.Map;
 
-import com.squid.kraken.v4.api.core.bb.BookmarkAnalysisServiceBaseImpl;
 import com.squid.kraken.v4.model.NavigationQuery.Style;
 
 /**
@@ -34,6 +33,11 @@ import com.squid.kraken.v4.model.NavigationQuery.Style;
  *
  */
 public class NavigationItem {
+
+	public static final String PROJECT_TYPE = "PROJECT";
+	public static final String FOLDER_TYPE = "FOLDER";
+	public static final String BOOKMARK_TYPE = "BOOKMARK";
+	public static final String DOMAIN_TYPE = "DOMAIN";
 	
 	private CustomerPK id;
 	
@@ -69,7 +73,7 @@ public class NavigationItem {
 		} else {
 			this.selfRef = parentRef+"/@"+project.getOid();
 		}
-		this.type = BookmarkAnalysisServiceBaseImpl.PROJECT_TYPE;
+		this.type = PROJECT_TYPE;
 	}
 	
 	/**
@@ -89,7 +93,7 @@ public class NavigationItem {
 		} else {
 			this.selfRef = "@'"+project.getOid()+"'.@'"+domain.getOid()+"'";
 		}
-		this.type = BookmarkAnalysisServiceBaseImpl.DOMAIN_TYPE;
+		this.type = DOMAIN_TYPE;
 	}
 	
 	public NavigationItem(CustomerPK id, String name, String description, String parentRef, String selfRef, String type) {

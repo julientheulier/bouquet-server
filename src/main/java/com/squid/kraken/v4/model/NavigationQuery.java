@@ -25,15 +25,16 @@ package com.squid.kraken.v4.model;
 
 import java.net.URI;
 
-import com.squid.kraken.v4.api.core.bb.BookmarkAnalysisServiceRest;
-import com.squid.kraken.v4.api.core.bb.BookmarkAnalysisServiceRest.HierarchyMode;
-
 /**
  * This is a simple pojo that wraps the navigation parameters
  * @author sergefantino
  *
  */
 public class NavigationQuery {
+	
+	public enum HierarchyMode {
+		NONE, TREE, FLAT
+	}
 	
 	public enum Style {
 		HUMAN, LEGACY, MACHINE
