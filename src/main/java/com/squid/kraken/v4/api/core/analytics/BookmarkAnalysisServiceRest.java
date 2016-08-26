@@ -60,6 +60,7 @@ import com.squid.kraken.v4.model.ProjectAnalysisJob.Position;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.RollUp;
 import com.squid.kraken.v4.model.ValueType;
 import com.squid.kraken.v4.model.VegaliteReply;
+import com.squid.kraken.v4.model.NavigationQuery.HierarchyMode;
 import com.squid.kraken.v4.model.NavigationQuery.Style;
 import com.squid.kraken.v4.model.NavigationQuery.Visibility;
 import com.squid.kraken.v4.persistence.AppContext;
@@ -487,10 +488,6 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 		if (lazy!=null) query.setLazy(lazy);
 		if (style!=null) query.setStyle(style);
 		return query;
-	}
-	
-	public enum HierarchyMode {
-		NONE, TREE, FLAT
 	}
 
 }

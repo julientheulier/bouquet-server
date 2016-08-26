@@ -83,7 +83,6 @@ import com.squid.kraken.v4.api.core.EngineUtils;
 import com.squid.kraken.v4.api.core.JobStats;
 import com.squid.kraken.v4.api.core.JobServiceBaseImpl.OutputCompression;
 import com.squid.kraken.v4.api.core.JobServiceBaseImpl.OutputFormat;
-import com.squid.kraken.v4.api.core.analytics.BookmarkAnalysisServiceRest.HierarchyMode;
 import com.squid.kraken.v4.api.core.ObjectNotFoundAPIException;
 import com.squid.kraken.v4.api.core.PerfDB;
 import com.squid.kraken.v4.api.core.bookmark.BookmarkServiceBaseImpl;
@@ -133,6 +132,7 @@ import com.squid.kraken.v4.model.DataTable.Col;
 import com.squid.kraken.v4.model.DataTable.Row;
 import com.squid.kraken.v4.model.Dimension;
 import com.squid.kraken.v4.model.Dimension.Type;
+import com.squid.kraken.v4.model.NavigationQuery.HierarchyMode;
 import com.squid.kraken.v4.model.NavigationQuery.Style;
 import com.squid.kraken.v4.model.NavigationQuery.Visibility;
 import com.squid.kraken.v4.model.Domain;
@@ -187,11 +187,6 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 	private static final NavigationItem PROJECTS_FOLDER = new NavigationItem("Projects", "list all your Dictionaries", "", "/PROJECTS", "FOLDER");
 	private static final NavigationItem SHARED_FOLDER = new NavigationItem("Shared Bookmarks", "list all the bookmarks shared with you", "", "/SHARED", "FOLDER");
 	private static final NavigationItem MYBOOKMARKS_FOLDER = new NavigationItem("My Bookmarks", "list all your bookmarks", "", "/MYBOOKMARKS", "FOLDER");
-
-	public static final String PROJECT_TYPE = "PROJECT";
-	public static final String FOLDER_TYPE = "FOLDER";
-	public static final String BOOKMARK_TYPE = "BOOKMARK";
-	public static final String DOMAIN_TYPE = "DOMAIN";
 
 	public NavigationReply listContent(
 			AppContext userContext,
@@ -255,7 +250,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 	}
 	
 	private static final List<String> topLevelOrder = Arrays.asList(new String[]{PROJECTS_FOLDER.getSelfRef(), SHARED_FOLDER.getSelfRef(), MYBOOKMARKS_FOLDER.getSelfRef()});
-	private static final List<String> typeOrder = Arrays.asList(new String[]{FOLDER_TYPE, BOOKMARK_TYPE, DOMAIN_TYPE});
+	private static final List<String> typeOrder = Arrays.asList(new String[]{NavigationItem.FOLDER_TYPE, NavigationItem.BOOKMARK_TYPE, NavigationItem.DOMAIN_TYPE});
 	
 	/**
 	 * @param content
@@ -462,7 +457,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 					if (hierarchyMode==HierarchyMode.FLAT) {
 						actualParent = (parent + path.substring(fullPath.length()));
 					}
-					NavigationItem item = new NavigationItem(query.getStyle().equals("HUMAN")?null:bookmark.getId(), name, bookmark.getDescription(), actualParent, id, BOOKMARK_TYPE);
+					NavigationItem item = new NavigationItem(query.getStyle().equals("HUMAN")?null:bookmark.getId(), name, bookmark.getDescription(), actualParent, id, NavigationItem.BOOKMARK_TYPE);
 					if (query.getStyle()==Style.HUMAN) item.setLink(createLinkToAnalysis(userContext, item));
 					HashMap<String, String> attrs = new HashMap<>();
 					attrs.put("dictionary", project.getName());
@@ -482,7 +477,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 									.encodeBase64URLSafeString(selfpath.getBytes());
 							// legacy folder PK support
 							BookmarkFolderPK id = new BookmarkFolderPK(bookmark.getId().getCustomerId(), oid);
-							NavigationItem folder = new NavigationItem(query.getStyle().equals("HUMAN")?null:id, name, "", parent, selfpath, FOLDER_TYPE);
+							NavigationItem folder = new NavigationItem(query.getStyle().equals("HUMAN")?null:id, name, "", parent, selfpath, NavigationItem.FOLDER_TYPE);
 							if (query.getStyle()==Style.HUMAN) folder.setLink(createLinkToFolder(userContext, query, folder));
 							content.add(folder);
 							folders.add(selfpath);
