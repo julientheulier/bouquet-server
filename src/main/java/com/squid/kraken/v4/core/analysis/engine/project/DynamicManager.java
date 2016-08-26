@@ -163,6 +163,7 @@ public class DynamicManager {
 								: (table.getSchema().getName() + ":" + table.getName());
 						DomainPK domainPk = new DomainPK(project.getId(), checkUniqueId(tableRef, checkIDs));
 						Domain domain = new Domain(domainPk, domainName, new Expression("'" + tableRef + "'"), true);
+						if (table.getDescription()!=null) domain.setDescription(table.getDescription());
 						domain.setAccessRights(accessRights);
 						AccessRightsUtils.getInstance().setAccessRights(root.getContext(), domain, project);
 						domains.add(domain);
@@ -638,6 +639,7 @@ public class DynamicManager {
 					Type type = Type.INDEX;
 					String name = checkName(normalizeObjectName(col.getName()), checkName);
 					Dimension dim = new Dimension(id, name, type, new Expression(expr), domainInternalDefautDynamic);
+					if (col.getDescription()!=null) dim.setDescription(col.getDescription());
 					dim.setImageDomain(col.getTypeDomain());
 					dim.setValueType(computeValueType(col.getTypeDomain()));
 					AccessRightsUtils.getInstance().setAccessRights(univ.getContext(), dim, domain);
@@ -679,6 +681,7 @@ public class DynamicManager {
 							}
 							Dimension dim = new Dimension(id, name, Type.INDEX, new Expression(expr),
 									domainInternalDefautDynamic);
+							dim.setDescription("relation to "+neighbor.getDomain().getName());
 							dim.setValueType(ValueType.OBJECT);
 							dim.setImageDomain(ref.getImageDomain());
 							AccessRightsUtils.getInstance().setAccessRights(univ.getContext(), dim, domain);
@@ -704,6 +707,7 @@ public class DynamicManager {
 				String name = "COUNT " + domain.getName();
 				name = checkName(name, checkName);
 				Metric metric = new Metric(metricId, name, expr, domainInternalDefautDynamic);
+				metric.setDescription(domain.getName() + " count");
 				AccessRightsUtils.getInstance().setAccessRights(univ.getContext(), metric, domain);
 				content.add(metric);
 				checkName.add(name);
@@ -723,6 +727,7 @@ public class DynamicManager {
 							String name = "SUM " + normalizeObjectName(col.getName());
 							name = checkName(name, checkName);
 							Metric metric = new Metric(metricId, name, expr, domainInternalDefautDynamic);
+							if (col.getDescription()!=null) metric.setDescription(col.getDescription());
 							AccessRightsUtils.getInstance().setAccessRights(univ.getContext(), metric, domain);
 							content.add(metric);
 							checkName.add(name);
