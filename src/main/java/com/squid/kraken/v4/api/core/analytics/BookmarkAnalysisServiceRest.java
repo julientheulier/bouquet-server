@@ -211,14 +211,14 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 					allowableValues="LEGACY,SQL,RECORDS")
 			@QueryParam(FORMAT_PARAM) String format,
 			@ApiParam(
-					value="define the result enveloppe",
+					value="define the result envelope",
 					allowableValues="ALL,RESULT,DATA")
-			@QueryParam("enveloppe") String enveloppe,
+			@QueryParam(ENVELOPE_PARAM) String envelope,
 			@ApiParam(value = "response timeout in milliseconds. If no timeout set, the method will return according to current job status.") 
 			@QueryParam(TIMEOUT_PARAM) Integer timeout
 			) throws ComputingException, ScopeException, InterruptedException {
 		AppContext userContext = getUserContext(request);
-		return getDelegate().runAnalysis(userContext, BBID, query, format, enveloppe, timeout);
+		return getDelegate().runAnalysis(userContext, BBID, query, format, envelope, timeout);
 	}
 
 	@GET
@@ -271,15 +271,15 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 					allowableValues="LEGACY,SQL,RECORDS")
 			@QueryParam(FORMAT_PARAM) String format,
 			@ApiParam(
-					value="define the result enveloppe",
+					value="define the result envelope",
 					allowableValues="ALL,RESULT,DATA")
-			@QueryParam("enveloppe") String enveloppe,
+			@QueryParam(ENVELOPE_PARAM) String envelope,
 			@ApiParam(value = "response timeout in milliseconds. If no timeout set, the method will return according to current job status.") 
 			@QueryParam(TIMEOUT_PARAM) Integer timeout
 			) throws ComputingException, ScopeException, InterruptedException {
 		AppContext userContext = getUserContext(request);
 		AnalyticsQuery analysis = createAnalysisFromParams(BBID, groupBy, metrics, filterExpressions, period, timeframe, compareframe, orderExpressions, rollupExpressions, limit, beyondLimit, maxResults, startIndex, lazy, style);
-		return getDelegate().runAnalysis(userContext, BBID, analysis, format, enveloppe, timeout);
+		return getDelegate().runAnalysis(userContext, BBID, analysis, format, envelope, timeout);
 	}
 
 

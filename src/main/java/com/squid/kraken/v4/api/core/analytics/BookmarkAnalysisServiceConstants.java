@@ -37,6 +37,7 @@ public interface BookmarkAnalysisServiceConstants {
 	public static final String MAX_RESULTS_PARAM = "maxResults";
 	public static final String FORMAT_PARAM = "format";
 	public static final String LIMIT_PARAM = "limit";
+	public static final String ENVELOPE_PARAM = "envelope";
 	public static final String ROLLUP_PARAM = "rollup";
 	public static final String ORDERBY_PARAM = "orderby";
 	public static final String COMPAREFRAME_PARAM = "compareframe";

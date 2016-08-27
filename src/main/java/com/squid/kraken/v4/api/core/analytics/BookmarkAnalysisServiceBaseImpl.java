@@ -760,7 +760,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 			String BBID,
 			final AnalyticsQuery query, 
 			String format,
-			String enveloppe,
+			String envelope,
 			Integer timeout
 			)
 	{
@@ -835,20 +835,20 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 				}
 			}
 			//
-			if (enveloppe==null) {
+			if (envelope==null) {
 				if (query.getStyle()==Style.HUMAN) {
-					enveloppe = "ALL";
+					envelope = "ALL";
 				} else if (query.getStyle()==Style.LEGACY) {
-					enveloppe = "RESULT";
+					envelope = "RESULT";
 				} else {//MACHINE
-					enveloppe = "RESULT";
+					envelope = "RESULT";
 				}
 			}
-			if (enveloppe.equalsIgnoreCase("ALL")) {
+			if (envelope.equalsIgnoreCase("ALL")) {
 				return reply;
-			} else if (enveloppe.equalsIgnoreCase("RESULT")) {
+			} else if (envelope.equalsIgnoreCase("RESULT")) {
 				return reply.getResult();
-			} else if (enveloppe.equalsIgnoreCase("DATA")) {
+			} else if (envelope.equalsIgnoreCase("DATA")) {
 				if (reply.getResult() instanceof AnalyticsResult) {
 					return ((AnalyticsResult)reply.getResult()).getData();
 				} else if (reply.getResult() instanceof DataTable) {
@@ -1720,7 +1720,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 			specs.data = transformToVegaData(table);
 		} else if (data.equals("URL")) {
 			//URI uri = buildExportURI(uriInfo, userContext, localScope, BBID, query, ".csv");
-			URI uri = buildQueryURI(uriInfo, userContext, localScope, BBID, query, "RECORDS", "DATA");
+			URI uri = buildAnalyticsQueryURI(uriInfo, userContext, localScope, BBID, query, "RECORDS", "DATA");
 			specs.data = new Data();
 			specs.data.url = uri.toString();
 			specs.data.format = new Format();
@@ -1754,11 +1754,11 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		return builder.build(BBID, filename);
 	}
 	
-	private URI buildQueryURI(UriInfo uriInfo, AppContext userContext, SpaceScope localScope, String BBID, AnalyticsQuery query, String format, String enveloppe) throws ScopeException {
+	private URI buildAnalyticsQueryURI(UriInfo uriInfo, AppContext userContext, SpaceScope localScope, String BBID, AnalyticsQuery query, String format, String envelope) throws ScopeException {
 		UriBuilder builder = uriInfo.getBaseUriBuilder().
 			path("/analytics/{"+BBID_PARAM_NAME+"}/query");
 		addAnalyticsQueryParams(builder, localScope, query);
-		builder.queryParam("format", format).queryParam("enveloppe", enveloppe);
+		builder.queryParam("format", format).queryParam(ENVELOPE_PARAM, envelope);
 		builder.queryParam("access_token", userContext.getToken().getOid());
 		return builder.build(BBID);
 	}
