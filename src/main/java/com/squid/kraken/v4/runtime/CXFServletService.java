@@ -231,7 +231,7 @@ public class CXFServletService extends CXFNonSpringJaxrsServlet {
 
 	public void initSwagger(ServletConfig config) throws ServletException {
 		ReflectiveJaxrsScanner scanner = new ReflectiveJaxrsScanner();
-		scanner.setResourcePackage("com.squid.kraken.v4.api.core.customer,com.squid.kraken.v4.api.core.bb");
+		scanner.setResourcePackage("com.squid.kraken.v4.api.core.customer,com.squid.kraken.v4.api.core.analytics");
 		ScannerFactory.setScanner(scanner);
 
 		Info info = new Info().title("Bouquet").version("4.2").description("This is Bouquet API");
