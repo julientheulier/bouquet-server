@@ -120,9 +120,10 @@ import com.squid.kraken.v4.export.ExportSourceWriter;
 import com.squid.kraken.v4.export.ExportSourceWriterCSV;
 import com.squid.kraken.v4.export.ExportSourceWriterXLSX;
 import com.squid.kraken.v4.model.AccessRight;
-import com.squid.kraken.v4.model.AnalysisQuery;
-import com.squid.kraken.v4.model.AnalysisQueryImpl;
-import com.squid.kraken.v4.model.AnalysisResult;
+import com.squid.kraken.v4.model.AnalyticsQuery;
+import com.squid.kraken.v4.model.AnalyticsQueryImpl;
+import com.squid.kraken.v4.model.AnalyticsReply;
+import com.squid.kraken.v4.model.AnalyticsResult;
 import com.squid.kraken.v4.model.Bookmark;
 import com.squid.kraken.v4.model.BookmarkConfig;
 import com.squid.kraken.v4.model.BookmarkFolderPK;
@@ -547,7 +548,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 	 * @param parent2 
 	 * @return
 	 */
-	public Bookmark createBookmark(AppContext userContext, AnalysisQuery query, String BBID, String name, String parent) {
+	public Bookmark createBookmark(AppContext userContext, AnalyticsQuery query, String BBID, String name, String parent) {
 		try {
 			Space space = getSpace(userContext, BBID);
 			if (query==null) {
@@ -636,7 +637,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 			Space space = getSpace(userContext, BBID);
 			Domain domain = space.getDomain();
 			//
-			AnalysisQuery query = new AnalysisQueryImpl();
+			AnalyticsQuery query = new AnalyticsQueryImpl();
 			if ((filters != null) && (filters.length > 0)) {
 				query.setFilters(Arrays.asList(filters));
 			}
@@ -754,10 +755,12 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		return suggestions;
 	}
 	
-	public AnalysisResult runAnalysis(
+	public Object runAnalysis(
 			final AppContext userContext,
 			String BBID,
-			final AnalysisQuery query, 
+			final AnalyticsQuery query, 
+			String format,
+			String enveloppe,
 			Integer timeout
 			)
 	{
@@ -779,18 +782,21 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 			final boolean lazyFlag = (query.getLazy() != null) && (query.getLazy().equals("true") || query.getLazy().equals("noError"));
 			//
 			// create the AnalysisResult
-			AnalysisResult result = new AnalysisResult();
+			AnalyticsReply reply = new AnalyticsReply();
 			if (query.getStyle()==Style.LEGACY) {
 				// legacy may use the facetSelection
-				result.setSelection(selection);
+				reply.setSelection(selection);
 			}
-			result.setQuery(query);
+			reply.setQuery(query);
 			//
-			if (query.getFormat().equals("SQL")) {
+			if (format==null || format.equals("")) format="LEGACY";
+			if (format.equalsIgnoreCase("SQL")) {
 				// bypassing the ComputingService
 				AnalysisJobComputer computer = new AnalysisJobComputer();
 				String sql = computer.viewSQL(userContext, job);
-				result.setSQL(sql);
+				AnalyticsResult result = new AnalyticsResult();
+				result.setData(sql);
+				reply.setResult(result);
 			} else {
 				try {
 					Callable<DataMatrix> task = new Callable<DataMatrix>() {
@@ -807,15 +813,18 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 					} else {
 						data = futur.get(timeout>1000?timeout:1000, java.util.concurrent.TimeUnit.MILLISECONDS);
 					}
-					if (query.getFormat().equals("RECORDS")) {
+					if (format.equalsIgnoreCase("RECORDS")) {
 						RecordConverter converter = new RecordConverter();
+						AnalyticsResult result = new AnalyticsResult();
 						result.setData(converter.convert(data));
-					} else {
-						result.setData(data.toDataTable(userContext, query.getMaxResults(), query.getStartIndex(), false, null));
+						reply.setResult(result);
+					} else {// LEGACY
+						DataTable legacy = data.toDataTable(userContext, query.getMaxResults(), query.getStartIndex(), false, null);
+						reply.setResult(legacy);
 					}
 				} catch (NotInCacheException e) {
 					if (query.getLazy().equals("noError")) {
-						result.setData(new DataTable());
+						reply.setResult(new AnalyticsResult());
 					} else {
 						throw e;
 					}
@@ -826,7 +835,28 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 				}
 			}
 			//
-			return result;
+			if (enveloppe==null) {
+				if (query.getStyle()==Style.HUMAN) {
+					enveloppe = "ALL";
+				} else if (query.getStyle()==Style.LEGACY) {
+					enveloppe = "RESULT";
+				} else {//MACHINE
+					enveloppe = "RESULT";
+				}
+			}
+			if (enveloppe.equalsIgnoreCase("ALL")) {
+				return reply;
+			} else if (enveloppe.equalsIgnoreCase("RESULT")) {
+				return reply.getResult();
+			} else if (enveloppe.equalsIgnoreCase("DATA")) {
+				if (reply.getResult() instanceof AnalyticsResult) {
+					return ((AnalyticsResult)reply.getResult()).getData();
+				} else if (reply.getResult() instanceof DataTable) {
+					return ((DataTable)reply.getResult()).getRows();
+				}
+			} 
+			//else
+			return reply;
 		} catch (ComputingException | InterruptedException | ScopeException | SQLScopeException | RenderingException e) {
 			throw new APIException(e.getMessage(), true);
 		}
@@ -835,7 +865,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 	public Response exportAnalysis(
 			final AppContext userContext,
 			String BBID,
-			final AnalysisQuery query,
+			final AnalyticsQuery query,
 			final String filename,
 			String fileext,
 			String compression
@@ -854,11 +884,10 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 			final ProjectAnalysisJob job = createAnalysisJob(space.getUniverse(), query, selection, OutputFormat.JSON);
 			//
 			final OutputFormat outFormat;
-			if (fileext != null) query.setFormat(fileext);
-			if (query.getFormat() == null) {
+			if (fileext == null) {
 				outFormat = OutputFormat.JSON;
 			} else {
-				outFormat = OutputFormat.valueOf(query.getFormat().toUpperCase());
+				outFormat = OutputFormat.valueOf(fileext.toUpperCase());
 			}
 
 			final OutputCompression outCompression;
@@ -962,7 +991,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 	 * @return
 	 * @throws ScopeException 
 	 */
-	private FacetSelection createFacetSelection(Space space, AnalysisQuery query) throws ScopeException {
+	private FacetSelection createFacetSelection(Space space, AnalyticsQuery query) throws ScopeException {
 		FacetSelection selection = new FacetSelection();
 		SpaceScope scope = new SpaceScope(space);
 		Domain domain = space.getDomain();
@@ -1054,7 +1083,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		return facet;
 	}
 
-	private ProjectAnalysisJob createAnalysisJob(Universe universe, AnalysisQuery analysis, FacetSelection selection, OutputFormat format) throws ScopeException {
+	private ProjectAnalysisJob createAnalysisJob(Universe universe, AnalyticsQuery analysis, FacetSelection selection, OutputFormat format) throws ScopeException {
 		// read the domain reference
 		if (analysis.getDomain() == null) {
 			throw new ScopeException("incomplete specification, you must specify the data domain expression");
@@ -1230,6 +1259,21 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		} else {
 			analysisJob.setLimit(analysis.getLimit());
 		}
+		
+		// beyond limit
+		if (analysis.getBeyondLimit()!=null && analysis.getBeyondLimit().length>0) {
+			if (analysis.getBeyondLimit().length==1) {
+				Index index = new Index(analysis.getBeyondLimit()[0]);
+				analysisJob.setBeyondLimit(Collections.singletonList(index));
+			} else {
+				ArrayList<Index> indexes = new ArrayList<>();
+				for (int i=0;i<analysis.getBeyondLimit().length;i++) {
+					Index index = new Index(analysis.getBeyondLimit()[i]);
+					indexes.add(index);
+				}
+				analysisJob.setBeyondLimit(indexes);
+			}
+		}
 		return analysisJob;
 	}
 
@@ -1265,7 +1309,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		return null;
 	}
 	
-	private BookmarkConfig createBookmarkConfig(Space space, AnalysisQuery query) throws ScopeException {
+	private BookmarkConfig createBookmarkConfig(Space space, AnalyticsQuery query) throws ScopeException {
 		SpaceScope scope = new SpaceScope(space);
 		BookmarkConfig config = new BookmarkConfig();
 		// config use the Domain OID
@@ -1321,7 +1365,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 	 * @throws ComputingException
 	 * @throws InterruptedException
 	 */
-	private void mergeBoomarkConfig(Space space, AnalysisQuery analysis, BookmarkConfig config) throws ScopeException, ComputingException, InterruptedException {
+	private void mergeBoomarkConfig(Space space, AnalyticsQuery analysis, BookmarkConfig config) throws ScopeException, ComputingException, InterruptedException {
 		ReferenceStyle prettyStyle = getReferenceStyle(analysis.getStyle());
 		PrettyPrintOptions prettyOptions = new PrettyPrintOptions(prettyStyle, null);
 		UniverseScope globalScope = new UniverseScope(space.getUniverse());
@@ -1621,7 +1665,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 			String x, String y, String color, String size,
 			String column, String row,
 			String data,
-			AnalysisQuery query) throws ScopeException, ComputingException, InterruptedException {
+			AnalyticsQuery query) throws ScopeException, ComputingException, InterruptedException {
 		Space space = getSpace(userContext, BBID);
 		//
 		if (data==null) data="EMBEDED";
@@ -1661,26 +1705,26 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		if (query.getLimit()==null || query.getLimit()>explicitLimit) {
 			query.setLimit(explicitLimit);
 		}
+		// beyond limit
+		if (configurator.isTimeseries()) {
+			query.setBeyondLimit(new int[]{configurator.getTimeseriesPosition()});
+		}
 		//
 		// create the facet selection
 		FacetSelection selection = createFacetSelection(space, query);
 		final ProjectAnalysisJob job = createAnalysisJob(space.getUniverse(), query, selection, OutputFormat.JSON);
-		// beyond limit
-		if (configurator.isTimeseries()) {
-			Index index = new Index(configurator.getTimeseriesPosition());
-			job.setBeyondLimit(Collections.singletonList(index));
-		}
 		//
 		// handling data
 		if (data.equals("EMBEDED")) {
 			DataMatrix table = compute(userContext, job, query.getMaxResults(), query.getStartIndex(), false);
 			specs.data = transformToVegaData(table);
 		} else if (data.equals("URL")) {
-			URI uri = buildExportQuery(uriInfo, userContext, localScope, BBID, query, ".csv");
+			//URI uri = buildExportURI(uriInfo, userContext, localScope, BBID, query, ".csv");
+			URI uri = buildQueryURI(uriInfo, userContext, localScope, BBID, query, "RECORDS", "DATA");
 			specs.data = new Data();
 			specs.data.url = uri.toString();
 			specs.data.format = new Format();
-			specs.data.format.type = FormatType.csv;// lowercase only!
+			specs.data.format.type = FormatType.json;// lowercase only!
 		} else {
 			throw new APIException("undefined value for data parameter, must be EMBEDED or URL");
 		}
@@ -1702,9 +1746,28 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 	 * @return
 	 * @throws ScopeException 
 	 */
-	private URI buildExportQuery(UriInfo uriInfo, AppContext userContext, SpaceScope localScope, String BBID, AnalysisQuery query, String filename) throws ScopeException {
+	private URI buildExportURI(UriInfo uriInfo, AppContext userContext, SpaceScope localScope, String BBID, AnalyticsQuery query, String filename) throws ScopeException {
 		UriBuilder builder = uriInfo.getBaseUriBuilder().
 			path("/analytics/{"+BBID_PARAM_NAME+"}/export/{filename}");
+		addAnalyticsQueryParams(builder, localScope, query);
+		builder.queryParam("access_token", userContext.getToken().getOid());
+		return builder.build(BBID, filename);
+	}
+	
+	private URI buildQueryURI(UriInfo uriInfo, AppContext userContext, SpaceScope localScope, String BBID, AnalyticsQuery query, String format, String enveloppe) throws ScopeException {
+		UriBuilder builder = uriInfo.getBaseUriBuilder().
+			path("/analytics/{"+BBID_PARAM_NAME+"}/query");
+		addAnalyticsQueryParams(builder, localScope, query);
+		builder.queryParam("format", format).queryParam("enveloppe", enveloppe);
+		builder.queryParam("access_token", userContext.getToken().getOid());
+		return builder.build(BBID);
+	}
+
+	/**
+	 * @throws ScopeException 
+	 * 
+	 */
+	private void addAnalyticsQueryParams(UriBuilder builder, SpaceScope localScope, AnalyticsQuery query) throws ScopeException {
 		if (query.getGroupBy()!=null) {
 			for (String item : query.getGroupBy()) {
 				builder.queryParam(GROUP_BY_PARAM, item);
@@ -1746,13 +1809,15 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		}
 		if (query.getRollups()!=null) builder.queryParam(ROLLUP_PARAM, query.getRollups());
 		if (query.getLimit()!=null) builder.queryParam(LIMIT_PARAM, query.getLimit());
-		if (query.getFormat()!=null) builder.queryParam(FORMAT_PARAM, query.getFormat());
+		if (query.getBeyondLimit()!=null) {
+			for (int index : query.getBeyondLimit()) {
+				builder.queryParam("beyondLimit", index);
+			}
+		}
 		if (query.getMaxResults()!=null) builder.queryParam(MAX_RESULTS_PARAM, query.getMaxResults());
 		if (query.getStartIndex()!=null) builder.queryParam(START_INDEX_PARAM, query.getStartIndex());
 		if (query.getLazy()!=null) builder.queryParam(LAZY_PARAM, query.getLazy());
 		if (query.getStyle()!=null) builder.queryParam(STYLE_PARAM, query.getStyle());
-		builder.queryParam("access_token", userContext.getToken().getOid());
-		return builder.build(BBID, filename);
 	}
 
 	/**
