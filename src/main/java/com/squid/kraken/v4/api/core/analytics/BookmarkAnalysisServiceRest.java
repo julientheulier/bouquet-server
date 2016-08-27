@@ -46,9 +46,8 @@ import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.api.core.customer.CoreAuthenticatedServiceRest;
 import com.squid.kraken.v4.caching.redis.queryworkerserver.QueryWorkerJobStatus;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
-import com.squid.kraken.v4.model.AnalysisQuery;
-import com.squid.kraken.v4.model.AnalysisQueryImpl;
-import com.squid.kraken.v4.model.AnalysisResult;
+import com.squid.kraken.v4.model.AnalyticsQuery;
+import com.squid.kraken.v4.model.AnalyticsQueryImpl;
 import com.squid.kraken.v4.model.Bookmark;
 import com.squid.kraken.v4.model.Expression;
 import com.squid.kraken.v4.model.ExpressionSuggestion;
@@ -80,7 +79,7 @@ import com.wordnik.swagger.annotations.AuthorizationScope;
 @Api(
 		value = "analytics", 
 		hidden = false, 
-		description = "this is the new bookmark API intented to provide all the fun without the pain",
+		description = "this is the new analytics API intented to provide all the fun without the pain",
 		authorizations = { @Authorization(value = "kraken_auth", type = "oauth2", scopes = { @AuthorizationScope(scope = "access", description = "Access") }) })
 @Produces({ MediaType.APPLICATION_JSON })
 public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest implements BookmarkAnalysisServiceConstants {
@@ -142,7 +141,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 			notes = "")
 	public Bookmark createBookmark(
 			@Context HttpServletRequest request,
-			@ApiParam(value="the analysis query definition", required=true) AnalysisQuery query,
+			@ApiParam(value="the analysis query definition", required=true) AnalyticsQuery query,
 			@PathParam(BBID_PARAM_NAME) String BBID,
 			@ApiParam(value="the new bookmark name", required=true) @QueryParam("name") String name,
 			@ApiParam(value="the new bookmark folder, can be /MYBOOKMARKS, /MYBOOKMARKS/any/folders or /SHARED/any/folders") @QueryParam("parent") String parent)
@@ -203,21 +202,29 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 	@POST
 	@Path("/analytics/{" + BBID_PARAM_NAME + "}/query")
 	@ApiOperation(value = "Run a new Analysis based on the Bookmark scope")
-	public AnalysisResult postAnalysis(
+	public Object postAnalysis(
 			@Context HttpServletRequest request, 
-			@ApiParam(value="the analysis query definition", required=true) AnalysisQuery query,
+			@ApiParam(value="the analysis query definition", required=true) AnalyticsQuery query,
 			@PathParam(BBID_PARAM_NAME) String BBID,
+			@ApiParam(
+					value="define the analysis data format.",
+					allowableValues="LEGACY,SQL,RECORDS")
+			@QueryParam(FORMAT_PARAM) String format,
+			@ApiParam(
+					value="define the result enveloppe",
+					allowableValues="ALL,RESULT,DATA")
+			@QueryParam("enveloppe") String enveloppe,
 			@ApiParam(value = "response timeout in milliseconds. If no timeout set, the method will return according to current job status.") 
 			@QueryParam(TIMEOUT_PARAM) Integer timeout
 			) throws ComputingException, ScopeException, InterruptedException {
 		AppContext userContext = getUserContext(request);
-		return getDelegate().runAnalysis(userContext, BBID, query, timeout);
+		return getDelegate().runAnalysis(userContext, BBID, query, format, enveloppe, timeout);
 	}
 
 	@GET
 	@Path("/analytics/{" + BBID_PARAM_NAME + "}/query")
 	@ApiOperation(value = "Compute an analysis for the subject")
-	public AnalysisResult runAnalysis(
+	public Object runAnalysis(
 			@Context HttpServletRequest request, 
 			@PathParam(BBID_PARAM_NAME) String BBID,
 			// groupBy parameter
@@ -243,14 +250,15 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 			@QueryParam(COMPAREFRAME_PARAM) String[] compareframe,
 			@ApiParam(allowMultiple = true) 
 			@QueryParam(ORDERBY_PARAM) String[] orderExpressions,
-			@ApiParam(value="limit the resultset size as computed by the database. Note that this is independant from the paging size.")
-			@QueryParam(LIMIT_PARAM) Long limit,
 			@ApiParam(allowMultiple = true) 
 			@QueryParam(ROLLUP_PARAM) String[] rollupExpressions,
+			@ApiParam(value="limit the resultset size as computed by the database. Note that this is independant from the paging size.")
+			@QueryParam(LIMIT_PARAM) Long limit,
 			@ApiParam(
-					value="define the analysis data format.",
-					allowableValues="LEGACY,SQL,CSV")
-			@QueryParam(FORMAT_PARAM) String format,
+					value="exclude some dimensions from the limit",
+					allowMultiple=true
+					)
+			@QueryParam("beyondLimit") int[] beyondLimit,
 			@ApiParam(value = "paging size") @QueryParam(MAX_RESULTS_PARAM) Integer maxResults,
 			@ApiParam(value = "paging start index") @QueryParam(START_INDEX_PARAM) Integer startIndex,
 			@ApiParam(value = "if true, get the analysis only if already in cache, else throw a NotInCacheException; if noError returns a null result if the analysis is not in cache ; else regular analysis", defaultValue = "false") 
@@ -258,12 +266,20 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 			@ApiParam(
 					value="define the result style. If HUMAN, the API will try to use natural reference for objects, like 'My First Project', 'Account', 'Total Sales'... If MACHINE the API will use canonical references that are invariant, e.g. @'5603ca63c531d744b50823a3bis'. If LEGACY the API will also provide internal compound key to lookup objects in the management API.", allowableValues="LEGACY, MACHINE, HUMAN", defaultValue="HUMAN")
 			@QueryParam(STYLE_PARAM) Style style,
+			@ApiParam(
+					value="define the analysis data format.",
+					allowableValues="LEGACY,SQL,RECORDS")
+			@QueryParam(FORMAT_PARAM) String format,
+			@ApiParam(
+					value="define the result enveloppe",
+					allowableValues="ALL,RESULT,DATA")
+			@QueryParam("enveloppe") String enveloppe,
 			@ApiParam(value = "response timeout in milliseconds. If no timeout set, the method will return according to current job status.") 
 			@QueryParam(TIMEOUT_PARAM) Integer timeout
 			) throws ComputingException, ScopeException, InterruptedException {
 		AppContext userContext = getUserContext(request);
-		AnalysisQuery analysis = createAnalysisFromParams(BBID, groupBy, metrics, filterExpressions, period, timeframe, compareframe, orderExpressions, rollupExpressions, limit, format, maxResults, startIndex, lazy, style);
-		return getDelegate().runAnalysis(userContext, BBID, analysis, timeout);
+		AnalyticsQuery analysis = createAnalysisFromParams(BBID, groupBy, metrics, filterExpressions, period, timeframe, compareframe, orderExpressions, rollupExpressions, limit, beyondLimit, maxResults, startIndex, lazy, style);
+		return getDelegate().runAnalysis(userContext, BBID, analysis, format, enveloppe, timeout);
 	}
 
 
@@ -310,7 +326,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 	) throws ScopeException, ComputingException, InterruptedException
 	{
 		AppContext userContext = getUserContext(request);
-		AnalysisQuery query = createAnalysisFromParams(BBID, null, null, filterExpressions, period, timeframe, null, orderby, null, limit, null, null, null, null, null);
+		AnalyticsQuery query = createAnalysisFromParams(BBID, null, null, filterExpressions, period, timeframe, null, orderby, null, limit, null, null, null, null, null);
 		return getDelegate().getVegalite(uriInfo, userContext, BBID, x, y, color, size, column, row, data, query);
 	}
 
@@ -347,9 +363,10 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 			@QueryParam(ROLLUP_PARAM) String[] rollupExpressions,
 			@QueryParam(LIMIT_PARAM) Long limit,
 			@ApiParam(
-					value="define the analysis data format.",
-					allowableValues="JSON,SQL,CSV")
-			@QueryParam(FORMAT_PARAM) String format
+					value="exclude some dimensions from the limit",
+					allowMultiple=true
+					)
+			@QueryParam("beyondLimit") int[] beyondLimit
 			) throws ComputingException, ScopeException, InterruptedException {
 		AppContext userContext = getUserContext(request);
 		String[] split = filename.split("\\.");
@@ -368,7 +385,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 				compression = "gzip";
 			}
 		}
-		AnalysisQuery analysis = createAnalysisFromParams(BBID, groupBy, metrics, filterExpressions, period, timeframe, compareframe, orderExpressions, rollupExpressions, limit, format, null, null, null, null);
+		AnalyticsQuery analysis = createAnalysisFromParams(BBID, groupBy, metrics, filterExpressions, period, timeframe, compareframe, orderExpressions, rollupExpressions, limit, beyondLimit, null, null, null, null);
 		return getDelegate().exportAnalysis(userContext, BBID, analysis, filepart, fileext, compression);
 	}
 	
@@ -404,7 +421,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 	 * @return
 	 * @throws ScopeException
 	 */
-	private AnalysisQuery createAnalysisFromParams(
+	private AnalyticsQuery createAnalysisFromParams(
 			String BBID, 
 			String[] groupBy, 
 			String[] metrics, 
@@ -415,14 +432,14 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 			String[] orderExpressions, 
 			String[] rollupExpressions, 
 			Long limit,
-			String format, 
+			int[] beyondLimit,
 			Integer maxResults, 
 			Integer startIndex, 
 			String lazy, 
 			Style style
 		) throws ScopeException {
 		// init the analysis query using the query parameters
-		AnalysisQuery query = new AnalysisQueryImpl();
+		AnalyticsQuery query = new AnalyticsQueryImpl();
 		query.setBBID(BBID);
 		int groupByLength = groupBy!=null?groupBy.length:0;
 		if (groupByLength > 0) {
@@ -482,7 +499,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 			query.setRollups(rollups);
 		}
 		if (limit!=null) query.setLimit(limit);
-		if (format!=null) query.setFormat(format);
+		if (beyondLimit!=null) query.setBeyondLimit(beyondLimit);
 		if (maxResults!=null) query.setMaxResults(maxResults);
 		if (startIndex!=null) query.setStartIndex(startIndex);
 		if (lazy!=null) query.setLazy(lazy);
