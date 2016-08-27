@@ -3,13 +3,13 @@ package com.squid.kraken.v4.model;
 import java.util.List;
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import com.squid.kraken.v4.model.AnalysisQueryImpl.AnalysisFacetImpl;
+import com.squid.kraken.v4.model.AnalyticsQueryImpl.AnalysisFacetImpl;
 import com.squid.kraken.v4.model.NavigationQuery.Style;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.OrderBy;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.RollUp;
 
-@JsonDeserialize(as = AnalysisQueryImpl.class)
-public interface AnalysisQuery {
+@JsonDeserialize(as = AnalyticsQueryImpl.class)
+public interface AnalyticsQuery {
 	
 	public String getBBID();
 	
@@ -83,10 +83,12 @@ public interface AnalysisQuery {
 	void setMaxResults(Integer maxResults);
 
 	Integer getMaxResults();
-
-	void setFormat(String format);
-
-	String getFormat();
+	
+	// temporary support for beyondLimit
+	
+	int[] getBeyondLimit();
+	
+	void setBeyondLimit(int[] cols);
 
 	/**
 	 * return an unique identifier based on the query value, i.e. two identical queries will have the same ID.

@@ -30,31 +30,29 @@ import com.wordnik.swagger.annotations.ApiModelProperty;
  * @author sergefantino
  *
  */
-public class AnalysisResult {
+public class AnalyticsReply {
 	
 	// this is the query that generated this analysis
-	private AnalysisQuery query;
+	private AnalyticsQuery query;
 	
 	// the analysis selection
 	private FacetSelection selection;
 	
 	// the resulting dataTable
-	private Object data;// this may depend on the output format
-	// the sql code
-	private String sql;
+	private Object result;// this may depend on the output format
 	
 	/**
 	 * 
 	 */
-	public AnalysisResult() {
+	public AnalyticsReply() {
 		// TODO Auto-generated constructor stub
 	}
 
-	public AnalysisQuery getQuery() {
+	public AnalyticsQuery getQuery() {
 		return query;
 	}
 
-	public void setQuery(AnalysisQuery query) {
+	public void setQuery(AnalyticsQuery query) {
 		this.query = query;
 	}
 
@@ -67,20 +65,12 @@ public class AnalysisResult {
 		this.selection = selection;
 	}
 
-	public Object getData() {
-		return data;
+	public Object getResult() {
+		return result;
 	}
 
-	public void setData(Object data) {
-		this.data = data;
-	}
-
-	public String getSQL() {
-		return sql;
-	}
-	
-	public void setSQL(String sql) {
-		this.sql = sql;
+	public void setResult(Object result) {
+		this.result = result;
 	}
 
 }

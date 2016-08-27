@@ -31,18 +31,18 @@ import com.squid.kraken.v4.vegalite.VegaliteSpecs;
  */
 public class VegaliteReply {
 	
-	private AnalysisQuery query;
+	private AnalyticsQuery query;
 	
 	private VegaliteSpecs result;
 	
 	public VegaliteReply() {
 	}
 
-	public AnalysisQuery getQuery() {
+	public AnalyticsQuery getQuery() {
 		return query;
 	}
 
-	public void setQuery(AnalysisQuery query) {
+	public void setQuery(AnalyticsQuery query) {
 		this.query = query;
 	}
 

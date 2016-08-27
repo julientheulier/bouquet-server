@@ -7,7 +7,7 @@ import com.squid.kraken.v4.model.NavigationQuery.Style;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.OrderBy;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.RollUp;
 
-public class AnalysisQueryImpl implements AnalysisQuery {
+public class AnalyticsQueryImpl implements AnalyticsQuery {
 	
 	private String BBID;
 
@@ -33,9 +33,9 @@ public class AnalysisQueryImpl implements AnalysisQuery {
 
 	private Long limit;
 	
-	private String bookmarkId;
+	private int[] beyondLimit;
 	
-	private String format = "LEGACY";
+	private String bookmarkId;
 	
 	private Integer maxResults = null;
 	
@@ -45,7 +45,7 @@ public class AnalysisQueryImpl implements AnalysisQuery {
 	
 	private Style style = Style.HUMAN;
 
-	public AnalysisQueryImpl() {
+	public AnalyticsQueryImpl() {
 	}
 	
 	@Override
@@ -188,6 +188,14 @@ public class AnalysisQueryImpl implements AnalysisQuery {
 		this.limit = limit;
 	}
 	
+	public int[] getBeyondLimit() {
+		return beyondLimit;
+	}
+
+	public void setBeyondLimit(int[] beyondLimit) {
+		this.beyondLimit = beyondLimit;
+	}
+
 	@Override
 	public String getBookmarkId() {
 		return bookmarkId;
@@ -196,16 +204,6 @@ public class AnalysisQueryImpl implements AnalysisQuery {
 	@Override
 	public void setBookmarkId(String bookmarkId) {
 		this.bookmarkId = bookmarkId;
-	}
-	
-	@Override
-	public String getFormat() {
-		return format;
-	}
-
-	@Override
-	public void setFormat(String format) {
-		this.format = format;
 	}
 
 	@Override
@@ -259,7 +257,7 @@ public class AnalysisQueryImpl implements AnalysisQuery {
 				+ metrics + ", filters=" + filters + ", orderBy=" + orderBy + ", rollups=" + rollups + ", period="
 				+ period + ", timeframe=" + Arrays.toString(timeframe) + ", compareframe="
 				+ Arrays.toString(compareframe) + ", offset=" + offset + ", limit=" + limit + ", bookmarkId="
-				+ bookmarkId + ", format=" + format + ", maxResults=" + maxResults + ", startIndex=" + startIndex
+				+ bookmarkId + ", maxResults=" + maxResults + ", startIndex=" + startIndex
 				+ ", lazy=" + lazy + ", style=" + style + "]";
 	}
 
