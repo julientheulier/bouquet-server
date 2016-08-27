@@ -75,8 +75,8 @@ import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.kraken.v4.core.expression.reference.DomainReference;
 import com.squid.kraken.v4.core.expression.scope.DomainExpressionScope;
 import com.squid.kraken.v4.model.AccessRight;
-import com.squid.kraken.v4.model.AnalysisQuery;
-import com.squid.kraken.v4.model.AnalysisQuery.AnalysisFacet;
+import com.squid.kraken.v4.model.AnalyticsQuery;
+import com.squid.kraken.v4.model.AnalyticsQuery.AnalysisFacet;
 import com.squid.kraken.v4.model.Bookmark;
 import com.squid.kraken.v4.model.BookmarkConfig;
 import com.squid.kraken.v4.model.BookmarkPK;
@@ -95,7 +95,7 @@ import com.squid.kraken.v4.model.ProjectAnalysisJob.Position;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.RollUp;
 import com.squid.kraken.v4.model.ProjectAnalysisJobPK;
 import com.squid.kraken.v4.model.ProjectPK;
-import com.squid.kraken.v4.model.AnalysisQueryImpl;
+import com.squid.kraken.v4.model.AnalyticsQueryImpl;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DAOFactory;
 import com.wordnik.swagger.annotations.Api;
@@ -139,14 +139,14 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 			@ApiParam(value = "output filename") @DefaultValue("/default") @QueryParam("filename") String filename)
 					throws ScopeException {
 
-		AnalysisQuery analysis = new AnalysisQueryImpl();
+		AnalyticsQuery analysis = new AnalyticsQueryImpl();
 		analysis.setBookmarkId(bookmarkId);
 		analysis.setDomain(domainExpr);
 		int groupByLength = groupBy!=null?groupBy.length:0;
 		if (groupByLength > 0) {
 			List<String> facets = new ArrayList<>();
 			for (int i = 0; i < groupBy.length; i++) {
-				AnalysisFacet f = new AnalysisQueryImpl.AnalysisFacetImpl();
+				AnalysisFacet f = new AnalyticsQueryImpl.AnalysisFacetImpl();
 				f.setExpression(groupBy[i]);// if the name is provided
 														// by the expression, we
 														// will get it latter
@@ -158,7 +158,7 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 		if ((metrics != null) && (metrics.length > 0)) {
 			List<String> facets = new ArrayList<>();
 			for (int i = 0; i < metrics.length; i++) {
-				AnalysisFacet f = new AnalysisQueryImpl.AnalysisFacetImpl();
+				AnalysisFacet f = new AnalyticsQueryImpl.AnalysisFacetImpl();
 				f.setExpression(metrics[i]);// if the name is provided
 														// by the expression, we
 														// will get it latter
@@ -230,7 +230,7 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 	@Path("/")
 	@ApiOperation(value = "Compute an Analysis")
 	public Response computeAnalysis(@PathParam("projectId") String projectId,
-			@ApiParam(required = true) AnalysisQuery analysis,
+			@ApiParam(required = true) AnalyticsQuery analysis,
 			@ApiParam(value = "response timeout in milliseconds in case the job is not yet computed. If no timeout set, the method will return according to current job status.") @QueryParam("timeout") Integer timeout,
 			@ApiParam(value = "paging size") @QueryParam("maxResults") Integer maxResults,
 			@ApiParam(value = "paging start index") @QueryParam("startIndex") Integer startIndex,
@@ -255,7 +255,7 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 				filename);
 	}
 
-	private ProjectAnalysisJob createAnalysisJob(AppContext ctx, String projectId, AnalysisQuery analysis, Integer timeout,
+	private ProjectAnalysisJob createAnalysisJob(AppContext ctx, String projectId, AnalyticsQuery analysis, Integer timeout,
 			Integer maxResults, Integer startIndex, String lazy, String format, String compression)
 					throws ScopeException {
 
@@ -289,7 +289,7 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 			if (analysis.getGroupBy() == null && config.getChosenDimensions() != null) {
 				List<String> groupBy = new ArrayList<>();
 				for (String chosenDimension : config.getChosenDimensions()) {
-					AnalysisFacet f = new AnalysisQueryImpl.AnalysisFacetImpl();
+					AnalysisFacet f = new AnalyticsQueryImpl.AnalysisFacetImpl();
 					if (chosenDimension.startsWith("@")) {
 						f.setExpression(chosenDimension);
 					} else {
@@ -302,7 +302,7 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 			if (analysis.getMetrics()!=null && config.getChosenMetrics() != null) {
 				List<String> metrics = new ArrayList<>();
 				for (String chosenMetric : config.getChosenMetrics()) {
-					AnalysisFacet f = new AnalysisQueryImpl.AnalysisFacetImpl();
+					AnalysisFacet f = new AnalyticsQueryImpl.AnalysisFacetImpl();
 					f.setExpression(domain + ".@'" + chosenMetric + "'");
 					metrics.add(f.getExpression());
 				}
