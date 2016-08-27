@@ -32,8 +32,8 @@ import com.squid.core.expression.PrettyPrintOptions.ReferenceStyle;
 import com.squid.core.expression.scope.ExpressionScope;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.core.analysis.universe.Space;
-import com.squid.kraken.v4.model.AnalysisQuery;
-import com.squid.kraken.v4.model.AnalysisQueryImpl;
+import com.squid.kraken.v4.model.AnalyticsQuery;
+import com.squid.kraken.v4.model.AnalyticsQueryImpl;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.OrderBy;
 import com.squid.kraken.v4.vegalite.VegaliteSpecs.*;
 
@@ -44,8 +44,8 @@ import com.squid.kraken.v4.vegalite.VegaliteSpecs.*;
  */
 public class VegaliteConfigurator {
 
-	private AnalysisQuery query;
-	private AnalysisQueryImpl required;
+	private AnalyticsQuery query;
+	private AnalyticsQueryImpl required;
 	
 	private PrettyPrintOptions options;
 	
@@ -55,10 +55,10 @@ public class VegaliteConfigurator {
 	
 	private VegaliteSpecs specs;
 
-	public VegaliteConfigurator(Space space, AnalysisQuery query) {
+	public VegaliteConfigurator(Space space, AnalyticsQuery query) {
 		this.query = query;
 		//
-		required = new AnalysisQueryImpl();
+		required = new AnalyticsQueryImpl();
 		required.setGroupBy(new ArrayList<String>());
 		required.setMetrics(new ArrayList<String>());
 		required.setOrderBy(new ArrayList<OrderBy>());
@@ -79,7 +79,7 @@ public class VegaliteConfigurator {
 	/**
 	 * @return the required
 	 */
-	public AnalysisQueryImpl getRequired() {
+	public AnalyticsQueryImpl getRequired() {
 		return required;
 	}
 	
