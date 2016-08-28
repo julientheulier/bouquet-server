@@ -8,6 +8,10 @@ import com.squid.kraken.v4.model.ProjectAnalysisJob.RollUp;
 
 public class BookmarkConfig {
 	
+	public static final String TABLE_ANALYSIS = "tableAnalysis";
+	public static final String BARCHART_ANALYSIS = "barAnalysis";
+	public static final String TIMESERIES_ANALYSIS = "timeAnalysis";
+	
 	private List<RollUp> rollups;
 	
 	private List<OrderBy> orderBy;
@@ -30,6 +34,9 @@ public class BookmarkConfig {
 	private Map<String, String> period;
 	
 	private String timeUnit;
+	
+	// data-visualization part
+	private String currentAnalysis;// this is the bookmark default dataviz
 	
 	/**
 	 * 
@@ -124,6 +131,14 @@ public class BookmarkConfig {
 
 	public void setTimeUnit(String timeUnit) {
 		this.timeUnit = timeUnit;
+	}
+
+	public String getCurrentAnalysis() {
+		return currentAnalysis;
+	}
+
+	public void setCurrentAnalysis(String currentAnalysis) {
+		this.currentAnalysis = currentAnalysis;
 	}
 
 }
