@@ -34,9 +34,9 @@ public class NavigationReply {
 	
 	private NavigationQuery query;
 	
-	private List<NavigationItem> result;
+	private NavigationResult result;
 
-	public NavigationReply(NavigationQuery query, List<NavigationItem> result) {
+	public NavigationReply(NavigationQuery query, NavigationResult result) {
 		super();
 		this.query = query;
 		this.result = result;
@@ -46,7 +46,7 @@ public class NavigationReply {
 		return query;
 	}
 
-	public List<NavigationItem> getResult() {
+	public NavigationResult getResult() {
 		return result;
 	}
 

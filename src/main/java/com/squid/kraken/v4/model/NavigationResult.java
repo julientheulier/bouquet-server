@@ -24,83 +24,34 @@
 package com.squid.kraken.v4.model;
 
 import java.net.URI;
+import java.util.List;
 
 /**
- * This is a simple pojo that wraps the navigation parameters
  * @author sergefantino
  *
  */
-public class NavigationQuery {
+public class NavigationResult {
 	
-	public enum HierarchyMode {
-		NONE, TREE, FLAT
-	}
+	private URI up = null;
 	
-	public enum Style {
-		HUMAN, LEGACY, ROBOT
-	}
-	
-	public enum Visibility {
-		ALL, VISIBLE, HIDDEN
-	}
-	
-	private String parent;
-	
-	private String q;
-	
-	private HierarchyMode hiearchy;
-	
-	private Style style;
-	
-	private Visibility visibility;
-	
-	private URI link;
-	
-	/**
-	 * 
-	 */
-	public NavigationQuery() {
-		// TODO Auto-generated constructor stub
-	}
+	private NavigationItem parent = null;
 
-	public String getParent() {
+	private List<NavigationItem> children = null;
+
+	public NavigationItem getParent() {
 		return parent;
 	}
 
-	public void setParent(String parent) {
+	public void setParent(NavigationItem parent) {
 		this.parent = parent;
 	}
 
-	public String getQ() {
-		return q;
+	public List<NavigationItem> getChildren() {
+		return children;
 	}
 
-	public void setQ(String q) {
-		this.q = q;
+	public void setChildren(List<NavigationItem> children) {
+		this.children = children;
 	}
-
-	public HierarchyMode getHiearchy() {
-		return hiearchy;
-	}
-
-	public void setHiearchy(HierarchyMode hiearchy) {
-		this.hiearchy = hiearchy;
-	}
-
-	public Style getStyle() {
-		return style;
-	}
-
-	public void setStyle(Style style) {
-		this.style = style;
-	}
-
-	public Visibility getVisibility() {
-		return visibility;
-	}
-
-	public void setVisibility(Visibility visibility) {
-		this.visibility = visibility;
-	}
-
+	
 }

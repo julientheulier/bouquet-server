@@ -55,6 +55,8 @@ public class NavigationItem {
 	
 	private URI link;
 	
+	private URI upLink;// link to parent
+	
 	/**
 	 * 
 	 */
@@ -62,8 +64,14 @@ public class NavigationItem {
 		// TODO Auto-generated constructor stub
 	}
 	
+	/**
+	 * wrap a project
+	 * @param query
+	 * @param project
+	 * @param parentRef
+	 */
 	public NavigationItem(NavigationQuery query, Project project, String parentRef) {
-		this.id = query.getStyle()==Style.HUMAN?null:project.getId();
+		this.id = query.getStyle()==Style.LEGACY?project.getId():null;
 		this.name = project.getName();
 		if (this.name==null) this.name="";
 		this.description = project.getDescription();
@@ -77,13 +85,14 @@ public class NavigationItem {
 	}
 	
 	/**
+	 * wrap a domain
 	 * @param query
 	 * @param project
 	 * @param domain
 	 * @param parent
 	 */
 	public NavigationItem(NavigationQuery query, Project project, Domain domain, String parentRef) {
-		this.id = query.getStyle()==Style.HUMAN?null:domain.getId();
+		this.id = query.getStyle()==Style.LEGACY?domain.getId():null;
 		this.name = domain.getName();
 		if (this.name==null) this.name="";
 		this.description = domain.getDescription();
@@ -94,6 +103,29 @@ public class NavigationItem {
 			this.selfRef = "@'"+project.getOid()+"'.@'"+domain.getOid()+"'";
 		}
 		this.type = DOMAIN_TYPE;
+	}
+	
+	/**
+	 * wrap a bookmark
+	 * @param query
+	 * @param project
+	 * @param bookmark
+	 * @param parentRef
+	 */
+	public NavigationItem(NavigationQuery query, Project project, Bookmark bookmark, String parentRef) {
+		this.id = query.getStyle()==Style.LEGACY?bookmark.getId():null;
+		this.name = bookmark.getName();
+		if (this.name==null) this.name="";
+		this.description = bookmark.getDescription();
+		this.parentRef = parentRef;
+		if (query.getStyle()==Style.HUMAN) {
+			// only use the project name
+			// cannot rely on the bookmark name for lookup
+			this.selfRef =  "'"+project.getName()+"'.[bookmark:'"+bookmark.getOid()+"']";
+		} else {
+			this.selfRef =  "@'"+project.getOid()+"'.[bookmark:'"+bookmark.getOid()+"']";
+		}
+		this.type = BOOKMARK_TYPE;
 	}
 	
 	public NavigationItem(CustomerPK id, String name, String description, String parentRef, String selfRef, String type) {
@@ -187,6 +219,14 @@ public class NavigationItem {
 
 	public void setLink(URI link) {
 		this.link = link;
+	}
+
+	public URI getUpLink() {
+		return upLink;
+	}
+
+	public void setUpLink(URI upLink) {
+		this.upLink = upLink;
 	}
 
 }
