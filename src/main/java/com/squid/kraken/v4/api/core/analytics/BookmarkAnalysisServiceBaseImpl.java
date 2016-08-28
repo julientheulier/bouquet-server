@@ -33,7 +33,6 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Hashtable;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
@@ -80,6 +79,7 @@ import com.squid.kraken.v4.api.core.APIException;
 import com.squid.kraken.v4.api.core.AccessRightsUtils;
 import com.squid.kraken.v4.api.core.ComputingInProgressAPIException;
 import com.squid.kraken.v4.api.core.EngineUtils;
+import com.squid.kraken.v4.api.core.InvalidIdAPIException;
 import com.squid.kraken.v4.api.core.JobStats;
 import com.squid.kraken.v4.api.core.JobServiceBaseImpl.OutputCompression;
 import com.squid.kraken.v4.api.core.JobServiceBaseImpl.OutputFormat;
@@ -91,7 +91,9 @@ import com.squid.kraken.v4.caching.NotInCacheException;
 import com.squid.kraken.v4.caching.redis.RedisCacheManager;
 import com.squid.kraken.v4.caching.redis.queryworkerserver.QueryWorkerJobStatus;
 import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
+import com.squid.kraken.v4.core.analysis.datamatrix.IDataMatrixConverter;
 import com.squid.kraken.v4.core.analysis.datamatrix.RecordConverter;
+import com.squid.kraken.v4.core.analysis.datamatrix.TransposeConverter;
 import com.squid.kraken.v4.core.analysis.engine.bookmark.BookmarkManager;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex.Status;
@@ -129,8 +131,6 @@ import com.squid.kraken.v4.model.BookmarkConfig;
 import com.squid.kraken.v4.model.BookmarkFolderPK;
 import com.squid.kraken.v4.model.BookmarkPK;
 import com.squid.kraken.v4.model.DataTable;
-import com.squid.kraken.v4.model.DataTable.Col;
-import com.squid.kraken.v4.model.DataTable.Row;
 import com.squid.kraken.v4.model.Dimension;
 import com.squid.kraken.v4.model.Dimension.Type;
 import com.squid.kraken.v4.model.NavigationQuery.HierarchyMode;
@@ -840,14 +840,14 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 					} else {
 						data = futur.get(timeout>1000?timeout:1000, java.util.concurrent.TimeUnit.MILLISECONDS);
 					}
-					if (format.equalsIgnoreCase("RECORDS")) {
-						RecordConverter converter = new RecordConverter();
+					if (format==null || format.equals("") || format.equalsIgnoreCase("LEGACY")) {
+						DataTable legacy = data.toDataTable(userContext, query.getMaxResults(), query.getStartIndex(), false, null);
+						reply.setResult(legacy);
+					} else {
+						IDataMatrixConverter<Object[]> converter = getConverter(format);
 						AnalyticsResult result = new AnalyticsResult();
 						result.setData(converter.convert(data));
 						reply.setResult(result);
-					} else {// LEGACY
-						DataTable legacy = data.toDataTable(userContext, query.getMaxResults(), query.getStartIndex(), false, null);
-						reply.setResult(legacy);
 					}
 				} catch (NotInCacheException e) {
 					if (query.getLazy().equals("noError")) {
@@ -864,11 +864,11 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 			//
 			if (envelope==null) {
 				if (query.getStyle()==Style.HUMAN) {
-					envelope = "ALL";
+					envelope = "RESULT";
 				} else if (query.getStyle()==Style.LEGACY) {
 					envelope = "RESULT";
 				} else {//MACHINE
-					envelope = "RESULT";
+					envelope = "ALL";
 				}
 			}
 			if (envelope.equalsIgnoreCase("ALL")) {
@@ -1685,17 +1685,19 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 	 * @throws ComputingException 
 	 * @throws ScopeException 
 	 */
-	public VegaliteReply createVegalite(
+	public Object createVegalite(
 			UriInfo uriInfo, 
-			AppContext userContext, 
+			final AppContext userContext, 
 			String BBID, 
 			String x, String y, String color, String size,
 			String column, String row,
 			String data,
+			String envelope,
 			AnalyticsQuery query) throws ScopeException, ComputingException, InterruptedException {
 		Space space = getSpace(userContext, BBID);
 		//
-		if (data==null) data="EMBEDED";
+		if (data==null) data="URL";
+		boolean preFetch = false;// default to prefetch when data mode is URL
 		//
 		Bookmark bookmark = space.getBookmark();
 		BookmarkConfig config = BookmarkManager.INSTANCE.readConfig(bookmark);
@@ -1705,9 +1707,15 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		// merge the bookmark config with the query
 		mergeBoomarkConfig(space, query, config);
 		//
+		// change the query ref to use the domain one
+		// - we don't want to have side-effects
+		String domainBBID = "@'"+space.getUniverse().getProject().getOid()+"'.@'"+space.getDomain().getOid()+"'";
+		query.setBBID(domainBBID);
+		//
 		// use default dataviz
 		int dims = (query.getGroupBy()!=null)?query.getGroupBy().size():0;
 		int kpis = (query.getMetrics()!=null)?query.getMetrics().size():0;
+		VegaliteConfigurator configurator = new VegaliteConfigurator(space, query);
 		if (config==null) {
 			// not a bookmark, use default if nothing provided
 		} else if (config.getCurrentAnalysis().equalsIgnoreCase(BookmarkConfig.TIMESERIES_ANALYSIS)) {
@@ -1733,13 +1741,13 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 					size = query.getGroupBy().get(3);
 				}
 			}
-			if (size==null) {
+			if (y==null) {
 				if (kpis>0) {
 					// we can only use the first one for now
-					size = query.getMetrics().get(0);
+					y = query.getMetrics().get(0);
 				} else {
 					// we need a default metric
-					size = "count() // this is the default metric";
+					y = "count() // this is the default metric";
 				}
 			}
 		} else if (config.getCurrentAnalysis().equalsIgnoreCase(BookmarkConfig.BARCHART_ANALYSIS)) {
@@ -1779,9 +1787,16 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 			if (dims==0) {
 				// just display the metrics
 				if (x==null) {
-					x = query.getMetrics().get(0);
+					if (kpis==1) {
+						x = query.getMetrics().get(0);
+					} else {
+						// ulti-kpis
+						x = TransposeConverter.METRIC_VALUE_COLUMN;
+						y = TransposeConverter.METRIC_SERIES_COLUMN;
+						configurator.getRequired().getMetrics().addAll(query.getMetrics());
+					}
 				}
-			} else {
+			} else if (kpis==1) {
 				// display a barchart or timeseries
 				if (x==null) {
 					x = query.getGroupBy().get(0);
@@ -1801,6 +1816,34 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 					// use it as the column
 					row = query.getGroupBy().get(3);
 				}
+			} else {
+				// multiple kpis
+				if (x==null) {
+					x = query.getGroupBy().get(0);
+				}
+				if (y==null) {
+					y = TransposeConverter.METRIC_VALUE_COLUMN;
+					configurator.getRequired().getMetrics().addAll(query.getMetrics());
+					if (color==null) {
+						color = TransposeConverter.METRIC_SERIES_COLUMN;
+					} else if (column==null) {
+						column = TransposeConverter.METRIC_SERIES_COLUMN;
+					} else if (row==null) {
+						row = TransposeConverter.METRIC_SERIES_COLUMN;
+					}
+				}
+				int next = 1;
+				while (next<dims) {
+					if (column==null) {
+						// use it as the column
+						column = query.getGroupBy().get(next++);
+					} else if (row==null) {
+						// use it as the column
+						row = query.getGroupBy().get(next++);
+					} else {
+						break;// no more channel available
+					}
+				}
 			}
 		}
 		// rollup is not supported
@@ -1810,7 +1853,6 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		//
 		SpaceScope localScope = new SpaceScope(space);
 		//
-		VegaliteConfigurator configurator = new VegaliteConfigurator(space, query);
 		VegaliteSpecs specs = configurator.getSpecs();
 		specs.encoding.x = configurator.createChannelDef("x", localScope, x);
 		specs.encoding.y = configurator.createChannelDef("y", localScope, y);
@@ -1825,18 +1867,29 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		//
 		// enforce the explicit limit
 		if (explicitLimit==null) {// compute the default
-			if (configurator.isTimeseries()) dims--;
+			int validDimensions = dims;
+			if (configurator.isTimeseries()) validDimensions--;
+			if (kpis>1) validDimensions--;// excluding the metrics series
 			if (dims>0) {
 				explicitLimit = 10L;// keep 10 for each dim
-				for (int i = dims-1; i>0; i--) explicitLimit = explicitLimit*10;// get the power
+				for (int i = validDimensions-1; i>0; i--) explicitLimit = explicitLimit*10;// get the power
 			}
 		}
-		if (query.getLimit()==null || query.getLimit()>explicitLimit) {
+		if (explicitLimit!=null && // if time-series, there's not explicit limit
+				(query.getLimit()==null || query.getLimit()>explicitLimit)) {
 			query.setLimit(explicitLimit);
 		}
 		// beyond limit
 		if (configurator.isTimeseries()) {
 			query.setBeyondLimit(new int[]{configurator.getTimeseriesPosition()});
+			// make sure we order by something
+			if (query.getOrderBy()==null || query.getOrderBy().size()==0) {
+				if (query.getMetrics().size()>0) {
+					query.setOrderBy(Collections.singletonList(new OrderBy(query.getMetrics().get(0), Direction.DESC)));
+				} else {
+					query.setOrderBy(Collections.singletonList(new OrderBy("count()", Direction.DESC)));
+				}
+			}
 		}
 		//
 		// create the facet selection
@@ -1846,12 +1899,29 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		// handling data
 		if (data.equals("EMBEDED")) {
 			DataMatrix table = compute(userContext, job, query.getMaxResults(), query.getStartIndex(), false);
-			specs.data = transformToVegaData(table);
+			if (kpis<=1) {
+				specs.data = transformToVegaData(table, "RECORDS");
+			} else {
+				specs.data = transformToVegaData(table, "TRANSPOSE");
+			}
 		} else if (data.equals("URL")) {
-			//URI uri = buildExportURI(uriInfo, userContext, localScope, BBID, query, ".csv");
-			URI uri = buildAnalyticsQueryURI(uriInfo, userContext, localScope, BBID, query, "RECORDS", "DATA");
+			if (preFetch) {
+				// run the query
+				Callable<DataMatrix> task = new Callable<DataMatrix>() {
+					@Override
+					public DataMatrix call() throws Exception {
+						return compute(userContext, job, null, null, false);
+					}
+				};
+				// execute the task, no need to wait for result
+				ExecutionManager.INSTANCE.submit(userContext.getCustomerId(), task);
+			}
 			specs.data = new Data();
-			specs.data.url = uri.toString();
+			if (kpis<=1) {
+				specs.data.url = buildAnalyticsQueryURI(uriInfo, userContext, localScope, query, "RECORDS", "DATA").toString();
+			} else {
+				specs.data.url = buildAnalyticsQueryURI(uriInfo, userContext, localScope, query, "TRANSPOSE", "DATA").toString();
+			}
 			specs.data.format = new Format();
 			specs.data.format.type = FormatType.json;// lowercase only!
 		} else {
@@ -1863,7 +1933,14 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		VegaliteReply reply = new VegaliteReply();
 		reply.setQuery(query);
 		reply.setResult(specs);
-		return reply;
+		//
+		if (envelope==null || envelope.equals("") || envelope.equalsIgnoreCase("RESULT")) {
+			return reply.getResult();
+		} else if(envelope.equalsIgnoreCase("ALL")) {
+			return reply;
+		} else {
+			throw new InvalidIdAPIException("invalid parameter envelope="+envelope+", must be ALL, RESULT", true);
+		}
 	}
 	
 	/**
@@ -1883,13 +1960,13 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		return builder.build(BBID, filename);
 	}
 	
-	private URI buildAnalyticsQueryURI(UriInfo uriInfo, AppContext userContext, SpaceScope localScope, String BBID, AnalyticsQuery query, String format, String envelope) throws ScopeException {
+	private URI buildAnalyticsQueryURI(UriInfo uriInfo, AppContext userContext, SpaceScope localScope, AnalyticsQuery query, String format, String envelope) throws ScopeException {
 		UriBuilder builder = uriInfo.getBaseUriBuilder().
 			path("/analytics/{"+BBID_PARAM_NAME+"}/query");
 		addAnalyticsQueryParams(builder, localScope, query);
 		builder.queryParam("format", format).queryParam(ENVELOPE_PARAM, envelope);
 		builder.queryParam("access_token", userContext.getToken().getOid());
-		return builder.build(BBID);
+		return builder.build(query.getBBID());
 	}
 
 	/**
@@ -1948,30 +2025,22 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		if (query.getLazy()!=null) builder.queryParam(LAZY_PARAM, query.getLazy());
 		if (query.getStyle()!=null) builder.queryParam(STYLE_PARAM, query.getStyle());
 	}
-
-	/**
-	 * @param table
-	 * @return
-	 */
-	protected Data transformToVegaData(DataTable table) {
-		ArrayList<Object> value = new ArrayList<>();
-		for (Row row : table.getRows()) {
-			Hashtable<String, Object> line = new Hashtable<>(row.getV().length);
-			for (Col col : table.getCols()) {
-				line.put(col.getName(), row.getV()[col.getPos()]);
-			}
-			value.add(line);
-		}
-		Data data = new Data();
-		data.values = value.toArray();
-		return data;
-	}
 	
-	private Data transformToVegaData(DataMatrix matrix) {
-		RecordConverter converter = new RecordConverter();
+	private Data transformToVegaData(DataMatrix matrix, String format) {
+		IDataMatrixConverter<Object[]> converter = getConverter(format);
 		Data data = new Data();
 		data.values = converter.convert(matrix);
 		return data;
+	}
+	
+	private IDataMatrixConverter<Object[]> getConverter(String format) {
+		if (format.equalsIgnoreCase("RECORDS")) {
+			return new RecordConverter();
+		} else if (format.equalsIgnoreCase("TRANSPOSE")) {
+			return new TransposeConverter();
+		} else {
+			throw new InvalidIdAPIException("invalid format="+format, true);
+		}
 	}
 	
 	/**
