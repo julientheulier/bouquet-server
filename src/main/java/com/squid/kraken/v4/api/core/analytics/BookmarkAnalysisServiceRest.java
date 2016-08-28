@@ -114,7 +114,8 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 					allowableValues="TREE, FLAT") 
 			@QueryParam("hierarchy") HierarchyMode hierarchyMode,
 			@ApiParam(
-					value="define the result style. If HUMAN, the API will try to use natural reference for objects, like 'My First Project', 'Account', 'Total Sales'... If MACHINE the API will use canonical references that are invariant, e.g. @'5603ca63c531d744b50823a3bis'. If LEGACY the API will also provide internal compound key to lookup objects in the management API.", allowableValues="LEGACY, MACHINE, HUMAN", defaultValue="HUMAN")
+					value="define the result style. If HUMAN, the API will try to use natural reference for objects, like 'My First Project', 'Account', 'Total Sales'... If ROBOT the API will use canonical references that are invariant, e.g. @'5603ca63c531d744b50823a3bis'. If LEGACY the API will also provide internal compound key to lookup objects in the management API.", 
+					allowableValues="LEGACY, ROBOT, HUMAN", defaultValue="HUMAN")
 			@QueryParam(STYLE_PARAM) Style style,
 			@ApiParam(
 					value="filter the result depending on the object visibility", allowableValues="VISIBLE, ALL, HIDDEN", defaultValue="VISIBLE")
@@ -327,7 +328,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 	{
 		AppContext userContext = getUserContext(request);
 		AnalyticsQuery query = createAnalysisFromParams(BBID, null, null, filterExpressions, period, timeframe, null, orderby, null, limit, null, null, null, null, null);
-		return getDelegate().getVegalite(uriInfo, userContext, BBID, x, y, color, size, column, row, data, query);
+		return getDelegate().createVegalite(uriInfo, userContext, BBID, x, y, color, size, column, row, data, query);
 	}
 
 	@GET
