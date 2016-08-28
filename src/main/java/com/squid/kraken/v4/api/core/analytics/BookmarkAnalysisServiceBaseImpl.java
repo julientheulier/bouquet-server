@@ -149,6 +149,7 @@ import com.squid.kraken.v4.model.Metric;
 import com.squid.kraken.v4.model.NavigationItem;
 import com.squid.kraken.v4.model.NavigationQuery;
 import com.squid.kraken.v4.model.NavigationReply;
+import com.squid.kraken.v4.model.NavigationResult;
 import com.squid.kraken.v4.model.ObjectType;
 import com.squid.kraken.v4.model.Project;
 import com.squid.kraken.v4.model.ProjectAnalysisJob;
@@ -185,9 +186,10 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		this.uriInfo = uriInfo;
 	}
 
-	private static final NavigationItem PROJECTS_FOLDER = new NavigationItem("Projects", "list all your Dictionaries", "", "/PROJECTS", "FOLDER");
-	private static final NavigationItem SHARED_FOLDER = new NavigationItem("Shared Bookmarks", "list all the bookmarks shared with you", "", "/SHARED", "FOLDER");
-	private static final NavigationItem MYBOOKMARKS_FOLDER = new NavigationItem("My Bookmarks", "list all your bookmarks", "", "/MYBOOKMARKS", "FOLDER");
+	private static final NavigationItem ROOT_FOLDER = new NavigationItem("Root", "list all your available content", null, "/", "FOLDER");
+	private static final NavigationItem PROJECTS_FOLDER = new NavigationItem("Projects", "list all your Dictionaries", "/", "/PROJECTS", "FOLDER");
+	private static final NavigationItem SHARED_FOLDER = new NavigationItem("Shared Bookmarks", "list all the bookmarks shared with you", "/", "/SHARED", "FOLDER");
+	private static final NavigationItem MYBOOKMARKS_FOLDER = new NavigationItem("My Bookmarks", "list all your bookmarks", "/", "/MYBOOKMARKS", "FOLDER");
 
 	public NavigationReply listContent(
 			AppContext userContext,
@@ -197,7 +199,6 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 			Style style,
 			Visibility visibility
 		) throws ScopeException {
-		List<NavigationItem> content = new ArrayList<>();
 		if (parent !=null && parent.endsWith("/")) {
 			parent = parent.substring(0, parent.length()-1);// remove trailing /
 		}
@@ -208,36 +209,45 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		query.setStyle(style!=null?style:Style.HUMAN);
 		query.setVisibility(visibility!=null?visibility:Visibility.VISIBLE);
 		//
-		query.setLink(createLinkToFolder(userContext, query, parent));
-		//
 		// tokenize the search string
 		String[] filters = null;
 		if (search!=null) filters = search.toLowerCase().split(",");
 		//
+		NavigationResult result = new NavigationResult();
+		result.setChildren(new ArrayList<NavigationItem>());
 		if (parent==null || parent.length()==0) {
+			result.setParent(createLinkableFolder(userContext, query, ROOT_FOLDER));
 			// this is the root
-			content.add(createLinkableFolder(userContext, query, PROJECTS_FOLDER));
-			if (hierarchyMode!=null) listProjects(userContext, query, PROJECTS_FOLDER.getSelfRef(), filters, hierarchyMode, content);
-			content.add(createLinkableFolder(userContext, query, SHARED_FOLDER));
-			if (hierarchyMode!=null) listSharedBoomarks(userContext, query, SHARED_FOLDER.getSelfRef(), filters, hierarchyMode, content);
-			content.add(createLinkableFolder(userContext, query, MYBOOKMARKS_FOLDER));
-			if (hierarchyMode!=null) listMyBoomarks(userContext, query, MYBOOKMARKS_FOLDER.getSelfRef(), filters, hierarchyMode, content);
+			result.getChildren().add(createLinkableFolder(userContext, query, PROJECTS_FOLDER));
+			if (hierarchyMode!=null) listProjects(userContext, query, PROJECTS_FOLDER.getSelfRef(), filters, hierarchyMode, result.getChildren());
+			result.getChildren().add(createLinkableFolder(userContext, query, SHARED_FOLDER));
+			if (hierarchyMode!=null) listSharedBoomarks(userContext, query, SHARED_FOLDER.getSelfRef(), filters, hierarchyMode, result.getChildren());
+			result.getChildren().add(createLinkableFolder(userContext, query, MYBOOKMARKS_FOLDER));
+			if (hierarchyMode!=null) listMyBoomarks(userContext, query, MYBOOKMARKS_FOLDER.getSelfRef(), filters, hierarchyMode, result.getChildren());
 		} else {
 			// need to list parent's content
 			if (parent.startsWith(PROJECTS_FOLDER.getSelfRef())) {
-				listProjects(userContext, query, parent, filters, hierarchyMode, content);
+				result.setParent(listProjects(userContext, query, parent, filters, hierarchyMode, result.getChildren()));
 			} else if (parent.startsWith(SHARED_FOLDER.getSelfRef())) {
-				listSharedBoomarks(userContext, query, parent, filters, hierarchyMode, content);
+				result.setParent(listSharedBoomarks(userContext, query, parent, filters, hierarchyMode, result.getChildren()));
 			} else if (parent.startsWith(MYBOOKMARKS_FOLDER.getSelfRef())) {
-				listMyBoomarks(userContext, query, parent, filters, hierarchyMode, content);
+				result.setParent(listMyBoomarks(userContext, query, parent, filters, hierarchyMode, result.getChildren()));
 			} else {
 				// invalid
 				throw new ObjectNotFoundAPIException("invalid parent reference", true);
 			}
 		}
 		// sort content
-		sortNavigationContent(content);
-		return new NavigationReply(query, content);
+		sortNavigationContent(result.getChildren());
+		// parent
+		if (result.getParent()!=null) {
+			result.getParent().setLink(createLinkToFolder(userContext, query, result.getParent().getSelfRef()));// self link
+			if (result.getParent().getParentRef()!=null && !result.getParent().getParentRef().equals("")) {
+				result.getParent().setUpLink(createLinkToFolder(userContext, query, result.getParent().getParentRef()));// self link
+			}
+		}
+		// create results
+		return new NavigationReply(query, result);
 	}
 	
 	private NavigationItem createLinkableFolder(AppContext userContext, NavigationQuery query, NavigationItem folder) {
@@ -260,7 +270,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		Collections.sort(content, new Comparator<NavigationItem>() {
 			@Override
 			public int compare(NavigationItem o1, NavigationItem o2) {
-				if (o1.getParentRef()=="" && o2.getParentRef()=="") {
+				if (o1.getParentRef()==ROOT_FOLDER.getSelfRef() && o2.getParentRef()==ROOT_FOLDER.getSelfRef()) {
 					// special rule for top level
 					return Integer.compare(topLevelOrder.indexOf(o1.getSelfRef()),topLevelOrder.indexOf(o2.getSelfRef()));
 				} else if (o1.getParentRef().equals(o2.getParentRef())) {
@@ -288,7 +298,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 	 * @param content
 	 * @throws ScopeException
 	 */
-	private void listProjects(AppContext userContext, NavigationQuery query, String parent, String[] filters, HierarchyMode hierarchyMode, List<NavigationItem> content) throws ScopeException {
+	private NavigationItem listProjects(AppContext userContext, NavigationQuery query, String parent, String[] filters, HierarchyMode hierarchyMode, List<NavigationItem> content) throws ScopeException {
 		// list project related resources
 		if (parent==null || parent.equals("") || parent.equals("/") || parent.equals(PROJECTS_FOLDER.getSelfRef())) {
 			// return available project
@@ -304,6 +314,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 					content.add(folder);
 				}
 			}
+			return createLinkableFolder(userContext, query, PROJECTS_FOLDER);
 		} else if (parent.startsWith(PROJECTS_FOLDER.getSelfRef())) {
 			String projectRef = parent.substring(PROJECTS_FOLDER.getSelfRef().length()+1);// remove /PROJECTS/ part
 			Project project = findProject(userContext, projectRef);
@@ -322,8 +333,10 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 					}
 				}
 			}
+			return new NavigationItem(query, project, PROJECTS_FOLDER.getSelfRef());
 		} else {
 			// what's this parent anyway???
+			return null;
 		}
 	}
 	
@@ -408,18 +421,25 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 	 * @param parent
 	 * @param isFlat
 	 * @param content
+	 * @return the parent folder
 	 * @throws ScopeException
 	 */
-	private void listMyBoomarks(AppContext userContext, NavigationQuery query, String parent, String[] filters, HierarchyMode hierarchyMode, List<NavigationItem> content) throws ScopeException {
+	private NavigationItem listMyBoomarks(AppContext userContext, NavigationQuery query, String parent, String[] filters, HierarchyMode hierarchyMode, List<NavigationItem> content) throws ScopeException {
 		// list mybookmark related resources
 		String fullPath = BookmarkManager.INSTANCE.getMyBookmarkPath(userContext);
+		NavigationItem parentFolder = null;
 		if (parent.equals(MYBOOKMARKS_FOLDER.getSelfRef())) {
 			// just keep the fullpath
+			parentFolder = createLinkableFolder(userContext, query, MYBOOKMARKS_FOLDER);
 		} else {
 			// add the remaining path to fullpath
 			fullPath += parent.substring(MYBOOKMARKS_FOLDER.getSelfRef().length());
+			String name = parent.substring(parent.lastIndexOf("/"));
+			String grandParent = parent.substring(0, parent.lastIndexOf("/"));
+			parentFolder = new NavigationItem(name, "", grandParent, parent, NavigationItem.FOLDER_TYPE);
 		}
 		listBoomarks(userContext, query, parent, filters, hierarchyMode, fullPath, content);
+		return parentFolder;
 	}
 	
 	/**
@@ -429,18 +449,37 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 	 * @param parent
 	 * @param isFlat
 	 * @param content
+	 * @return the parent folder
 	 * @throws ScopeException
 	 */
-	private void listSharedBoomarks(AppContext userContext, NavigationQuery query, String parent, String[] filters, HierarchyMode hierarchyMode, List<NavigationItem> content) throws ScopeException {
+	private NavigationItem listSharedBoomarks(AppContext userContext, NavigationQuery query, String parent, String[] filters, HierarchyMode hierarchyMode, List<NavigationItem> content) throws ScopeException {
 		// list mybookmark related resources
 		String fullPath = Bookmark.SEPARATOR + Bookmark.Folder.SHARED;
-		if (!parent.equals(SHARED_FOLDER.getSelfRef())) {
+		NavigationItem parentFolder = null;
+		if (parent.equals(SHARED_FOLDER.getSelfRef())) {
+			parentFolder = createLinkableFolder(userContext, query, SHARED_FOLDER);
+		} else {
 			// add the remaining path to fullpath
 			fullPath += parent.substring(SHARED_FOLDER.getSelfRef().length());
+			String name = parent.substring(parent.lastIndexOf("/"));
+			String grandParent = parent.substring(0, parent.lastIndexOf("/"));
+			parentFolder = new NavigationItem(name, "", grandParent, parent, NavigationItem.FOLDER_TYPE);
 		}
 		listBoomarks(userContext, query, parent, filters, hierarchyMode, fullPath, content);
+		return parentFolder;
 	}
 
+	/**
+	 * 
+	 * @param userContext
+	 * @param query
+	 * @param parent
+	 * @param filters
+	 * @param hierarchyMode
+	 * @param fullPath
+	 * @param content
+	 * @throws ScopeException
+	 */
 	private void listBoomarks(AppContext userContext, NavigationQuery query, String parent, String[] filters, HierarchyMode hierarchyMode, String fullPath, List<NavigationItem> content) throws ScopeException {
 		// list the content first
 		List<Bookmark> bookmarks = BookmarkManager.INSTANCE.findBookmarksByParent(userContext, fullPath);
@@ -451,14 +490,12 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 			// only handle the exact path
 			boolean checkParent = (hierarchyMode==HierarchyMode.FLAT)?path.startsWith(fullPath):path.equals(fullPath);
 			if (checkParent) {
-				String name = bookmark.getName();
 				if (filters==null || filter(bookmark, project, filters)) {
-					String id = getBookmarkReference(query, project, bookmark);
 					String actualParent = parent;
 					if (hierarchyMode==HierarchyMode.FLAT) {
 						actualParent = (parent + path.substring(fullPath.length()));
 					}
-					NavigationItem item = new NavigationItem(query.getStyle().equals("HUMAN")?null:bookmark.getId(), name, bookmark.getDescription(), actualParent, id, NavigationItem.BOOKMARK_TYPE);
+					NavigationItem item = new NavigationItem(query, project, bookmark, actualParent);
 					if (query.getStyle()==Style.HUMAN) item.setLink(createLinkToAnalysis(userContext, item));
 					HashMap<String, String> attrs = new HashMap<>();
 					attrs.put("dictionary", project.getName());
@@ -478,7 +515,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 									.encodeBase64URLSafeString(selfpath.getBytes());
 							// legacy folder PK support
 							BookmarkFolderPK id = new BookmarkFolderPK(bookmark.getId().getCustomerId(), oid);
-							NavigationItem folder = new NavigationItem(query.getStyle().equals("HUMAN")?null:id, name, "", parent, selfpath, NavigationItem.FOLDER_TYPE);
+							NavigationItem folder = new NavigationItem(query.getStyle()==Style.LEGACY?id:null, name, "", parent, selfpath, NavigationItem.FOLDER_TYPE);
 							if (query.getStyle()==Style.HUMAN) folder.setLink(createLinkToFolder(userContext, query, folder));
 							content.add(folder);
 							folders.add(selfpath);
@@ -486,16 +523,6 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 					}
 				}
 			}
-		}
-	}
-	
-	private String getBookmarkReference(NavigationQuery query, Project project, Bookmark bookmark) {
-		if (query.getStyle()==Style.HUMAN) {
-			// only use the project name
-			// cannot rely on the bookmark name for lookup
-			return "'"+project.getName()+"'.[bookmark:'"+bookmark.getOid()+"']";
-		} else {
-			return "@'"+project.getOid()+"'.[bookmark:'"+bookmark.getOid()+"']";
 		}
 	}
 	
@@ -1577,7 +1604,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 			return ReferenceStyle.NAME;
 		case LEGACY:
 			return ReferenceStyle.LEGACY;
-		case MACHINE:
+		case ROBOT:
 		default:
 			return ReferenceStyle.IDENTIFIER;
 		}
@@ -1658,7 +1685,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 	 * @throws ComputingException 
 	 * @throws ScopeException 
 	 */
-	public VegaliteReply getVegalite(
+	public VegaliteReply createVegalite(
 			UriInfo uriInfo, 
 			AppContext userContext, 
 			String BBID, 
@@ -1678,6 +1705,109 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		// merge the bookmark config with the query
 		mergeBoomarkConfig(space, query, config);
 		//
+		// use default dataviz
+		int dims = (query.getGroupBy()!=null)?query.getGroupBy().size():0;
+		int kpis = (query.getMetrics()!=null)?query.getMetrics().size():0;
+		if (config==null) {
+			// not a bookmark, use default if nothing provided
+		} else if (config.getCurrentAnalysis().equalsIgnoreCase(BookmarkConfig.TIMESERIES_ANALYSIS)) {
+			// use the period as the x
+			if (x==null) {
+				x = "__PERIOD";
+			}
+			if (dims>0) {
+				if (dims>=1 && color==null) {
+					// use it as the color
+					color = query.getGroupBy().get(0);
+				}
+				if (dims>=2 && column==null) {
+					// use it as the column
+					column = query.getGroupBy().get(1);
+				}
+				if (dims>=3 && row==null) {
+					// use it as the column
+					row = query.getGroupBy().get(2);
+				}
+				if (dims>=4 && size==null) {
+					// use it as the column
+					size = query.getGroupBy().get(3);
+				}
+			}
+			if (size==null) {
+				if (kpis>0) {
+					// we can only use the first one for now
+					size = query.getMetrics().get(0);
+				} else {
+					// we need a default metric
+					size = "count() // this is the default metric";
+				}
+			}
+		} else if (config.getCurrentAnalysis().equalsIgnoreCase(BookmarkConfig.BARCHART_ANALYSIS)) {
+			if (dims>0) {
+				if (dims>=1 && x==null) {
+					// use it as the x
+					x = query.getGroupBy().get(0);
+				}
+				if (dims>=2 && color==null) {
+					// use it as the column
+					color = query.getGroupBy().get(1);
+				}
+				if (dims>=3 && column==null) {
+					// use it as the column
+					column = query.getGroupBy().get(2);
+				}
+				if (dims>=4 && row==null) {
+					// use it as the column
+					row = query.getGroupBy().get(3);
+				}
+			}
+			if (y==null) {
+				if (kpis>0) {
+					// we can only use the first one for now
+					y = query.getMetrics().get(0);
+				} else {
+					// we need a default metric
+					y = "count() // this is the default metric";
+				}
+			}
+		} else {// TABLE_ANALYSIS or unknown
+			if (kpis==0) {
+				// we need at least one dim
+				query.setMetrics(Collections.singletonList("count() // this is the default metric"));
+				kpis++;
+			}
+			if (dims==0) {
+				// just display the metrics
+				if (x==null) {
+					x = query.getMetrics().get(0);
+				}
+			} else {
+				// display a barchart or timeseries
+				if (x==null) {
+					x = query.getGroupBy().get(0);
+				}
+				if (y==null) {
+					y = query.getMetrics().get(0);
+				}
+				if (dims>=2 && color==null) {
+					// use it as the column
+					color = query.getGroupBy().get(1);
+				}
+				if (dims>=3 && column==null) {
+					// use it as the column
+					column = query.getGroupBy().get(2);
+				}
+				if (dims>=4 && row==null) {
+					// use it as the column
+					row = query.getGroupBy().get(3);
+				}
+			}
+		}
+		// rollup is not supported
+		if (query.getRollups()!=null) {
+			query.setRollups(null);
+		}
+		//
 		SpaceScope localScope = new SpaceScope(space);
 		//
 		VegaliteConfigurator configurator = new VegaliteConfigurator(space, query);
@@ -1695,7 +1825,6 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		//
 		// enforce the explicit limit
 		if (explicitLimit==null) {// compute the default
-			int dims = query.getGroupBy().size();
 			if (configurator.isTimeseries()) dims--;
 			if (dims>0) {
 				explicitLimit = 10L;// keep 10 for each dim
@@ -1746,7 +1875,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 	 * @return
 	 * @throws ScopeException 
 	 */
-	private URI buildExportURI(UriInfo uriInfo, AppContext userContext, SpaceScope localScope, String BBID, AnalyticsQuery query, String filename) throws ScopeException {
+	protected URI buildExportURI(UriInfo uriInfo, AppContext userContext, SpaceScope localScope, String BBID, AnalyticsQuery query, String filename) throws ScopeException {
 		UriBuilder builder = uriInfo.getBaseUriBuilder().
 			path("/analytics/{"+BBID_PARAM_NAME+"}/export/{filename}");
 		addAnalyticsQueryParams(builder, localScope, query);
