@@ -31,6 +31,7 @@ import com.squid.core.expression.PrettyPrintOptions;
 import com.squid.core.expression.PrettyPrintOptions.ReferenceStyle;
 import com.squid.core.expression.scope.ExpressionScope;
 import com.squid.core.expression.scope.ScopeException;
+import com.squid.kraken.v4.core.analysis.datamatrix.TransposeConverter;
 import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.model.AnalyticsQuery;
 import com.squid.kraken.v4.model.AnalyticsQueryImpl;
@@ -103,13 +104,24 @@ public class VegaliteConfigurator {
 				expr = query.getPeriod();
 				if (expr==null) throw new ScopeException("no period defined, you cannot use __PERIOD alias for channel "+channelName);
 			}
-			ExpressionAST ast = scope.parseExpression(expr);
-			ChannelDef channel = createChannelDef(ast);
-			if (channel.type==DataType.temporal && channelName.equals("x")) {// only for x
-				this.isTimeseries = true;
-				this.timeseriesPosition = pos;
-			} else if (channel.type==DataType.quantitative) {
-				// handling sort option
+			ChannelDef channel = null;
+			if (expr.equals(TransposeConverter.METRIC_SERIES_COLUMN)) {
+				channel = new ChannelDef();
+				channel.type = DataType.nominal;
+				channel.field = expr;
+			} else if (expr.equals(TransposeConverter.METRIC_VALUE_COLUMN)) {
+				channel = new ChannelDef();
+				channel.type = DataType.quantitative;
+				channel.field = expr;
+			} else {
+				ExpressionAST ast = scope.parseExpression(expr);
+				channel = createChannelDef(ast);
+				if (channel.type==DataType.temporal && channelName.equals("x")) {// only for x
+					this.isTimeseries = true;
+					this.timeseriesPosition = pos;
+				} else if (channel.type==DataType.quantitative) {
+					// handling sort option
+				}
 			}
 			pos++;
 			return channel;
