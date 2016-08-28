@@ -58,7 +58,6 @@ import com.squid.kraken.v4.model.ProjectAnalysisJob.OrderBy;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.Position;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.RollUp;
 import com.squid.kraken.v4.model.ValueType;
-import com.squid.kraken.v4.model.VegaliteReply;
 import com.squid.kraken.v4.model.NavigationQuery.HierarchyMode;
 import com.squid.kraken.v4.model.NavigationQuery.Style;
 import com.squid.kraken.v4.model.NavigationQuery.Visibility;
@@ -287,7 +286,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 	@GET
 	@Path("/analytics/{" + BBID_PARAM_NAME + "}/vegalite")
 	@ApiOperation(value = "Generate vegalite specs from a query")
-	public VegaliteReply getVegalite(
+	public Object getVegalite(
 			@Context HttpServletRequest request, 
 			@PathParam(BBID_PARAM_NAME) String BBID,
 			@ApiParam(
@@ -323,12 +322,16 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 			@ApiParam(
 					value="define how to provide the data, either EMBEDED or through an URL",
 					allowableValues="EMBEDED,URL", defaultValue="EMBEDED")
-			@QueryParam("data") String data
+			@QueryParam("data") String data,
+			@ApiParam(
+					value="define the result envelope",
+					allowableValues="ALL,RESULT")
+			@QueryParam(ENVELOPE_PARAM) String envelope
 	) throws ScopeException, ComputingException, InterruptedException
 	{
 		AppContext userContext = getUserContext(request);
 		AnalyticsQuery query = createAnalysisFromParams(BBID, null, null, filterExpressions, period, timeframe, null, orderby, null, limit, null, null, null, null, null);
-		return getDelegate().createVegalite(uriInfo, userContext, BBID, x, y, color, size, column, row, data, query);
+		return getDelegate().createVegalite(uriInfo, userContext, BBID, x, y, color, size, column, row, data, envelope, query);
 	}
 
 	@GET
