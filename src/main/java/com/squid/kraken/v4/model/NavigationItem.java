@@ -57,6 +57,8 @@ public class NavigationItem {
 	
 	private URI upLink;// link to parent
 	
+	private URI objectLink;// link to the actual object
+	
 	/**
 	 * 
 	 */
@@ -227,6 +229,14 @@ public class NavigationItem {
 
 	public void setUpLink(URI upLink) {
 		this.upLink = upLink;
+	}
+
+	public URI getObjectLink() {
+		return objectLink;
+	}
+
+	public void setObjectLink(URI objectLink) {
+		this.objectLink = objectLink;
 	}
 
 }
