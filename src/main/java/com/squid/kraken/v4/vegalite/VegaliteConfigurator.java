@@ -24,14 +24,15 @@
 package com.squid.kraken.v4.vegalite;
 
 import java.util.ArrayList;
+import java.util.List;
 
 import com.squid.core.domain.IDomain;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.PrettyPrintOptions;
 import com.squid.core.expression.PrettyPrintOptions.ReferenceStyle;
-import com.squid.core.expression.scope.ExpressionScope;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.core.analysis.datamatrix.TransposeConverter;
+import com.squid.kraken.v4.core.analysis.scope.SpaceScope;
 import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.model.AnalyticsQuery;
 import com.squid.kraken.v4.model.AnalyticsQueryImpl;
@@ -48,13 +49,16 @@ public class VegaliteConfigurator {
 	private AnalyticsQuery query;
 	private AnalyticsQueryImpl required;
 	
+	private Space space;
+	private SpaceScope scope;
 	private PrettyPrintOptions options;
 	
-	private int pos = 0;
 	private boolean isTimeseries = false;// this is true if the user select a date for x axis
-	private int timeseriesPosition = 0;
+	private String timeseriesField = null;
 	
-	private VegaliteSpecs specs;
+	private boolean hasMetric = false;
+	private boolean hasMetricSeries = false;
+	private boolean hasMetricValue = false;
 
 	public VegaliteConfigurator(Space space, AnalyticsQuery query) {
 		this.query = query;
@@ -64,17 +68,45 @@ public class VegaliteConfigurator {
 		required.setMetrics(new ArrayList<String>());
 		required.setOrderBy(new ArrayList<OrderBy>());
 		//
-		options = new PrettyPrintOptions(ReferenceStyle.NAME, space.getImageDomain());
-		//
-		specs = new VegaliteSpecs();
-		specs.encoding = new Encoding();
+		this.space = space;
+		scope = new SpaceScope(this.space);
+		options = new PrettyPrintOptions(ReferenceStyle.NAME, this.space.getImageDomain());
+	}
+
+	/**
+	 * @return
+	 */
+	public SpaceScope getScope() {
+		return scope;
+	}
+	
+	public ExpressionAST parse(String expression) throws ScopeException {
+		return scope.parseExpression(expression);
+	}
+	
+	public String prettyPrint(ExpressionAST expression) {
+		return expression.prettyPrint(options);
 	}
 	
 	/**
-	 * @return the specs
+	 * @return the hasMetric
 	 */
-	public VegaliteSpecs getSpecs() {
-		return specs;
+	public boolean isHasMetric() {
+		return hasMetric;
+	}
+	
+	/**
+	 * @return the hasMetricSeries
+	 */
+	public boolean isHasMetricSeries() {
+		return hasMetricSeries;
+	}
+	
+	/**
+	 * @return the hasMetricValue
+	 */
+	public boolean isHasMetricValue() {
+		return hasMetricValue;
 	}
 	
 	/**
@@ -82,6 +114,10 @@ public class VegaliteConfigurator {
 	 */
 	public AnalyticsQueryImpl getRequired() {
 		return required;
+	}
+	
+	public void addRequiredMetrics(List<String> metrics) {
+		required.getMetrics().addAll(metrics);
 	}
 	
 	/**
@@ -95,10 +131,17 @@ public class VegaliteConfigurator {
 	 * @return the timeseriesPosition
 	 */
 	public int getTimeseriesPosition() {
-		return timeseriesPosition;
+		if (!isTimeseries) return -1;
+		int pos = 0;
+		for (String dimension : required.getGroupBy()) {
+			if (dimension.equals(timeseriesField)) return pos;
+			pos++;
+		}
+		// else
+		return -1;
 	}
 	
-	public ChannelDef createChannelDef(String channelName, ExpressionScope scope, String expr) throws ScopeException {
+	public ChannelDef createChannelDef(String channelName, String expr) throws ScopeException {
 		if (expr!=null && !expr.equals("")) {
 			if (expr.equals("__PERIOD")) {
 				expr = query.getPeriod();
@@ -106,35 +149,46 @@ public class VegaliteConfigurator {
 			}
 			ChannelDef channel = null;
 			if (expr.equals(TransposeConverter.METRIC_SERIES_COLUMN)) {
+				if (hasMetric) {
+					throw new ScopeException("invalid channel '"+channelName+"'="+expr+": there is already one metric defined");
+				}
+				// allow to use the metrics in many channels (to add color for example)
+				/*
+				if (hasMetricSeries) {
+					throw new ScopeException("invalid channel '"+channelName+"'="+expr+": there is already  a multi-metrics series defined");
+				}
+				*/
+				hasMetricSeries = true;
 				channel = new ChannelDef();
 				channel.type = DataType.nominal;
 				channel.field = expr;
 			} else if (expr.equals(TransposeConverter.METRIC_VALUE_COLUMN)) {
+				if (hasMetric) {
+					throw new ScopeException("invalid channel '"+channelName+"'="+expr+": there is already one metric defined");
+				}
+				if (hasMetricValue) {
+					throw new ScopeException("invalid channel '"+channelName+"'="+expr+": there is already  a multi-metrics value defined");
+				}
+				hasMetricValue = true;
 				channel = new ChannelDef();
 				channel.type = DataType.quantitative;
 				channel.field = expr;
+				required.getMetrics().addAll(query.getMetrics());// add all query metrics
 			} else {
-				ExpressionAST ast = scope.parseExpression(expr);
-				channel = createChannelDef(ast);
-				if (channel.type==DataType.temporal && channelName.equals("x")) {// only for x
-					this.isTimeseries = true;
-					this.timeseriesPosition = pos;
-				} else if (channel.type==DataType.quantitative) {
-					// handling sort option
-				}
+				channel = parseChannelDef(channelName, expr);
 			}
-			pos++;
 			return channel;
 		} else {
 			return null;
 		}
 	}
 	
-	private ChannelDef createChannelDef(ExpressionAST expr) {
+	private ChannelDef parseChannelDef(String channelName, String expr) throws ScopeException {
+		ExpressionAST ast = parse(expr);
 		ChannelDef channel = new ChannelDef();
-		channel.type = computeDataType(expr);
+		channel.type = computeDataType(ast);
 		if (channel.type==DataType.temporal) {
-			IDomain image = expr.getImageDomain();
+			IDomain image = ast.getImageDomain();
 			if (image.isInstanceOf(IDomain.YEARLY)) {
 				channel.timeUnit = TimeUnit.year;
 			} else if (image.isInstanceOf(IDomain.MONTHLY)) {
@@ -143,25 +197,43 @@ public class VegaliteConfigurator {
 				channel.timeUnit = TimeUnit.yearmonthdate;
 			}
 		}
-		String name = expr.getName();
+		String name = ast.getName();
 		if (name==null) {
-			name = formatName(expr.prettyPrint());
+			name = formatName(expr);
 		} else {
 			name = formatName(name);
 		}
 		// need to convert to lower-case because of CSV export...
 		name = name.toLowerCase();
-		expr.setName(name);
+		ast.setName(name);
 		channel.field = name;
-		String namedExpression = expr.prettyPrint(options) + " as '" + name +"'"; 
+		String namedExpression = ast.prettyPrint(options) + " as '" + name +"'";
 		if (channel.type==DataType.quantitative) {
+			if (hasMetric) {
+				throw new ScopeException("invalid channel '"+channelName+"'="+expr+": there is already one metric defined");
+			}if (hasMetricSeries || hasMetricValue) {
+				throw new ScopeException("invalid channel '"+channelName+"'="+expr+": there is already multi-metrics defined");
+			}
 			// it's a metric
 			required.getMetrics().add(namedExpression);
+			hasMetric = true;
 		} else {
 			// it's a groupBy
-			required.getGroupBy().add(namedExpression);
+			addRequiredGroubBy(namedExpression);
+		}
+		if (channel.type==DataType.temporal && channelName.equals("x")) {// only for x
+			this.isTimeseries = true;
+			this.timeseriesField = namedExpression;
 		}
 		return channel;
+	}
+	
+	private boolean addRequiredGroubBy(String expression) {
+		if (!required.getGroupBy().contains(expression)) {
+			return required.getGroupBy().add(expression);
+		} else {
+			return false;
+		}
 	}
 
 	private DataType computeDataType(ExpressionAST expr) {
