@@ -1169,6 +1169,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 			IDomain image = colExpression.getImageDomain();
 			if (image.isInstanceOf(IDomain.AGGREGATE)) {
 				IDomain source = colExpression.getSourceDomain();
+				String name = colExpression.getName();// T1807
 				if (!source.isInstanceOf(DomainDomain.DOMAIN)) {
 					// need to add the domain
 					// check if it needs grouping?
@@ -1188,7 +1189,6 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 				}
 				Metric metric = new Metric();
 				metric.setExpression(new Expression(m.prettyPrint()));
-				String name = colExpression.getName();
 				if (name == null) {
 					name = m.getName();
 				}
