@@ -86,6 +86,11 @@ public class Project extends LzPersistentBaseImpl<ProjectPK> implements
 	private String dbVendorId;
 	private Map<String, String> dbArguments;
 
+	public static final int VERSION_1 = 1;// changing the dynamic IDs to make them independent from the customer/project UUID
+	
+    @JsonIgnore
+	private Integer internalVersion = null;// internal only, client cannot use this property
+
 	/**
 	 * Default constructor (required for jaxb).
 	 */
@@ -99,6 +104,7 @@ public class Project extends LzPersistentBaseImpl<ProjectPK> implements
 
 	public Project(ProjectPK projectId, String name) {
 		super(projectId, name);
+		this.internalVersion = VERSION_1;
 	}
 
 	/**
@@ -109,6 +115,7 @@ public class Project extends LzPersistentBaseImpl<ProjectPK> implements
 	 */
 	public Project(ProjectPK projectId, String name, Expression sandboxPath) {
 		super(projectId, name);
+		this.internalVersion = VERSION_1;
 	}
 	
 	@Override
@@ -288,6 +295,21 @@ public class Project extends LzPersistentBaseImpl<ProjectPK> implements
 	@Override
 	public String[] getChildren() {
 		return CHILDREN;
+	}
+    
+    /**
+	 * @return the internalVersion
+	 */
+	public Integer getInternalVersion() {
+		return internalVersion;
+	}
+	
+	/**
+	 * use the copy internalVersion
+	 * @param copy
+	 */
+	public void copyInternalVersion(Project copy) {
+		this.internalVersion = copy.internalVersion;
 	}
 
 }
