@@ -307,7 +307,10 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 			for (Project project : projects) {
 				if (filters==null || filter(project, filters)) {
 					NavigationItem folder = new NavigationItem(query, project, parent);
-					if (query.getStyle()==Style.HUMAN) folder.setLink(createLinkToFolder(userContext, query, folder));
+					if (query.getStyle()==Style.HUMAN) {
+						folder.setLink(createLinkToFolder(userContext, query, folder));
+						folder.setObjectLink(createObjectLink(userContext, project));
+					}
 					HashMap<String, String> attrs = new HashMap<>();
 					attrs.put("jdbc", project.getDbUrl());
 					folder.setAttributes(attrs);
@@ -325,7 +328,10 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 					String name = domain.getName();
 					if (filters==null || filter(name, filters)) {
 						NavigationItem item = new NavigationItem(query, project, domain, parent);
-						if (query.getStyle()==Style.HUMAN) item.setLink(createLinkToAnalysis(userContext, item));
+						if (query.getStyle()==Style.HUMAN) {
+							item.setLink(createLinkToAnalysis(userContext, item));
+							item.setObjectLink(createObjectLink(userContext, domain));
+						}
 						HashMap<String, String> attrs = new HashMap<>();
 						attrs.put("dictionary", project.getName());
 						item.setAttributes(attrs);
@@ -387,6 +393,20 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		if (query.getVisibility()!=null) builder.queryParam(VISIBILITY_PARAM, query.getVisibility());
 		builder.queryParam("access_token", userContext.getToken().getOid());
 		return builder;
+	}
+	
+	private URI createObjectLink(AppContext userContext, Project project) {
+		UriBuilder builder = 
+			uriInfo.getBaseUriBuilder().path("/rs/projects/{projectID}");
+		builder.queryParam("access_token", userContext.getToken().getOid());
+		return builder.build(project.getOid());
+	}
+	
+	private URI createObjectLink(AppContext userContext, Domain domain) {
+		UriBuilder builder = 
+			uriInfo.getBaseUriBuilder().path("/rs/projects/{projectID}/domains/{domainID}");
+		builder.queryParam("access_token", userContext.getToken().getOid());
+		return builder.build(domain.getId().getProjectId(), domain.getOid());
 	}
 	
 	/**
