@@ -1404,26 +1404,30 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 				analysis.setLimit(config.getLimit());
 			}
 		}
-		if (analysis.getGroupBy() == null) {
+		boolean groupbyWildcard = isWildcard(analysis.getGroupBy());
+		if (analysis.getGroupBy() == null || groupbyWildcard) {
+			List<String> groupBy = new ArrayList<String>();
 			if (config==null) {
-				List<String> groupBy = new ArrayList<String>();
-				// use a default pivot selection...
-				// -- just list the content of the table
-				PrettyPrintOptions options = new PrettyPrintOptions(prettyStyle, space.getTop().getImageDomain());
-				for (Dimension dimension : space.getDimensions()) {
-					Axis axis = space.A(dimension);
-					try {
-						DimensionIndex index = axis.getIndex();
-						if (index!=null && index.isVisible() && index.getStatus()!=Status.ERROR) {
-							groupBy.add(axis.prettyPrint(options));
+				// it is not a bookmark, then we will provide default select *
+				// only if there is nothing selected at all (groupBy & metrics)
+				// or user ask for it explicitly is wildcard
+				if (groupbyWildcard || analysis.getMetrics() == null) {
+					// use a default pivot selection...
+					// -- just list the content of the table
+					PrettyPrintOptions options = new PrettyPrintOptions(prettyStyle, space.getTop().getImageDomain());
+					for (Dimension dimension : space.getDimensions()) {
+						Axis axis = space.A(dimension);
+						try {
+							DimensionIndex index = axis.getIndex();
+							if (index!=null && index.isVisible() && index.getStatus()!=Status.ERROR) {
+								groupBy.add(axis.prettyPrint(options));
+							}
+						} catch (ComputingException | InterruptedException e) {
+							// ignore this one
 						}
-					} catch (ComputingException | InterruptedException e) {
-						// ignore this one
 					}
 				}
-				analysis.setGroupBy(groupBy);
 			} else if (config.getChosenDimensions() != null) {
-				List<String> groupBy = new ArrayList<String>();
 				for (String chosenDimension : config.getChosenDimensions()) {
 					String f = null;
 					if (chosenDimension.startsWith("@")) {
@@ -1435,8 +1439,12 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 					}
 					groupBy.add(f);
 				}
-				analysis.setGroupBy(groupBy);
 			}
+			if (groupbyWildcard) {
+				analysis.getGroupBy().remove(0);// remove the first one
+				groupBy.addAll(analysis.getGroupBy());// add reminding
+			}
+			analysis.setGroupBy(groupBy);
 		}
 		boolean metricWildcard = isWildcard(analysis.getMetrics());
 		if (analysis.getMetrics() == null || metricWildcard) {
@@ -1712,12 +1720,38 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		String domainBBID = "@'"+space.getUniverse().getProject().getOid()+"'.@'"+space.getDomain().getOid()+"'";
 		query.setBBID(domainBBID);
 		//
-		// use default dataviz
+		VegaliteConfigurator inputConfig = new VegaliteConfigurator(space, query);
+		// first check the provided parameters, because they must override the default
+		inputConfig.createChannelDef("x", x);
+		inputConfig.createChannelDef("y", y);
+		inputConfig.createChannelDef("color", color);
+		inputConfig.createChannelDef("size", size);
+		inputConfig.createChannelDef("column", column);
+		inputConfig.createChannelDef("row", row);
+		if (inputConfig.getRequired().getMetrics().size()>0) {
+			// override the default metrics
+			query.setMetrics(inputConfig.getRequired().getMetrics());
+		}
+		if (inputConfig.getRequired().getGroupBy().size()>0) {
+			// override the default metrics
+			query.setGroupBy(inputConfig.getRequired().getGroupBy());
+		}
+		//
 		int dims = (query.getGroupBy()!=null)?query.getGroupBy().size():0;
 		int kpis = (query.getMetrics()!=null)?query.getMetrics().size():0;
-		VegaliteConfigurator configurator = new VegaliteConfigurator(space, query);
+		// this will be the output config including the default settings
+		VegaliteConfigurator outputConfig = new VegaliteConfigurator(space, query);
+		//
+		// use default dataviz
 		if (config==null) {
 			// not a bookmark, use default if nothing provided
+			if (x==null && y==null && color==null && size==null && column==null && row==null) {
+				if (query.getPeriod()!=null) {
+					x = "__PERIOD";
+				}
+				// use count() for now
+				y = "count()";
+			}
 		} else if (config.getCurrentAnalysis().equalsIgnoreCase(BookmarkConfig.TIMESERIES_ANALYSIS)) {
 			// use the period as the x
 			if (x==null) {
@@ -1786,50 +1820,54 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 			}
 			if (dims==0) {
 				// just display the metrics
-				if (x==null) {
+				if (x==null && !inputConfig.isHasMetric() && !inputConfig.isHasMetricSeries()) {
 					if (kpis==1) {
 						x = query.getMetrics().get(0);
 					} else {
-						// ulti-kpis
+						// multi-kpis
 						x = TransposeConverter.METRIC_VALUE_COLUMN;
 						y = TransposeConverter.METRIC_SERIES_COLUMN;
-						configurator.getRequired().getMetrics().addAll(query.getMetrics());
 					}
 				}
 			} else if (kpis==1) {
 				// display a barchart or timeseries
-				if (x==null) {
-					x = query.getGroupBy().get(0);
-				}
-				if (y==null) {
+				if (y==null && !inputConfig.isHasMetric() && !inputConfig.isHasMetricSeries()) {
 					y = query.getMetrics().get(0);
 				}
-				if (dims>=2 && color==null) {
-					// use it as the column
-					color = query.getGroupBy().get(1);
-				}
-				if (dims>=3 && column==null) {
-					// use it as the column
-					column = query.getGroupBy().get(2);
-				}
-				if (dims>=4 && row==null) {
-					// use it as the column
-					row = query.getGroupBy().get(3);
+				int next = 0;
+				while (next<dims) {
+					if (x==null) {
+						x = query.getGroupBy().get(next++);
+					} else if (color==null) {
+						// use it as the column
+						color = query.getGroupBy().get(next++);
+					} else if (column==null) {
+						// use it as the column
+						column = query.getGroupBy().get(next++);
+					} else if (row==null) {
+						// use it as the column
+						row = query.getGroupBy().get(next++);
+					} else {
+						break;// no more channel available
+					}
 				}
 			} else {
 				// multiple kpis
 				if (x==null) {
 					x = query.getGroupBy().get(0);
 				}
-				if (y==null) {
-					y = TransposeConverter.METRIC_VALUE_COLUMN;
-					configurator.getRequired().getMetrics().addAll(query.getMetrics());
-					if (color==null) {
-						color = TransposeConverter.METRIC_SERIES_COLUMN;
-					} else if (column==null) {
-						column = TransposeConverter.METRIC_SERIES_COLUMN;
-					} else if (row==null) {
-						row = TransposeConverter.METRIC_SERIES_COLUMN;
+				if (y==null && !inputConfig.isHasMetric()) {
+					if (!inputConfig.isHasMetricValue()) {
+						y = TransposeConverter.METRIC_VALUE_COLUMN;
+					}
+					if (!inputConfig.isHasMetricSeries()) {
+						if (color==null) {
+							color = TransposeConverter.METRIC_SERIES_COLUMN;
+						} else if (column==null) {
+							column = TransposeConverter.METRIC_SERIES_COLUMN;
+						} else if (row==null) {
+							row = TransposeConverter.METRIC_SERIES_COLUMN;
+						}
 					}
 				}
 				int next = 1;
@@ -1851,24 +1889,23 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 			query.setRollups(null);
 		}
 		//
-		SpaceScope localScope = new SpaceScope(space);
 		//
-		VegaliteSpecs specs = configurator.getSpecs();
-		specs.encoding.x = configurator.createChannelDef("x", localScope, x);
-		specs.encoding.y = configurator.createChannelDef("y", localScope, y);
-		specs.encoding.color = configurator.createChannelDef("color", localScope, color);
-		specs.encoding.size = configurator.createChannelDef("size", localScope, size);
-		specs.encoding.column = configurator.createChannelDef("column", localScope, column);
-		specs.encoding.row = configurator.createChannelDef("row", localScope, row);
+		VegaliteSpecs specs = new VegaliteSpecs();
+		specs.encoding.x = outputConfig.createChannelDef("x", x);
+		specs.encoding.y = outputConfig.createChannelDef("y", y);
+		specs.encoding.color = outputConfig.createChannelDef("color", color);
+		specs.encoding.size = outputConfig.createChannelDef("size", size);
+		specs.encoding.column = outputConfig.createChannelDef("column", column);
+		specs.encoding.row = outputConfig.createChannelDef("row", row);
 		//
 		// force using required
-		query.setGroupBy(configurator.getRequired().getGroupBy());
-		query.setMetrics(configurator.getRequired().getMetrics());
+		query.setGroupBy(outputConfig.getRequired().getGroupBy());
+		query.setMetrics(outputConfig.getRequired().getMetrics());
 		//
 		// enforce the explicit limit
 		if (explicitLimit==null) {// compute the default
 			int validDimensions = dims;
-			if (configurator.isTimeseries()) validDimensions--;
+			if (outputConfig.isTimeseries()) validDimensions--;
 			if (kpis>1) validDimensions--;// excluding the metrics series
 			if (dims>0) {
 				explicitLimit = 10L;// keep 10 for each dim
@@ -1880,12 +1917,13 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 			query.setLimit(explicitLimit);
 		}
 		// beyond limit
-		if (configurator.isTimeseries()) {
-			query.setBeyondLimit(new int[]{configurator.getTimeseriesPosition()});
+		if (outputConfig.isTimeseries()) {
+			query.setBeyondLimit(new int[]{outputConfig.getTimeseriesPosition()});
 			// make sure we order by something
 			if (query.getOrderBy()==null || query.getOrderBy().size()==0) {
 				if (query.getMetrics().size()>0) {
-					query.setOrderBy(Collections.singletonList(new OrderBy(query.getMetrics().get(0), Direction.DESC)));
+					ExpressionAST ast = outputConfig.parse(query.getMetrics().get(0));
+					query.setOrderBy(Collections.singletonList(new OrderBy(outputConfig.prettyPrint(ast), Direction.DESC)));
 				} else {
 					query.setOrderBy(Collections.singletonList(new OrderBy("count()", Direction.DESC)));
 				}
@@ -1918,9 +1956,9 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 			}
 			specs.data = new Data();
 			if (kpis<=1) {
-				specs.data.url = buildAnalyticsQueryURI(uriInfo, userContext, localScope, query, "RECORDS", "DATA").toString();
+				specs.data.url = buildAnalyticsQueryURI(uriInfo, userContext, outputConfig.getScope(), query, "RECORDS", "DATA").toString();
 			} else {
-				specs.data.url = buildAnalyticsQueryURI(uriInfo, userContext, localScope, query, "TRANSPOSE", "DATA").toString();
+				specs.data.url = buildAnalyticsQueryURI(uriInfo, userContext, outputConfig.getScope(), query, "TRANSPOSE", "DATA").toString();
 			}
 			specs.data.format = new Format();
 			specs.data.format.type = FormatType.json;// lowercase only!
@@ -1928,7 +1966,11 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 			throw new APIException("undefined value for data parameter, must be EMBEDED or URL");
 		}
 		//
-		specs.mark = configurator.isTimeseries()?Mark.line:Mark.bar;
+		if (outputConfig.isTimeseries()) {
+			specs.mark = Mark.line;
+		} else {
+			specs.mark = Mark.bar;
+		}
 		//
 		VegaliteReply reply = new VegaliteReply();
 		reply.setQuery(query);
