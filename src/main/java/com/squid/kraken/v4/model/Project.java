@@ -86,10 +86,13 @@ public class Project extends LzPersistentBaseImpl<ProjectPK> implements
 	private String dbVendorId;
 	private Map<String, String> dbArguments;
 
+	// T1771: support internal version for project
 	public static final int VERSION_1 = 1;// changing the dynamic IDs to make them independent from the customer/project UUID
 	
-    @JsonIgnore
-	private Integer internalVersion = null;// internal only, client cannot use this property
+	// the version is now visible, but cannot be modified (the store method won't allow it)
+	// - we need to export the project version if we want to re-create the project in a new instance, so the IDs are compliant
+	// - if we hide the internalVerion, we won't be able to move an old project
+	private Integer internalVersion = null;
 
 	/**
 	 * Default constructor (required for jaxb).
