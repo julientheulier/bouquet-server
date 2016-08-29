@@ -87,6 +87,6 @@ public class VegaliteSpecs {
 
 	public Mark mark;
 
-	public Encoding encoding;
+	public Encoding encoding = new Encoding();
 
 }
