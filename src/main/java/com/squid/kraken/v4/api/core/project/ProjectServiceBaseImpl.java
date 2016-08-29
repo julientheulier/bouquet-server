@@ -109,6 +109,8 @@ public class ProjectServiceBaseImpl extends GenericServiceImpl<Project, ProjectP
         	// check if this is a creation or an update
         	Optional<Project> read = DAOFactory.getDAOFactory().getDAO(Project.class).read(ctx, id);
         	if (read.isPresent()) {
+        		// T1771 - copy the internal version because it is not part of the public json
+        		newProject.copyInternalVersion(read.get());
         		updateMode = true;
         	} else {
         		updateMode = false;
