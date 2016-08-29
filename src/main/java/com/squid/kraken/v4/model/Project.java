@@ -87,12 +87,13 @@ public class Project extends LzPersistentBaseImpl<ProjectPK> implements
 	private Map<String, String> dbArguments;
 
 	// T1771: support internal version for project
+	public static final int VERSION_0 = 0;// for legacy
 	public static final int VERSION_1 = 1;// changing the dynamic IDs to make them independent from the customer/project UUID
 	
 	// the version is now visible, but cannot be modified (the store method won't allow it)
 	// - we need to export the project version if we want to re-create the project in a new instance, so the IDs are compliant
 	// - if we hide the internalVerion, we won't be able to move an old project
-	private Integer internalVersion = null;
+	private Integer internalVersion = VERSION_0;
 
 	/**
 	 * Default constructor (required for jaxb).
@@ -107,7 +108,6 @@ public class Project extends LzPersistentBaseImpl<ProjectPK> implements
 
 	public Project(ProjectPK projectId, String name) {
 		super(projectId, name);
-		this.internalVersion = VERSION_1;
 	}
 
 	/**
@@ -118,7 +118,6 @@ public class Project extends LzPersistentBaseImpl<ProjectPK> implements
 	 */
 	public Project(ProjectPK projectId, String name, Expression sandboxPath) {
 		super(projectId, name);
-		this.internalVersion = VERSION_1;
 	}
 	
 	@Override
@@ -308,11 +307,15 @@ public class Project extends LzPersistentBaseImpl<ProjectPK> implements
 	}
 	
 	/**
-	 * use the copy internalVersion
+	 * use the copy internalVersion. If copy is NULL, use the newest version.
 	 * @param copy
 	 */
 	public void copyInternalVersion(Project copy) {
-		this.internalVersion = copy.internalVersion;
+		if (copy==null) {
+			this.internalVersion = VERSION_1;
+		} else {
+			this.internalVersion = copy.internalVersion;
+		}
 	}
 
 }
