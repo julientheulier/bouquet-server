@@ -360,11 +360,7 @@ public class DynamicManager {
 						Domain target = coverage.get(targetTable);
 						if (target != null) {
 							// create a relation ?
-							String link = "rel/" + domain.getId().toUUID() + "-" + target.getId().toUUID();// link
-																											// from
-																											// source
-																											// to
-																											// target
+							String link = genRelationLinkId(project, domain, target);
 							String id = link + ":" + fk.getName();
 							String digest = digest(id);
 							Relation relation = null;
@@ -444,6 +440,15 @@ public class DynamicManager {
 		//
 		return relations;
 	}
+	
+	// T1771: make the id independent from customer/project ID
+	private String genRelationLinkId(Project project, Domain source, Domain target) {
+		if (project.getInternalVersion()>=Project.VERSION_1) {
+			return "rel/" + source.getOid() + "-" + target.getOid();
+		} else {
+			return "rel/" + source.getId().toUUID() + "-" + target.getId().toUUID();
+		}
+	}
 
 	private List<ForeignKey> getForeignKeys(Table table) {
 		try {
@@ -499,7 +504,7 @@ public class DynamicManager {
 		HashSet<String> checkName = new HashSet<String>();
 		boolean isPeriodDefined = false;
 		//
-		String prefix = "dyn_" + space.getDomain().getId().toUUID() + "_dimension:";
+		String prefix = genDomainPrefixID(space.getUniverse().getProject(), domain);
 		//
 		// evaluate the concrete objects
 		HashSet<String> ids = new HashSet<String>();
@@ -779,6 +784,15 @@ public class DynamicManager {
 			if (candidate != null) {
 				candidate.dim.setType(Type.CONTINUOUS);
 			}
+		}
+	}
+	
+	// T1771: generate a prefix ID independent from the customer/project ID
+	private String genDomainPrefixID(Project project, Domain domain) {
+		if (project.getInternalVersion()>=Project.VERSION_1) {
+			return "dyn_" + domain.getOid() + "_dimension:";
+		} else {
+			return "dyn_" + domain.getId().toUUID() + "_dimension:";
 		}
 	}
 
