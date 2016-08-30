@@ -27,15 +27,21 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.codec.digest.DigestUtils;
 
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.collect.ImmutableMap;
 import com.squid.core.domain.IDomain;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.scope.ScopeException;
+import com.squid.kraken.v4.caching.redis.RedisCacheManager;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionMember;
 import com.squid.kraken.v4.core.analysis.model.DashboardAnalysis;
 import com.squid.kraken.v4.core.analysis.model.DashboardSelection;
@@ -55,12 +61,17 @@ public class AnalysisSmartCache {
 
 	public static final AnalysisSmartCache INSTANCE = new AnalysisSmartCache();
 
-	// simple set to control if a qeury is in the smart cache with no need to compute its key
+	// simple set to control if a query is in the smart cache with no need to compute its key
 	private Set<String> contains = new HashSet<>();
 
 	// the structured lookup sets
-	private Map<String, Map<String, HashSet<AnalysisSmartCacheSignature>>> lookup = new ConcurrentHashMap<>();
-
+	private Map<String, Map<String, HashSet<String>>> lookup = new ConcurrentHashMap<>();
+	
+	// the guava cache
+	
+	private Cache<String, AnalysisSmartCacheSignature> cache = CacheBuilder.newBuilder()
+		    .maximumSize(100) // 
+		    .build();
 	private AnalysisSmartCache() {
 		//
 	}
@@ -73,10 +84,10 @@ public class AnalysisSmartCache {
 	 */
 	public AnalysisSmartCacheMatch checkMatch(Universe universe, AnalysisSmartCacheRequest request) {
 		// check same axis
-		Map<String, HashSet<AnalysisSmartCacheSignature>> sameAxes = lookup.get(request.getAxesSignature());
+		Map<String, HashSet<String>> sameAxes = lookup.get(request.getAxesSignature());
 		if (sameAxes!=null) {
 			// check same filters
-			HashSet<AnalysisSmartCacheSignature> sameFiltersCandidates = sameAxes.get(request.getFiltersSignature());
+			HashSet<String> sameFiltersCandidates = sameAxes.get(request.getFiltersSignature());
 			if (sameFiltersCandidates!=null) {
 				AnalysisSmartCacheMatch match = checkMatchMany(null, request, sameFiltersCandidates);
 				if (match!=null) {
@@ -122,9 +133,13 @@ public class AnalysisSmartCache {
 	 * @return
 	 */
 	private AnalysisSmartCacheMatch checkMatchMany(Set<Axis> restrict, AnalysisSmartCacheRequest request,
-			HashSet<AnalysisSmartCacheSignature> sameFiltersCandidates) {
+			HashSet<String> sameFiltersCandidatesKeys) {
 		// iter to check if we found a compatible query
-		for (AnalysisSmartCacheSignature candidate : sameFiltersCandidates) {
+		
+		ImmutableMap<String, AnalysisSmartCacheSignature> sameFiltersCandidates = cache.getAllPresent(sameFiltersCandidatesKeys) ;
+		
+		for (AnalysisSmartCacheSignature candidate  : sameFiltersCandidates.values()) {
+			
 			if (request.getMeasures().getKPIs().size() <= candidate.getMeasures().getKPIs().size()) {
 				AnalysisSmartCacheMatch match = checkMatchSingle(restrict, request, candidate);
 				if (match!=null) {
@@ -265,12 +280,13 @@ public class AnalysisSmartCache {
 	 * @param signature
 	 */
 	public boolean remove(AnalysisSmartCacheRequest request) {
-		Map<String, HashSet<AnalysisSmartCacheSignature>> sameAxes = lookup.get(request.getAxesSignature());
+		Map<String, HashSet<String>> sameAxes = lookup.get(request.getAxesSignature());
 		if (sameAxes!=null) {
-			HashSet<AnalysisSmartCacheSignature> sameFilters = sameAxes.get(request.getFiltersSignature());
+			HashSet<String> sameFilters = sameAxes.get(request.getFiltersSignature());
 			if (sameFilters!=null) {
-				if (!sameFilters.contains(request.getKey())) {
-					boolean check = sameFilters.remove(request.getKey());
+				String key = this.buildGuavaKey(request);
+				if (!sameFilters.contains(key)) {
+					boolean check = sameFilters.remove(key);
 					return check;
 				}
 			}
@@ -290,21 +306,25 @@ public class AnalysisSmartCache {
 	 * @param dm 
 	 */
 	public boolean put(AnalysisSmartCacheRequest request) {
-		Map<String, HashSet<AnalysisSmartCacheSignature>> sameAxes = lookup.get(request.getAxesSignature());
+		Map<String, HashSet<String>> sameAxes = lookup.get(request.getAxesSignature());
 		if (sameAxes==null) {
-			sameAxes = new ConcurrentHashMap<>();// create the filters map
+			sameAxes = new ConcurrentHashMap<String, HashSet<String>>();// create the filters map
 			lookup.put(request.getAxesSignature(), sameAxes);
 		}
-		HashSet<AnalysisSmartCacheSignature> sameFilters = sameAxes.get(request.getFiltersSignature());
+		HashSet<String> sameFilters = sameAxes.get(request.getFiltersSignature());
 		if (sameFilters==null) {
-			sameFilters = new HashSet<AnalysisSmartCacheSignature>();// create the signature set
+			sameFilters = new HashSet<String>();// create the signature set
 			sameAxes.put(request.getFiltersSignature(), sameFilters);
 		}
-		if (!sameFilters.contains(request.getKey())) {
-			sameFilters.add(request.getKey());
+		String key = this.buildGuavaKey(request);
+		if (!sameFilters.contains(key)) {
+			sameFilters.add(key);
+		}
+		if (this.cache.getIfPresent(key ) == null){
+			this.cache.put(key, request.getKey());			
 		}
 		//
-		return contains.add(request.getKey().getHash());
+		return contains.add(key);
 	}
 
 	/**
@@ -313,7 +333,7 @@ public class AnalysisSmartCache {
 	 * @return
 	 */
 	public boolean contains(AnalysisSmartCacheRequest request) {
-		return contains.contains(request.getKey().getHash());
+		return contains.contains(this.buildGuavaKey(request));
 	}
 
 	/**
@@ -343,4 +363,16 @@ public class AnalysisSmartCache {
 		return null;
 	}
 	
+	private String buildGuavaKey(AnalysisSmartCacheRequest request){
+		return buildGuavaKey(request.getKey().getSQL(), request.getAnalysis());
+	}
+	
+	private String buildGuavaKey(String sql, DashboardAnalysis da){
+		List<String> dependencies = new ArrayList<String>();
+		dependencies.add( da.getUniverse().getProject().getId().toUUID());		
+		return RedisCacheManager.getInstance().buildCacheKey(sql, dependencies ) ;
+	}
+	
 }
+
+
