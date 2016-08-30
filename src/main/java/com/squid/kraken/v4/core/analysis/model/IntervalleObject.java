@@ -175,7 +175,7 @@ public class IntervalleObject extends IntervalleAbstract implements Comparable<I
 	
 	@Override
 	public String toString() {
-		return "[ "+lower_bound.toString()+" | "+upper_bound.toString()+" ]";
+		return "[ "+lower_bound+" | "+upper_bound+" ]";
 	}
 	
 
