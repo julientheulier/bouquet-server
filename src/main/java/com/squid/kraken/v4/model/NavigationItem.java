@@ -59,6 +59,8 @@ public class NavigationItem {
 	
 	private URI objectLink;// link to the actual object
 	
+	private URI viewLink;// link to the /view API
+	
 	/**
 	 * 
 	 */
@@ -237,6 +239,14 @@ public class NavigationItem {
 
 	public void setObjectLink(URI objectLink) {
 		this.objectLink = objectLink;
+	}
+
+	public URI getViewLink() {
+		return viewLink;
+	}
+
+	public void setViewLink(URI viewLink) {
+		this.viewLink = viewLink;
 	}
 
 }
