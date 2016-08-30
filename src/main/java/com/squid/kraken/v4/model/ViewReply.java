@@ -29,13 +29,13 @@ import com.squid.kraken.v4.vegalite.VegaliteSpecs;
  * @author sergefantino
  *
  */
-public class VegaliteReply {
+public class ViewReply {
 	
 	private AnalyticsQuery query;
 	
 	private VegaliteSpecs result;
 	
-	public VegaliteReply() {
+	public ViewReply() {
 	}
 
 	public AnalyticsQuery getQuery() {
