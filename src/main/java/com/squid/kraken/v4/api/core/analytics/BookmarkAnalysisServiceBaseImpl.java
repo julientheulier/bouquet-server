@@ -26,6 +26,7 @@ package com.squid.kraken.v4.api.core.analytics;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -33,6 +34,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IllegalFormatException;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
@@ -49,9 +51,11 @@ import javax.ws.rs.core.UriInfo;
 import javax.ws.rs.core.Response.ResponseBuilder;
 
 import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.lang3.StringEscapeUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -75,6 +79,7 @@ import com.squid.core.poi.ExcelFile;
 import com.squid.core.poi.ExcelSettingsBean;
 import com.squid.core.sql.model.SQLScopeException;
 import com.squid.core.sql.render.RenderingException;
+import com.squid.kraken.v4.KrakenConfig;
 import com.squid.kraken.v4.api.core.APIException;
 import com.squid.kraken.v4.api.core.AccessRightsUtils;
 import com.squid.kraken.v4.api.core.ComputingInProgressAPIException;
@@ -107,6 +112,7 @@ import com.squid.kraken.v4.core.analysis.model.DashboardAnalysis;
 import com.squid.kraken.v4.core.analysis.model.DashboardSelection;
 import com.squid.kraken.v4.core.analysis.scope.AxisExpression;
 import com.squid.kraken.v4.core.analysis.scope.GlobalExpressionScope;
+import com.squid.kraken.v4.core.analysis.scope.MeasureExpression;
 import com.squid.kraken.v4.core.analysis.scope.SpaceExpression;
 import com.squid.kraken.v4.core.analysis.scope.SpaceScope;
 import com.squid.kraken.v4.core.analysis.scope.UniverseScope;
@@ -131,6 +137,8 @@ import com.squid.kraken.v4.model.BookmarkConfig;
 import com.squid.kraken.v4.model.BookmarkFolderPK;
 import com.squid.kraken.v4.model.BookmarkPK;
 import com.squid.kraken.v4.model.DataTable;
+import com.squid.kraken.v4.model.DataTable.Col;
+import com.squid.kraken.v4.model.DataTable.Row;
 import com.squid.kraken.v4.model.Dimension;
 import com.squid.kraken.v4.model.Dimension.Type;
 import com.squid.kraken.v4.model.NavigationQuery.HierarchyMode;
@@ -161,7 +169,8 @@ import com.squid.kraken.v4.model.ProjectAnalysisJobPK;
 import com.squid.kraken.v4.model.ProjectFacetJob;
 import com.squid.kraken.v4.model.ProjectPK;
 import com.squid.kraken.v4.model.ValueType;
-import com.squid.kraken.v4.model.VegaliteReply;
+import com.squid.kraken.v4.model.ViewQuery;
+import com.squid.kraken.v4.model.ViewReply;
 import com.squid.kraken.v4.model.AccessRight.Role;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DAOFactory;
@@ -169,7 +178,6 @@ import com.squid.kraken.v4.persistence.dao.ProjectDAO;
 import com.squid.kraken.v4.vegalite.VegaliteConfigurator;
 import com.squid.kraken.v4.vegalite.VegaliteSpecs;
 import com.squid.kraken.v4.vegalite.VegaliteSpecs.*;
-import com.squid.kraken.v4.vegalite.VegaliteSpecs.Format;
 
 /**
  * @author sergefantino
@@ -191,13 +199,14 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 	private static final NavigationItem SHARED_FOLDER = new NavigationItem("Shared Bookmarks", "list all the bookmarks shared with you", "/", "/SHARED", "FOLDER");
 	private static final NavigationItem MYBOOKMARKS_FOLDER = new NavigationItem("My Bookmarks", "list all your bookmarks", "/", "/MYBOOKMARKS", "FOLDER");
 
-	public NavigationReply listContent(
+	public Response listContent(
 			AppContext userContext,
 			String parent,
 			String search,
 			HierarchyMode hierarchyMode, 
+			Visibility visibility,
 			Style style,
-			Visibility visibility
+			String envelope
 		) throws ScopeException {
 		if (parent !=null && parent.endsWith("/")) {
 			parent = parent.substring(0, parent.length()-1);// remove trailing /
@@ -208,6 +217,13 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		query.setHiearchy(hierarchyMode);
 		query.setStyle(style!=null?style:Style.HUMAN);
 		query.setVisibility(visibility!=null?visibility:Visibility.VISIBLE);
+		if (envelope==null) {
+			if (query.getStyle()==Style.HUMAN || query.getStyle()==Style.HTML) {
+				envelope = "RESULT";
+			} else {
+				envelope = "ALL";
+			}
+		}
 		//
 		// tokenize the search string
 		String[] filters = null;
@@ -247,11 +263,15 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 			}
 		}
 		// create results
-		return new NavigationReply(query, result);
+		if (envelope.equalsIgnoreCase("ALL")) {
+			return Response.ok(new NavigationReply(query, result)).build();
+		} else {// RESULT
+			return Response.ok(result).build();
+		}
 	}
 	
 	private NavigationItem createLinkableFolder(AppContext userContext, NavigationQuery query, NavigationItem folder) {
-		if (query.getStyle()==Style.HUMAN) {
+		if (query.getStyle()==Style.HUMAN || query.getStyle()==Style.HTML) {
 			NavigationItem copy = new NavigationItem(folder);
 			copy.setLink(createLinkToFolder(userContext, query, copy));
 			return copy;
@@ -307,9 +327,9 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 			for (Project project : projects) {
 				if (filters==null || filter(project, filters)) {
 					NavigationItem folder = new NavigationItem(query, project, parent);
-					if (query.getStyle()==Style.HUMAN) {
+					if (query.getStyle()==Style.HUMAN || query.getStyle()==Style.HTML) {
 						folder.setLink(createLinkToFolder(userContext, query, folder));
-						folder.setObjectLink(createObjectLink(userContext, project));
+						folder.setObjectLink(createObjectLink(userContext, query, project));
 					}
 					HashMap<String, String> attrs = new HashMap<>();
 					attrs.put("jdbc", project.getDbUrl());
@@ -328,9 +348,10 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 					String name = domain.getName();
 					if (filters==null || filter(name, filters)) {
 						NavigationItem item = new NavigationItem(query, project, domain, parent);
-						if (query.getStyle()==Style.HUMAN) {
-							item.setLink(createLinkToAnalysis(userContext, item));
-							item.setObjectLink(createObjectLink(userContext, domain));
+						if (query.getStyle()==Style.HUMAN || query.getStyle()==Style.HTML) {
+							item.setLink(createLinkToAnalysis(userContext, query, item));
+							item.setObjectLink(createObjectLink(userContext, query, domain));
+							item.setViewLink(createLinkToView(userContext, query, item));
 						}
 						HashMap<String, String> attrs = new HashMap<>();
 						attrs.put("dictionary", project.getName());
@@ -372,17 +393,28 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 	 */
 	private URI createLinkToFolder(AppContext userContext, NavigationQuery query, NavigationItem item) {
 		return
-				createNavigationQuery(userContext, query).build(item.getSelfRef());
+				rebaseURI(createNavigationQuery(userContext, query).build(item.getSelfRef()));
 	}
 	
 	private URI createLinkToFolder(AppContext userContext, NavigationQuery query, String selfRef) {
 		return
-				createNavigationQuery(userContext, query).build(selfRef!=null?selfRef:"");
+				rebaseURI(createNavigationQuery(userContext, query).build(selfRef!=null?selfRef:""));
 	}
 	
-	private URI createLinkToAnalysis(AppContext userContext, NavigationItem item) {
-		return
-				uriInfo.getAbsolutePathBuilder().path("/{"+BBID_PARAM_NAME+"}/query").queryParam("access_token", userContext.getToken().getOid()).build(item.getSelfRef());
+	private URI createLinkToAnalysis(AppContext userContext, NavigationQuery query, NavigationItem item) {
+		UriBuilder builder =
+			uriInfo.getAbsolutePathBuilder().path("/{"+BBID_PARAM_NAME+"}/query");
+		if (query.getStyle()!=null) builder.queryParam(STYLE_PARAM, query.getStyle());
+		builder.queryParam("access_token", userContext.getToken().getOid());
+		return rebaseURI(builder.build(item.getSelfRef()));
+	}
+	
+	private URI createLinkToView(AppContext userContext, NavigationQuery query, NavigationItem item) {
+		UriBuilder builder =
+			uriInfo.getAbsolutePathBuilder().path("/{"+BBID_PARAM_NAME+"}/view");
+		if (query.getStyle()!=null) builder.queryParam(STYLE_PARAM, query.getStyle());
+		builder.queryParam("access_token", userContext.getToken().getOid());
+		return rebaseURI(builder.build(item.getSelfRef()));
 	}
 	
 	private UriBuilder createNavigationQuery(AppContext userContext, NavigationQuery query) {
@@ -395,18 +427,37 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		return builder;
 	}
 	
-	private URI createObjectLink(AppContext userContext, Project project) {
+	private URI createObjectLink(AppContext userContext, NavigationQuery query, Project project) {
 		UriBuilder builder = 
 			uriInfo.getBaseUriBuilder().path("/rs/projects/{projectID}");
+		if (query.getStyle()!=null) builder.queryParam(STYLE_PARAM, query.getStyle());
 		builder.queryParam("access_token", userContext.getToken().getOid());
-		return builder.build(project.getOid());
+		return rebaseURI(builder.build(project.getOid()));
 	}
 	
-	private URI createObjectLink(AppContext userContext, Domain domain) {
+	private URI createObjectLink(AppContext userContext, NavigationQuery query, Domain domain) {
 		UriBuilder builder = 
 			uriInfo.getBaseUriBuilder().path("/rs/projects/{projectID}/domains/{domainID}");
+		if (query.getStyle()!=null) builder.queryParam(STYLE_PARAM, query.getStyle());
 		builder.queryParam("access_token", userContext.getToken().getOid());
-		return builder.build(domain.getId().getProjectId(), domain.getOid());
+		return rebaseURI(builder.build(domain.getId().getProjectId(), domain.getOid()));
+	}
+	
+	private URI rebaseURI(URI uri) {
+		String base = uriInfo.getBaseUri().toString();
+		String full = uri.toString();
+		String path = full.substring(base.length());
+		String scheme = KrakenConfig.getProperty("kraken.rest.scheme");
+		String host = KrakenConfig.getProperty("kraken.rest.host");
+		if (host.endsWith("/")) host = host.substring(0, host.length()-1);// remove trailing /
+		String port = KrakenConfig.getProperty("kraken.rest.port");
+		String mode = KrakenConfig.getProperty("kraken.server.mode");
+		String rebase = scheme+"://"+host+(port!=null?":"+port:"")+"/"+(mode!=null?mode:"")+"/v4.2/";
+		try {
+			return new URI(rebase+path);
+		} catch (URISyntaxException e) {
+			return uri;
+		}
 	}
 	
 	/**
@@ -516,7 +567,10 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 						actualParent = (parent + path.substring(fullPath.length()));
 					}
 					NavigationItem item = new NavigationItem(query, project, bookmark, actualParent);
-					if (query.getStyle()==Style.HUMAN) item.setLink(createLinkToAnalysis(userContext, item));
+					if (query.getStyle()==Style.HUMAN || query.getStyle()==Style.HTML) {
+						item.setLink(createLinkToAnalysis(userContext, query, item));
+						item.setViewLink(createLinkToView(userContext, query, item));
+					}
 					HashMap<String, String> attrs = new HashMap<>();
 					attrs.put("dictionary", project.getName());
 					item.setAttributes(attrs);
@@ -536,7 +590,9 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 							// legacy folder PK support
 							BookmarkFolderPK id = new BookmarkFolderPK(bookmark.getId().getCustomerId(), oid);
 							NavigationItem folder = new NavigationItem(query.getStyle()==Style.LEGACY?id:null, name, "", parent, selfpath, NavigationItem.FOLDER_TYPE);
-							if (query.getStyle()==Style.HUMAN) folder.setLink(createLinkToFolder(userContext, query, folder));
+							if (query.getStyle()==Style.HUMAN || query.getStyle()==Style.HTML) {
+								folder.setLink(createLinkToFolder(userContext, query, folder));
+							}
 							content.add(folder);
 							folders.add(selfpath);
 						}
@@ -802,11 +858,11 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		return suggestions;
 	}
 	
-	public Object runAnalysis(
+	public Response runAnalysis(
 			final AppContext userContext,
 			String BBID,
 			final AnalyticsQuery query, 
-			String format,
+			String data,
 			String envelope,
 			Integer timeout
 			)
@@ -836,15 +892,17 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 			}
 			reply.setQuery(query);
 			//
-			if (format==null || format.equals("")) format="LEGACY";
-			if (format.equalsIgnoreCase("SQL")) {
+			if (data==null || data.equals("")) data="LEGACY";
+			if (data.equalsIgnoreCase("SQL")) {
 				// bypassing the ComputingService
 				AnalysisJobComputer computer = new AnalysisJobComputer();
 				String sql = computer.viewSQL(userContext, job);
-				AnalyticsResult result = new AnalyticsResult();
-				result.setData(sql);
-				reply.setResult(result);
+				reply.setResult(sql);
 			} else {
+				if (query.getStyle()==Style.HTML) {
+					// change data format to legacy
+					data="LEGACY";
+				}
 				try {
 					Callable<DataMatrix> task = new Callable<DataMatrix>() {
 						@Override
@@ -853,20 +911,20 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 						}
 					};
 					Future<DataMatrix> futur = ExecutionManager.INSTANCE.submit(userContext.getCustomerId(), task);
-					DataMatrix data = null;
+					DataMatrix matrix = null;
 					if (timeout==null) {
 						// using the customer execution engine to control load
-						data = futur.get();
+						matrix = futur.get();
 					} else {
-						data = futur.get(timeout>1000?timeout:1000, java.util.concurrent.TimeUnit.MILLISECONDS);
+						matrix = futur.get(timeout>1000?timeout:1000, java.util.concurrent.TimeUnit.MILLISECONDS);
 					}
-					if (format==null || format.equals("") || format.equalsIgnoreCase("LEGACY")) {
-						DataTable legacy = data.toDataTable(userContext, query.getMaxResults(), query.getStartIndex(), false, null);
+					if (data==null || data.equals("") || data.equalsIgnoreCase("LEGACY")) {
+						DataTable legacy = matrix.toDataTable(userContext, query.getMaxResults(), query.getStartIndex(), false, null);
 						reply.setResult(legacy);
 					} else {
-						IDataMatrixConverter<Object[]> converter = getConverter(format);
+						IDataMatrixConverter<Object[]> converter = getConverter(data);
 						AnalyticsResult result = new AnalyticsResult();
-						result.setData(converter.convert(data));
+						result.setData(converter.convert(matrix));
 						reply.setResult(result);
 					}
 				} catch (NotInCacheException e) {
@@ -883,7 +941,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 			}
 			//
 			if (envelope==null) {
-				if (query.getStyle()==Style.HUMAN) {
+				if (query.getStyle()==Style.HUMAN || query.getStyle()==Style.HTML) {
 					envelope = "RESULT";
 				} else if (query.getStyle()==Style.LEGACY) {
 					envelope = "RESULT";
@@ -891,22 +949,86 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 					envelope = "ALL";
 				}
 			}
-			if (envelope.equalsIgnoreCase("ALL")) {
-				return reply;
+			if (query.getStyle()==Style.HTML && data.equalsIgnoreCase("SQL")) {
+					return createHTMLsql(reply.getResult().toString());
+			} else if (query.getStyle()==Style.HTML && data.equalsIgnoreCase("LEGACY")) {
+					return createHTMLtable(space, (DataTable)reply.getResult());
+			} else if (envelope.equalsIgnoreCase("ALL")) {
+				return Response.ok(reply).build();
 			} else if (envelope.equalsIgnoreCase("RESULT")) {
-				return reply.getResult();
+				return Response.ok(reply.getResult()).build();
 			} else if (envelope.equalsIgnoreCase("DATA")) {
 				if (reply.getResult() instanceof AnalyticsResult) {
-					return ((AnalyticsResult)reply.getResult()).getData();
+					return Response.ok(((AnalyticsResult)reply.getResult()).getData()).build();
 				} else if (reply.getResult() instanceof DataTable) {
-					return ((DataTable)reply.getResult()).getRows();
+					return Response.ok(((DataTable)reply.getResult()).getRows()).build();
+				} else {
+					// return result instead
+					return Response.ok(reply.getResult()).build();
 				}
 			} 
 			//else
-			return reply;
+			return Response.ok(reply).build();
 		} catch (ComputingException | InterruptedException | ScopeException | SQLScopeException | RenderingException e) {
 			throw new APIException(e.getMessage(), true);
 		}
+	}
+
+	/**
+	 * @param dataTable 
+	 * @return
+	 */
+	private Response createHTMLtable(Space space, DataTable data) {
+		String title = createHTMLtitle(space);
+		StringBuilder html = new StringBuilder("<html><title>Query: "+title+"</title><body>");
+		html.append("<h1>"+title+"</h1>");
+		html.append("<table><tr>");
+		for (Col col : data.getCols()) {
+			html.append("<th>"+col.getName()+"</th>");
+		}
+		html.append("</tr>");
+		for (Row row : data.getRows()) {
+			html.append("<tr>");
+			for (Col col : data.getCols()) {
+				Object value = row.getV()[col.getPos()];
+				if (col.getFormat()!=null && col.getFormat().length()>0) {
+					try {
+						value = String.format(col.getFormat(), value);
+					} catch (IllegalFormatException e) {
+						// ignore
+					}
+				}
+				html.append("<td>"+value+"</td>");
+			}
+			html.append("</tr>");
+		}
+		html.append("</table>");
+		html.append("<p>rows from "+(data.getStartIndex()+1)+" to "+data.getStartIndex()+data.getRows().size()+" out of "+data.getTotalSize()+" records</p>");
+		if (data.isFromCache()) {
+			html.append("<p>data from cache, last computed "+data.getExecutionDate()+"</p>");
+		} else {
+			html.append("<p>fresh data just computed at "+data.getExecutionDate()+"</p>");
+		}
+		html.append("<hr>powered by Open Bouquet");
+		html.append("</body></html>");
+		return Response.ok(html.toString(),"text/html").build();
+	}
+
+	/**
+	 * @param string
+	 * @return
+	 */
+	private Response createHTMLsql(String sql) {
+		StringBuilder html = new StringBuilder("<html><head>");
+		html.append(
+				"<script src='https://cdn.rawgit.com/google/code-prettify/master/loader/run_prettify.js?lang=sql'></script>");
+		html.append("</head><body>");
+		html.append(
+				"<pre class='prettyprint lang-sql' style='white-space: pre-wrap;white-space: -moz-pre-wrap;white-space: -pre-wrap;white-space: -o-pre-wrap;word-wrap: break-word;padding:0px;margin:0px'>");
+		html.append(StringEscapeUtils.escapeHtml4(sql));
+		html.append("</pre>");
+		html.append("</body></html>");
+		return Response.ok(html.toString(),"text/html").build();
 	}
 
 	public Response exportAnalysis(
@@ -1424,6 +1546,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 				analysis.setLimit(config.getLimit());
 			}
 		}
+		// merging groupBy
 		boolean groupbyWildcard = isWildcard(analysis.getGroupBy());
 		if (analysis.getGroupBy() == null || groupbyWildcard) {
 			List<String> groupBy = new ArrayList<String>();
@@ -1439,7 +1562,8 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 						Axis axis = space.A(dimension);
 						try {
 							DimensionIndex index = axis.getIndex();
-							if (index!=null && index.isVisible() && index.getStatus()!=Status.ERROR) {
+							IDomain image = axis.getDefinitionSafe().getImageDomain();
+							if (index!=null && index.isVisible() && index.getStatus()!=Status.ERROR && !image.isInstanceOf(IDomain.OBJECT)) {
 								groupBy.add(axis.prettyPrint(options));
 							}
 						} catch (ComputingException | InterruptedException e) {
@@ -1466,11 +1590,26 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 			}
 			analysis.setGroupBy(groupBy);
 		}
+		// merging Metrics
 		boolean metricWildcard = isWildcard(analysis.getMetrics());
 		if (analysis.getMetrics() == null || metricWildcard) {
 			List<String> metrics = new ArrayList<>();
 			if (config==null) {
-				// no metrics
+				boolean someIntrinsicMetric = false;
+				for (Measure measure : space.M()) {
+					Metric metric = measure.getMetric();
+					if (metric!=null && !metric.isDynamic()) {
+						IDomain image = measure.getDefinitionSafe().getImageDomain();
+						if (image.isInstanceOf(IDomain.AGGREGATE)) {
+							Measure m = space.M(metric);
+							metrics.add(rewriteExpressionToLocalScope(new MeasureExpression(m), space));
+							someIntrinsicMetric = true;
+						}
+					}
+				}
+				if (!someIntrinsicMetric) {
+					metrics.add("count()");
+				}
 			} else if (config.getChosenMetrics() != null) {
 				for (String chosenMetric : config.getChosenMetrics()) {
 					metrics.add("@'" + chosenMetric + "'");
@@ -1523,6 +1662,15 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 					Axis axis = index.getAxis();
 					AxisExpression expr = new AxisExpression(axis);
 					analysis.setPeriod(rewriteExpressionToLocalScope(expr, space));
+					if (analysis.getTimeframe()==null) {
+						if (index.getStatus()==Status.DONE) {
+							analysis.setTimeframe(new String[]{"__CURRENT_MONTH"});
+						} else {
+							analysis.setTimeframe(new String[]{"__ALL"});
+						}
+					}
+					// quit the loop!
+					break;
 				}
 			}
 			if (analysis.getPeriod()==null) {
@@ -1707,19 +1855,20 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 	 * @param x
 	 * @param y
 	 * @param color
+	 * @param style 
 	 * @param query
 	 * @return
 	 * @throws InterruptedException 
 	 * @throws ComputingException 
 	 * @throws ScopeException 
 	 */
-	public Object createVegalite(
+	public Response viewAnalysis(
 			UriInfo uriInfo, 
 			final AppContext userContext, 
-			String BBID, 
-			String x, String y, String color, String size,
-			String column, String row,
+			String BBID,
+			ViewQuery view,
 			String data,
+			Style style, 
 			String envelope,
 			AnalyticsQuery query) throws ScopeException, ComputingException, InterruptedException {
 		Space space = getSpace(userContext, BBID);
@@ -1742,12 +1891,12 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		//
 		VegaliteConfigurator inputConfig = new VegaliteConfigurator(space, query);
 		// first check the provided parameters, because they must override the default
-		inputConfig.createChannelDef("x", x);
-		inputConfig.createChannelDef("y", y);
-		inputConfig.createChannelDef("color", color);
-		inputConfig.createChannelDef("size", size);
-		inputConfig.createChannelDef("column", column);
-		inputConfig.createChannelDef("row", row);
+		inputConfig.createChannelDef("x", view.getX());
+		inputConfig.createChannelDef("y", view.getY());
+		inputConfig.createChannelDef("color", view.getColor());
+		inputConfig.createChannelDef("size", view.getSize());
+		inputConfig.createChannelDef("column", view.getColumn());
+		inputConfig.createChannelDef("row", view.getRow());
 		if (inputConfig.getRequired().getMetrics().size()>0) {
 			// override the default metrics
 			query.setMetrics(inputConfig.getRequired().getMetrics());
@@ -1757,149 +1906,231 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 			query.setGroupBy(inputConfig.getRequired().getGroupBy());
 		}
 		//
+		// add the compareTo() if needed
+		/*
+		if (query.getCompareframe()!=null && query.getMetrics()!=null && query.getMetrics().size()==1) {
+			String expression = query.getMetrics().get(0);
+			ExpressionAST ast = inputConfig.parse(expression);
+			query.getMetrics().add("compareTo("+inputConfig.prettyPrint(ast)+")");
+		}
+		*/
+		//
 		int dims = (query.getGroupBy()!=null)?query.getGroupBy().size():0;
 		int kpis = (query.getMetrics()!=null)?query.getMetrics().size():0;
 		// this will be the output config including the default settings
 		VegaliteConfigurator outputConfig = new VegaliteConfigurator(space, query);
 		//
-		// use default dataviz
-		if (config==null) {
-			// not a bookmark, use default if nothing provided
-			if (x==null && y==null && color==null && size==null && column==null && row==null) {
-				if (query.getPeriod()!=null) {
-					x = "__PERIOD";
+		// use default dataviz unless x and y are already sets
+		if (view.getX()==null || view.getY()==null) {
+			// DOMAIN
+			if (config==null) {
+				// not a bookmark, use default if nothing provided
+				if (view.getX()==null && !inputConfig.isTimeseries() && query.getPeriod()!=null) {
+					view.setX("__PERIOD");
 				}
-				// use count() for now
-				y = "count()";
-			}
-		} else if (config.getCurrentAnalysis().equalsIgnoreCase(BookmarkConfig.TIMESERIES_ANALYSIS)) {
-			// use the period as the x
-			if (x==null) {
-				x = "__PERIOD";
-			}
-			if (dims>0) {
-				if (dims>=1 && color==null) {
-					// use it as the color
-					color = query.getGroupBy().get(0);
-				}
-				if (dims>=2 && column==null) {
-					// use it as the column
-					column = query.getGroupBy().get(1);
-				}
-				if (dims>=3 && row==null) {
-					// use it as the column
-					row = query.getGroupBy().get(2);
-				}
-				if (dims>=4 && size==null) {
-					// use it as the column
-					size = query.getGroupBy().get(3);
-				}
-			}
-			if (y==null) {
-				if (kpis>0) {
-					// we can only use the first one for now
-					y = query.getMetrics().get(0);
+				if (query.getMetrics()==null || query.getMetrics().size()==0) {
+					if (!inputConfig.isHasMetric()) {
+						// use count() for now
+						if (view.getX()==null) {
+							view.setX("count()");
+						} else {
+							view.setY("count()");
+						}
+					}
 				} else {
-					// we need a default metric
-					y = "count() // this is the default metric";
-				}
-			}
-		} else if (config.getCurrentAnalysis().equalsIgnoreCase(BookmarkConfig.BARCHART_ANALYSIS)) {
-			if (dims>0) {
-				if (dims>=1 && x==null) {
-					// use it as the x
-					x = query.getGroupBy().get(0);
-				}
-				if (dims>=2 && color==null) {
-					// use it as the column
-					color = query.getGroupBy().get(1);
-				}
-				if (dims>=3 && column==null) {
-					// use it as the column
-					column = query.getGroupBy().get(2);
-				}
-				if (dims>=4 && row==null) {
-					// use it as the column
-					row = query.getGroupBy().get(3);
-				}
-			}
-			if (y==null) {
-				if (kpis>0) {
-					// we can only use the first one for now
-					y = query.getMetrics().get(0);
-				} else {
-					// we need a default metric
-					y = "count() // this is the default metric";
-				}
-			}
-		} else {// TABLE_ANALYSIS or unknown
-			if (kpis==0) {
-				// we need at least one dim
-				query.setMetrics(Collections.singletonList("count() // this is the default metric"));
-				kpis++;
-			}
-			if (dims==0) {
-				// just display the metrics
-				if (x==null && !inputConfig.isHasMetric() && !inputConfig.isHasMetricSeries()) {
-					if (kpis==1) {
-						x = query.getMetrics().get(0);
-					} else {
-						// multi-kpis
-						x = TransposeConverter.METRIC_VALUE_COLUMN;
-						y = TransposeConverter.METRIC_SERIES_COLUMN;
-					}
-				}
-			} else if (kpis==1) {
-				// display a barchart or timeseries
-				if (y==null && !inputConfig.isHasMetric() && !inputConfig.isHasMetricSeries()) {
-					y = query.getMetrics().get(0);
-				}
-				int next = 0;
-				while (next<dims) {
-					if (x==null) {
-						x = query.getGroupBy().get(next++);
-					} else if (color==null) {
-						// use it as the column
-						color = query.getGroupBy().get(next++);
-					} else if (column==null) {
-						// use it as the column
-						column = query.getGroupBy().get(next++);
-					} else if (row==null) {
-						// use it as the column
-						row = query.getGroupBy().get(next++);
-					} else {
-						break;// no more channel available
-					}
-				}
-			} else {
-				// multiple kpis
-				if (x==null) {
-					x = query.getGroupBy().get(0);
-				}
-				if (y==null && !inputConfig.isHasMetric()) {
-					if (!inputConfig.isHasMetricValue()) {
-						y = TransposeConverter.METRIC_VALUE_COLUMN;
-					}
-					if (!inputConfig.isHasMetricSeries()) {
-						if (color==null) {
-							color = TransposeConverter.METRIC_SERIES_COLUMN;
-						} else if (column==null) {
-							column = TransposeConverter.METRIC_SERIES_COLUMN;
-						} else if (row==null) {
-							row = TransposeConverter.METRIC_SERIES_COLUMN;
+					// display some metrics
+					// - single metric
+					if (query.getMetrics().size()==1) {
+						if (!inputConfig.isHasMetric()) {
+							if (view.getX()==null) {
+								view.setX(query.getMetrics().get(0));
+							} else {
+								view.setY(query.getMetrics().get(0));
+							}
+						}
+					// - multiple metrics
+					} else if (view.getY()==null || view.getColor()==null || view.getColumn()==null || view.getRow()==null) {
+						// set __VALUE
+						if (!inputConfig.isHasMetricValue()) {
+							if (view.getX()==null) {
+								view.setX("__VALUE");
+							} else {
+								view.setY("__VALUE");
+							}
+						}
+						// set __METRICS
+						if (!inputConfig.isHasMetricSeries()) {
+							if (view.getY()==null) {
+								view.setY("__METRICS");
+							} else if (view.getColor()==null) {
+								view.setColor("__METRICS");
+							} else if (view.getColumn()==null) {
+								view.setColumn("__METRICS");
+							} else if (view.getRow()==null) {
+								view.setRow("__METRICS");
+							}
 						}
 					}
 				}
-				int next = 1;
+			// TIME-SERIES
+			} else if (config.getCurrentAnalysis()!=null && config.getCurrentAnalysis().equalsIgnoreCase(BookmarkConfig.TIMESERIES_ANALYSIS)) {
+				// use the period as the x
+				if (view.getX()==null && !inputConfig.isTimeseries()) {
+					view.setX("__PERIOD");
+				}
+				// take care of y axis and metrics
+				if (view.getY()==null && (!inputConfig.isHasMetric() || !inputConfig.isHasMetricValue())) {
+					if (kpis==0 && !inputConfig.isHasMetric()) {
+						// we need a default metric
+						view.setY("count() // this is the default metric");
+					} else if (kpis==1 && !inputConfig.isHasMetric()) {
+						// we can only use the first one for now
+						view.setY(query.getMetrics().get(0));
+					} else if (!inputConfig.isHasMetricValue()) {
+						view.setY(TransposeConverter.METRIC_VALUE_COLUMN);
+						if (!inputConfig.isHasMetricSeries()) {
+							if (view.getColor()==null) {
+								view.setColor(TransposeConverter.METRIC_SERIES_COLUMN);
+							} else if (view.getColumn()==null) {
+								view.setColumn(TransposeConverter.METRIC_SERIES_COLUMN);
+							} else if (view.getRow()==null) {
+								view.setRow(TransposeConverter.METRIC_SERIES_COLUMN);
+							}
+						}
+					}
+				}
+				// add reminding groupBy
+				int next = 0;
 				while (next<dims) {
-					if (column==null) {
-						// use it as the column
-						column = query.getGroupBy().get(next++);
-					} else if (row==null) {
-						// use it as the column
-						row = query.getGroupBy().get(next++);
-					} else {
-						break;// no more channel available
+					if (!query.getGroupBy().get(next).equals("__PERIOD") && !inputConfig.getRequired().getGroupBy().contains(query.getGroupBy().get(next))) {
+						if (view.getColor()==null) {
+							// use it as the color
+							view.setColor(query.getGroupBy().get(next++));
+						} else if (view.getColumn()==null) {
+							// use it as the column
+							view.setColumn(query.getGroupBy().get(next++));
+						} else if (view.getRow()==null) {
+							// use it as the column
+							view.setRow(query.getGroupBy().get(next++));
+						} else {
+							break;// no more channel available
+						}
+					}
+				}
+			// BARCHART 
+			} else if (config.getCurrentAnalysis()!=null && config.getCurrentAnalysis().equalsIgnoreCase(BookmarkConfig.BARCHART_ANALYSIS)) {
+				if (view.getY()==null && (!inputConfig.isHasMetric() || !inputConfig.isHasMetricValue())) {
+					if (kpis==0 && !inputConfig.isHasMetric()) {
+						// we need a default metric
+						view.setY("count() // this is the default metric");
+					} else if (kpis==1 && !inputConfig.isHasMetric()) {
+						// we can only use the first one for now
+						view.setY(query.getMetrics().get(0));
+					} else if (!inputConfig.isHasMetricValue()) {
+						view.setY(TransposeConverter.METRIC_VALUE_COLUMN);
+						if (!inputConfig.isHasMetricSeries()) {
+							if (view.getColor()==null) {
+								view.setColor(TransposeConverter.METRIC_SERIES_COLUMN);
+							} else if (view.getColumn()==null) {
+								view.setColumn(TransposeConverter.METRIC_SERIES_COLUMN);
+							} else if (view.getRow()==null) {
+								view.setRow(TransposeConverter.METRIC_SERIES_COLUMN);
+							}
+						}
+					}
+				}
+				// add reminding groupBy
+				int next = 0;
+				while (next<dims) {
+					if (!inputConfig.getRequired().getGroupBy().contains(query.getGroupBy().get(next))) {
+						if (view.getX()==null) {
+							// use it as the x
+							view.setX(query.getGroupBy().get(next++));
+						} else if (view.getColor()==null) {
+							// use it as the color
+							view.setColor(query.getGroupBy().get(next++));
+						} else if (view.getColumn()==null) {
+							// use it as the column
+							view.setColumn(query.getGroupBy().get(next++));
+						} else if (view.getRow()==null) {
+							// use it as the column
+							view.setRow(query.getGroupBy().get(next++));
+						} else {
+							break;// no more channel available
+						}
+					}
+				}
+			} else {// TABLE_ANALYSIS or unknown
+				if (kpis==0) {
+					// we need at least one dim
+					query.setMetrics(Collections.singletonList("count() // this is the default metric"));
+					kpis++;
+				}
+				if (dims==0) {
+					// just display the metrics
+					if (view.getX()==null && !inputConfig.isHasMetric() && !inputConfig.isHasMetricValue()) {
+						if (kpis==1) {
+							view.setX(query.getMetrics().get(0));
+						} else {
+							// multi-kpis
+							view.setX(TransposeConverter.METRIC_VALUE_COLUMN);
+							if (!inputConfig.isHasMetricSeries()) {
+								view.setY(TransposeConverter.METRIC_SERIES_COLUMN);
+							}
+						}
+					}
+				} else if (kpis==1) {
+					// display a barchart or timeseries
+					if (view.getY()==null && !inputConfig.isHasMetric() && !inputConfig.isHasMetricValue()) {
+						view.setY(query.getMetrics().get(0));
+					}
+					int next = 0;
+					while (next<dims) {
+						if (view.getX()==null) {
+							view.setX(query.getGroupBy().get(next++));
+						} else if (view.getColor()==null) {
+							// use it as the column
+							view.setColor(query.getGroupBy().get(next++));
+						} else if (view.getColumn()==null) {
+							// use it as the column
+							view.setColumn(query.getGroupBy().get(next++));
+						} else if (view.getRow()==null) {
+							// use it as the column
+							view.setRow(query.getGroupBy().get(next++));
+						} else {
+							break;// no more channel available
+						}
+					}
+				} else {
+					// multiple kpis
+					if (view.getX()==null) {
+						view.setX(query.getGroupBy().get(0));
+					}
+					if (view.getY()==null && !inputConfig.isHasMetric()) {
+						if (!inputConfig.isHasMetricValue()) {
+							view.setY(TransposeConverter.METRIC_VALUE_COLUMN);
+						}
+						if (!inputConfig.isHasMetricSeries()) {
+							if (view.getColor()==null) {
+								view.setColor(TransposeConverter.METRIC_SERIES_COLUMN);
+							} else if (view.getColumn()==null) {
+								view.setColumn(TransposeConverter.METRIC_SERIES_COLUMN);
+							} else if (view.getRow()==null) {
+								view.setRow(TransposeConverter.METRIC_SERIES_COLUMN);
+							}
+						}
+					}
+					int next = 1;
+					while (next<dims) {
+						if (view.getColumn()==null) {
+							// use it as the column
+							view.setColumn(query.getGroupBy().get(next++));
+						} else if (view.getRow()==null) {
+							// use it as the column
+							view.setRow(query.getGroupBy().get(next++));
+						} else {
+							break;// no more channel available
+						}
 					}
 				}
 			}
@@ -1911,12 +2142,12 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		//
 		//
 		VegaliteSpecs specs = new VegaliteSpecs();
-		specs.encoding.x = outputConfig.createChannelDef("x", x);
-		specs.encoding.y = outputConfig.createChannelDef("y", y);
-		specs.encoding.color = outputConfig.createChannelDef("color", color);
-		specs.encoding.size = outputConfig.createChannelDef("size", size);
-		specs.encoding.column = outputConfig.createChannelDef("column", column);
-		specs.encoding.row = outputConfig.createChannelDef("row", row);
+		specs.encoding.x = outputConfig.createChannelDef("x", view.getX());
+		specs.encoding.y = outputConfig.createChannelDef("y", view.getY());
+		specs.encoding.color = outputConfig.createChannelDef("color", view.getColor());
+		specs.encoding.size = outputConfig.createChannelDef("size", view.getSize());
+		specs.encoding.column = outputConfig.createChannelDef("column", view.getColumn());
+		specs.encoding.row = outputConfig.createChannelDef("row", view.getRow());
 		//
 		// force using required
 		query.setGroupBy(outputConfig.getRequired().getGroupBy());
@@ -1926,7 +2157,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		if (explicitLimit==null) {// compute the default
 			int validDimensions = dims;
 			if (outputConfig.isTimeseries()) validDimensions--;
-			if (kpis>1) validDimensions--;// excluding the metrics series
+			if (outputConfig.isHasMetricSeries()) validDimensions--;// excluding the metrics series
 			if (dims>0) {
 				explicitLimit = 10L;// keep 10 for each dim
 				for (int i = validDimensions-1; i>0; i--) explicitLimit = explicitLimit*10;// get the power
@@ -1939,14 +2170,14 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		// beyond limit
 		if (outputConfig.isTimeseries()) {
 			query.setBeyondLimit(new int[]{outputConfig.getTimeseriesPosition()});
-			// make sure we order by something
-			if (query.getOrderBy()==null || query.getOrderBy().size()==0) {
-				if (query.getMetrics().size()>0) {
-					ExpressionAST ast = outputConfig.parse(query.getMetrics().get(0));
-					query.setOrderBy(Collections.singletonList(new OrderBy(outputConfig.prettyPrint(ast), Direction.DESC)));
-				} else {
-					query.setOrderBy(Collections.singletonList(new OrderBy("count()", Direction.DESC)));
-				}
+		}
+		// make sure we order by something
+		if (query.getOrderBy()==null || query.getOrderBy().size()==0) {
+			if (query.getMetrics().size()>0) {
+				ExpressionAST ast = outputConfig.parse(query.getMetrics().get(0));
+				query.setOrderBy(Collections.singletonList(new OrderBy(outputConfig.prettyPrint(ast), Direction.DESC)));
+			} else {
+				query.setOrderBy(Collections.singletonList(new OrderBy("count()", Direction.DESC)));
 			}
 		}
 		//
@@ -1957,7 +2188,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		// handling data
 		if (data.equals("EMBEDED")) {
 			DataMatrix table = compute(userContext, job, query.getMaxResults(), query.getStartIndex(), false);
-			if (kpis<=1) {
+			if (!outputConfig.isHasMetricSeries()) {
 				specs.data = transformToVegaData(table, "RECORDS");
 			} else {
 				specs.data = transformToVegaData(table, "TRANSPOSE");
@@ -1975,7 +2206,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 				ExecutionManager.INSTANCE.submit(userContext.getCustomerId(), task);
 			}
 			specs.data = new Data();
-			if (kpis<=1) {
+			if (!outputConfig.isHasMetricSeries()) {
 				specs.data.url = buildAnalyticsQueryURI(uriInfo, userContext, outputConfig.getScope(), query, "RECORDS", "DATA").toString();
 			} else {
 				specs.data.url = buildAnalyticsQueryURI(uriInfo, userContext, outputConfig.getScope(), query, "TRANSPOSE", "DATA").toString();
@@ -1992,17 +2223,61 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 			specs.mark = Mark.bar;
 		}
 		//
-		VegaliteReply reply = new VegaliteReply();
+		ViewReply reply = new ViewReply();
 		reply.setQuery(query);
 		reply.setResult(specs);
 		//
-		if (envelope==null || envelope.equals("") || envelope.equalsIgnoreCase("RESULT")) {
-			return reply.getResult();
+		if (style!=null && style==Style.HTML) {
+			return createHTMLView(space, view, reply);
+		} else if (envelope==null || envelope.equals("") || envelope.equalsIgnoreCase("RESULT")) {
+			return Response.ok(reply.getResult(), MediaType.APPLICATION_JSON_TYPE.toString()).build();
 		} else if(envelope.equalsIgnoreCase("ALL")) {
-			return reply;
+			return Response.ok(reply, MediaType.APPLICATION_JSON_TYPE.toString()).build();
 		} else {
 			throw new InvalidIdAPIException("invalid parameter envelope="+envelope+", must be ALL, RESULT", true);
 		}
+	}
+	
+	private String createHTMLtitle(Space space) {
+		if (space.hasBookmark()) {
+			return space.getBookmark().getPath()+"/"+space.getBookmark().getName();
+		} else {
+			return space.getUniverse().getProject().getName()+" > "+space.getDomain().getName();
+		}
+	}
+	
+	private Response createHTMLView(Space space, ViewQuery view, ViewReply reply) {
+		String title = createHTMLtitle(space);
+		String html = "<html><title>View: "+title+"</title>\r\n<script src=\"http://d3js.org/d3.v3.min.js\" charset=\"utf-8\"></script>\r\n<script src=\"http://vega.github.io/vega/vega.js\" charset=\"utf-8\"></script>\r\n<script src=\"http://vega.github.io/vega-lite/vega-lite.js\" charset=\"utf-8\"></script>\r\n<script src=\"http://vega.github.io/vega-editor/vendor/vega-embed.js\" charset=\"utf-8\"></script>\r\n\r\n<body>\r\n<h1>"+title+"</h1>\r\n<div id=\"vis\"></div>\r\n\r\n<script>\r\nvar embedSpec = {\r\n  mode: \"vega-lite\",\r\n  spec:";
+		ObjectMapper mapper = new ObjectMapper();
+		try {
+			html += mapper.writeValueAsString(reply.getResult());
+		} catch (JsonProcessingException e) {
+			throw new APIException("failed to write vegalite specs to JSON", e, true);
+		}
+		Encoding channels = reply.getResult().encoding;
+		html += "}\r\nvg.embed(\"#vis\", embedSpec, function(error, result) {\r\n  // Callback receiving the View instance and parsed Vega spec\r\n  // result.view is the View, which resides under the '#vis' element\r\n});\r\n</script>\r\n"
+				+ "<form>"
+				+ "<table>"
+				+ "<tr><td>x</td><td>=<input type=\"text\" name=\"x\" value=\""+getFieldValue(view.getX())+"\"></td><td>"+(channels.x!=null?"as <b>"+channels.x.field+"</b>":"")+"</td></tr>"
+				+ "<tr><td>y</td><td>=<input type=\"text\" name=\"y\" value=\""+getFieldValue(view.getY())+"\"></td><td>"+(channels.y!=null?"as <b>"+channels.y.field+"</b>":"")+"</td></tr>"
+				+ "<tr><td>color</td><td>=<input type=\"text\" name=\"color\" value=\""+getFieldValue(view.getColor())+"\"></td><td>"+(channels.color!=null?"as <b>"+channels.color.field+"</b>":"")+"</td></tr>"
+				+ "<tr><td>size</td><td>=<input type=\"text\" name=\"size\" value=\""+getFieldValue(view.getSize())+"\"></td><td>"+(channels.size!=null?"as <b>"+channels.size.field+"</b>":"")+"</td></tr>"
+				+ "<tr><td>column</td><td>=<input type=\"text\" name=\"column\" value=\""+getFieldValue(view.getColumn())+"\"></td><td>"+(channels.column!=null?"as <b>"+channels.column.field+"</b>":"")+"</td></tr>"
+				+ "<tr><td>row</td><td>=<input type=\"text\" name=\"row\" value=\""+getFieldValue(view.getRow())+"\"></td><td>"+(channels.row!=null?"as <b>"+channels.row.field+"</b>":"")+"</td></tr>"
+				+ "<input type=\"hidden\" name=\"style\" value=\"HTML\">"
+				+ "<input type=\"hidden\" name=\"access_token\" value=\""+space.getUniverse().getContext().getToken().getOid()+"\">"
+				+ "<input type=\"submit\" value=\"Refresh\">"
+				+ "</form>"
+				+ "</table>"
+				+ "<p>the OB Analytics API provides more parameters... check <a target='swagger' href='http://swagger.squidsolutions.com/#!/analytics/viewAnalysis'>swagger UI</a> for details</p>"
+				+ "<hr>powered by Open Bouquet & VegaLite"
+				+ "</body>\r\n</html>";
+		return Response.ok(html, "text/html; charset=UTF-8").build();
+	}
+	
+	private String getFieldValue(String var) {
+		if (var==null) return ""; else return var;
 	}
 	
 	/**
@@ -2022,11 +2297,11 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		return builder.build(BBID, filename);
 	}
 	
-	private URI buildAnalyticsQueryURI(UriInfo uriInfo, AppContext userContext, SpaceScope localScope, AnalyticsQuery query, String format, String envelope) throws ScopeException {
+	private URI buildAnalyticsQueryURI(UriInfo uriInfo, AppContext userContext, SpaceScope localScope, AnalyticsQuery query, String data, String envelope) throws ScopeException {
 		UriBuilder builder = uriInfo.getBaseUriBuilder().
 			path("/analytics/{"+BBID_PARAM_NAME+"}/query");
 		addAnalyticsQueryParams(builder, localScope, query);
-		builder.queryParam("format", format).queryParam(ENVELOPE_PARAM, envelope);
+		builder.queryParam(DATA_PARAM, data).queryParam(ENVELOPE_PARAM, envelope);
 		builder.queryParam("access_token", userContext.getToken().getOid());
 		return builder.build(query.getBBID());
 	}
@@ -2059,7 +2334,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		}
 		if (query.getCompareframe()!=null) {
 			for (String item : query.getCompareframe()) {
-				builder.queryParam(COMPAREFRAME_PARAM, item);
+				builder.queryParam(COMPARETO_PARAM, item);
 			}
 		}
 		if (query.getOrderBy()!=null) {
