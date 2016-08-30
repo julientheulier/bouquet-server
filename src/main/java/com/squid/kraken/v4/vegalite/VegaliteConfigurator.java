@@ -150,25 +150,26 @@ public class VegaliteConfigurator {
 			ChannelDef channel = null;
 			if (expr.equals(TransposeConverter.METRIC_SERIES_COLUMN)) {
 				if (hasMetric) {
-					throw new ScopeException("invalid channel '"+channelName+"'="+expr+": there is already one metric defined");
+					// reset the hasMetric flag
+					hasMetric = false;
 				}
 				// allow to use the metrics in many channels (to add color for example)
-				/*
-				if (hasMetricSeries) {
-					throw new ScopeException("invalid channel '"+channelName+"'="+expr+": there is already  a multi-metrics series defined");
-				}
-				*/
+				//if (hasMetricSeries) {
+				//	throw new ScopeException("invalid channel '"+channelName+"'="+expr+": there is already  a multi-metrics series defined");
+				//}
 				hasMetricSeries = true;
 				channel = new ChannelDef();
 				channel.type = DataType.nominal;
 				channel.field = expr;
 			} else if (expr.equals(TransposeConverter.METRIC_VALUE_COLUMN)) {
 				if (hasMetric) {
-					throw new ScopeException("invalid channel '"+channelName+"'="+expr+": there is already one metric defined");
+					// reset the hasMetric flag
+					hasMetric = false;
 				}
-				if (hasMetricValue) {
-					throw new ScopeException("invalid channel '"+channelName+"'="+expr+": there is already  a multi-metrics value defined");
-				}
+				// allow to use the metrics in several channels (to add color/size for example)
+				//if (hasMetricValue) {
+				//	throw new ScopeException("invalid channel '"+channelName+"'="+expr+": there is already  a multi-metrics value defined");
+				//}
 				hasMetricValue = true;
 				channel = new ChannelDef();
 				channel.type = DataType.quantitative;
@@ -209,14 +210,11 @@ public class VegaliteConfigurator {
 		channel.field = name;
 		String namedExpression = ast.prettyPrint(options) + " as '" + name +"'";
 		if (channel.type==DataType.quantitative) {
-			if (hasMetric) {
-				throw new ScopeException("invalid channel '"+channelName+"'="+expr+": there is already one metric defined");
-			}if (hasMetricSeries || hasMetricValue) {
-				throw new ScopeException("invalid channel '"+channelName+"'="+expr+": there is already multi-metrics defined");
+			if (!hasMetricSeries && !hasMetricValue) {// series get precedence
+				// it's a metric
+				required.getMetrics().add(namedExpression);
+				hasMetric = true;
 			}
-			// it's a metric
-			required.getMetrics().add(namedExpression);
-			hasMetric = true;
 		} else {
 			// it's a groupBy
 			addRequiredGroubBy(namedExpression);
