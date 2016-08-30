@@ -43,6 +43,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.squid.core.expression.scope.ScopeException;
+import com.squid.kraken.v4.api.core.InvalidTokenAPIException;
 import com.squid.kraken.v4.api.core.customer.CoreAuthenticatedServiceRest;
 import com.squid.kraken.v4.caching.redis.queryworkerserver.QueryWorkerJobStatus;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
@@ -52,12 +53,12 @@ import com.squid.kraken.v4.model.Bookmark;
 import com.squid.kraken.v4.model.Expression;
 import com.squid.kraken.v4.model.ExpressionSuggestion;
 import com.squid.kraken.v4.model.Facet;
-import com.squid.kraken.v4.model.NavigationReply;
 import com.squid.kraken.v4.model.ObjectType;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.OrderBy;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.Position;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.RollUp;
 import com.squid.kraken.v4.model.ValueType;
+import com.squid.kraken.v4.model.ViewQuery;
 import com.squid.kraken.v4.model.NavigationQuery.HierarchyMode;
 import com.squid.kraken.v4.model.NavigationQuery.Style;
 import com.squid.kraken.v4.model.NavigationQuery.Visibility;
@@ -103,7 +104,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 					+ "You can use it to navigate the entire available content, or access a specific content by defining the parent parameter."
 					+ "The root parents are /PROJECTS for listing projects and domains, /MYBOOKMARKS to list the user bookmarks and folders, and /SHARED to list the shared bookmarks and folders."
 					+ "By default it lists ony the content directly under the parent, but you can set the hierarchy parameter to view content recursively.")
-	public NavigationReply listContent(
+	public Response listContent(
 			@Context HttpServletRequest request,
 			@ApiParam(value="filter the content under the parent path") @QueryParam("parent") String parent,
 			@ApiParam(value="filter the content by name; q can be a multi-token search string separated by comma") 
@@ -113,15 +114,19 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 					allowableValues="TREE, FLAT") 
 			@QueryParam("hierarchy") HierarchyMode hierarchyMode,
 			@ApiParam(
+					value="filter the result depending on the object visibility", allowableValues="VISIBLE, ALL, HIDDEN", defaultValue="VISIBLE")
+			@QueryParam(VISIBILITY_PARAM) Visibility visibility,
+			@ApiParam(
 					value="define the result style. If HUMAN, the API will try to use natural reference for objects, like 'My First Project', 'Account', 'Total Sales'... If ROBOT the API will use canonical references that are invariant, e.g. @'5603ca63c531d744b50823a3bis'. If LEGACY the API will also provide internal compound key to lookup objects in the management API.", 
 					allowableValues="LEGACY, ROBOT, HUMAN", defaultValue="HUMAN")
 			@QueryParam(STYLE_PARAM) Style style,
 			@ApiParam(
-					value="filter the result depending on the object visibility", allowableValues="VISIBLE, ALL, HIDDEN", defaultValue="VISIBLE")
-			@QueryParam(VISIBILITY_PARAM) Visibility visibility
+					value="define the result envelope",
+					allowableValues="ALL,RESULT")
+			@QueryParam(ENVELOPE_PARAM) String envelope
 		) throws ScopeException {
 		AppContext userContext = getUserContext(request);
-		return getDelegate().listContent(userContext, parent, search, hierarchyMode, style, visibility);
+		return getDelegate().listContent(userContext, parent, search, hierarchyMode, visibility, style, envelope);
 	}
 
 	@GET
@@ -202,14 +207,14 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 	@POST
 	@Path("/analytics/{" + BBID_PARAM_NAME + "}/query")
 	@ApiOperation(value = "Run a new Analysis based on the Bookmark scope")
-	public Object postAnalysis(
+	public Response postAnalysis(
 			@Context HttpServletRequest request, 
 			@ApiParam(value="the analysis query definition", required=true) AnalyticsQuery query,
 			@PathParam(BBID_PARAM_NAME) String BBID,
 			@ApiParam(
 					value="define the analysis data format.",
 					allowableValues="LEGACY,SQL,RECORDS")
-			@QueryParam(FORMAT_PARAM) String format,
+			@QueryParam(DATA_PARAM) String data,
 			@ApiParam(
 					value="define the result envelope",
 					allowableValues="ALL,RESULT,DATA")
@@ -218,13 +223,13 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 			@QueryParam(TIMEOUT_PARAM) Integer timeout
 			) throws ComputingException, ScopeException, InterruptedException {
 		AppContext userContext = getUserContext(request);
-		return getDelegate().runAnalysis(userContext, BBID, query, format, envelope, timeout);
+		return getDelegate().runAnalysis(userContext, BBID, query, data, envelope, timeout);
 	}
 
 	@GET
 	@Path("/analytics/{" + BBID_PARAM_NAME + "}/query")
 	@ApiOperation(value = "Compute an analysis for the subject")
-	public Object runAnalysis(
+	public Response runAnalysis(
 			@Context HttpServletRequest request, 
 			@PathParam(BBID_PARAM_NAME) String BBID,
 			// groupBy parameter
@@ -247,7 +252,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 			@ApiParam(value="define the timeframe for the period. It can be a date range [lower,upper] or a special alias: ____ALL, ____LAST_DAY, ____LAST_7_DAYS, __CURRENT_MONTH, __PREVIOUS_MONTH, __CURRENT_MONTH, __PREVIOUS_YEAR", allowMultiple = true) 
 			@QueryParam(TIMEFRAME_PARAM) String[] timeframe,
 			@ApiParam(value="activate and define the compare to period. It can be a date range [lower,upper] or a special alias: __COMPARE_TO_PREVIOUS_PERIOD, __COMPARE_TO_PREVIOUS_MONTH, __COMPARE_TO_PREVIOUS_YEAR", allowMultiple = true) 
-			@QueryParam(COMPAREFRAME_PARAM) String[] compareframe,
+			@QueryParam(COMPARETO_PARAM) String[] compareframe,
 			@ApiParam(allowMultiple = true) 
 			@QueryParam(ORDERBY_PARAM) String[] orderExpressions,
 			@ApiParam(allowMultiple = true) 
@@ -264,12 +269,13 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 			@ApiParam(value = "if true, get the analysis only if already in cache, else throw a NotInCacheException; if noError returns a null result if the analysis is not in cache ; else regular analysis", defaultValue = "false") 
 			@QueryParam(LAZY_PARAM) String lazy,
 			@ApiParam(
-					value="define the result style. If HUMAN, the API will try to use natural reference for objects, like 'My First Project', 'Account', 'Total Sales'... If MACHINE the API will use canonical references that are invariant, e.g. @'5603ca63c531d744b50823a3bis'. If LEGACY the API will also provide internal compound key to lookup objects in the management API.", allowableValues="LEGACY, MACHINE, HUMAN", defaultValue="HUMAN")
-			@QueryParam(STYLE_PARAM) Style style,
-			@ApiParam(
 					value="define the analysis data format.",
 					allowableValues="LEGACY,SQL,RECORDS")
-			@QueryParam(FORMAT_PARAM) String format,
+			@QueryParam(DATA_PARAM) String data,
+			@ApiParam(
+					value="define the response style. If HUMAN, the API will try to use natural reference for objects, like 'My First Project', 'Account', 'Total Sales'... If MACHINE the API will use canonical references that are invariant, e.g. @'5603ca63c531d744b50823a3bis'. If LEGACY the API will also provide internal compound key to lookup objects in the management API.", 
+					allowableValues="LEGACY, MACHINE, HUMAN", defaultValue="HUMAN")
+			@QueryParam(STYLE_PARAM) Style style,
 			@ApiParam(
 					value="define the result envelope",
 					allowableValues="ALL,RESULT,DATA")
@@ -279,14 +285,14 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 			) throws ComputingException, ScopeException, InterruptedException {
 		AppContext userContext = getUserContext(request);
 		AnalyticsQuery analysis = createAnalysisFromParams(BBID, groupBy, metrics, filterExpressions, period, timeframe, compareframe, orderExpressions, rollupExpressions, limit, beyondLimit, maxResults, startIndex, lazy, style);
-		return getDelegate().runAnalysis(userContext, BBID, analysis, format, envelope, timeout);
+		return getDelegate().runAnalysis(userContext, BBID, analysis, data, envelope, timeout);
 	}
 
 
 	@GET
-	@Path("/analytics/{" + BBID_PARAM_NAME + "}/vegalite")
-	@ApiOperation(value = "Generate vegalite specs from a query")
-	public Object getVegalite(
+	@Path("/analytics/{" + BBID_PARAM_NAME + "}/view")
+	@ApiOperation(value = "Generate a dataviz specs from a query")
+	public Response viewAnalysis(
 			@Context HttpServletRequest request, 
 			@PathParam(BBID_PARAM_NAME) String BBID,
 			@ApiParam(
@@ -315,6 +321,8 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 			@QueryParam(PERIOD_PARAM) String period,
 			@ApiParam(value="define the timeframe for the period. It can be a date range [lower,upper] or a special alias: ____ALL, ____LAST_DAY, ____LAST_7_DAYS, __CURRENT_MONTH, __PREVIOUS_MONTH, __CURRENT_MONTH, __PREVIOUS_YEAR", allowMultiple = true) 
 			@QueryParam(TIMEFRAME_PARAM) String[] timeframe,
+			@ApiParam(value="activate and define the compare to period. It can be a date range [lower,upper] or a special alias: __COMPARE_TO_PREVIOUS_PERIOD, __COMPARE_TO_PREVIOUS_MONTH, __COMPARE_TO_PREVIOUS_YEAR", allowMultiple = true) 
+			@QueryParam(COMPARETO_PARAM) String[] compareframe,
 			@ApiParam(allowMultiple = true) 
 			@QueryParam(ORDERBY_PARAM) String[] orderby, 
 			@ApiParam(value="limit the resultset size as computed by the database. Note that this is independant from the paging size.")
@@ -322,7 +330,11 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 			@ApiParam(
 					value="define how to provide the data, either EMBEDED or through an URL",
 					allowableValues="EMBEDED,URL", defaultValue="EMBEDED")
-			@QueryParam("data") String data,
+			@QueryParam(DATA_PARAM) String data,
+			@ApiParam(
+					value="define the response style. If HUMAN, the API will try to use natural reference for objects, like 'My First Project', 'Account', 'Total Sales'... If MACHINE the API will use canonical references that are invariant, e.g. @'5603ca63c531d744b50823a3bis'. If LEGACY the API will also provide internal compound key to lookup objects in the management API.", 
+					allowableValues="MACHINE, HUMAN", defaultValue="HUMAN")
+			@QueryParam(STYLE_PARAM) Style style,
 			@ApiParam(
 					value="define the result envelope",
 					allowableValues="ALL,RESULT")
@@ -330,8 +342,15 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 	) throws ScopeException, ComputingException, InterruptedException
 	{
 		AppContext userContext = getUserContext(request);
-		AnalyticsQuery query = createAnalysisFromParams(BBID, null, null, filterExpressions, period, timeframe, null, orderby, null, limit, null, null, null, null, null);
-		return getDelegate().createVegalite(uriInfo, userContext, BBID, x, y, color, size, column, row, data, envelope, query);
+		AnalyticsQuery query = createAnalysisFromParams(BBID, null, null, filterExpressions, period, timeframe, compareframe, orderby, null, limit, null, null, null, null, null);
+		ViewQuery view = new ViewQuery();
+		view.setX(x);
+		view.setY(y);
+		view.setColor(color);
+		view.setSize(size);
+		view.setColumn(column);
+		view.setRow(row);
+		return getDelegate().viewAnalysis(uriInfo, userContext, BBID, view, data, style, envelope, query);
 	}
 
 	@GET
@@ -360,7 +379,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 			@ApiParam(value="define the timeframe for the period. It can be a date range [lower,upper] or a special alias: ____ALL, ____LAST_DAY, ____LAST_7_DAYS, __CURRENT_MONTH, __PREVIOUS_MONTH, __CURRENT_MONTH, __PREVIOUS_YEAR", allowMultiple = true) 
 			@QueryParam(TIMEFRAME_PARAM) String[] timeframe,
 			@ApiParam(value="activate and define the compare to period. It can be a date range [lower,upper] or a special alias: __COMPARE_TO_PREVIOUS_PERIOD, __COMPARE_TO_PREVIOUS_MONTH, __COMPARE_TO_PREVIOUS_YEAR", allowMultiple = true) 
-			@QueryParam(COMPAREFRAME_PARAM) String[] compareframe,
+			@QueryParam(COMPARETO_PARAM) String[] compareframe,
 			@ApiParam(allowMultiple = true) 
 			@QueryParam(ORDERBY_PARAM) String[] orderExpressions, 
 			@ApiParam(allowMultiple = true) 
@@ -509,6 +528,16 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 		if (lazy!=null) query.setLazy(lazy);
 		if (style!=null) query.setStyle(style);
 		return query;
+	}
+	
+	@Override
+	protected AppContext getUserContext(HttpServletRequest request) {
+		try {
+			return super.getUserContext(request);
+		} catch (InvalidTokenAPIException e) {
+			// add the redirect information
+			throw new InvalidTokenAPIException(e.getMessage(), uriInfo.getRequestUri(), e.isNoError());
+		}
 	}
 
 }
