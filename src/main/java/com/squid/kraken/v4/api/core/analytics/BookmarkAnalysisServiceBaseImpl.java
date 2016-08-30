@@ -447,8 +447,8 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		String base = uriInfo.getBaseUri().toString();
 		String full = uri.toString();
 		String path = full.substring(base.length());
-		String scheme = KrakenConfig.getProperty("kraken.rest.scheme");
-		String host = KrakenConfig.getProperty("kraken.rest.host");
+		String scheme = KrakenConfig.getProperty("kraken.rest.scheme",uri.getScheme());
+		String host = KrakenConfig.getProperty("kraken.rest.host",uri.getHost());
 		if (host.endsWith("/")) host = host.substring(0, host.length()-1);// remove trailing /
 		String port = KrakenConfig.getProperty("kraken.rest.port");
 		String mode = KrakenConfig.getProperty("kraken.server.mode");
