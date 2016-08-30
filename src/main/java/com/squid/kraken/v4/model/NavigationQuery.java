@@ -23,8 +23,6 @@
  *******************************************************************************/
 package com.squid.kraken.v4.model;
 
-import java.net.URI;
-
 /**
  * This is a simple pojo that wraps the navigation parameters
  * @author sergefantino
@@ -37,7 +35,7 @@ public class NavigationQuery {
 	}
 	
 	public enum Style {
-		HUMAN, LEGACY, ROBOT
+		HUMAN, LEGACY, ROBOT, HTML
 	}
 	
 	public enum Visibility {
@@ -53,8 +51,6 @@ public class NavigationQuery {
 	private Style style;
 	
 	private Visibility visibility;
-	
-	private URI link;
 	
 	/**
 	 * 
