@@ -34,6 +34,8 @@ public class InvalidTokenAPIException extends APIException {
     private static final String AUTH_URL = "kraken.oauth.endpoint";
     
     private URI redirectURL;
+    
+    private String clientId = "admin_console";
 
     public InvalidTokenAPIException(boolean noError) {
         super(noError);
@@ -43,9 +45,10 @@ public class InvalidTokenAPIException extends APIException {
         super(message, noError);
     }
 
-    public InvalidTokenAPIException(String message, URI redirectURL, boolean noError) {
+    public InvalidTokenAPIException(String message, URI redirectURL, String clientId, boolean noError) {
         super(message, noError);
         this.redirectURL = redirectURL;
+        this.clientId = clientId;
     }
 
     public InvalidTokenAPIException(String message, Throwable cause, boolean noError) {
@@ -67,11 +70,7 @@ public class InvalidTokenAPIException extends APIException {
     }
 
     @JsonProperty
-	public URI getRedirectURL() {
-		return redirectURL;
-	}
-    
     public String getSelfLoginURL() {
-    	return redirectURL!=null?getLoginURL()+"?redirect_uri="+redirectURL.toASCIIString():null;
+    	return redirectURL!=null?getLoginURL()+"?client_id="+clientId+"&redirect_uri="+redirectURL.toASCIIString():null;
     }
 }
