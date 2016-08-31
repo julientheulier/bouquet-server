@@ -536,7 +536,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 			return super.getUserContext(request);
 		} catch (InvalidTokenAPIException e) {
 			// add the redirect information
-			throw new InvalidTokenAPIException(e.getMessage(), uriInfo.getRequestUri(), e.isNoError());
+			throw new InvalidTokenAPIException(e.getMessage(), uriInfo.getRequestUri(), "admin_console", e.isNoError());
 		}
 	}
 
