@@ -198,7 +198,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		this.publicBaseUri = getPublicBaseUri(uriInfo);
 	}
 	
-	private UriBuilder getPublicBaseUriBuilder() {
+	public UriBuilder getPublicBaseUriBuilder() {
 		return new UriBuilderImpl(publicBaseUri);
 	}
 

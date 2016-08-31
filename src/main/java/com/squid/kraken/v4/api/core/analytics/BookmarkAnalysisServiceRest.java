@@ -37,6 +37,7 @@ import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import javax.ws.rs.core.UriBuilder;
 import javax.ws.rs.core.UriInfo;
 
 import org.slf4j.Logger;
@@ -536,7 +537,11 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 			return super.getUserContext(request);
 		} catch (InvalidTokenAPIException e) {
 			// add the redirect information
-			throw new InvalidTokenAPIException(e.getMessage(), uriInfo.getRequestUri(), "admin_console", e.isNoError());
+			String path = uriInfo.getRequestUri().toString();
+			int pos = path.indexOf("/analytics");
+			UriBuilder builder = getDelegate().getPublicBaseUriBuilder();
+			UriBuilder redirect = builder.path(pos>0?path.substring(pos):path);
+			throw new InvalidTokenAPIException(e.getMessage(), redirect.build(), "admin_console", e.isNoError());
 		}
 	}
 
