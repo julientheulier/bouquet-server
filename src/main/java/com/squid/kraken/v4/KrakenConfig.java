@@ -43,7 +43,7 @@ import com.squid.kraken.v4.model.Customer.AUTH_MODE;
  * property.<br>
  * If property if not found, it'll try to get it from System properties.
  */
-public class KrakenConfig {
+public class KrakenConfig implements KrakenConfigConstants {
 
 	private static final Logger logger = LoggerFactory.getLogger(KrakenConfig.class);
 
