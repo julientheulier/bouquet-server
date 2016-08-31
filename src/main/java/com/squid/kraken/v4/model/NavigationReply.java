@@ -23,8 +23,6 @@
  *******************************************************************************/
 package com.squid.kraken.v4.model;
 
-import java.util.List;
-
 /**
  *  This is a simple pojo that wraps the navigation reply
  * @author sergefantino
