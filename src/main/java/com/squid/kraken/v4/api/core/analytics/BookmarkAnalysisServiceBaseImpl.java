@@ -36,6 +36,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IllegalFormatException;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -239,7 +240,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		return uriInfo.getBaseUri();
 	}
 
-	private static final NavigationItem ROOT_FOLDER = new NavigationItem("Root", "list all your available content", null, "/", "FOLDER");
+	private static final NavigationItem ROOT_FOLDER = new NavigationItem("Root", "list all your available projects", null, "/", "FOLDER");
 	private static final NavigationItem PROJECTS_FOLDER = new NavigationItem("Projects", "list all your Dictionaries", "/", "/PROJECTS", "FOLDER");
 	private static final NavigationItem SHARED_FOLDER = new NavigationItem("Shared Bookmarks", "list all the bookmarks shared with you", "/", "/SHARED", "FOLDER");
 	private static final NavigationItem MYBOOKMARKS_FOLDER = new NavigationItem("My Bookmarks", "list all your bookmarks", "/", "/MYBOOKMARKS", "FOLDER");
@@ -272,7 +273,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		//
 		// tokenize the search string
 		String[] filters = null;
-		if (search!=null) filters = search.toLowerCase().split(",");
+		if (search!=null) filters = search.toLowerCase().split(" ");
 		//
 		NavigationResult result = new NavigationResult();
 		result.setChildren(new ArrayList<NavigationItem>());
@@ -308,7 +309,9 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 			}
 		}
 		// create results
-		if (envelope.equalsIgnoreCase("ALL")) {
+		if (style==Style.HTML) {
+			return createHTMLlist(userContext, query, result);
+		} else if (envelope.equalsIgnoreCase("ALL")) {
 			return Response.ok(new NavigationReply(query, result)).build();
 		} else {// RESULT
 			return Response.ok(result).build();
@@ -1036,6 +1039,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 			html.append("<p>fresh data just computed at "+data.getExecutionDate()+"</p>");
 		}
 		html.append("<hr>powered by Open Bouquet");
+		html.append("<p>the OB Analytics API provides more parameters... check <a target='swagger' href='http://swagger.squidsolutions.com/#!/analytics/runAnalysis'>swagger UI</a> for details</p>");
 		html.append("</body></html>");
 		return Response.ok(html.toString(),"text/html").build();
 	}
@@ -2271,9 +2275,68 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		}
 	}
 	
+	private Response createHTMLlist(AppContext ctx, NavigationQuery query, NavigationResult result) {
+		String title = query.getParent().length()>0?query.getParent():"Root";
+		StringBuilder html = new StringBuilder("<html><title>Query: "+title+"</title><body>");
+		html.append("<h1>"+title+"</h1>");
+		//
+		// form
+		html.append("<form><table>");
+		html.append("<tr><td><input type='text' name='q' value='"+(query.getQ()!=null?query.getQ():"")+"'></td><td><input type=\"submit\" value=\"Filter\"></td></tr>");
+		html.append("<input type='hidden' name='parent' value='"+(query.getParent()!=null?query.getParent():"")+"'>");
+		if (query.getStyle()!=null)
+			html.append("<input type='hidden' name='style' value='"+(query.getStyle()!=null?query.getStyle():"")+"'>");
+		if (query.getVisibility()!=null)
+			html.append("<input type='hidden' name='visibility' value='"+(query.getVisibility()!=null?query.getVisibility():"")+"'>");
+		if (query.getHiearchy()!=null)
+			html.append("<input type='hidden' name='hierarchy' value='"+query.getHiearchy()+"'>");
+		html.append("<input type='hidden' name='access_token' value='"+ctx.getToken().getOid()+"'>");
+		html.append("</table></form>");
+		if (result.getParent()!=null && result.getParent().getUpLink()!=null) {
+			html.append("<p><a href=\""+StringEscapeUtils.escapeHtml4(result.getParent().getUpLink().toString())+"\">[up]</a></p>");
+		}
+		//
+		html.append("<table style='border-collapse:collapse'>");
+		for (NavigationItem item : result.getChildren()) {
+			html.append("<tr>");
+			html.append("<td>"+item.getType()+"</td>");
+			if (item.getLink()!=null) {
+				html.append("<td><a href=\""+StringEscapeUtils.escapeHtml4(item.getLink().toString())+"\">"+item.getName()+"</a>");
+			} else {
+				html.append("<td>"+item.getName());
+			}
+			if (item.getObjectLink()!=null) {
+				html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(item.getObjectLink().toString())+"\">info</a>]");
+			}
+			if (item.getViewLink()!=null) {
+				html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(item.getViewLink().toString())+"\">view</a>]");
+			}
+			html.append("</td>");
+			html.append("<td><i>"+(item.getDescription()!=null?item.getDescription():"")+"</i></td>");
+			if (item.getAttributes()!=null) {
+				for (Entry<String, String> entry : item.getAttributes().entrySet()) {
+					html.append("<td>"+entry.getKey()+"="+entry.getValue()+"</td>");
+				}
+			}
+		}
+		html.append("</table>");
+		html.append("<hr>powered by Open Bouquet");
+		html.append("<p>the OB Analytics API provides more parameters... check <a target='swagger' href='http://swagger.squidsolutions.com/#!/analytics/listContent'>swagger UI</a> for details</p>");
+		html.append("</body></html>");
+		return Response.ok(html.toString(),"text/html").build();
+	}
+	
 	private Response createHTMLView(Space space, ViewQuery view, ViewReply reply) {
 		String title = createHTMLtitle(space);
-		String html = "<html><title>View: "+title+"</title>\r\n<script src=\"http://d3js.org/d3.v3.min.js\" charset=\"utf-8\"></script>\r\n<script src=\"http://vega.github.io/vega/vega.js\" charset=\"utf-8\"></script>\r\n<script src=\"http://vega.github.io/vega-lite/vega-lite.js\" charset=\"utf-8\"></script>\r\n<script src=\"http://vega.github.io/vega-editor/vendor/vega-embed.js\" charset=\"utf-8\"></script>\r\n\r\n<body>\r\n<h1>"+title+"</h1>\r\n<div id=\"vis\"></div>\r\n\r\n<script>\r\nvar embedSpec = {\r\n  mode: \"vega-lite\",\r\n  spec:";
+		String html = "<html><title>View: "+title+"</title>\r\n";
+		if (getPublicBaseUriBuilder().build().getScheme().equalsIgnoreCase("https")) {
+			html += "<script src=\"https://d3js.org/d3.v3.min.js\" charset=\"utf-8\"></script>\r\n<script src=\"https://vega.github.io/vega/vega.js\" charset=\"utf-8\"></script>\r\n<script src=\"https://vega.github.io/vega-lite/vega-lite.js\" charset=\"utf-8\"></script>\r\n<script src=\"https://vega.github.io/vega-editor/vendor/vega-embed.js\" charset=\"utf-8\"></script>\r\n\r\n";
+		} else {
+			html += "<script src=\"http://d3js.org/d3.v3.min.js\" charset=\"utf-8\"></script>\r\n<script src=\"http://vega.github.io/vega/vega.js\" charset=\"utf-8\"></script>\r\n<script src=\"http://vega.github.io/vega-lite/vega-lite.js\" charset=\"utf-8\"></script>\r\n<script src=\"http://vega.github.io/vega-editor/vendor/vega-embed.js\" charset=\"utf-8\"></script>\r\n\r\n";
+		}
+		html += "<body>\r\n<h1>"+title+"</h1>\r\n"
+				+ createHTMLfilters(reply.getQuery())
+				+ "<div id=\"vis\"></div>\r\n\r\n<script>\r\nvar embedSpec = {\r\n  mode: \"vega-lite\",\r\n  spec:";
 		ObjectMapper mapper = new ObjectMapper();
 		try {
 			html += mapper.writeValueAsString(reply.getResult());
@@ -2295,10 +2358,38 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 				+ "<input type=\"hidden\" name=\"access_token\" value=\""+space.getUniverse().getContext().getToken().getOid()+"\">"
 				+ "<input type=\"submit\" value=\"Refresh\">"
 				+ "</form>"
-				+ "<p>the OB Analytics API provides more parameters... check <a target='swagger' href='http://swagger.squidsolutions.com/#!/analytics/viewAnalysis'>swagger UI</a> for details</p>"
 				+ "<hr>powered by Open Bouquet & VegaLite"
+				+ "<p>the OB Analytics API provides more parameters... check <a target='swagger' href='http://swagger.squidsolutions.com/#!/analytics/viewAnalysis'>swagger UI</a> for details</p>"
 				+ "</body>\r\n</html>";
 		return Response.ok(html, "text/html; charset=UTF-8").build();
+	}
+	
+	/**
+	 * create a filter HTML snippet
+	 * @param query
+	 * @return
+	 */
+	private String createHTMLfilters(AnalyticsQuery query) {
+		StringBuilder builder = new StringBuilder();
+		if (query.getPeriod()!=null) {
+			builder.append("<div class='period'>Selected Period: "+query.getPeriod()+" ");
+			if (query.getTimeframe()!=null) {
+				if (query.getTimeframe().length==1) {
+					builder.append("on "+query.getTimeframe()[0]);
+				} else if (query.getTimeframe().length>=1) {
+					builder.append("from "+query.getTimeframe()[0]+" to "+query.getTimeframe()[1]+" ");
+				}
+			}
+			if (query.getCompareframe()!=null) {
+				if (query.getCompareframe().length==1) {
+					builder.append("compare to "+query.getCompareframe()[0]);
+				} else if (query.getCompareframe().length>=1) {
+					builder.append("compare to range from "+query.getCompareframe()[0]+" to "+query.getCompareframe()[1]+" ");
+				}
+			}
+			builder.append("</div>");
+		}
+		return builder.toString();
 	}
 	
 	private String getFieldValue(String var) {
