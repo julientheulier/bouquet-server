@@ -90,7 +90,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 	@Context
 	UriInfo uriInfo;
 	
-	private BookmarkAnalysisServiceBaseImpl getDelegate() {
+	private BookmarkAnalysisServiceBaseImpl delegate() {
 		return new BookmarkAnalysisServiceBaseImpl(uriInfo);
 	}
 	
@@ -127,7 +127,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 			@QueryParam(ENVELOPE_PARAM) String envelope
 		) throws ScopeException {
 		AppContext userContext = getUserContext(request);
-		return getDelegate().listContent(userContext, parent, search, hierarchyMode, visibility, style, envelope);
+		return delegate().listContent(userContext, parent, search, hierarchyMode, visibility, style, envelope);
 	}
 
 	@GET
@@ -137,7 +137,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 			@Context HttpServletRequest request, 
 			@PathParam(BBID_PARAM_NAME) String BBID) throws ScopeException {
 		AppContext userContext = getUserContext(request);
-		return getDelegate().getItem(userContext, BBID);
+		return delegate().getItem(userContext, BBID);
 	}
 
 	@POST
@@ -153,7 +153,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 			@ApiParam(value="the new bookmark folder, can be /MYBOOKMARKS, /MYBOOKMARKS/any/folders or /SHARED/any/folders") @QueryParam("parent") String parent)
 	{
 		AppContext userContext = getUserContext(request);
-		return getDelegate().createBookmark(userContext, query, BBID, name, parent);
+		return delegate().createBookmark(userContext, query, BBID, name, parent);
 	}
 	
 	@GET
@@ -181,7 +181,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 			) throws ScopeException
 	{
 		AppContext userContext = getUserContext(request);
-		return getDelegate().evaluateExpression(userContext, BBID, expression, offset, types, values);
+		return delegate().evaluateExpression(userContext, BBID, expression, offset, types, values);
 	}
 
 	@GET
@@ -202,7 +202,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 			) throws ComputingException {
 
 		AppContext userContext = getUserContext(request);
-		return getDelegate().getFacet(userContext, BBID, facetId, search, filters, maxResults, startIndex, timeoutMs);
+		return delegate().getFacet(userContext, BBID, facetId, search, filters, maxResults, startIndex, timeoutMs);
 	}
 
 	@POST
@@ -224,7 +224,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 			@QueryParam(TIMEOUT_PARAM) Integer timeout
 			) throws ComputingException, ScopeException, InterruptedException {
 		AppContext userContext = getUserContext(request);
-		return getDelegate().runAnalysis(userContext, BBID, query, data, envelope, timeout);
+		return delegate().runAnalysis(userContext, BBID, query, data, envelope, timeout);
 	}
 
 	@GET
@@ -286,7 +286,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 			) throws ComputingException, ScopeException, InterruptedException {
 		AppContext userContext = getUserContext(request);
 		AnalyticsQuery analysis = createAnalysisFromParams(BBID, groupBy, metrics, filterExpressions, period, timeframe, compareframe, orderExpressions, rollupExpressions, limit, beyondLimit, maxResults, startIndex, lazy, style);
-		return getDelegate().runAnalysis(userContext, BBID, analysis, data, envelope, timeout);
+		return delegate().runAnalysis(userContext, BBID, analysis, data, envelope, timeout);
 	}
 
 
@@ -351,7 +351,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 		view.setSize(size);
 		view.setColumn(column);
 		view.setRow(row);
-		return getDelegate().viewAnalysis(userContext, BBID, view, data, style, envelope, query);
+		return delegate().viewAnalysis(userContext, BBID, view, data, style, envelope, query);
 	}
 
 	@GET
@@ -410,7 +410,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 			}
 		}
 		AnalyticsQuery analysis = createAnalysisFromParams(BBID, groupBy, metrics, filterExpressions, period, timeframe, compareframe, orderExpressions, rollupExpressions, limit, beyondLimit, null, null, null, null);
-		return getDelegate().exportAnalysis(userContext, BBID, analysis, filepart, fileext, compression);
+		return delegate().exportAnalysis(userContext, BBID, analysis, filepart, fileext, compression);
 	}
 	
 	@GET
@@ -420,7 +420,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 			@Context HttpServletRequest request, 
 			@ApiParam(value="this is the AnalysisQuery QueryID") @PathParam("QUERYID") String key) {
 		AppContext userContext = getUserContext(request);
-		return getDelegate().getStatus(userContext, key);
+		return delegate().getStatus(userContext, key);
 	}
 	
 	@GET
@@ -430,7 +430,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 			@Context HttpServletRequest request, 
 			@ApiParam(value="this is the AnalysisQuery QueryID") @PathParam("QUERYID") String key) {
 		AppContext userContext = getUserContext(request);
-		return getDelegate().cancelQuery(userContext, key);
+		return delegate().cancelQuery(userContext, key);
 	}
 	
 	/**
@@ -539,7 +539,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 			// add the redirect information
 			String path = uriInfo.getRequestUri().toString();
 			int pos = path.indexOf("/analytics");
-			UriBuilder builder = getDelegate().getPublicBaseUriBuilder();
+			UriBuilder builder = delegate().getPublicBaseUriBuilder();
 			UriBuilder redirect = builder.path(pos>0?path.substring(pos):path);
 			throw new InvalidTokenAPIException(e.getMessage(), redirect.build(), "admin_console", e.isNoError());
 		}
