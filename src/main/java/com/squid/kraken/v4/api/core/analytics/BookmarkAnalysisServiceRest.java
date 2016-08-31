@@ -351,7 +351,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 		view.setSize(size);
 		view.setColumn(column);
 		view.setRow(row);
-		return getDelegate().viewAnalysis(uriInfo, userContext, BBID, view, data, style, envelope, query);
+		return getDelegate().viewAnalysis(userContext, BBID, view, data, style, envelope, query);
 	}
 
 	@GET

@@ -1889,7 +1889,6 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 	 * @throws ScopeException 
 	 */
 	public Response viewAnalysis(
-			UriInfo uriInfo, 
 			final AppContext userContext, 
 			String BBID,
 			ViewQuery view,
@@ -2233,9 +2232,9 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 			}
 			specs.data = new Data();
 			if (!outputConfig.isHasMetricSeries()) {
-				specs.data.url = buildAnalyticsQueryURI(uriInfo, userContext, outputConfig.getScope(), query, "RECORDS", "DATA").toString();
+				specs.data.url = buildAnalyticsQueryURI(userContext, outputConfig.getScope(), query, "RECORDS", "DATA").toString();
 			} else {
-				specs.data.url = buildAnalyticsQueryURI(uriInfo, userContext, outputConfig.getScope(), query, "TRANSPOSE", "DATA").toString();
+				specs.data.url = buildAnalyticsQueryURI(userContext, outputConfig.getScope(), query, "TRANSPOSE", "DATA").toString();
 			}
 			specs.data.format = new Format();
 			specs.data.format.type = FormatType.json;// lowercase only!
@@ -2315,16 +2314,16 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 	 * @return
 	 * @throws ScopeException 
 	 */
-	protected URI buildExportURI(UriInfo uriInfo, AppContext userContext, SpaceScope localScope, String BBID, AnalyticsQuery query, String filename) throws ScopeException {
-		UriBuilder builder = uriInfo.getBaseUriBuilder().
+	protected URI buildExportURI(AppContext userContext, SpaceScope localScope, String BBID, AnalyticsQuery query, String filename) throws ScopeException {
+		UriBuilder builder = getPublicBaseUriBuilder().
 			path("/analytics/{"+BBID_PARAM_NAME+"}/export/{filename}");
 		addAnalyticsQueryParams(builder, localScope, query);
 		builder.queryParam("access_token", userContext.getToken().getOid());
 		return builder.build(BBID, filename);
 	}
 	
-	private URI buildAnalyticsQueryURI(UriInfo uriInfo, AppContext userContext, SpaceScope localScope, AnalyticsQuery query, String data, String envelope) throws ScopeException {
-		UriBuilder builder = uriInfo.getBaseUriBuilder().
+	private URI buildAnalyticsQueryURI(AppContext userContext, SpaceScope localScope, AnalyticsQuery query, String data, String envelope) throws ScopeException {
+		UriBuilder builder = getPublicBaseUriBuilder().
 			path("/analytics/{"+BBID_PARAM_NAME+"}/query");
 		addAnalyticsQueryParams(builder, localScope, query);
 		builder.queryParam(DATA_PARAM, data).queryParam(ENVELOPE_PARAM, envelope);
