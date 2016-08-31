@@ -26,6 +26,8 @@ package com.squid.kraken.v4.core.analysis.scope;
 import com.squid.core.domain.IDomain;
 import com.squid.core.domain.operators.ExtendedType;
 import com.squid.core.expression.PrettyPrintConstant;
+import com.squid.core.expression.PrettyPrintOptions;
+import com.squid.core.expression.scope.IdentifierType;
 import com.squid.core.sql.render.SQLSkin;
 import com.squid.kraken.v4.core.analysis.universe.Measure;
 import com.squid.kraken.v4.core.analysis.universe.Space;
@@ -39,6 +41,25 @@ extends AnalysisExpression
 	
 	public MeasureExpression(Measure measure) {
 		this.value = measure;
+	}
+	
+	@Override
+	public String getName() {
+		// override to use the axis name if not overridden
+		final String name = super.getName();
+		if (name==null && value!=null) {
+			return value.getName();
+		}
+		return name;
+	}
+	
+	@Override
+	public void setName(String name) {
+		if (value!=null) {
+			value.setName(name);
+		} else {
+			super.setName(name);
+		}
 	}
 	
 	@Override
@@ -61,6 +82,23 @@ extends AnalysisExpression
 	
 	@Override
 	public String getReferenceIdentifier() {
+		if (value!=null && value.getMetric()!=null) {
+			return value.getMetric().getOid();
+		} else {
+			return null;
+		}
+	}
+	
+	@Override
+	public IdentifierType getReferenceType() {
+		return null;
+	}
+	
+	/**
+	 * todo: need to correct that code...
+	 */
+	@Override
+	public String prettyPrintIdentifier() {
 		Metric metric = value.getMetric();
 		if (metric!=null && metric.getOid()!=null) {
 			String id = PrettyPrintConstant.IDENTIFIER_TAG
@@ -109,6 +147,19 @@ extends AnalysisExpression
 	    } else {
 	        return value.getParent().getSourceDomain();
 	    }
+	}
+	
+	/* (non-Javadoc)
+	 * @see com.squid.core.expression.ExpressionRef#prettyPrint()
+	 */
+	// T1702: this has side effects... but this is truly the right way to handle the axisExpression.prettyPrint().
+	@Override
+	public String prettyPrint(PrettyPrintOptions options) {
+		if (options==null) {
+			if (value!=null) return value.prettyPrint(); else return "{measure:undefined}";
+		} else {
+			if (value!=null) return value.prettyPrint(options); else return "{measure:undefined}";
+		}
 	}
 
 	@Override

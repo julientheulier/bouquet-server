@@ -793,6 +793,8 @@ public class RawMatrix extends RedisCacheValue {
 		case Types.TIMESTAMP:
 			return "java.sql.Timestamp";
 
+		case Types.OTHER:
+			return "java.lang.Object";
 		default:
 			return null;
 		}

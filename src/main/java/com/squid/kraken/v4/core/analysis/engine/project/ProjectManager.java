@@ -158,6 +158,14 @@ public class ProjectManager {
 		throw new ScopeException("cannot find Domain with PK="+domainPk);
 	}
 	
+	public boolean isVisible(AppContext ctx, Domain domain) {
+		if (!domain.isDynamic()) {
+			return true;
+		} else {
+			return AccessRightsUtils.getInstance().hasRole(ctx, domain, Role.WRITE);
+		}
+	}
+	
 	/**
 	 * refresh the domain content and data
 	 * @param ctx

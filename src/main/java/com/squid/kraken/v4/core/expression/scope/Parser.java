@@ -251,7 +251,7 @@ public class Parser {
 				} else {
 					ExpressionRef ref = findReference(references,line,col);
 					if (ref!=null && ref.getTokenPosition().getType()!=IdentifierType.IDENTIFIER && ref.getReferenceIdentifier()!=null) {
-						String id = ref.getReferenceIdentifier();
+						String id = ref.prettyPrintIdentifier();
 						output.append(id);
 						pos+=ref.getTokenPosition().length();
 						col+=ref.getTokenPosition().length();

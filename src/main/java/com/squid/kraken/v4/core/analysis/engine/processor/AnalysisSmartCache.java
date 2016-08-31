@@ -95,14 +95,13 @@ public class AnalysisSmartCache {
 
 			AnalysisSmartCacheSignature signature = notif.getValue();
 			String key = notif.getKey();
-			logger.info("removal notification for " + key);
 			Map<String, HashSet<String>> sameAxes = lookup.get(signature.getAxesSignature());
 			if (sameAxes != null){
 				HashSet<String> sameFilters = sameAxes.get(signature.getFiltersSignature());
 				if (sameFilters.contains(key)){
 					// check if it has been put back in guava
 					if ( cache.getIfPresent(key) == null){
-						logger.info("removing " + key);
+						logger.info("Removing " + key + " from smart cache");
 						sameFilters.remove(key);
 					}
 				}
@@ -412,12 +411,6 @@ public class AnalysisSmartCache {
 		return RedisCacheManager.getInstance().buildCacheKey(sql, dependencies ) ;
 	}
 
-	@Override
-	public void onRemoval(RemovalNotification<String, AnalysisSmartCacheSignature> arg0) {
-		// TODO Auto-generated method stub
-		
-	}
-	
 }
 
 

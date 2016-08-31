@@ -35,6 +35,8 @@ import com.squid.core.domain.set.SetDomain;
 import com.squid.core.expression.Compose;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.PrettyPrintConstant;
+import com.squid.core.expression.PrettyPrintOptions;
+import com.squid.core.expression.PrettyPrintOptions.ReferenceStyle;
 import com.squid.core.expression.UndefinedExpression;
 import com.squid.kraken.v4.core.expression.reference.RelationReference;
 import com.squid.kraken.v4.core.model.domain.ProxyDomainDomain;
@@ -45,6 +47,7 @@ import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainHierarchy;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainHierarchyManager;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
+import com.squid.kraken.v4.model.Bookmark;
 import com.squid.kraken.v4.model.Dimension;
 import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.DomainOption;
@@ -65,11 +68,13 @@ public class Space {
 	private Space parent = null;
 	private Domain domain;
 	private Relation relation = null;
+	private RelationDirection direction = null;
 	private String ID = "";
 
 	private DomainOption domainOptions = null;
 
 	private ExpressionAST def_cache;//cache the space definition
+	private Bookmark bookmark;
 	
 	public Space(Universe universe, Domain domain) {
 		this.universe = universe;
@@ -82,7 +87,7 @@ public class Space {
 		this.universe = parent.getUniverse();
 		this.rootDomain = parent.rootDomain;
 		this.parent = parent;
-		RelationDirection direction = relation.getDirection(parent.getDomain().getId());
+		this.direction = relation.getDirection(parent.getDomain().getId());
 		if (direction==RelationDirection.LEFT_TO_RIGHT) {
 			this.domain = universe.getDomain(relation.getRightId());
 		} else if (direction==RelationDirection.RIGHT_TO_LEFT) {
@@ -94,6 +99,33 @@ public class Space {
 		this.ID = (parent!=null?parent.ID+"/":"")+relation.getId().toUUID();
 	}
 	
+	public Space(Space parent, Relation relation, RelationDirection direction) throws ScopeException {
+		this.universe = parent.getUniverse();
+		this.rootDomain = parent.rootDomain;
+		this.parent = parent;
+		this.direction = direction;
+		this.relation = relation;
+		this.ID = (parent!=null?parent.ID+"/":"")+relation.getId().toUUID();
+	}
+	
+	/**
+	 * Provide integrated support for bookmarks
+	 * @param universe
+	 * @param bookmark
+	 */
+	public Space(Universe universe, Domain domain, Bookmark bookmark) {
+		this(universe, domain);
+		this.bookmark = bookmark;
+	}
+	
+	public boolean hasBookmark() {
+		return bookmark!=null;
+	}
+	
+	public Bookmark getBookmark() {
+		return bookmark;
+	}
+
 	/**
 	 * check if it is OK to compose this space with the given relation
 	 * @param relation
@@ -110,7 +142,7 @@ public class Space {
 	        return new Space(universeAsRoot, rootDomain);
 	    } else {
 	        Space parentAsRoot = this.parent.asRootUserContext();
-	        return new Space(parentAsRoot, this.relation);
+	        return new Space(parentAsRoot, this.relation, this.direction);
 	    }
 	}
 	
@@ -194,7 +226,6 @@ public class Space {
 	
 	public String getRelationName() {
 		if (this.relation!=null && getParent()!=null && getParent().getDomain()!=null) {
-			RelationDirection direction = relation.getDirection(getParent().getDomain().getId());
 			if (direction==RelationDirection.LEFT_TO_RIGHT) {
 				return relation.getRightName();
 			} else if (direction==RelationDirection.RIGHT_TO_LEFT) {
@@ -491,29 +522,73 @@ public class Space {
 	 * @return
 	 */
 	public String prettyPrint() {
+		return prettyPrint(null);
+	}
+
+	/**
+	 * return a V4 compatible expression attached to the provided scope: that is the expression could be parsed in this scope
+	 * @scope the parent scope or null for Universe
+	 * @return
+	 */
+	public String prettyPrint(PrettyPrintOptions options) {
 		String pp = "";
 		Space parent = this;
 		while (parent!=null) {
+			if (options!=null && options.getScope()!=null) {
+				if (parent.getImageDomain().equals(options.getScope())) {
+					break;
+				}
+			}
 			if (pp!="") {
 				pp = "."+pp;
 			}
 			if (parent.getParent()!=null) {
-				pp = PrettyPrintConstant.IDENTIFIER_TAG
-	    			+PrettyPrintConstant.OPEN_IDENT
-	    			+parent.relation.getOid()
-	    			+PrettyPrintConstant.CLOSE_IDENT
-	    			+pp;// krkn-84
+				pp = prettyPrintRelation(parent, options)+pp;
 			} else {
-				pp = PrettyPrintConstant.IDENTIFIER_TAG
-	    			+PrettyPrintConstant.OPEN_IDENT
-	    			+parent.getDomain().getOid()
-	    			+PrettyPrintConstant.CLOSE_IDENT
-	    			+pp;// krkn-84
+				pp = prettyPrintDomain(parent, options)+pp;
 			}
 			parent = parent.getParent();
 		}
 		//
 		return pp;
+	}
+
+	/**
+	 * utility method to pretty-print the space getDomain()
+	 * @param object
+	 * @param options
+	 * @return
+	 */
+	private static String prettyPrintDomain(Space space, PrettyPrintOptions options) {
+		if (options!=null && options.getStyle()==ReferenceStyle.NAME) {
+			return PrettyPrintConstant.OPEN_IDENT
+	    			+space.getDomain().getName()
+	    			+PrettyPrintConstant.CLOSE_IDENT;
+		} else {// krkn-84: default is ID
+			return PrettyPrintConstant.IDENTIFIER_TAG
+					+PrettyPrintConstant.OPEN_IDENT
+					+space.getDomain().getOid()
+					+PrettyPrintConstant.CLOSE_IDENT;
+		}
+	}
+
+	/**
+	 * utility method to pretty-print the space getReference()
+	 * @param object
+	 * @param options
+	 * @return
+	 */
+	private static String prettyPrintRelation(Space space, PrettyPrintOptions options) {
+		if (options!=null && options.getStyle()==ReferenceStyle.NAME) {
+			return PrettyPrintConstant.OPEN_IDENT
+	    			+space.getRelationName()
+	    			+PrettyPrintConstant.CLOSE_IDENT;
+		} else {// krkn-84: default is ID
+			return PrettyPrintConstant.IDENTIFIER_TAG
+					+PrettyPrintConstant.OPEN_IDENT
+					+space.getRelation().getOid()
+					+PrettyPrintConstant.CLOSE_IDENT;
+		}
 	}
 
 	@Override

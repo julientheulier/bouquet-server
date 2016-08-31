@@ -40,8 +40,8 @@ public class PerfDB {
     public static void logPerf(Logger logger, ProjectAnalysisJob job, String method, Boolean error, long duration, String msg) {
         JobStats queryLog;
         long stop = System.currentTimeMillis();
-        logger.info("task="+logger.getClass()+" method="+method+" jobid="+job.getId().getAnalysisJobId().toString()+" duration="+duration+ " error=true "+" "+msg);
-        queryLog = new JobStats(job.getId().getAnalysisJobId().toString(),method, duration, job.getId().getProjectId());
+        logger.info("task="+logger.getClass()+" method="+method+" jobid="+job.getId().getAnalysisJobId()+" duration="+duration+ " error=true "+" "+msg);
+        queryLog = new JobStats(job.getId().getAnalysisJobId(),method, duration, job.getId().getProjectId());
         queryLog.setError(error);
         PerfDB.INSTANCE.save(queryLog);
     }

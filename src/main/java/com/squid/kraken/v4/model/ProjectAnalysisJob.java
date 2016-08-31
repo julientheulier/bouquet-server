@@ -391,6 +391,12 @@ public class ProjectAnalysisJob extends JobBaseImpl<ProjectAnalysisJobPK, DataTa
 			this.expression = expression;
 			this.direction = direction;
 		}
+		
+		public OrderBy(String expression, Direction direction) {
+			super();
+			this.expression = new Expression(expression);
+			this.direction = direction;
+		}
 
 		/**
 		 * get the orderBy expression referenced by an index
@@ -421,6 +427,14 @@ public class ProjectAnalysisJob extends JobBaseImpl<ProjectAnalysisJobPK, DataTa
 		
 		public void setExpression(Expression expression) {
 			this.expression = expression;
+		}
+		
+		/* (non-Javadoc)
+		 * @see java.lang.Object#toString()
+		 */
+		@Override
+		public String toString() {
+			return this.direction+" "+this.expression;
 		}
 		
 	}

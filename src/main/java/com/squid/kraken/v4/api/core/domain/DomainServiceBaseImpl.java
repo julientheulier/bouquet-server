@@ -236,8 +236,7 @@ public class DomainServiceBaseImpl extends GenericServiceImpl<Domain, DomainPK> 
 			//
 			Universe universe = new Universe(ctx, project);
 			Domain domain = ProjectManager.INSTANCE.getDomain(ctx, domainPK);
-			SegmentExpressionScope scope = new SegmentExpressionScope(universe,
-					domain);
+			SegmentExpressionScope scope = new SegmentExpressionScope(universe.S(domain));
 			ExpressionSuggestionHandler handler = new ExpressionSuggestionHandler(
 					scope);
 			String expression_final = expression;

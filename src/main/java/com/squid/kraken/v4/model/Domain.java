@@ -59,8 +59,10 @@ public class Domain extends DynamicObject<DomainPK> implements Cloneable, HasChi
 	
     private Expression subject;
 
-    @JsonIgnore
-	private Integer internalVersion = null;// internal only, client cannot use this property
+	// the version is now visible, but cannot be modified (the store method won't allow it)
+	// - we need to export the domain version if we want to re-create the domain in a new instance, so the behavior is compliant
+	// - if we hide the internalVerion, we won't be able to move an old project/domain
+	private Integer internalVersion = null;
     
     @Transient
     transient private List<Metric> metrics;

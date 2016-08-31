@@ -23,6 +23,8 @@
  *******************************************************************************/
 package com.squid.kraken.v4.api.core;
 
+import java.net.URI;
+
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.squid.kraken.v4.KrakenConfig;
 
@@ -30,6 +32,10 @@ import com.squid.kraken.v4.KrakenConfig;
 public class InvalidTokenAPIException extends APIException {
 	
     private static final String AUTH_URL = "kraken.oauth.endpoint";
+    
+    private URI redirectURL;
+    
+    private String clientId = "admin_console";
 
     public InvalidTokenAPIException(boolean noError) {
         super(noError);
@@ -37,6 +43,12 @@ public class InvalidTokenAPIException extends APIException {
 
     public InvalidTokenAPIException(String message, boolean noError) {
         super(message, noError);
+    }
+
+    public InvalidTokenAPIException(String message, URI redirectURL, String clientId, boolean noError) {
+        super(message, noError);
+        this.redirectURL = redirectURL;
+        this.clientId = clientId;
     }
 
     public InvalidTokenAPIException(String message, Throwable cause, boolean noError) {
@@ -55,5 +67,10 @@ public class InvalidTokenAPIException extends APIException {
     @JsonProperty
     public String getLoginURL() {
     	return KrakenConfig.getProperty(AUTH_URL);
+    }
+
+    @JsonProperty
+    public String getSelfLoginURL() {
+    	return redirectURL!=null?getLoginURL()+"?client_id="+clientId+"&redirect_uri="+redirectURL.toASCIIString():null;
     }
 }

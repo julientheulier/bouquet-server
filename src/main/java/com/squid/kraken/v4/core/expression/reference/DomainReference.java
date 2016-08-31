@@ -28,6 +28,7 @@ import com.squid.core.domain.operators.ExtendedType;
 import com.squid.core.expression.ExpressionRef;
 import com.squid.core.expression.PrettyPrintConstant;
 import com.squid.core.expression.reference.ColumnReference;
+import com.squid.core.expression.scope.IdentifierType;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.core.sql.render.SQLSkin;
 import com.squid.kraken.v4.core.model.domain.ProxyDomainDomain;
@@ -70,9 +71,12 @@ public class DomainReference extends ExpressionRef {
 	
 	@Override
 	public String getReferenceIdentifier() {
-		return reference!=null?
-				(PrettyPrintConstant.IDENTIFIER_TAG+PrettyPrintConstant.OPEN_IDENT+reference.getOid()+PrettyPrintConstant.CLOSE_IDENT)
-			:null;
+		return reference!=null?reference.getOid():null;
+	}
+	
+	@Override
+	public IdentifierType getReferenceType() {
+		return null;
 	}
 
 	/**

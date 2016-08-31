@@ -75,8 +75,8 @@ import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.kraken.v4.core.expression.reference.DomainReference;
 import com.squid.kraken.v4.core.expression.scope.DomainExpressionScope;
 import com.squid.kraken.v4.model.AccessRight;
-import com.squid.kraken.v4.model.Analysis;
-import com.squid.kraken.v4.model.Analysis.AnalysisFacet;
+import com.squid.kraken.v4.model.AnalyticsQuery;
+import com.squid.kraken.v4.model.AnalyticsQuery.AnalysisFacet;
 import com.squid.kraken.v4.model.Bookmark;
 import com.squid.kraken.v4.model.BookmarkConfig;
 import com.squid.kraken.v4.model.BookmarkPK;
@@ -95,7 +95,7 @@ import com.squid.kraken.v4.model.ProjectAnalysisJob.Position;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.RollUp;
 import com.squid.kraken.v4.model.ProjectAnalysisJobPK;
 import com.squid.kraken.v4.model.ProjectPK;
-import com.squid.kraken.v4.model.SimpleAnalysis;
+import com.squid.kraken.v4.model.AnalyticsQueryImpl;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DAOFactory;
 import com.wordnik.swagger.annotations.Api;
@@ -121,10 +121,15 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 	@GET
 	@Path("/")
 	@ApiOperation(value = "Compute an Analysis")
-	public Response computeAnalysis(@PathParam("projectId") String projectId, @QueryParam("domain") String domainExpr,
-			@QueryParam("facet") String[] facetExpressions, @QueryParam("filter") String[] filterExpressions,
+	public Response computeAnalysis(
+			@PathParam("projectId") String projectId, 
+			@QueryParam("domain") String domainExpr,
+			@QueryParam("groupBy") String[] groupBy, 
+			@QueryParam("metrics") String[] metrics, 
+			@QueryParam("filter") String[] filterExpressions,
 			@QueryParam("orderby") String[] orderExpressions, @QueryParam("rollup") String[] rollupExpressions,
-			@QueryParam("limit") Long limit, @QueryParam("bookmarkId") String bookmarkId,
+			@QueryParam("limit") Long limit, 
+			@QueryParam("bookmarkId") String bookmarkId,
 			@ApiParam(value = "response timeout in milliseconds in case the job is not yet computed. If no timeout set, the method will return according to current job status.") @QueryParam("timeout") Integer timeout,
 			@ApiParam(value = "paging size") @QueryParam("maxResults") Integer maxResults,
 			@ApiParam(value = "paging start index") @QueryParam("startIndex") Integer startIndex,
@@ -134,20 +139,33 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 			@ApiParam(value = "output filename") @DefaultValue("/default") @QueryParam("filename") String filename)
 					throws ScopeException {
 
-		Analysis analysis = new SimpleAnalysis();
+		AnalyticsQuery analysis = new AnalyticsQueryImpl();
 		analysis.setBookmarkId(bookmarkId);
 		analysis.setDomain(domainExpr);
-		if ((facetExpressions != null) && (facetExpressions.length > 0)) {
-			List<AnalysisFacet> facets = new ArrayList<AnalysisFacet>();
-			for (int i = 0; i < facetExpressions.length; i++) {
-				AnalysisFacet f = new SimpleAnalysis.SimpleFacet();
-				f.setExpression(facetExpressions[i]);// if the name is provided
+		int groupByLength = groupBy!=null?groupBy.length:0;
+		if (groupByLength > 0) {
+			List<String> facets = new ArrayList<>();
+			for (int i = 0; i < groupBy.length; i++) {
+				AnalysisFacet f = new AnalyticsQueryImpl.AnalysisFacetImpl();
+				f.setExpression(groupBy[i]);// if the name is provided
 														// by the expression, we
 														// will get it latter
 														// when it's parsed
-				facets.add(f);
+				facets.add(f.getExpression());
 			}
-			analysis.setFacets(facets);
+			analysis.setGroupBy(facets);
+		}
+		if ((metrics != null) && (metrics.length > 0)) {
+			List<String> facets = new ArrayList<>();
+			for (int i = 0; i < metrics.length; i++) {
+				AnalysisFacet f = new AnalyticsQueryImpl.AnalysisFacetImpl();
+				f.setExpression(metrics[i]);// if the name is provided
+														// by the expression, we
+														// will get it latter
+														// when it's parsed
+				facets.add(f.getExpression());
+			}
+			analysis.setMetrics(facets);
 		}
 		if ((filterExpressions != null) && (filterExpressions.length > 0)) {
 			analysis.setFilters(Arrays.asList(filterExpressions));
@@ -176,7 +194,7 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 				try {
 					int index = Integer.parseInt(expr);
 					// rollup can use -1 to compute grand-total
-					if (index < -1 || index >= facetExpressions.length) {
+					if (index < -1 || index >= groupByLength) {
 						throw new ScopeException("invalid rollup expression at position " + pos
 								+ ": the index specified (" + index + ") is not defined");
 					}
@@ -212,7 +230,7 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 	@Path("/")
 	@ApiOperation(value = "Compute an Analysis")
 	public Response computeAnalysis(@PathParam("projectId") String projectId,
-			@ApiParam(required = true) Analysis analysis,
+			@ApiParam(required = true) AnalyticsQuery analysis,
 			@ApiParam(value = "response timeout in milliseconds in case the job is not yet computed. If no timeout set, the method will return according to current job status.") @QueryParam("timeout") Integer timeout,
 			@ApiParam(value = "paging size") @QueryParam("maxResults") Integer maxResults,
 			@ApiParam(value = "paging start index") @QueryParam("startIndex") Integer startIndex,
@@ -237,7 +255,7 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 				filename);
 	}
 
-	private ProjectAnalysisJob createAnalysisJob(AppContext ctx, String projectId, Analysis analysis, Integer timeout,
+	private ProjectAnalysisJob createAnalysisJob(AppContext ctx, String projectId, AnalyticsQuery analysis, Integer timeout,
 			Integer maxResults, Integer startIndex, String lazy, String format, String compression)
 					throws ScopeException {
 
@@ -264,30 +282,31 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 			if (analysis.getDomain() == null) {
 				analysis.setDomain("@'" + config.getDomain() + "'");
 			}
+			String domain = analysis.getDomain();
 			if (analysis.getLimit() == null) {
 				analysis.setLimit(config.getLimit());
 			}
-			if (analysis.getFacets() == null) {
-				List<AnalysisFacet> facets = new ArrayList<AnalysisFacet>();
-				if (config.getChosenDimensions() != null) {
-					for (String chosenDimension : config.getChosenDimensions()) {
-						AnalysisFacet f = new SimpleAnalysis.SimpleFacet();
-						if (chosenDimension.startsWith("@")) {
-							f.setExpression(chosenDimension);
-						} else {
-							f.setExpression("@'" + chosenDimension + "'");
-						}
-						facets.add(f);
+			if (analysis.getGroupBy() == null && config.getChosenDimensions() != null) {
+				List<String> groupBy = new ArrayList<>();
+				for (String chosenDimension : config.getChosenDimensions()) {
+					AnalysisFacet f = new AnalyticsQueryImpl.AnalysisFacetImpl();
+					if (chosenDimension.startsWith("@")) {
+						f.setExpression(chosenDimension);
+					} else {
+						f.setExpression(domain + ".@'" + chosenDimension + "'");
 					}
+					groupBy.add(f.getExpression());
 				}
-				if (config.getChosenMetrics() != null) {
-					for (String chosenMetric : config.getChosenMetrics()) {
-						AnalysisFacet f = new SimpleAnalysis.SimpleFacet();
-						f.setExpression("@'" + chosenMetric + "'");
-						facets.add(f);
-					}
+				analysis.setGroupBy(groupBy);
+			}
+			if (analysis.getMetrics()!=null && config.getChosenMetrics() != null) {
+				List<String> metrics = new ArrayList<>();
+				for (String chosenMetric : config.getChosenMetrics()) {
+					AnalysisFacet f = new AnalyticsQueryImpl.AnalysisFacetImpl();
+					f.setExpression(domain + ".@'" + chosenMetric + "'");
+					metrics.add(f.getExpression());
 				}
-				analysis.setFacets(facets);
+				analysis.setMetrics(metrics);
 			}
 			if (analysis.getOrderBy() == null) {
 				analysis.setOrderBy(config.getOrderBy());
@@ -330,18 +349,25 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 															// analysisJob
 															// indexes
 		HashSet<Integer> metricSet = new HashSet<>();// mark metrics
-		if (analysis.getFacets() == null || analysis.getFacets().isEmpty()) {
+		if ((analysis.getGroupBy() == null || analysis.getGroupBy().isEmpty())
+		&& (analysis.getMetrics() == null || analysis.getMetrics().isEmpty())) {
 			throw new ScopeException("there is no defined facet, can't run the analysis");
 		}
-		for (AnalysisFacet facet : analysis.getFacets()) {
-			ExpressionAST colExpression = domainScope.parseExpression(facet.getExpression());
+		// quick fix to support the old facet mechanism
+		ArrayList<String> analysisFacets = new ArrayList<>();
+		if (analysis.getGroupBy()!=null) analysisFacets.addAll(analysis.getGroupBy());
+		if (analysis.getMetrics()!=null) analysisFacets.addAll(analysis.getMetrics());
+		for (String facet : analysisFacets) {
+			ExpressionAST colExpression = domainScope.parseExpression(facet);
 			if (colExpression.getName() != null) {
+				/*
 				if (facet.getName() != null && !facet.equals(colExpression.getName())) {
 					throw new ScopeException("the facet name is ambiguous: " + colExpression.getName() + "/"
 							+ facet.getName() + " for expresion: " + facet.getExpression());
 				}
 				// else
 				facet.setName(colExpression.getName());
+				*/
 			}
 			IDomain image = colExpression.getImageDomain();
 			if (image.isInstanceOf(IDomain.AGGREGATE)) {
@@ -356,11 +382,11 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 				// now it can be transformed into a measure
 				Measure m = universe.asMeasure(relink);
 				if (m == null) {
-					throw new ScopeException("cannot use expression='" + facet.getExpression() + "'");
+					throw new ScopeException("cannot use expression='" + facet + "'");
 				}
 				Metric metric = new Metric();
 				metric.setExpression(new Expression(m.prettyPrint()));
-				String name = facet.getName();
+				String name = null;//facet.getName();
 				if (name == null) {
 					name = m.prettyPrint();
 				}
@@ -377,7 +403,7 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 					throw new ScopeException("cannot use expression='" + colExpression.prettyPrint() + "'");
 				}
 				ExpressionAST facetExp = ExpressionMaker.COMPOSE(new SpaceExpression(root), colExpression);
-				String name = facet.getName();
+				String name = facetExp.getName();
 				if (name == null) {
 					name = formatName(
 							axis.getDimension() != null ? axis.getName() : axis.getDefinitionSafe().prettyPrint());

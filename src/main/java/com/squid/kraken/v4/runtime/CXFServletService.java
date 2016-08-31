@@ -45,6 +45,7 @@ import com.squid.kraken.v4.KrakenConfig;
 import com.squid.kraken.v4.ESIndexFacade.ESIndexFacadeConfiguration;
 import com.squid.kraken.v4.api.core.EmailHelperImpl;
 import com.squid.kraken.v4.api.core.ServiceUtils;
+import com.squid.kraken.v4.api.core.analytics.BookmarkAnalysisServiceRest;
 import com.squid.kraken.v4.api.core.customer.AdminServiceRest;
 import com.squid.kraken.v4.api.core.customer.CustomerServiceBaseImpl;
 import com.squid.kraken.v4.api.core.customer.CustomerServiceRest;
@@ -95,7 +96,7 @@ public class CXFServletService extends CXFNonSpringJaxrsServlet {
 		if (facets.contains("front")) {
 			// init the API
 			logger.info("Facet: Front");
-			servletConf.setJaxrsServiceClassesParam(CustomerServiceRest.class.getName() + ","
+			servletConf.setJaxrsServiceClassesParam(BookmarkAnalysisServiceRest.class.getName() + "," + CustomerServiceRest.class.getName() + ","
 					+ AdminServiceRest.class.getName() + "," + "com.wordnik.swagger.jaxrs.listing.ApiListingResource");
 		} else {
 			servletConf.setJaxrsServiceClassesParam(CacheInitPoint.class.getName());
@@ -230,7 +231,7 @@ public class CXFServletService extends CXFNonSpringJaxrsServlet {
 
 	public void initSwagger(ServletConfig config) throws ServletException {
 		ReflectiveJaxrsScanner scanner = new ReflectiveJaxrsScanner();
-		scanner.setResourcePackage("com.squid.kraken.v4.api.core.customer");
+		scanner.setResourcePackage("com.squid.kraken.v4.api.core.customer,com.squid.kraken.v4.api.core.analytics");
 		ScannerFactory.setScanner(scanner);
 
 		Info info = new Info().title("Bouquet").version("4.2").description("This is Bouquet API");

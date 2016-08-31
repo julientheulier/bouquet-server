@@ -33,6 +33,8 @@ import com.squid.kraken.v4.core.database.impl.DatabaseServiceImpl;
 import com.squid.core.expression.Compose;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.PrettyPrintConstant;
+import com.squid.core.expression.PrettyPrintOptions;
+import com.squid.core.expression.PrettyPrintOptions.ReferenceStyle;
 import com.squid.core.expression.reference.ColumnReference;
 import com.squid.core.expression.UndefinedExpression;
 import com.squid.core.expression.scope.ScopeException;
@@ -44,6 +46,8 @@ import com.squid.kraken.v4.core.analysis.scope.AxisExpression;
 import com.squid.kraken.v4.model.Attribute;
 import com.squid.kraken.v4.model.Dimension;
 import com.squid.kraken.v4.model.ExpressionObject;
+import com.squid.kraken.v4.model.GenericPK;
+import com.squid.kraken.v4.model.LzPersistentBaseImpl;
 import com.squid.kraken.v4.model.Dimension.Type;
 
 // AXIS
@@ -371,34 +375,60 @@ public class Axis implements Property {
 	public int hashCode() {
 		return this.getId().hashCode();
 	}
+
+	
+	/**
+	 * return a V4 compatible expression attached to the provided scope: that is the expression could be parsed in this scope
+	 * @scope the parent scope or null for Universe
+	 * @return
+	 */
+	public String prettyPrint(PrettyPrintOptions options) {
+	    if (dimension!=null && dimension.getId().getDimensionId()!=null) {
+    		String pp = getParent().prettyPrint(options);
+    		if (pp!="") {
+    			pp += ".";
+    		}
+    		// krkn-84 use ID reference
+			return pp+prettyPrintObject(getDimension(), options);
+	    } else if (dimension!=null && dimension.getId().getDimensionId()==null && def_cache!=null) {
+	    	// krkn-93
+    		String pp = getParent().prettyPrint(options);
+    		if (pp!="") {
+    			pp += ".";
+    		}
+    		return pp+def_cache.prettyPrint(options);
+	    } else if (def_cache!=null) {
+	        return def_cache.prettyPrint(options);
+	    } else {
+	        return "**undefined**";
+	    }
+	}
+	
+	/**
+	 * utility method to pretty-print a object id
+	 * @param object
+	 * @param options
+	 * @return
+	 */
+	private static String prettyPrintObject(LzPersistentBaseImpl<? extends GenericPK> object, PrettyPrintOptions options) {
+		if (options!=null && options.getStyle()==ReferenceStyle.NAME) {
+			return PrettyPrintConstant.OPEN_IDENT
+	    			+object.getName()
+	    			+PrettyPrintConstant.CLOSE_IDENT;
+		} else {// krkn-84: default is ID
+			return PrettyPrintConstant.IDENTIFIER_TAG
+	    			+PrettyPrintConstant.OPEN_IDENT
+					+object.getOid()
+					+PrettyPrintConstant.CLOSE_IDENT;
+		}
+	}
 	
 	/**
 	 * return a V4 compatible expression
 	 * @return
 	 */
 	public String prettyPrint() {
-	    if (dimension!=null && dimension.getId().getDimensionId()!=null) {
-    		String pp = getParent().prettyPrint();
-    		if (pp!="") {
-    			pp += ".";
-    		}
-    		// krkn-84 use ID reference
-    		return pp+PrettyPrintConstant.IDENTIFIER_TAG
-    				+PrettyPrintConstant.OPEN_IDENT
-    				+getDimension().getOid()
-    				+PrettyPrintConstant.CLOSE_IDENT;
-	    } else if (dimension!=null && dimension.getId().getDimensionId()==null && def_cache!=null) {
-	    	// krkn-93
-    		String pp = getParent().prettyPrint();
-    		if (pp!="") {
-    			pp += ".";
-    		}
-    		return pp+def_cache.prettyPrint();
-	    } else if (def_cache!=null) {
-	        return def_cache.prettyPrint();
-	    } else {
-	        return "**undefined**";
-	    }
+		return prettyPrint(null);
 	}
 	
 	@Override

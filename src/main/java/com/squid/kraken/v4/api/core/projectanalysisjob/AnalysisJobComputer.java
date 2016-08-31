@@ -116,7 +116,7 @@ public class AnalysisJobComputer implements JobComputer<ProjectAnalysisJob, Proj
 		// build the analysis
 		long start = System.currentTimeMillis();
 
-		logger.info("Starting preview compute for job " + job.getId().getAnalysisJobId().toString());
+		logger.info("Starting preview compute for job " + job.getId());
 
 		DashboardAnalysis analysis;
 		try {
@@ -136,9 +136,9 @@ public class AnalysisJobComputer implements JobComputer<ProjectAnalysisJob, Proj
 			long stop = System.currentTimeMillis();
 
 			logger.info("task=" + this.getClass().getName() + " method=compute" + " jobid="
-					+ job.getId().getAnalysisJobId().toString() + " duration=" + (stop - start));
+					+ job.getId().getAnalysisJobId() + " duration=" + (stop - start));
 
-			JobStats queryLog = new JobStats(job.getId().getAnalysisJobId().toString(), "AnalysisJobComputer.compute",
+			JobStats queryLog = new JobStats(job.getId().getAnalysisJobId(), "AnalysisJobComputer.compute",
 					(stop - start), job.getId().getProjectId());
 			queryLog.setError(false);
 			PerfDB.INSTANCE.save(queryLog);
@@ -167,14 +167,14 @@ public class AnalysisJobComputer implements JobComputer<ProjectAnalysisJob, Proj
 			ExportSourceWriter writer, boolean lazy) throws ComputingException, InterruptedException {
 		// build the analysis
 		long start = System.currentTimeMillis();
-		logger.info("Starting export compute for job " + job.getId().getAnalysisJobId().toString());
+		logger.info("Starting export compute for job " + job.getOid());
 		DashboardAnalysis analysis;
 		try {
 			analysis = buildDashboardAnalysis(ctx, job, true);
 		} catch (ScopeException e1) {
 			throw new ComputingException(e1);
 		}
-		ExportQueryWriter eqw = new ExportQueryWriter(writer, outputStream, job.getId().getAnalysisJobId().toString());
+		ExportQueryWriter eqw = new ExportQueryWriter(writer, outputStream, job.getId().getAnalysisJobId());
 		ComputingService.INSTANCE.executeAnalysis(analysis, eqw, lazy);
 
 		DataTable results = new DataTable();
@@ -185,7 +185,7 @@ public class AnalysisJobComputer implements JobComputer<ProjectAnalysisJob, Proj
 		// job.getId().getAnalysisJobId().toString() + " in " +(stop-start)+
 		// "ms" );
 		logger.info("task=" + this.getClass().getName() + " method=compute" + " jobid="
-				+ job.getId().getAnalysisJobId().toString() + " status=done duration=" + (stop - start));
+				+ job.getOid() + " status=done duration=" + (stop - start));
 		JobStats queryLog = new JobStats(job.getId().toString(), "FacetJobComputer", (stop - start),
 				job.getId().getProjectId());
 		PerfDB.INSTANCE.save(queryLog);
@@ -245,9 +245,9 @@ public class AnalysisJobComputer implements JobComputer<ProjectAnalysisJob, Proj
 		// + (System.currentTimeMillis() - start));
 		long duration = (System.currentTimeMillis() - start);
 		logger.info(
-				" jobid=" + job.getId().getAnalysisJobId().toString() + " task=deepread " + " duration=" + duration);
+				" jobid=" + job.getId() + " task=deepread " + " duration=" + duration);
 
-		JobStats queryLog = new JobStats(job.getId().getAnalysisJobId().toString(),
+		JobStats queryLog = new JobStats(job.getId().getAnalysisJobId(),
 				"AnalysisJobComputer.ProjectDeepRead", duration, job.getId().getProjectId());
 		queryLog.setError(false);
 		PerfDB.INSTANCE.save(queryLog);
@@ -257,7 +257,7 @@ public class AnalysisJobComputer implements JobComputer<ProjectAnalysisJob, Proj
 		DashboardAnalysis dash = new DashboardAnalysis(universe);
 
 		dash.lazy(lazy);
-		dash.setJobId(job.getId().getAnalysisJobId().toString());
+		dash.setJobId(job.getOid());
 		// setup the metrics
 		List<Metric> metrics = job.getMetricList();
 
@@ -505,8 +505,8 @@ public class AnalysisJobComputer implements JobComputer<ProjectAnalysisJob, Proj
 		 * job.getId().toString() + " in " + (stop - start) + "ms");
 		 */
 		logger.info("task=AnalysisJobComputer" + " method=AnalysisJobComputer.buildDashboardAnalysis()" + " jobid="
-				+ job.getId().getAnalysisJobId().toString() + " duration=" + (stop - start) + " error=false end");
-		queryLog = new JobStats(job.getId().getAnalysisJobId().toString(), "AnalysisJobComputer.buildDashboardAnalysis",
+				+ job.getId().getAnalysisJobId() + " duration=" + (stop - start) + " error=false end");
+		queryLog = new JobStats(job.getId().getAnalysisJobId(), "AnalysisJobComputer.buildDashboardAnalysis",
 				(stop - start), job.getId().getProjectId());
 		queryLog.setError(false);
 		PerfDB.INSTANCE.save(queryLog);

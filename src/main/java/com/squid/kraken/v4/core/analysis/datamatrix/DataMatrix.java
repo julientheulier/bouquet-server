@@ -913,6 +913,7 @@ public int getDataIndirection(int i) {
 		// export header
 		List<Col> header = table.getCols();
 		int visible_count = 0;
+		int pos = 0;
 		for (int i = 0; i < axes.size(); i++) {
 			AxisValues m = axes.get(i);
 			if (m.isVisible()) {
@@ -924,7 +925,7 @@ public int getDataIndirection(int i) {
 					colType = getDataType(m.getAxis());
 					colExtType = getExtendedType(m.getAxis().getDefinitionSafe());
 					assert (colType.equals(DataType.values()[colExtType.getDataType()]));
-					Col col = new Col(dim.getId(), m.getAxis().getName(), colExtType, Col.Role.DOMAIN);
+					Col col = new Col(dim.getId(), m.getAxis().getName(), colExtType, Col.Role.DOMAIN, pos++);
 					col.setDefinition(m.getAxis().prettyPrint());
 					col.setOriginType(m.getAxis().getOriginType());
 					col.setDescription(m.getAxis().getDescription());
@@ -938,7 +939,7 @@ public int getDataIndirection(int i) {
 					colExtType = getExtendedType(m.getAxis().getDefinitionSafe());
 					assert (colType.equals(DataType.values()[colExtType.getDataType()]));
 					DimensionPK pk = new DimensionPK(m.getAxis().getParent().getDomain().getId(), ID);
-					Col col = new Col(pk, name, colExtType, Col.Role.DOMAIN);
+					Col col = new Col(pk, name, colExtType, Col.Role.DOMAIN, pos++);
 					if (def != null)
 						col.setDefinition(m.getAxis().prettyPrint());
 					col.setOriginType(m.getAxis().getOriginType());
@@ -952,13 +953,14 @@ public int getDataIndirection(int i) {
 				Measure m = v.getMeasure();
 				Metric metric = m.getMetric();
 				ExtendedType type = getExtendedType(m.getDefinitionSafe());
-				Col col = new Col(metric != null ? metric.getId() : null, m.getName(), type, Col.Role.DATA);
+				Col col = new Col(metric != null ? metric.getId() : null, m.getName(), type, Col.Role.DATA, pos++);
 				col.setDefinition(m.prettyPrint());
 				col.setOriginType(m.getOriginType());
 				col.setDescription(m.getDescription());
 				col.setFormat(computeFormat(m, type));
 				header.add(col);
 			}
+
 		}
 		// export data
 		boolean applyFormat = checkApplyFormat(options);

@@ -104,13 +104,18 @@ public class ProjectServiceBaseImpl extends GenericServiceImpl<Project, ProjectP
             // generate a new oid
             id.setObjectId(ObjectId.get().toString());
             newProject.setId(id);
+            // set the internal version to latest (T1771)
+            newProject.copyInternalVersion(null);
             updateMode = false;
         } else {
         	// check if this is a creation or an update
         	Optional<Project> read = DAOFactory.getDAOFactory().getDAO(Project.class).read(ctx, id);
         	if (read.isPresent()) {
+        		// T1771 - copy the internal version because it is read-only
+        		newProject.copyInternalVersion(read.get());
         		updateMode = true;
         	} else {
+        		// T1771 - if internalVersion is not set, it's going to be a legacy - so no need to change
         		updateMode = false;
         	}
         }
