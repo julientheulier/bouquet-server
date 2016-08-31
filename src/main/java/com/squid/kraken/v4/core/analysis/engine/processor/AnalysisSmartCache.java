@@ -34,9 +34,13 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.codec.digest.DigestUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.RemovalListener;
+import com.google.common.cache.RemovalNotification;
 import com.google.common.collect.ImmutableMap;
 import com.squid.core.domain.IDomain;
 import com.squid.core.expression.ExpressionAST;
@@ -61,6 +65,9 @@ public class AnalysisSmartCache {
 
 	public static final AnalysisSmartCache INSTANCE = new AnalysisSmartCache();
 
+	
+	static final Logger logger = LoggerFactory.getLogger(AnalysisSmartCache.class);
+
 	// simple set to control if a query is in the smart cache with no need to compute its key
 	private Set<String> contains = new HashSet<>();
 
@@ -68,13 +75,45 @@ public class AnalysisSmartCache {
 	private Map<String, Map<String, HashSet<String>>> lookup = new ConcurrentHashMap<>();
 	
 	// the guava cache
+	private Cache<String, AnalysisSmartCacheSignature> cache;
 	
-	private Cache<String, AnalysisSmartCacheSignature> cache = CacheBuilder.newBuilder()
-		    .maximumSize(100) // 
-		    .build();
+	private static int CACHE_SIZE = 200;
+	
+	
 	private AnalysisSmartCache() {
-		//
+		
+		cache = CacheBuilder.newBuilder()
+				    .maximumSize(CACHE_SIZE) // 
+				    .removalListener(new GuavaRemovalListener())
+				    .build();
 	}
+	
+	private class GuavaRemovalListener implements RemovalListener<String, AnalysisSmartCacheSignature> {
+
+		@Override
+		public void onRemoval(RemovalNotification<String, AnalysisSmartCacheSignature> notif) {
+
+			AnalysisSmartCacheSignature signature = notif.getValue();
+			String key = notif.getKey();
+			logger.info("removal notification for " + key);
+			Map<String, HashSet<String>> sameAxes = lookup.get(signature.getAxesSignature());
+			if (sameAxes != null){
+				HashSet<String> sameFilters = sameAxes.get(signature.getFiltersSignature());
+				if (sameFilters.contains(key)){
+					// check if it has been put back in guava
+					if ( cache.getIfPresent(key) == null){
+						logger.info("removing " + key);
+						sameFilters.remove(key);
+					}
+				}
+				
+			}
+			
+		}
+		
+	}	
+	
+	
 	
 	/**
 	 * Check if an existing cache entry matches the given analysis signature request
@@ -371,6 +410,12 @@ public class AnalysisSmartCache {
 		List<String> dependencies = new ArrayList<String>();
 		dependencies.add( da.getUniverse().getProject().getId().toUUID());		
 		return RedisCacheManager.getInstance().buildCacheKey(sql, dependencies ) ;
+	}
+
+	@Override
+	public void onRemoval(RemovalNotification<String, AnalysisSmartCacheSignature> arg0) {
+		// TODO Auto-generated method stub
+		
 	}
 	
 }
