@@ -52,6 +52,7 @@ import javax.ws.rs.core.Response.ResponseBuilder;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringEscapeUtils;
+import org.apache.cxf.jaxrs.impl.UriBuilderImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -188,10 +189,54 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 	static final Logger logger = LoggerFactory
 			.getLogger(BookmarkAnalysisServiceBaseImpl.class);
 
-	private UriInfo uriInfo;
+	//private UriInfo uriInfo = null;
+	
+	private URI publicBaseUri = null;
 	
 	protected BookmarkAnalysisServiceBaseImpl(UriInfo uriInfo) {
-		this.uriInfo = uriInfo;
+		//this.uriInfo = uriInfo;
+		this.publicBaseUri = getPublicBaseUri(uriInfo);
+	}
+	
+	private UriBuilder getPublicBaseUriBuilder() {
+		return new UriBuilderImpl(publicBaseUri);
+	}
+
+	/**
+	 * @param uriInfo2
+	 * @return
+	 */
+	private URI getPublicBaseUri(UriInfo uriInfo) {
+		// first check if there is a publicBaseUri parameter
+		String uri = KrakenConfig.getProperty(KrakenConfig.publicBaseUri, true);
+		if (uri!=null) {
+			try {
+				return new URI(uri);
+			} catch (URISyntaxException e) {
+				// let's try the next
+			}
+		}
+		// second, try to use the OAuth endpoint
+		String oauthEndpoint = KrakenConfig.getProperty(KrakenConfig.krakenOAuthEndpoint,true);
+		if (oauthEndpoint!=null) {
+			try {
+				URI check = new URI(oauthEndpoint);
+				// check that it is not using the ob.io central auth
+				if (!check.getHost().equalsIgnoreCase("auth.openbouquet.io")) {
+					while (oauthEndpoint.endsWith("/")) {
+						oauthEndpoint = oauthEndpoint.substring(0, oauthEndpoint.length()-1);
+					}
+					if (oauthEndpoint.endsWith("/auth/oauth")) {
+						oauthEndpoint = oauthEndpoint.substring(0,oauthEndpoint.length() - "/auth/oauth".length());
+						return new URI(oauthEndpoint+"/v4.2");
+					}
+				}
+			} catch (URISyntaxException e) {
+				// let's try the next
+			}
+		}
+		// last, use the uriInfo
+		return uriInfo.getBaseUri();
 	}
 
 	private static final NavigationItem ROOT_FOLDER = new NavigationItem("Root", "list all your available content", null, "/", "FOLDER");
@@ -392,34 +437,32 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 	 * @return
 	 */
 	private URI createLinkToFolder(AppContext userContext, NavigationQuery query, NavigationItem item) {
-		return
-				rebaseURI(createNavigationQuery(userContext, query).build(item.getSelfRef()));
+		return createNavigationQuery(userContext, query).build(item.getSelfRef());
 	}
 	
 	private URI createLinkToFolder(AppContext userContext, NavigationQuery query, String selfRef) {
-		return
-				rebaseURI(createNavigationQuery(userContext, query).build(selfRef!=null?selfRef:""));
+		return createNavigationQuery(userContext, query).build(selfRef!=null?selfRef:"");
 	}
 	
 	private URI createLinkToAnalysis(AppContext userContext, NavigationQuery query, NavigationItem item) {
 		UriBuilder builder =
-			uriInfo.getAbsolutePathBuilder().path("/{"+BBID_PARAM_NAME+"}/query");
+			getPublicBaseUriBuilder().path("/analytics/{"+BBID_PARAM_NAME+"}/query");
 		if (query.getStyle()!=null) builder.queryParam(STYLE_PARAM, query.getStyle());
 		builder.queryParam("access_token", userContext.getToken().getOid());
-		return rebaseURI(builder.build(item.getSelfRef()));
+		return builder.build(item.getSelfRef());
 	}
 	
 	private URI createLinkToView(AppContext userContext, NavigationQuery query, NavigationItem item) {
 		UriBuilder builder =
-			uriInfo.getAbsolutePathBuilder().path("/{"+BBID_PARAM_NAME+"}/view");
+				getPublicBaseUriBuilder().path("/analytics/{"+BBID_PARAM_NAME+"}/view");
 		if (query.getStyle()!=null) builder.queryParam(STYLE_PARAM, query.getStyle());
 		builder.queryParam("access_token", userContext.getToken().getOid());
-		return rebaseURI(builder.build(item.getSelfRef()));
+		return builder.build(item.getSelfRef());
 	}
 	
 	private UriBuilder createNavigationQuery(AppContext userContext, NavigationQuery query) {
 		UriBuilder builder = 
-			uriInfo.getAbsolutePathBuilder().path("").queryParam("parent", "{PARENT}");
+				getPublicBaseUriBuilder().path("/analytics").queryParam("parent", "{PARENT}");
 		if (query.getHiearchy()!=null) builder.queryParam("hierarchy", query.getHiearchy());
 		if (query.getStyle()!=null) builder.queryParam(STYLE_PARAM, query.getStyle());
 		if (query.getVisibility()!=null) builder.queryParam(VISIBILITY_PARAM, query.getVisibility());
@@ -429,35 +472,18 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 	
 	private URI createObjectLink(AppContext userContext, NavigationQuery query, Project project) {
 		UriBuilder builder = 
-			uriInfo.getBaseUriBuilder().path("/rs/projects/{projectID}");
+				getPublicBaseUriBuilder().path("/rs/projects/{projectID}");
 		if (query.getStyle()!=null) builder.queryParam(STYLE_PARAM, query.getStyle());
 		builder.queryParam("access_token", userContext.getToken().getOid());
-		return rebaseURI(builder.build(project.getOid()));
+		return builder.build(project.getOid());
 	}
 	
 	private URI createObjectLink(AppContext userContext, NavigationQuery query, Domain domain) {
 		UriBuilder builder = 
-			uriInfo.getBaseUriBuilder().path("/rs/projects/{projectID}/domains/{domainID}");
+				getPublicBaseUriBuilder().path("/rs/projects/{projectID}/domains/{domainID}");
 		if (query.getStyle()!=null) builder.queryParam(STYLE_PARAM, query.getStyle());
 		builder.queryParam("access_token", userContext.getToken().getOid());
-		return rebaseURI(builder.build(domain.getId().getProjectId(), domain.getOid()));
-	}
-	
-	private URI rebaseURI(URI uri) {
-		String base = uriInfo.getBaseUri().toString();
-		String full = uri.toString();
-		String path = full.substring(base.length());
-		String scheme = KrakenConfig.getProperty("kraken.rest.scheme",uri.getScheme());
-		String host = KrakenConfig.getProperty("kraken.rest.host",uri.getHost());
-		if (host.endsWith("/")) host = host.substring(0, host.length()-1);// remove trailing /
-		String port = KrakenConfig.getProperty("kraken.rest.port");
-		String mode = KrakenConfig.getProperty("kraken.server.mode");
-		String rebase = scheme+"://"+host+(port!=null?":"+port:"")+"/"+(mode!=null?mode:"")+"/v4.2/";
-		try {
-			return new URI(rebase+path);
-		} catch (URISyntaxException e) {
-			return uri;
-		}
+		return builder.build(domain.getId().getProjectId(), domain.getOid());
 	}
 	
 	/**
@@ -2265,11 +2291,11 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 				+ "<tr><td>size</td><td>=<input type=\"text\" name=\"size\" value=\""+getFieldValue(view.getSize())+"\"></td><td>"+(channels.size!=null?"as <b>"+channels.size.field+"</b>":"")+"</td></tr>"
 				+ "<tr><td>column</td><td>=<input type=\"text\" name=\"column\" value=\""+getFieldValue(view.getColumn())+"\"></td><td>"+(channels.column!=null?"as <b>"+channels.column.field+"</b>":"")+"</td></tr>"
 				+ "<tr><td>row</td><td>=<input type=\"text\" name=\"row\" value=\""+getFieldValue(view.getRow())+"\"></td><td>"+(channels.row!=null?"as <b>"+channels.row.field+"</b>":"")+"</td></tr>"
+				+ "</table>"
 				+ "<input type=\"hidden\" name=\"style\" value=\"HTML\">"
 				+ "<input type=\"hidden\" name=\"access_token\" value=\""+space.getUniverse().getContext().getToken().getOid()+"\">"
 				+ "<input type=\"submit\" value=\"Refresh\">"
 				+ "</form>"
-				+ "</table>"
 				+ "<p>the OB Analytics API provides more parameters... check <a target='swagger' href='http://swagger.squidsolutions.com/#!/analytics/viewAnalysis'>swagger UI</a> for details</p>"
 				+ "<hr>powered by Open Bouquet & VegaLite"
 				+ "</body>\r\n</html>";
