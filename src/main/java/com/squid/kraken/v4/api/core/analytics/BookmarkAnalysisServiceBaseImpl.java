@@ -75,6 +75,7 @@ import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.Operator;
 import com.squid.core.expression.PrettyPrintOptions;
 import com.squid.core.expression.PrettyPrintOptions.ReferenceStyle;
+import com.squid.core.expression.scope.ExpressionDiagnostic;
 import com.squid.core.expression.scope.ExpressionMaker;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.core.poi.ExcelFile;
@@ -963,9 +964,24 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 						throw e;
 					}
 				} catch (ExecutionException e) {
-					throw new APIException(e);
+					Throwable previous = e;
+					Throwable last = e;
+					while (last.getCause()!=null) {
+						previous = last;
+						last = last.getCause();
+					}
+					if (previous.getMessage()!=null) {
+						throwAPIException(previous);
+					} else {
+						throwAPIException(last);
+					}
 				} catch (TimeoutException e) {
-					throw new ComputingInProgressAPIException("computing in progress while running queryID="+query.getQueryID(), true, timeout*2);
+					if (query.getStyle()==Style.HUMAN || query.getStyle()==Style.HTML) {
+						URI link = getPublicBaseUriBuilder().path("/status/{queryID}").queryParam("access_token", userContext.getToken().getOid()).build(query.getQueryID());
+						throw new ComputingInProgressAPIException("computing in progress", true, timeout*2, query.getQueryID(), link);
+					} else {
+						throw new ComputingInProgressAPIException("computing in progress", true, timeout*2, query.getQueryID());
+					}
 				}
 			}
 			//
@@ -1000,6 +1016,18 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 			return Response.ok(reply).build();
 		} catch (ComputingException | InterruptedException | ScopeException | SQLScopeException | RenderingException e) {
 			throw new APIException(e.getMessage(), true);
+		}
+	}
+
+	/**
+	 * @param previous
+	 * @return
+	 */
+	private void throwAPIException(Throwable exception) throws APIException {
+		if (exception instanceof APIException) {
+			throw (APIException)exception;
+		} else {
+			throw new APIException(exception, true);
 		}
 	}
 
@@ -1845,19 +1873,6 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		ReferenceStyle style = ReferenceStyle.LEGACY;
 		PrettyPrintOptions options = new PrettyPrintOptions(style, space.getTop().getImageDomain());
 		return expr.prettyPrint(options);
-		/*
-		if (expr instanceof AxisExpression) {
-			AxisExpression ref = ((AxisExpression)expr);
-			Axis axis = ref.getAxis();
-			return axis.prettyPrint(scope);
-		} else if (expr instanceof MeasureExpression) {
-			MeasureExpression ref = ((MeasureExpression)expr);
-			Measure measure = ref.getMeasure();
-			return measure.prettyPrint(scope);
-		} else {
-			return expr.prettyPrint();
-		}
-		*/
 	}
 	
 	/**
@@ -1903,7 +1918,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		Space space = getSpace(userContext, BBID);
 		//
 		if (data==null) data="URL";
-		boolean preFetch = false;// default to prefetch when data mode is URL
+		boolean preFetch = true;// default to prefetch when data mode is URL
 		//
 		Bookmark bookmark = space.getBookmark();
 		BookmarkConfig config = BookmarkManager.INSTANCE.readConfig(bookmark);
@@ -2277,7 +2292,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 	
 	private Response createHTMLlist(AppContext ctx, NavigationQuery query, NavigationResult result) {
 		String title = query.getParent().length()>0?query.getParent():"Root";
-		StringBuilder html = new StringBuilder("<html><title>Query: "+title+"</title><body>");
+		StringBuilder html = new StringBuilder("<html><title>List: "+title+"</title><body>");
 		html.append("<h1>"+title+"</h1>");
 		//
 		// form
@@ -2311,8 +2326,10 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 			if (item.getViewLink()!=null) {
 				html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(item.getViewLink().toString())+"\">view</a>]");
 			}
+			if (item.getDescription()!=null && item.getDescription().length()>0) {
+				html.append("<br><i>"+(item.getDescription()!=null?item.getDescription():"")+"</i>");
+			}
 			html.append("</td>");
-			html.append("<td><i>"+(item.getDescription()!=null?item.getDescription():"")+"</i></td>");
 			if (item.getAttributes()!=null) {
 				for (Entry<String, String> entry : item.getAttributes().entrySet()) {
 					html.append("<td>"+entry.getKey()+"="+entry.getValue()+"</td>");
