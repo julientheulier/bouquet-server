@@ -25,7 +25,6 @@ package com.squid.kraken.v4.core.analysis.universe;
 
 import com.squid.core.database.domain.TableDomain;
 import com.squid.core.domain.IDomain;
-import com.squid.core.domain.aggregate.AggregateDomain;
 import com.squid.core.domain.associative.AssociativeDomainInformation;
 import com.squid.core.domain.operators.OperatorScope;
 import com.squid.core.expression.ExpressionAST;
@@ -99,8 +98,11 @@ public class Measure implements Property {
 	
 	private void setDefinition(ExpressionAST definition) throws ScopeException {
 		// check the image domain
+		/*
 		IDomain image = definition.getImageDomain();
-		if (!image.isInstanceOf(AggregateDomain.AGGREGATE)) {
+		if (image.isInstanceOf(AnalyticDomain.DOMAIN)) {
+			// just keep it like that... cannot apply SUM anyway
+		} else if (!image.isInstanceOf(AggregateDomain.AGGREGATE)) {
 			// if it's numeric domain, SUM it
 			if (image.isInstanceOf(IDomain.NUMERIC)) {
 				definition = ExpressionMaker.SUM(definition);
@@ -108,6 +110,7 @@ public class Measure implements Property {
 				throw new ScopeException("Invalid expression: incompatible type for "+definition.prettyPrint());
 			}
 		}
+		*/
 		this.definition = definition;
 	}
 	
