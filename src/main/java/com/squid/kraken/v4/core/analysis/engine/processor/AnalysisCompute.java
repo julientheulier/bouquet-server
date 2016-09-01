@@ -273,13 +273,7 @@ public class AnalysisCompute {
 				}
 			}
 		}
-		// copy metrics
-		for (Measure kpi : currentAnalysis.getKpis()) {
-			Measure compareToKpi = new Measure(kpi);
-			compareToKpi.setOriginType(OriginType.COMPARETO);
-			compareToKpi.setName(kpi.getName() + " [compare]");
-			compareToAnalysis.add(compareToKpi);
-		}
+
 		// copy stuff
 		if (currentAnalysis.hasLimit())
 			compareToAnalysis.limit(currentAnalysis.getLimit());
