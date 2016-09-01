@@ -186,16 +186,16 @@ import com.squid.kraken.v4.vegalite.VegaliteSpecs.*;
  * @author sergefantino
  *
  */
-public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceConstants {
+public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 
 	static final Logger logger = LoggerFactory
-			.getLogger(BookmarkAnalysisServiceBaseImpl.class);
+			.getLogger(AnalyticsServiceBaseImpl.class);
 
 	//private UriInfo uriInfo = null;
 	
 	private URI publicBaseUri = null;
 	
-	protected BookmarkAnalysisServiceBaseImpl(UriInfo uriInfo) {
+	protected AnalyticsServiceBaseImpl(UriInfo uriInfo) {
 		//this.uriInfo = uriInfo;
 		this.publicBaseUri = getPublicBaseUri(uriInfo);
 	}
@@ -490,6 +490,14 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		return builder.build(domain.getId().getProjectId(), domain.getOid());
 	}
 	
+	private URI createObjectLink(AppContext userContext, NavigationQuery query, Bookmark bookmark) {
+		UriBuilder builder = 
+				getPublicBaseUriBuilder().path("/rs/projects/{projectID}/bookmarks/{domainID}");
+		if (query.getStyle()!=null) builder.queryParam(STYLE_PARAM, query.getStyle());
+		builder.queryParam("access_token", userContext.getToken().getOid());
+		return builder.build(bookmark.getId().getProjectId(), bookmark.getOid());
+	}
+	
 	/**
 	 * @param userContext
 	 * @param projectRef
@@ -600,6 +608,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 					if (query.getStyle()==Style.HUMAN || query.getStyle()==Style.HTML) {
 						item.setLink(createLinkToAnalysis(userContext, query, item));
 						item.setViewLink(createLinkToView(userContext, query, item));
+						item.setObjectLink(createObjectLink(userContext, query, bookmark));
 					}
 					HashMap<String, String> attrs = new HashMap<>();
 					attrs.put("dictionary", project.getName());

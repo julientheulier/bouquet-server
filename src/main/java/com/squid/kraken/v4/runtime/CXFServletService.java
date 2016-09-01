@@ -45,7 +45,7 @@ import com.squid.kraken.v4.KrakenConfig;
 import com.squid.kraken.v4.ESIndexFacade.ESIndexFacadeConfiguration;
 import com.squid.kraken.v4.api.core.EmailHelperImpl;
 import com.squid.kraken.v4.api.core.ServiceUtils;
-import com.squid.kraken.v4.api.core.analytics.BookmarkAnalysisServiceRest;
+import com.squid.kraken.v4.api.core.analytics.AnalyticsServiceRest;
 import com.squid.kraken.v4.api.core.customer.AdminServiceRest;
 import com.squid.kraken.v4.api.core.customer.CustomerServiceBaseImpl;
 import com.squid.kraken.v4.api.core.customer.CustomerServiceRest;
@@ -96,7 +96,7 @@ public class CXFServletService extends CXFNonSpringJaxrsServlet {
 		if (facets.contains("front")) {
 			// init the API
 			logger.info("Facet: Front");
-			servletConf.setJaxrsServiceClassesParam(BookmarkAnalysisServiceRest.class.getName() + "," + CustomerServiceRest.class.getName() + ","
+			servletConf.setJaxrsServiceClassesParam(AnalyticsServiceRest.class.getName() + "," + CustomerServiceRest.class.getName() + ","
 					+ AdminServiceRest.class.getName() + "," + "com.wordnik.swagger.jaxrs.listing.ApiListingResource");
 		} else {
 			servletConf.setJaxrsServiceClassesParam(CacheInitPoint.class.getName());
