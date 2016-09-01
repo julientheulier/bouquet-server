@@ -83,18 +83,18 @@ import com.wordnik.swagger.annotations.AuthorizationScope;
 		description = "this is the new analytics API intented to provide all the fun without the pain",
 		authorizations = { @Authorization(value = "kraken_auth", type = "oauth2", scopes = { @AuthorizationScope(scope = "access", description = "Access") }) })
 @Produces({ MediaType.APPLICATION_JSON })
-public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest implements BookmarkAnalysisServiceConstants {
+public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implements AnalyticsServiceConstants {
 
-	static final Logger logger = LoggerFactory.getLogger(BookmarkAnalysisServiceRest.class);
+	static final Logger logger = LoggerFactory.getLogger(AnalyticsServiceRest.class);
 	
 	@Context
 	UriInfo uriInfo;
 	
-	private BookmarkAnalysisServiceBaseImpl delegate() {
-		return new BookmarkAnalysisServiceBaseImpl(uriInfo);
+	private AnalyticsServiceBaseImpl delegate() {
+		return new AnalyticsServiceBaseImpl(uriInfo);
 	}
 	
-	public BookmarkAnalysisServiceRest() {
+	public AnalyticsServiceRest() {
 	}
 
 	@GET
