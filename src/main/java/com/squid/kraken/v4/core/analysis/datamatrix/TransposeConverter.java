@@ -26,6 +26,7 @@ package com.squid.kraken.v4.core.analysis.datamatrix;
 import java.util.ArrayList;
 import java.util.HashMap;
 
+import com.squid.kraken.v4.caching.redis.datastruct.RawRow;
 import com.squid.kraken.v4.core.analysis.universe.Measure;
 
 /**
@@ -60,20 +61,20 @@ public class TransposeConverter implements IDataMatrixConverter<Object[]> {
 	@Override
 	public Object[] convert(DataMatrix matrix) {
 		ArrayList<Object> records = new ArrayList<>();
-		for (IndirectionRow row : matrix.getRows()) {
+		for (RawRow row : matrix.getRows()) {
 			// size is axis+2
 			HashMap<String, Object> record = new HashMap<>(matrix.getAxes().size()+2);
 			int i = 0;
 			for (AxisValues axis : matrix.getAxes()) {
-				Object value = row.getAxisValue(i++);
+				Object value = matrix.getAxisValue(i++, row);
 				record.put(axis.getAxis().getName(), value);
 			}
 			int j = 0;
-			for (Measure measure : matrix.getKPIs()) {
+			for (MeasureValues measure : matrix.getKPIs()) {
 				// copy axis
 				HashMap<String, Object> copy = new HashMap<>(record);
-				Object value = row.getDataValue(j++);
-				copy.put(metricSeriesColumn, measure.getName());
+				Object value = matrix.getDataValue(j++, row);
+				copy.put(metricSeriesColumn, measure.getMeasure().getName());
 				copy.put(metricValueColumn, value);
 				records.add(copy);
 			}

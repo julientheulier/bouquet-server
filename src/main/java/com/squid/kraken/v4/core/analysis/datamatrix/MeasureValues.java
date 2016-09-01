@@ -21,46 +21,31 @@
  * you and Squid Solutions (above licenses and LICENSE.txt included).
  * See http://www.squidsolutions.com/EnterpriseBouquet/
  *******************************************************************************/
-package com.squid.kraken.v4.writers;
+package com.squid.kraken.v4.core.analysis.datamatrix;
 
-import com.squid.core.database.model.Database;
-import com.squid.core.expression.scope.ScopeException;
-import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValue;
-import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
-import com.squid.kraken.v4.core.analysis.engine.query.mapping.QueryMapper;
+import com.squid.kraken.v4.core.analysis.universe.Measure;
 
 /**
- * this is an abstract class that define the generic interface for write a Redis RawMatrix into "something".
- * It is used as an abstraction to handle both in-memory representation (DataMatrix) and exporting the data
- * @author hoa
+ * Simple wrapper for Measure in a DataMatrix
+ * @author sergefantino
  *
  */
-public abstract class QueryWriter {
+public class MeasureValues extends PropertyValues<Measure> {
 
-	protected RedisCacheValue val;
-	protected QueryMapper mapper;
-	protected Database db;
-	protected String SQL;
-
-	public QueryWriter() {
+	/**
+	 * @param property
+	 */
+	public MeasureValues(Measure property) {
+		super(property);
+	}
+	
+	public Measure getMeasure() {
+		return getProperty();
 	}
 
-	public abstract void write() throws ScopeException, ComputingException;
-
-	public void setSource(RedisCacheValue val) {
-		this.val = val;
-	};
-
-	public void setMapper(QueryMapper mapper) {
-		this.mapper = mapper;
-	}
-
-	public void setDatabase(Database db) {
-		this.db = db;
-	}
-
-	public void setSQL(String sql) {
-		this.SQL = sql;
+	@Override
+	public String toString() {
+		return "MeasureValues:{measure="+getProperty().toString()+";"+getOrdering()+";visible="+isVisible();
 	}
 
 }

@@ -27,10 +27,10 @@ import java.util.Iterator;
 import java.util.NoSuchElementException;
 
 import com.squid.core.export.IRawExportSource;
-
+import com.squid.kraken.v4.caching.redis.datastruct.RawRow;
 import com.squid.kraken.v4.core.analysis.datamatrix.AxisValues;
 import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
-import com.squid.kraken.v4.core.analysis.datamatrix.IndirectionRow;
+import com.squid.kraken.v4.core.analysis.datamatrix.MeasureValues;
 import com.squid.kraken.v4.core.analysis.universe.Measure;
 import org.apache.avro.Schema;
 
@@ -61,7 +61,6 @@ public class DataMatrixExportSource implements IRawExportSource{
 		
 		if (matrix.getRows().size()>0) {// if the matrix is empty, can't init and don't need it anyway
 			int countAxes = matrix.getAxes().size();
-			int[] axesIndirection = matrix.getRows().get(0).getAxesIndirection();
 			for(int i = 0; i <countAxes ; i++ ){		
 				AxisValues av = matrix.getAxes().get(i);
 				int originalPos = i;//axesIndirection[i];
@@ -71,28 +70,27 @@ public class DataMatrixExportSource implements IRawExportSource{
 				this.columnTypes[originalPos] = matrix.getPropertyToInteger().get(av.getAxis());	
 				
 				// so we need the indirection
-				this.columnMapping[originalPos] = axesIndirection[i];
+				this.columnMapping[originalPos] = matrix.getAxisIndirection(i);
 				if (this.columnMapping[originalPos]!=originalPos) {
 					this.needReorder = true;
 				}
 			}		
-			
-			int[] dataIndirection = matrix.getRows().get(0).getDataIndirection();
-			for(int i = 0; i <matrix.getKPIs().size() ; i++ ){		
-				Measure av = matrix.getKPIs().get(i);
+			for (int i = 0; i <matrix.getKPIs().size() ; i++ ){		
+				MeasureValues mv = matrix.getKPIs().get(i);
+				Measure m = mv.getMeasure();
 				int originalPos = i+countAxes;//dataIndirection[i];
-				this.columnNames[originalPos] = av.getName();
+				this.columnNames[originalPos] = m.getName();
 						//matrix.getPropertyToAlias().get(av) ;
-				this.columnTypes[originalPos] = matrix.getPropertyToInteger().get(av);	
+				this.columnTypes[originalPos] = matrix.getPropertyToInteger().get(m);	
 				
 				// so we need the indirection
-				this.columnMapping[originalPos] = dataIndirection[i];
+				this.columnMapping[originalPos] = matrix.getDataIndirection(i);
 				if (this.columnMapping[originalPos]!=originalPos) {
 					this.needReorder = true;
-				}	
+				}
 			}
 			
-			if (columnCount<matrix.getRows().get(0).getRawRow().length) {
+			if (columnCount<matrix.getRowSize()) {
 				this.needReorder = true;
 			}
 		}
@@ -151,17 +149,17 @@ public class DataMatrixExportSource implements IRawExportSource{
 		@Override
 		public Object[] next() {
 			if (this.hasNext()){
-				IndirectionRow ir = matrix.getRows().get(cursor++) ;
-				Object[] raw = ir.getRawRow();
+				RawRow row = matrix.getRows().get(cursor++) ;
+				Object[] data = row.data;
 				if (needReorder) {
 					// reorder
 					Object[] reorder = new Object[columnCount];
 					for (int i=0;i<columnCount;i++) {
-						reorder[i] = raw[columnMapping[i]];
+						reorder[i] = data[columnMapping[i]];
 					}
 					return reorder;
 				} else {
-					return raw;
+					return data;
 				}
 			}else{
 				throw new NoSuchElementException();

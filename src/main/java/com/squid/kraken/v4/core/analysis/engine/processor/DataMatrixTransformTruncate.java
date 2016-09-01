@@ -21,40 +21,29 @@
  * you and Squid Solutions (above licenses and LICENSE.txt included).
  * See http://www.squidsolutions.com/EnterpriseBouquet/
  *******************************************************************************/
-package com.squid.kraken.v4.core.analysis.datamatrix;
+package com.squid.kraken.v4.core.analysis.engine.processor;
 
-import java.util.HashSet;
-
-import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionMember;
+import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
 
 /**
- * Wrap a filter condition and apply it to a row
+ * truncate the matrix given limit & offset
  * @author sergefantino
  *
  */
-public class ApplyFilterCondition {
+public class DataMatrixTransformTruncate implements DataMatrixTransform {
 	
-	public int index;
-	public HashSet<Object> items = new HashSet<Object>();
-	private boolean nullIsValid;
-	
-	public ApplyFilterCondition(int index, boolean nullIsValid) {
-		this.index = index;
-		this.nullIsValid = nullIsValid;
+	private Long limit;
+	private Long offset;
+
+	public DataMatrixTransformTruncate(Long limit, Long offset) {
+		this.limit = limit;
+		this.offset = offset;
 	}
 	
-	public boolean filter(IndirectionRow row) {
-		//DimensionMember m = DataMatrix.this.getDimensionMember(row, index);//row.getAxisValue(DataMatrix.this,index);
-		Object m = row.getAxisValue(index);
-		return (m==null && this.nullIsValid) || (m!=null && items.contains(row.getAxisValue(index)));
+	@Override
+	public DataMatrix apply(DataMatrix input) {
+		input.truncate(limit, offset);
+		return input;
 	}
 
-	public void add(DimensionMember filter) {
-		items.add(filter.getID());
-	}
-	
-	public boolean isEmpty() {
-		return items.isEmpty();
-	}
-	
 }

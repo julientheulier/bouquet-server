@@ -223,7 +223,7 @@ public class RawMatrixStructExportSource implements IStructExportSource{
 
 			@Override
 			public IRow next() {
-				Object[] rr = rm.getRows().get(count).getData();
+				Object[] rr = rm.getRows().get(count).data;
 				count++;
 
 				if (count>= rm.getRows().size()){

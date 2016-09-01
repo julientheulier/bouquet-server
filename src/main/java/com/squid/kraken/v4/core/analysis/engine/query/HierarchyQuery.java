@@ -51,7 +51,6 @@ import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
 import com.squid.kraken.v4.caching.redis.datastruct.RawRow;
 import com.squid.kraken.v4.core.analysis.datamatrix.AxisValues;
 import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
-import com.squid.kraken.v4.core.analysis.datamatrix.IndirectionRow;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionMember;
 import com.squid.kraken.v4.core.analysis.engine.query.mapping.AttributeMapping;
@@ -356,9 +355,9 @@ public class HierarchyQuery extends BaseQuery {
 			for (DimensionMapping m : dx_map) {
 				Object unbox;
 				if(m instanceof ContinuousDimensionMapping){
-					Object min = row.getData()[indexSrcRow];
+					Object min = row.data[indexSrcRow];
 					indexSrcRow++;
-					Object max=  row.getData()[indexSrcRow];
+					Object max=  row.data[indexSrcRow];
 					indexSrcRow++;
 					if (min==null && max==null) {
 						unbox= null;
@@ -369,14 +368,14 @@ public class HierarchyQuery extends BaseQuery {
 					}
 					
 				}else{
-					unbox = row.getData()[indexSrcRow];
+					unbox = row.data[indexSrcRow];
 					indexSrcRow++;
 				}
 				if (unbox!=null) {
 					DimensionMember member = m.getDimensionIndex().getMemberByID(unbox);
 					if (!m.getDimensionIndex().getAttributes().isEmpty()) {
 						for (int k=0; k<m.getDimensionIndex().getAttributes().size();k++) {
-							Object aunbox = row.getData()[indexSrcRow];
+							Object aunbox = row.data[indexSrcRow];
 							member.setAttribute(k,aunbox);
 							indexSrcRow++;
 						}
@@ -387,7 +386,7 @@ public class HierarchyQuery extends BaseQuery {
 				indexDstRow++;
 			}
 			
-			matrix.pushRow( new IndirectionRow(row_axis, axesIndirection, null));
+			matrix.pushRow( new RawRow(row_axis));
 		}
 		matrix.setFullset(!rawMatrix.hasMoreData());
 		return matrix;

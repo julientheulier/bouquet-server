@@ -23,13 +23,13 @@
  *******************************************************************************/
 package com.squid.kraken.v4.core.analysis.datamatrix;
 
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.core.sql.render.IOrderByPiece.ORDERING;
+import com.squid.kraken.v4.caching.redis.datastruct.RawRow;
 
 /**
  * Merger class provides simple method to merge 2 DataMatrix based on their axes.
@@ -62,14 +62,14 @@ public class Merger {
 		this.mergeOrder = mergeOrder;
 	}
 
-	public int compare(IndirectionRow o1, IndirectionRow o2) {
-	 	if (o1==o2) return 0;
+	public int compare(RawRow leftrow, RawRow rightrow) {
+	 	if (leftrow==rightrow) return 0;
 	 	if (mergeOrder==null) {// if no order specified, just use regular
-	 		for (int i=0;i<o1.getAxesCount();i++) {
-	 			if (o2.getAxesCount()<=i) {
+	 		for (int i=0;i<left.getAxesSize();i++) {
+	 			if (right.getAxesSize()<=i) {
 	 				return 1;// in case o2 is shorter...
 	 			} else {
-	 				int c = compareValueOrdering(i, o1.getAxisValue(i), o2.getAxisValue(i));
+	 				int c = compareValueOrdering(i, left.getAxisValue(i, leftrow), right.getAxisValue(i, rightrow));
 	 				if (c!=0) {
 	 					return c;
 	 				}
@@ -82,12 +82,12 @@ public class Merger {
 	 		// compare using the mergeOrder
 	 		for (int i=0;i<mergeOrder.length;i++) {
 	 			int pos = mergeOrder[i];
-	 			if (o1.getAxesCount()<=pos) {
+	 			if (left.getAxesSize()<=pos) {
 	 				return -1;
-	 			} else if (o2.getAxesCount()<=pos) {
+	 			} else if (right.getAxesSize()<=pos) {
 	 				return 1;
 	 			} else {
-	 				int c = compareValueOrdering(pos, o1.getAxisValue(pos), o2.getAxisValue(pos));
+	 				int c = compareValueOrdering(pos, left.getAxisValue(pos, leftrow), right.getAxisValue(pos, rightrow));
 	 				if (c!=0) {
 	 					return c;
 	 				}
@@ -122,77 +122,56 @@ public class Merger {
 		}
 	}
 
-	protected IndirectionRow merge(IndirectionRow left, IndirectionRow right, IndirectionRow schema) {
-		IndirectionRow merged = new IndirectionRow();
-		int nbColumns = schema.getAxesCount()+schema.getDataCount();
-		merged.axesIndirection = schema.getAxesIndirection();
-		merged.dataIndirection = schema.getDataIndirection();
-		merged.rawrow = new Object[nbColumns];
+	protected RawRow merge(DataMatrix merge, RawRow leftrow, RawRow rightrow) {
+		int nbColumns = merge.getRowSize();
+		RawRow merged = new RawRow(nbColumns);
 
 		// we have to reorder
-		if (left == null && right == null)
+		if (leftrow == null && rightrow == null)
 			return merged;
 		else {
-			mergeAxes(left, right, merged);
-			mergeMeasures(left, right, merged);
+			mergeAxes(merge, leftrow, rightrow, merged);
+			mergeMeasures(merge, leftrow, rightrow, merged);
 		}
 		return merged;
 	}
 	
-	protected void mergeAxes(IndirectionRow left, IndirectionRow right, IndirectionRow merged) {
-		IndirectionRow source = (left!=null)?left:right;
+	protected void mergeAxes(DataMatrix merge, RawRow leftrow, RawRow rightrow, RawRow merged) {
+		DataMatrix source = (leftrow!=null)?left:right;
+		RawRow sourcerow = (leftrow!=null)?leftrow:rightrow;
 		// copy axes
 		int pos = 0;
-		for (int i = 0; i < source.getAxesCount(); i++) {
-			merged.rawrow[pos] = source.getAxisValue(i);
+		for (int i = 0; i < source.getAxesSize(); i++) {
+			merged.data[pos] = source.getAxisValue(i, sourcerow);
 			pos++;
 		}
 	}
 	
-	protected void mergeMeasures(IndirectionRow left, IndirectionRow right, IndirectionRow merged) {
-		int pos = merged.getAxesCount();// start after axes
-		if (left != null) {
+	protected void mergeMeasures(DataMatrix merge, RawRow leftrow, RawRow rightrow, RawRow merged) {
+		int pos = merge.getAxesSize();// start after axes
+		if (leftrow != null) {
 			// copy left part
-			for (int i = 0; i < left.getDataCount(); i++) {
-				merged.rawrow[pos] = left.getDataValue(i);
+			for (int i = 0; i < left.getDataSize(); i++) {
+				merged.data[pos] = left.getDataValue(i, leftrow);
 				pos++;
 			}
 		} else {
-			pos = merged.size() - right.getDataCount();
+			pos += left.getDataSize();
 		}
-		if (right != null) {
+		if (rightrow != null) {
 			// copy right part
-			for (int i = 0; i < right.getDataCount(); i++) {
-				merged.rawrow[pos] = right.getDataValue(i);
+			for (int i = 0; i < right.getDataSize(); i++) {
+				merged.data[pos] = right.getDataValue(i, rightrow);
 				pos++;
 			}
 		}
-	}
-	
-	protected IndirectionRow createDefaultIndirectionRow() throws ScopeException {
-		return createDefaultIndirectionRow(left.getAxes().size(),left.getDataSize()+right.getDataSize());
-	}
-	
-	protected IndirectionRow createDefaultIndirectionRow(int axes, int metrics) {
-		// data will be reordered but we still need  indirection arrays
-		int[] axesIndir = new int[axes];
-		int[] dataIndir = new int[metrics];
-		int count =0 ;
-		for (int i = 0; i<axes ; i++ ){
-			axesIndir[i] = count;
-			count++;
-		}
-		for (int i = 0; i <metrics ; i++ ){
-			dataIndir[i] = count;
-			count++;
-		}
-		return new IndirectionRow(null, axesIndir, dataIndir);
+
 	}
 
 	public DataMatrix merge(boolean sortInput) throws ScopeException {
 		// need to work on sorted data
-		List<IndirectionRow> this_rows = sortInput?left.sortRows():left.getRows();
-		List<IndirectionRow> that_rows = sortInput?right.sortRows():right.getRows();
+		List<RawRow> this_rows = sortInput?left.sortRows():left.getRows();
+		List<RawRow> that_rows = sortInput?right.sortRows():right.getRows();
 		if (sortInput) {
 			// reset the ordering
 			for (int i=0;i<ordering.length;i++) {
@@ -200,13 +179,12 @@ public class Merger {
 			}
 		}
 		//
-		ArrayList<IndirectionRow> result = new ArrayList<IndirectionRow>();
-		Iterator<IndirectionRow> this_iter = this_rows.iterator();
-		Iterator<IndirectionRow> that_iter = that_rows.iterator();
-		IndirectionRow this_row = null;
-		IndirectionRow that_row = null;
+		Iterator<RawRow> this_iter = this_rows.iterator();
+		Iterator<RawRow> that_iter = that_rows.iterator();
+		RawRow this_row = null;
+		RawRow that_row = null;
 		
-		IndirectionRow schema = createDefaultIndirectionRow();
+		DataMatrix merge = createMatrix();
 
 		while (this_iter.hasNext() || that_iter.hasNext() || this_row!=null || that_row!=null) {
 			// read if needed and available
@@ -218,40 +196,40 @@ public class Merger {
 			}
 			// manage remaining
 			if ((this_row == null && that_row != null)) {
-				IndirectionRow merged = merge(this_row, that_row, schema);
-				result.add(merged);
+				RawRow merged = merge(merge, this_row, that_row);
+				merge.pushRow(merged);
 				that_row = null;
 			}
 			if ((this_row != null && that_row == null)) {
-				IndirectionRow merged = merge(this_row, that_row, schema);
-				result.add(merged);
+				RawRow merged = merge(merge, this_row, that_row);
+				merge.pushRow(merged);
 				this_row=null;		
 			}
 			// normal case
 			if (this_row!=null && that_row!=null) {
 				int cc = compare(this_row,that_row);
 				if (cc<0) {
-					IndirectionRow merged = merge(this_row, null, schema);
-					result.add(merged);
+					RawRow merged = merge(merge, this_row, null);
+					merge.pushRow(merged);
 					this_row=null;
 				}
 				if (cc>0) {
-					IndirectionRow merged = merge(null, that_row, schema);
-					result.add(merged);
+					RawRow merged = merge(merge, null, that_row);
+					merge.pushRow(merged);
 					that_row=null;
 				}
 				if (cc==0) {
-					IndirectionRow merged = merge(this_row, that_row, schema);
-					result.add(merged);
+					RawRow merged = merge(merge, this_row, that_row);
+					merge.pushRow(merged);
 					that_row=null;this_row=null;
 				}
 			}
 		}
-		return createMatrix(result);
+		return merge;
 	}
 
-	protected DataMatrix createMatrix(ArrayList<IndirectionRow> result) {
-		DataMatrix merge = new DataMatrix(left.getDatabase(), result);
+	protected DataMatrix createMatrix() {
+		DataMatrix merge = new DataMatrix(left.getDatabase());
 		merge.setFromCache(left.isFromCache() && right.isFromCache());
 		merge.setExecutionDate(new Date(Math.max(left.getExecutionDate().getTime(), right.getExecutionDate().getTime())));
 		//
