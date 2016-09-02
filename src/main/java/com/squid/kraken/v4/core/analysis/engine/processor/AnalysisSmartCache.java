@@ -77,7 +77,7 @@ public class AnalysisSmartCache {
 	// the guava cache
 	private Cache<String, AnalysisSmartCacheSignature> cache;
 	
-	private static int CACHE_SIZE = 200;
+	private long CACHE_SIZE = 200;
 	
 	
 	private AnalysisSmartCache() {
@@ -92,16 +92,15 @@ public class AnalysisSmartCache {
 
 		@Override
 		public void onRemoval(RemovalNotification<String, AnalysisSmartCacheSignature> notif) {
-
 			AnalysisSmartCacheSignature signature = notif.getValue();
 			String key = notif.getKey();
+			logger.info("Removal notification " + key + " from smart cache ; cause "+ notif.getCause());
 			Map<String, HashSet<String>> sameAxes = lookup.get(signature.getAxesSignature());
 			if (sameAxes != null){
 				HashSet<String> sameFilters = sameAxes.get(signature.getFiltersSignature());
 				if (sameFilters.contains(key)){
 					// check if it has been put back in guava
 					if ( cache.getIfPresent(key) == null){
-						logger.info("Removing " + key + " from smart cache");
 						sameFilters.remove(key);
 					}
 				}

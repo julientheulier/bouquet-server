@@ -866,7 +866,7 @@ public int getDataIndirection(int i) {
 				if (type.getScale() > 0) {
 					return "%,." + type.getScale() + "f";
 				} else {
-					return "%,d";
+					return "%,2f";
 				}
 			default:
 				break;
