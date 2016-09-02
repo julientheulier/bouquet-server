@@ -258,8 +258,10 @@ public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implemen
 			@QueryParam(ORDERBY_PARAM) String[] orderExpressions,
 			@ApiParam(allowMultiple = true) 
 			@QueryParam(ROLLUP_PARAM) String[] rollupExpressions,
-			@ApiParam(value="limit the resultset size as computed by the database. Note that this is independant from the paging size.")
+			@ApiParam(value="limit the resultset size as computed by the database. Note that this is independant from the paging size defined by "+MAX_RESULTS_PARAM+".")
 			@QueryParam(LIMIT_PARAM) Long limit,
+			@ApiParam(value="offset the resultset first row - usually used with limit to paginate the database. Note that this is independant from the paging defined by "+START_INDEX_PARAM+".")
+			@QueryParam(OFFSET_PARAM) Long offset,
 			@ApiParam(
 					value="exclude some dimensions from the limit",
 					allowMultiple=true
@@ -285,7 +287,7 @@ public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implemen
 			@QueryParam(TIMEOUT_PARAM) Integer timeout
 			) throws ComputingException, ScopeException, InterruptedException {
 		AppContext userContext = getUserContext(request);
-		AnalyticsQuery analysis = createAnalysisFromParams(BBID, groupBy, metrics, filterExpressions, period, timeframe, compareframe, orderExpressions, rollupExpressions, limit, beyondLimit, maxResults, startIndex, lazy, style);
+		AnalyticsQuery analysis = createAnalysisFromParams(BBID, groupBy, metrics, filterExpressions, period, timeframe, compareframe, orderExpressions, rollupExpressions, limit, offset, beyondLimit, maxResults, startIndex, lazy, style);
 		return delegate().runAnalysis(userContext, BBID, analysis, data, envelope, timeout);
 	}
 
@@ -326,8 +328,12 @@ public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implemen
 			@QueryParam(COMPARETO_PARAM) String[] compareframe,
 			@ApiParam(allowMultiple = true) 
 			@QueryParam(ORDERBY_PARAM) String[] orderby, 
-			@ApiParam(value="limit the resultset size as computed by the database. Note that this is independant from the paging size.")
+			@ApiParam(value="limit the resultset size as computed by the database. Note that this is independant from the paging size defined by "+MAX_RESULTS_PARAM+".")
 			@QueryParam(LIMIT_PARAM) Long limit,
+			@ApiParam(value="offset the resultset first row - usually used with limit to paginate the database. Note that this is independant from the paging defined by "+START_INDEX_PARAM+".")
+			@QueryParam(OFFSET_PARAM) Long offset,
+			@ApiParam(value = "paging size") @QueryParam(MAX_RESULTS_PARAM) Integer maxResults,
+			@ApiParam(value = "paging start index") @QueryParam(START_INDEX_PARAM) Integer startIndex,
 			@ApiParam(
 					value="define how to provide the data, either EMBEDED or through an URL",
 					allowableValues="EMBEDED,URL", defaultValue="EMBEDED")
@@ -343,7 +349,7 @@ public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implemen
 	) throws ScopeException, ComputingException, InterruptedException
 	{
 		AppContext userContext = getUserContext(request);
-		AnalyticsQuery query = createAnalysisFromParams(BBID, null, null, filterExpressions, period, timeframe, compareframe, orderby, null, limit, null, null, null, null, null);
+		AnalyticsQuery query = createAnalysisFromParams(BBID, null, null, filterExpressions, period, timeframe, compareframe, orderby, null, limit, offset, null, maxResults, startIndex, null, null);
 		ViewQuery view = new ViewQuery();
 		view.setX(x);
 		view.setY(y);
@@ -385,7 +391,10 @@ public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implemen
 			@QueryParam(ORDERBY_PARAM) String[] orderExpressions, 
 			@ApiParam(allowMultiple = true) 
 			@QueryParam(ROLLUP_PARAM) String[] rollupExpressions,
+			@ApiParam(value="limit the resultset size as computed by the database. Note that this is independant from the paging size defined by "+MAX_RESULTS_PARAM+".")
 			@QueryParam(LIMIT_PARAM) Long limit,
+			@ApiParam(value="offset the resultset first row - usually used with limit to paginate the database. Note that this is independant from the paging defined by "+START_INDEX_PARAM+".")
+			@QueryParam(OFFSET_PARAM) Long offset,
 			@ApiParam(
 					value="exclude some dimensions from the limit",
 					allowMultiple=true
@@ -409,7 +418,7 @@ public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implemen
 				compression = "gzip";
 			}
 		}
-		AnalyticsQuery analysis = createAnalysisFromParams(BBID, groupBy, metrics, filterExpressions, period, timeframe, compareframe, orderExpressions, rollupExpressions, limit, beyondLimit, null, null, null, null);
+		AnalyticsQuery analysis = createAnalysisFromParams(BBID, groupBy, metrics, filterExpressions, period, timeframe, compareframe, orderExpressions, rollupExpressions, limit, offset, beyondLimit, null, null, null, null);
 		return delegate().exportAnalysis(userContext, BBID, analysis, filepart, fileext, compression);
 	}
 	
@@ -442,6 +451,7 @@ public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implemen
 	 * @param orderExpressions
 	 * @param rollupExpressions
 	 * @param limit
+	 * @param offset 
 	 * @return
 	 * @throws ScopeException
 	 */
@@ -456,6 +466,7 @@ public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implemen
 			String[] orderExpressions, 
 			String[] rollupExpressions, 
 			Long limit,
+			Long offset, 
 			int[] beyondLimit,
 			Integer maxResults, 
 			Integer startIndex, 
@@ -523,6 +534,7 @@ public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implemen
 			query.setRollups(rollups);
 		}
 		if (limit!=null) query.setLimit(limit);
+		if (offset!=null) query.setOffset(offset);
 		if (beyondLimit!=null) query.setBeyondLimit(beyondLimit);
 		if (maxResults!=null) query.setMaxResults(maxResults);
 		if (startIndex!=null) query.setStartIndex(startIndex);
