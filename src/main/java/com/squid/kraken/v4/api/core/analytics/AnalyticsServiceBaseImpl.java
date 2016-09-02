@@ -75,7 +75,6 @@ import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.Operator;
 import com.squid.core.expression.PrettyPrintOptions;
 import com.squid.core.expression.PrettyPrintOptions.ReferenceStyle;
-import com.squid.core.expression.scope.ExpressionDiagnostic;
 import com.squid.core.expression.scope.ExpressionMaker;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.core.poi.ExcelFile;
@@ -995,13 +994,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			}
 			//
 			if (envelope==null) {
-				if (query.getStyle()==Style.HUMAN || query.getStyle()==Style.HTML) {
-					envelope = "RESULT";
-				} else if (query.getStyle()==Style.LEGACY) {
-					envelope = "RESULT";
-				} else {//MACHINE
-					envelope = "ALL";
-				}
+				envelope = computeEnvelope(query);
 			}
 			if (query.getStyle()==Style.HTML && data.equalsIgnoreCase("SQL")) {
 					return createHTMLsql(reply.getResult().toString());
@@ -1025,6 +1018,16 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			return Response.ok(reply).build();
 		} catch (ComputingException | InterruptedException | ScopeException | SQLScopeException | RenderingException e) {
 			throw new APIException(e.getMessage(), true);
+		}
+	}
+	
+	private String computeEnvelope(AnalyticsQuery query) {
+		if (query.getStyle()==Style.HUMAN || query.getStyle()==Style.HTML) {
+			return "ALL";
+		} else if (query.getStyle()==Style.LEGACY) {
+			return "RESULT";
+		} else {//MACHINE
+			return "ALL";
 		}
 	}
 
@@ -1069,7 +1072,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			html.append("</tr>");
 		}
 		html.append("</table>");
-		html.append("<p>rows from "+(data.getStartIndex()+1)+" to "+data.getStartIndex()+data.getRows().size()+" out of "+data.getTotalSize()+" records</p>");
+		html.append("<p>rows from "+(data.getStartIndex()+1)+" to "+(data.getStartIndex()+data.getRows().size())+" out of "+data.getTotalSize()+" records</p>");
 		if (data.isFromCache()) {
 			html.append("<p>data from cache, last computed "+data.getExecutionDate()+"</p>");
 		} else {
@@ -1595,43 +1598,44 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	 * merge the bookmark config with the current query. It modifies the query. Query parameters take precedence over the bookmark config.
 	 * 
 	 * @param space
-	 * @param analysis
+	 * @param query
 	 * @param config
 	 * @throws ScopeException
 	 * @throws ComputingException
 	 * @throws InterruptedException
 	 */
-	private void mergeBoomarkConfig(Space space, AnalyticsQuery analysis, BookmarkConfig config) throws ScopeException, ComputingException, InterruptedException {
-		ReferenceStyle prettyStyle = getReferenceStyle(analysis.getStyle());
-		PrettyPrintOptions prettyOptions = new PrettyPrintOptions(prettyStyle, null);
+	private void mergeBoomarkConfig(Space space, AnalyticsQuery query, BookmarkConfig config) throws ScopeException, ComputingException, InterruptedException {
+		ReferenceStyle prettyStyle = getReferenceStyle(query.getStyle());
+		PrettyPrintOptions globalOptions = new PrettyPrintOptions(prettyStyle, null);
 		UniverseScope globalScope = new UniverseScope(space.getUniverse());
-		if (analysis.getDomain() == null) {
-			analysis.setDomain(space.prettyPrint(prettyOptions));
+		PrettyPrintOptions localOptions = new PrettyPrintOptions(prettyStyle, space.getTop().getImageDomain());
+		SpaceScope localScope = new SpaceScope(space);
+		if (query.getDomain() == null) {
+			query.setDomain(space.prettyPrint(globalOptions));
 		}
-		if (analysis.getLimit() == null) {
+		if (query.getLimit() == null) {
 			if (config!=null) {
-				analysis.setLimit(config.getLimit());
+				query.setLimit(config.getLimit());
 			}
 		}
 		// merging groupBy
-		boolean groupbyWildcard = isWildcard(analysis.getGroupBy());
-		if (analysis.getGroupBy() == null || groupbyWildcard) {
+		boolean groupbyWildcard = isWildcard(query.getGroupBy());
+		if (query.getGroupBy() == null || groupbyWildcard) {
 			List<String> groupBy = new ArrayList<String>();
 			if (config==null) {
 				// it is not a bookmark, then we will provide default select *
 				// only if there is nothing selected at all (groupBy & metrics)
 				// or user ask for it explicitly is wildcard
-				if (groupbyWildcard || analysis.getMetrics() == null) {
+				if (groupbyWildcard || query.getMetrics() == null) {
 					// use a default pivot selection...
 					// -- just list the content of the table
-					PrettyPrintOptions options = new PrettyPrintOptions(prettyStyle, space.getTop().getImageDomain());
 					for (Dimension dimension : space.getDimensions()) {
 						Axis axis = space.A(dimension);
 						try {
 							DimensionIndex index = axis.getIndex();
 							IDomain image = axis.getDefinitionSafe().getImageDomain();
 							if (index!=null && index.isVisible() && index.getStatus()!=Status.ERROR && !image.isInstanceOf(IDomain.OBJECT)) {
-								groupBy.add(axis.prettyPrint(options));
+								groupBy.add(axis.prettyPrint(localOptions));
 							}
 						} catch (ComputingException | InterruptedException e) {
 							// ignore this one
@@ -1644,22 +1648,25 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 					if (chosenDimension.startsWith("@")) {
 						// need to fix the scope
 						ExpressionAST expr = globalScope.parseExpression(chosenDimension);
-						f = rewriteExpressionToLocalScope(expr, space);
+						f = expr.prettyPrint(localOptions);//rewriteExpressionToLocalScope(expr, space);
 					} else {
-						f = "@'" + chosenDimension + "'";
+						// legacy support raw ID
+						// parse to validate and apply prettyPrint options
+						ExpressionAST expr = localScope.parseExpression("@'" + chosenDimension + "'");
+						f = expr.prettyPrint(localOptions);
 					}
 					groupBy.add(f);
 				}
 			}
 			if (groupbyWildcard) {
-				analysis.getGroupBy().remove(0);// remove the first one
-				groupBy.addAll(analysis.getGroupBy());// add reminding
+				query.getGroupBy().remove(0);// remove the first one
+				groupBy.addAll(query.getGroupBy());// add reminding
 			}
-			analysis.setGroupBy(groupBy);
+			query.setGroupBy(groupBy);
 		}
 		// merging Metrics
-		boolean metricWildcard = isWildcard(analysis.getMetrics());
-		if (analysis.getMetrics() == null || metricWildcard) {
+		boolean metricWildcard = isWildcard(query.getMetrics());
+		if (query.getMetrics() == null || metricWildcard) {
 			List<String> metrics = new ArrayList<>();
 			if (config==null) {
 				boolean someIntrinsicMetric = false;
@@ -1669,38 +1676,41 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 						IDomain image = measure.getDefinitionSafe().getImageDomain();
 						if (image.isInstanceOf(IDomain.AGGREGATE)) {
 							Measure m = space.M(metric);
-							metrics.add(rewriteExpressionToLocalScope(new MeasureExpression(m), space));
+							metrics.add((new MeasureExpression(m)).prettyPrint(localOptions));
+							//metrics.add(rewriteExpressionToLocalScope(new MeasureExpression(m), space));
 							someIntrinsicMetric = true;
 						}
 					}
 				}
 				if (!someIntrinsicMetric) {
-					metrics.add("count()");
+					metrics.add("count() // default metric");
 				}
 			} else if (config.getChosenMetrics() != null) {
 				for (String chosenMetric : config.getChosenMetrics()) {
-					metrics.add("@'" + chosenMetric + "'");
+					// parse to validate and reprint
+					ExpressionAST expr = localScope.parseExpression("@'" + chosenMetric + "'");
+					metrics.add(expr.prettyPrint(localOptions));
 				}
 			}
 			if (metricWildcard) {
-				analysis.getMetrics().remove(0);// remove the first one
-				metrics.addAll(analysis.getMetrics());// add reminding
+				query.getMetrics().remove(0);// remove the first one
+				metrics.addAll(query.getMetrics());// add reminding
 			}
-			analysis.setMetrics(metrics);
+			query.setMetrics(metrics);
 		}
-		if (analysis.getOrderBy() == null) {
+		if (query.getOrderBy() == null) {
 			if (config!=null && config.getOrderBy()!=null) {
-				analysis.setOrderBy(new ArrayList<OrderBy>());
+				query.setOrderBy(new ArrayList<OrderBy>());
 				for (OrderBy orderBy : config.getOrderBy()) {
 					ExpressionAST expr = globalScope.parseExpression(orderBy.getExpression().getValue());
-					OrderBy copy = new OrderBy(new Expression(rewriteExpressionToLocalScope(expr, space)), orderBy.getDirection());
-					analysis.getOrderBy().add(copy);
+					OrderBy copy = new OrderBy(new Expression(expr.prettyPrint(localOptions)), orderBy.getDirection());
+					query.getOrderBy().add(copy);
 				}
 			}
 		}
-		if (analysis.getRollups() == null) {
+		if (query.getRollups() == null) {
 			if (config!=null) {
-				analysis.setRollups(config.getRollups());
+				query.setRollups(config.getRollups());
 			}
 		}
 		//
@@ -1708,7 +1718,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		//
 		FacetSelection selection = config!=null?config.getSelection():new FacetSelection();
 		// handling the period
-		if (analysis.getPeriod()==null && config!=null && config.getPeriod()!=null && !config.getPeriod().isEmpty()) {
+		if (query.getPeriod()==null && config!=null && config.getPeriod()!=null && !config.getPeriod().isEmpty()) {
 			// look for this domain period
 			String domainID = space.getDomain().getOid();
 			String period = config.getPeriod().get(domainID);
@@ -1717,50 +1727,50 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 				IDomain image = expr.getImageDomain();
 				if (image.isInstanceOf(IDomain.TEMPORAL)) {
 					// ok, it's a date
-					analysis.setPeriod(rewriteExpressionToLocalScope(expr, space));
+					query.setPeriod(expr.prettyPrint(localOptions));
 				}
 			}
 		}
-		if (analysis.getPeriod()==null) {
+		if (query.getPeriod()==null) {
 			DomainHierarchy hierarchy = DomainHierarchyManager.INSTANCE.getHierarchy(space.getUniverse().getProject().getId(), space.getDomain(), false);
 			for (DimensionIndex index : hierarchy.getDimensionIndexes()) {
 				if (index.isVisible() && index.getDimension().getType().equals(Type.CONTINUOUS) && index.getAxis().getDefinitionSafe().getImageDomain().isInstanceOf(IDomain.TEMPORAL)) {
 					// use it as period
 					Axis axis = index.getAxis();
 					AxisExpression expr = new AxisExpression(axis);
-					analysis.setPeriod(rewriteExpressionToLocalScope(expr, space));
-					if (analysis.getTimeframe()==null) {
+					query.setPeriod(expr.prettyPrint(localOptions));
+					if (query.getTimeframe()==null) {
 						if (index.getStatus()==Status.DONE) {
-							analysis.setTimeframe(new String[]{"__CURRENT_MONTH"});
+							query.setTimeframe(new String[]{"__CURRENT_MONTH"});
 						} else {
-							analysis.setTimeframe(new String[]{"__ALL"});
+							query.setTimeframe(new String[]{"__ALL"});
 						}
 					}
 					// quit the loop!
 					break;
 				}
 			}
-			if (analysis.getPeriod()==null) {
+			if (query.getPeriod()==null) {
 				// nothing selected - double check and auto detect?
-				if (analysis.getTimeframe()!=null && analysis.getTimeframe().length>0) {
+				if (query.getTimeframe()!=null && query.getTimeframe().length>0) {
 					throw new APIException("No period defined: you cannot set the timeframe");
 				}
-				if (analysis.getCompareframe()!=null && analysis.getCompareframe().length>0) {
+				if (query.getCompareframe()!=null && query.getCompareframe().length>0) {
 					throw new APIException("No period defined: you cannot set the timeframe");
 				}
 			}
 		}
 		// handling the selection
-		boolean filterWildcard = isWildcardFilters(analysis.getFilters());
-		List<String> filters = analysis.getFilters()!=null?new ArrayList<>(analysis.getFilters()):new ArrayList<String>();
+		boolean filterWildcard = isWildcardFilters(query.getFilters());
+		List<String> filters = query.getFilters()!=null?new ArrayList<>(query.getFilters()):new ArrayList<String>();
 		if (filterWildcard) {
 			filters.remove(0); // remove the *
 		}
 		if (!selection.getFacets().isEmpty()) {// always iterate over selection at least to capture the period
 			boolean keepConfig = filterWildcard || filters.isEmpty();
 			String period = null;
-			if (analysis.getPeriod()!=null && analysis.getTimeframe()==null) {
-				period = analysis.getDomain()+"."+analysis.getPeriod();
+			if (query.getPeriod()!=null && query.getTimeframe()==null) {
+				period = query.getDomain()+"."+query.getPeriod();
 			}
 			// look for the selection
 			for (Facet facet : selection.getFacets()) {
@@ -1774,11 +1784,11 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 								String upperBound = ((FacetMemberInterval) timeframe).getUpperBound();
 								if (upperBound.startsWith("__")) {
 									// it's a shortcut
-									analysis.setTimeframe(new String[]{upperBound});
+									query.setTimeframe(new String[]{upperBound});
 								} else {
 									// it's a date
 									String lowerBound = ((FacetMemberInterval) timeframe).getLowerBound();
-									analysis.setTimeframe(new String[]{lowerBound,upperBound});
+									query.setTimeframe(new String[]{lowerBound,upperBound});
 								}
 							}
 						}
@@ -1796,13 +1806,14 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 									filters.add(formula);
 								} else {
 									// it's a segment name
-									filters.add("'"+member.getValue()+"'");
+									ExpressionAST seg = localScope.parseExpression("'"+member.getValue()+"'");
+									filters.add(seg.prettyPrint(localOptions));
 								}
 							}
 						}
 					} else if (keepConfig) {
 						ExpressionAST expr = globalScope.parseExpression(facet.getId());
-						String  filter = rewriteExpressionToLocalScope(expr, space);
+						String  filter = expr.prettyPrint(localOptions);
 						if (facet.getSelectedItems().size()==1) {
 							if (facet.getSelectedItems().get(0) instanceof FacetMemberString) {
 								filter += "=";
@@ -1832,12 +1843,12 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 				}
 			}
 		}
-		analysis.setFilters(filters);
+		query.setFilters(filters);
 		//
 		// check timeframe again
-		if (analysis.getPeriod()!=null && (analysis.getTimeframe()==null || analysis.getTimeframe().length==0)) {
+		if (query.getPeriod()!=null && (query.getTimeframe()==null || query.getTimeframe().length==0)) {
 			// add a default timeframe
-			analysis.setTimeframe(new String[]{"__CURRENT_MONTH"});
+			query.setTimeframe(new String[]{"__CURRENT_MONTH"});
 		}
 	}
 	
@@ -2280,6 +2291,10 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		reply.setQuery(query);
 		reply.setResult(specs);
 		//
+		if (envelope==null) {
+			envelope = computeEnvelope(query);
+		}
+		//
 		if (style!=null && style==Style.HTML) {
 			return createHTMLView(space, view, reply);
 		} else if (envelope==null || envelope.equals("") || envelope.equalsIgnoreCase("RESULT")) {
@@ -2570,6 +2585,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	 * list the execution status for a given analysis. Note: an analysis can spam multiple queries.
 	 * @param request
 	 * @param key
+	 * @param style 
 	 * @return
 	 */
 	public List<QueryWorkerJobStatus> getStatus(
