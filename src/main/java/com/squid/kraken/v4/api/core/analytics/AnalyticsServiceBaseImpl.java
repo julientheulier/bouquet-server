@@ -1542,6 +1542,11 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			analysisJob.setLimit(analysis.getLimit());
 		}
 		
+		// offset
+		if (analysis.getOffset()!=null) {
+			analysisJob.setOffset(analysis.getOffset());
+		}
+		
 		// beyond limit
 		if (analysis.getBeyondLimit()!=null && analysis.getBeyondLimit().length>0) {
 			if (analysis.getBeyondLimit().length==1) {
