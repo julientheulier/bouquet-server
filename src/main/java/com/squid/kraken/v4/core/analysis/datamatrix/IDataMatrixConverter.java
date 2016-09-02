@@ -23,6 +23,8 @@
  *******************************************************************************/
 package com.squid.kraken.v4.core.analysis.datamatrix;
 
+import com.squid.kraken.v4.model.AnalyticsQuery;
+
 /**
  * simple class to output a DataMatrix as a formatted output
  * @author sergefantino
@@ -30,6 +32,12 @@ package com.squid.kraken.v4.core.analysis.datamatrix;
  */
 public interface IDataMatrixConverter<Data> {
 	
-	public Data convert(DataMatrix matrix);
+	/**
+	 * convert the DataMatrix according to the query (for maxResults and startIndex)
+	 * @param query
+	 * @param matrix
+	 * @return
+	 */
+	public Data convert(AnalyticsQuery query, DataMatrix matrix);
 
 }
