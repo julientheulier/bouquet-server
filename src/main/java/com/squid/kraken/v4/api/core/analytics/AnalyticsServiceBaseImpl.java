@@ -1365,12 +1365,12 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		return facet;
 	}
 
-	private ProjectAnalysisJob createAnalysisJob(Universe universe, AnalyticsQuery analysis, FacetSelection selection, OutputFormat format) throws ScopeException {
+	private ProjectAnalysisJob createAnalysisJob(Universe universe, AnalyticsQuery query, FacetSelection selection, OutputFormat format) throws ScopeException {
 		// read the domain reference
-		if (analysis.getDomain() == null) {
+		if (query.getDomain() == null) {
 			throw new ScopeException("incomplete specification, you must specify the data domain expression");
 		}
-		Domain domain = getDomain(universe, analysis.getDomain());
+		Domain domain = getDomain(universe, query.getDomain());
 		AccessRightsUtils.getInstance().checkRole(universe.getContext(), domain, AccessRight.Role.READ);
 		// the rest of the ACL is delegated to the AnalysisJob
 		Space root = universe.S(domain);
@@ -1388,8 +1388,8 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 															// analysisJob
 															// indexes
 		HashSet<Integer> metricSet = new HashSet<>();// mark metrics
-		if ((analysis.getGroupBy() == null || analysis.getGroupBy().isEmpty())
-		&& (analysis.getMetrics() == null || analysis.getMetrics().isEmpty())) {
+		if ((query.getGroupBy() == null || query.getGroupBy().isEmpty())
+		&& (query.getMetrics() == null || query.getMetrics().isEmpty())) {
 			throw new ScopeException("there is no defined facet, can't run the analysis");
 		}
 		// now we are going to use the domain Space scope
@@ -1397,8 +1397,8 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		SpaceScope scope = new SpaceScope(universe.S(domain));
 		// quick fix to support the old facet mechanism
 		ArrayList<String> analysisFacets = new ArrayList<>();
-		if (analysis.getGroupBy()!=null) analysisFacets.addAll(analysis.getGroupBy());
-		if (analysis.getMetrics()!=null) analysisFacets.addAll(analysis.getMetrics());
+		if (query.getGroupBy()!=null) analysisFacets.addAll(query.getGroupBy());
+		if (query.getMetrics()!=null) analysisFacets.addAll(query.getMetrics());
 		for (String facet : analysisFacets) {
 			ExpressionAST colExpression = scope.parseExpression(facet);
 			IDomain image = colExpression.getImageDomain();
@@ -1449,8 +1449,8 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		// handle orderBy
 		List<OrderBy> orderBy = new ArrayList<>();
 		int pos = 1;
-		if (analysis.getOrderBy() != null) {
-			for (OrderBy order : analysis.getOrderBy()) {
+		if (query.getOrderBy() != null) {
+			for (OrderBy order : query.getOrderBy()) {
 				if (order.getExpression() != null) {
 					// let's try to parse it
 					try {
@@ -1499,8 +1499,8 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		}
 		// handle rollup - fix indexes
 		pos = 1;
-		if (analysis.getRollups() != null) {
-			for (RollUp rollup : analysis.getRollups()) {
+		if (query.getRollups() != null) {
+			for (RollUp rollup : query.getRollups()) {
 				if (rollup.getCol() > -1) {// ignore grand-total
 					// can't rollup on metric
 					if (metricSet.contains(rollup.getCol())) {
@@ -1520,18 +1520,18 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 
 		// create the actual job
 		// - using the AnalysisQuery.getQueryID() as the job OID: this one is unique for a given query
-		ProjectAnalysisJobPK pk = new ProjectAnalysisJobPK(universe.getProject().getId(), analysis.getQueryID());
+		ProjectAnalysisJobPK pk = new ProjectAnalysisJobPK(universe.getProject().getId(), query.getQueryID());
 		ProjectAnalysisJob analysisJob = new ProjectAnalysisJob(pk);
 		analysisJob.setDomains(Collections.singletonList(domain.getId()));
 		analysisJob.setMetricList(metrics);
 		analysisJob.setFacets(facets);
 		analysisJob.setOrderBy(orderBy);
 		analysisJob.setSelection(selection);
-		analysisJob.setRollups(analysis.getRollups());
+		analysisJob.setRollups(query.getRollups());
 		analysisJob.setAutoRun(true);
 
 		// automatic limit?
-		if (analysis.getLimit() == null && format == OutputFormat.JSON) {
+		if (query.getLimit() == null && format == OutputFormat.JSON) {
 			int complexity = analysisJob.getFacets().size();
 			if (complexity < 4) {
 				analysisJob.setLimit((long) Math.pow(10, complexity + 1));
@@ -1539,23 +1539,23 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 				analysisJob.setLimit(100000L);
 			}
 		} else {
-			analysisJob.setLimit(analysis.getLimit());
+			analysisJob.setLimit(query.getLimit());
 		}
 		
 		// offset
-		if (analysis.getOffset()!=null) {
-			analysisJob.setOffset(analysis.getOffset());
+		if (query.getOffset()!=null) {
+			analysisJob.setOffset(query.getOffset());
 		}
 		
 		// beyond limit
-		if (analysis.getBeyondLimit()!=null && analysis.getBeyondLimit().length>0) {
-			if (analysis.getBeyondLimit().length==1) {
-				Index index = new Index(analysis.getBeyondLimit()[0]);
+		if (query.getBeyondLimit()!=null && query.getBeyondLimit().length>0) {
+			if (query.getBeyondLimit().length==1) {
+				Index index = new Index(query.getBeyondLimit()[0]);
 				analysisJob.setBeyondLimit(Collections.singletonList(index));
 			} else {
 				ArrayList<Index> indexes = new ArrayList<>();
-				for (int i=0;i<analysis.getBeyondLimit().length;i++) {
-					Index index = new Index(analysis.getBeyondLimit()[i]);
+				for (int i=0;i<query.getBeyondLimit().length;i++) {
+					Index index = new Index(query.getBeyondLimit()[i]);
 					indexes.add(index);
 				}
 				analysisJob.setBeyondLimit(indexes);
