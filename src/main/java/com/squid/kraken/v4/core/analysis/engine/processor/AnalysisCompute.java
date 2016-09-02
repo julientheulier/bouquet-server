@@ -273,13 +273,7 @@ public class AnalysisCompute {
 				}
 			}
 		}
-		// copy metrics
-		for (Measure kpi : currentAnalysis.getKpis()) {
-			Measure compareToKpi = new Measure(kpi);
-			compareToKpi.setOriginType(OriginType.COMPARETO);
-			compareToKpi.setName(kpi.getName() + " [compare]");
-			compareToAnalysis.add(compareToKpi);
-		}
+
 		// copy stuff
 		if (currentAnalysis.hasLimit())
 			compareToAnalysis.limit(currentAnalysis.getLimit());
@@ -428,8 +422,12 @@ public class AnalysisCompute {
 	private PeriodType computePeriodType(IDomain image) {
 		if (image.isInstanceOf(IDomain.YEARLY)) {
 			return PeriodType.years();
+		} else if (image.isInstanceOf(IDomain.QUATERLY)) {
+			return PeriodType.months();
 		} else if (image.isInstanceOf(IDomain.MONTHLY)) {
 			return PeriodType.months();
+		} else if (image.isInstanceOf(IDomain.WEEKLY)) {
+			return PeriodType.weeks();
 		} else {
 			return PeriodType.days();
 		}
