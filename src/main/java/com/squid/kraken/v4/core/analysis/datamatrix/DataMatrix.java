@@ -55,6 +55,7 @@ import com.squid.kraken.v4.core.analysis.engine.query.mapping.MeasureMapping;
 import com.squid.kraken.v4.core.analysis.engine.query.mapping.QueryMapper;
 import com.squid.kraken.v4.core.analysis.model.DashboardSelection;
 import com.squid.kraken.v4.core.analysis.model.DomainSelection;
+import com.squid.kraken.v4.core.analysis.model.IntervalleObject;
 import com.squid.kraken.v4.core.analysis.model.OrderBy;
 import com.squid.kraken.v4.core.analysis.model.OrderByGrowth;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
@@ -90,6 +91,8 @@ public class DataMatrix {
 	private List<RawRow> rows = new ArrayList<RawRow>();
 
 	private boolean fromCache = false;// true if the data come from the cache
+	
+	private boolean fromSmartCache = false;// true if the data come from the cache via the smart cache
 
 	private Date executionDate = null;// when did we compute the data
 
@@ -287,6 +290,14 @@ public int getDataIndirection(int i) {
 
 	public void setFromCache(boolean fromCache) {
 		this.fromCache = fromCache;
+	}
+	
+	public boolean isFromSmartCache() {
+		return fromSmartCache;
+	}
+	
+	public void setFromSmartCache(boolean fromSmartCache) {
+		this.fromSmartCache = fromSmartCache;
 	}
 
 	public Date getExecutionDate() {
@@ -560,6 +571,8 @@ public int getDataIndirection(int i) {
 
 		public int index;
 		public HashSet<Object> items = new HashSet<Object>();
+		
+		private boolean isInterval = false;
 		private boolean nullIsValid;
 
 		public ApplyFilterCondition(int index, boolean nullIsValid) {
@@ -568,14 +581,34 @@ public int getDataIndirection(int i) {
 		}
 
 		public boolean filter(RawRow row) {
-			// DimensionMember m = DataMatrix.this.getDimensionMember(row,
-			// index);//row.getAxisValue(DataMatrix.this,index);
 			Object m = getAxisValue(index, row);
-			return (m == null && this.nullIsValid) || (m != null && items.contains(m));
+			if (isInterval) {
+				if (m==null) {
+					return this.nullIsValid;
+				}
+				for (Object item : items) {
+					if (item instanceof IntervalleObject && m instanceof Date) {
+						IntervalleObject interval = (IntervalleObject)item;
+						if (interval.compareLowerBoundTo(m)<=0 && interval.compareUpperBoundTo(m)>=0) {
+							return true;
+						}
+					} else {
+						if (item.equals(m)) return true;
+					}
+				}
+				//
+				return false;
+			} else {
+				return (m == null && this.nullIsValid) || (m != null && items.contains(m));
+			}
 		}
 
 		public void add(DimensionMember filter) {
-			items.add(filter.getID());
+			Object value = filter.getID();
+			items.add(value);
+			if (value instanceof IntervalleObject) {
+				this.isInterval= true;
+			}
 		}
 
 		public boolean isEmpty() {
@@ -1029,6 +1062,7 @@ public int getDataIndirection(int i) {
 		table.setStartIndex(startIndex);
 		table.setTotalSize(rows.size());
 		table.setFromCache(isFromCache());
+		table.setFromSmartCache(isFromSmartCache());
 		table.setExecutionDate(getExecutionDate());
 		table.setFullset(this.fullset);
 
