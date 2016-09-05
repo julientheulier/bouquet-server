@@ -56,6 +56,8 @@ public class DataTable extends JobResultBaseImpl {
     
     private boolean fromCache = false;// true if the data comes from the cache
     
+    private boolean fromSmartCache = false;
+    
     private String executionDate = null;
 
     private boolean fullset = true; //true if the whole dataset fits in  REDIS cache  (ie : number of row < LIMIT)
@@ -286,6 +288,20 @@ public class DataTable extends JobResultBaseImpl {
     public void setFromCache(boolean fromCache) {
         this.fromCache = fromCache;
     }
+    
+    /**
+	 * @return the fromSmartCache
+	 */
+	public boolean isFromSmartCache() {
+		return fromSmartCache;
+	}
+	
+	/**
+	 * @param fromSmartCache the fromSmartCache to set
+	 */
+	public void setFromSmartCache(boolean fromSmartCache) {
+		this.fromSmartCache = fromSmartCache;
+	}
     
     public String getExecutionDate() {
         return executionDate;
