@@ -713,10 +713,10 @@ public class DataMatrix {
 			switch (type.getDataType()) {
 			case Types.INTEGER:
 			case Types.BIGINT:
-			case Types.DOUBLE:
 			case Types.SMALLINT:
 			case Types.TINYINT:
 				return "%,d";
+			case Types.DOUBLE:
 			case Types.DECIMAL:
 			case Types.FLOAT:
 			case Types.NUMERIC:
