@@ -1100,7 +1100,9 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			html.append(" (the query has more data)");
 		}
 		html.append("</p>");
-		if (data.isFromCache()) {
+		if (data.isFromSmartCache()) {
+			html.append("<p>data from smart-cache, last computed "+data.getExecutionDate()+"</p>");
+		} else if (data.isFromCache()) {
 			html.append("<p>data from cache, last computed "+data.getExecutionDate()+"</p>");
 		} else {
 			html.append("<p>fresh data just computed at "+data.getExecutionDate()+"</p>");
@@ -1116,7 +1118,9 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			html.append(" (the query has more data)");
 		}
 		html.append("</p>");
-		if (info.isFromCache()) {
+		if (info.isFromSmartCache()) {
+			html.append("<p>data from smart-cache, last computed "+info.getExecutionDate()+"</p>");
+		} else if (info.isFromCache()) {
 			html.append("<p>data from cache, last computed "+info.getExecutionDate()+"</p>");
 		} else {
 			html.append("<p>fresh data just computed at "+info.getExecutionDate()+"</p>");
@@ -1932,19 +1936,6 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	}
 	
 	/**
-	 * rewrite a global expression (scope into the universe) to a local expression scoped to the given Space
-	 * @param expr
-	 * @param scope
-	 * @return
-	 * @throws ScopeException
-	 */
-	private String rewriteExpressionToLocalScope(ExpressionAST expr, Space space) throws ScopeException {
-		ReferenceStyle style = ReferenceStyle.LEGACY;
-		PrettyPrintOptions options = new PrettyPrintOptions(style, space.getTop().getImageDomain());
-		return expr.prettyPrint(options);
-	}
-	
-	/**
 	 * rewrite a local expression valid in the root scope as a global expression
 	 * @param expr
 	 * @param root
@@ -2391,7 +2382,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	private Info getAnalyticsResultInfo(Integer pageSize, Integer startIndex, DataMatrix matrix) {
 		AnalyticsResult.Info info = new Info();
 		info.setFromCache(matrix.isFromCache());
-		info.setFromSmartCache(false);// actually we don't know the origin, see T1851
+		info.setFromSmartCache(matrix.isFromSmartCache());// actually we don't know the origin, see T1851
 		info.setExecutionDate(matrix.getExecutionDate().toString());
 		info.setStartingIndex(startIndex);
 		info.setPageSize(pageSize);
@@ -2408,7 +2399,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	}
 	
 	private Response createHTMLlist(AppContext ctx, NavigationQuery query, NavigationResult result) {
-		String title = query.getParent().length()>0?query.getParent():"Root";
+		String title = (query.getParent()!=null && query.getParent().length()>0)?query.getParent():"Root";
 		StringBuilder html = new StringBuilder("<html><title>List: "+title+"</title><body>");
 		html.append("<h1>"+title+"</h1>");
 		//
@@ -2488,8 +2479,9 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 				+ "<input type=\"hidden\" name=\"style\" value=\"HTML\">"
 				+ "<input type=\"hidden\" name=\"access_token\" value=\""+space.getUniverse().getContext().getToken().getOid()+"\">"
 				+ "<input type=\"submit\" value=\"Refresh\">"
-				+ "</form>"
-				+ "<hr>powered by Open Bouquet & VegaLite"
+				+ "</form>");
+		createHTMLscope(html, space);
+		html.append("<hr>powered by Open Bouquet & VegaLite"
 				+ "<p>the OB Analytics API provides more parameters... check <a target='swagger' href='http://swagger.squidsolutions.com/#!/analytics/viewAnalysis'>swagger UI</a> for details</p>"
 				+ "</body>\r\n</html>");
 		return Response.ok(html.toString(), "text/html; charset=UTF-8").build();
@@ -2499,7 +2491,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	 * @param result
 	 * @return
 	 */
-	private Object writeVegalightSpecs(VegaliteSpecs specs) {
+	private String writeVegalightSpecs(VegaliteSpecs specs) {
 		ObjectMapper mapper = new ObjectMapper();
 		try {
 			return mapper.writeValueAsString(specs);
@@ -2535,6 +2527,22 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		}
 		//
 		html.append("<div class='filters'>Filtering on: <textarea name='filters'>"+getFieldValue(query.getFilters())+"</textarea></div>");
+	}
+	
+	private void createHTMLscope(StringBuilder html, Space space) {
+		html.append("<table><tr><td>");
+		for (Axis axis : space.A()) {
+			html.append("<li>'"+axis.getName()+"'</li>");
+		}
+		try {
+			for (Metric metric : space.getMetrics()) {
+				if (!metric.isDynamic()) {
+					html.append("<li>'"+metric.getName()+"'</li>");
+				}
+			}
+		} catch (ScopeException e) {
+			// ignore
+		}
 	}
 	
 	private String getFieldValue(String var) {
