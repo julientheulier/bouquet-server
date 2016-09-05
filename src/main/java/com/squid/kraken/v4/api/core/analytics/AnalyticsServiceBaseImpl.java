@@ -1170,7 +1170,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			//
 			final OutputFormat outFormat;
 			if (fileext == null) {
-				outFormat = OutputFormat.JSON;
+				outFormat = OutputFormat.CSV;
 			} else {
 				outFormat = OutputFormat.valueOf(fileext.toUpperCase());
 			}
@@ -1183,6 +1183,9 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			}
 			
 			final ExportSourceWriter writer = getWriter(outFormat);
+			if (writer==null) {
+				throw new APIException("unable to handle the format='"+outFormat+"'", true);
+			}
 
 			StreamingOutput stream = new StreamingOutput() {
 				@Override
@@ -2539,7 +2542,15 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			html.append("</div>");
 		}
 		//
-		html.append("<div class='filters'>Filtering on: <textarea name='filters'>"+getFieldValue(query.getFilters())+"</textarea></div>");
+		html.append("<div class='filters'>Filtering on: ");
+		if (query.getFilters()!=null && query.getFilters().size()>0) {
+			for (String filter : query.getFilters()) {
+				html.append("<input type='text' name='period' value='"+getFieldValue(filter)+"'>");
+			}
+		} else {
+			html.append("<input type='text' name='period' value=''>");
+		}
+		html.append("</div>");
 	}
 	
 	private void createHTMLscope(StringBuilder html, Space space) {
@@ -2560,18 +2571,6 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	
 	private String getFieldValue(String var) {
 		if (var==null) return ""; else return var.replaceAll("\"", "&quot;").replaceAll("'", "&#x27;");
-	}
-	
-	private String getFieldValue(List<String> attrs) {
-		if (attrs==null) return ""; 
-		else {
-			String value = "";
-			for (String attr : attrs) {
-				if (value.equals("")) value += "\n";
-				value += getFieldValue(attr);
-			}
-			return value;
-		}
 	}
 	
 	/**
