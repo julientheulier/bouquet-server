@@ -52,6 +52,7 @@ import com.squid.kraken.v4.api.core.JobServiceBaseImpl.OutputFormat;
 import com.squid.kraken.v4.model.AccessRight;
 import com.squid.kraken.v4.model.DataTable;
 import com.squid.kraken.v4.model.Facet;
+import com.squid.kraken.v4.model.FacetSearchResult;
 import com.squid.kraken.v4.model.ProjectFacetJob;
 import com.squid.kraken.v4.model.ProjectFacetJobPK;
 import com.squid.kraken.v4.persistence.AppContext;
@@ -106,12 +107,12 @@ public class FacetJobServiceRest extends BaseServiceRest {
 	 * @param timeoutMs, if null : no timeout
 	 * @param maxResults
 	 * @param startIndex
-	 * @return
+	 * @return a {@FacetSearchResult}
 	 */
 	@GET
 	@Path("{" + PARAM_NAME + "}"+"/results/{facetId}")
 	@ApiOperation(value = "Gets a Facet")
-	public Facet readFacet(@PathParam("projectId") String projectId,
+	public FacetSearchResult readFacet(@PathParam("projectId") String projectId,
 			@PathParam("jobId") String jobId,
 			@PathParam("facetId") String facetId,
 			@QueryParam("filter") String filter,
