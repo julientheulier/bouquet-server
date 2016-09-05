@@ -2,12 +2,12 @@
  * Copyright © Squid Solutions, 2016
  *
  * This file is part of Open Bouquet software.
- *  
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
  * published by the Free Software Foundation (version 3 of the License).
  *
- * There is a special FOSS exception to the terms and conditions of the 
+ * There is a special FOSS exception to the terms and conditions of the
  * licenses as they are applied to this program. See LICENSE.txt in
  * the directory of this program distribution.
  *
@@ -48,17 +48,15 @@ import com.squid.kraken.v4.api.core.PerfDB;
 import com.squid.kraken.v4.api.core.SQLStats;
 import com.zaxxer.hikari.HikariDataSource;
 
-
 public class SimpleDatabaseManager extends DatabaseManager {
 
-	static final Logger logger = LoggerFactory
-			.getLogger(SimpleDatabaseManager.class);
+	static final Logger logger = LoggerFactory.getLogger(SimpleDatabaseManager.class);
 
 	public static final AtomicInteger queryCnt = new AtomicInteger();
-	
+
 	protected String databaseName = "noname";
 	protected int maximumPoolSize = 10;
-	
+
 	public SimpleDatabaseManager() {
 		super();
 	}
@@ -69,13 +67,13 @@ public class SimpleDatabaseManager extends DatabaseManager {
 		this.setupConfig(jdbcURL, username, password);
 		setup();
 	}
-	
-	public JDBCConfig getConf(){
+
+	public JDBCConfig getConf() {
 		return this.config;
 	}
 
 	protected HikariDataSourceReliable createDatasourceWithConfig(JDBCConfig config) {
-		logger.info("Creating a new datasource for "+ config.getJdbcUrl()+ " " +config.getUsername() );
+		logger.info("Creating a new datasource for " + config.getJdbcUrl() + " " + config.getUsername());
 		HikariDataSourceReliable ds = new HikariDataSourceReliable(maximumPoolSize);
 		ds.setJdbcUrl(config.getJdbcUrl());
 		ds.setUsername(config.getUsername());
@@ -85,30 +83,37 @@ public class SimpleDatabaseManager extends DatabaseManager {
 		ds.setIdleTimeout(60000); // in ms
 		ds.setMaxLifetime(120000);
 		//
-		// connection timeout is actually a limit on getting a connection from the pool
-		// ... but since now we are only trying to acquire a connection when we already know one is available,
+		// connection timeout is actually a limit on getting a connection from
+		// the pool
+		// ... but since now we are only trying to acquire a connection when we
+		// already know one is available,
 		// ... it is safe to use a smaller value
 		ds.setConnectionTimeout(4001);
 		try {
-            ds.setLoginTimeout(1001);
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
+			ds.setLoginTimeout(1001);
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
 		return ds;
 	}
 
-	protected void chooseDriver(HikariDataSource ds)
-			throws DatabaseServiceException { // T117
-        ds.setCustomClassloader(new DriverLoader());
+	protected void chooseDriver(HikariDataSource ds) throws DatabaseServiceException { // T117
+		ds.setCustomClassloader(new DriverLoader());
 		if (ds.getJdbcUrl().contains("jdbc:postgresql")) {
-			ds.setDriverClassName("org.postgresql.Driver"); //So for redshift we are also using postgresql to detect the version. DRIVER IS CHANGED LATER.
+			ds.setDriverClassName("org.postgresql.Driver"); // So for redshift
+															// we are also using
+															// postgresql to
+															// detect the
+															// version. DRIVER
+															// IS CHANGED LATER.
+		} else if (ds.getJdbcUrl().contains("jdbc:redshift")) {
+			ds.setDriverClassName("com.amazon.redshift.jdbc41.Driver");
 		} else if (ds.getJdbcUrl().contains("jdbc:drill")) {
 			try {
 				Class.forName("org.apache.drill.jdbc.Driver");
 			} catch (ClassNotFoundException e) {
 				e.printStackTrace();
-				throw new DatabaseServiceException(
-						"Could not load driver for drill");
+				throw new DatabaseServiceException("Could not load driver for drill");
 			}
 			ds.setDriverClassName("org.apache.drill.jdbc.Driver");
 		} else if (ds.getJdbcUrl().contains("jdbc:hive2")) {
@@ -126,13 +131,10 @@ public class SimpleDatabaseManager extends DatabaseManager {
 		setupFinalize(hikari, db);
 	}
 
-	public void setupConfig(String jdbcURL, String username, String password)
-	throws IllegalArgumentException
-	{
+	public void setupConfig(String jdbcURL, String username, String password) throws IllegalArgumentException {
 		this.config = new JDBCConfig(jdbcURL, username, password);
 	}
-	
-	
+
 	protected HikariDataSourceReliable setupDataSource() throws DatabaseServiceException {
 		HikariDataSourceReliable ds = createDatasourceWithConfig(config);
 		chooseDriver(ds);
@@ -142,8 +144,7 @@ public class SimpleDatabaseManager extends DatabaseManager {
 			try {
 				conn.getMetaData().getDatabaseProductName();
 				if (logger.isDebugEnabled()) {
-					logger.debug("Driver used: "
-							+ conn.getMetaData().getDriverName());
+					logger.debug("Driver used: " + conn.getMetaData().getDriverName());
 				}
 			} finally {
 				if (!conn.getAutoCommit()) {
@@ -153,8 +154,8 @@ public class SimpleDatabaseManager extends DatabaseManager {
 				ds.releaseSemaphore();
 			}
 		} catch (SQLException e) {
-			throw new DatabaseServiceException("unable to connect to "
-					+ config.getJdbcUrl() + ": \n" + e.getLocalizedMessage(), e);
+			throw new DatabaseServiceException(
+					"unable to connect to " + config.getJdbcUrl() + ": \n" + e.getLocalizedMessage(), e);
 		}
 		return ds;
 	}
@@ -172,32 +173,34 @@ public class SimpleDatabaseManager extends DatabaseManager {
 		this.db = newDb;
 		return newDb;
 	}
-	
-	public void setDatabaseName(String dbName){
-		this.databaseName = dbName;		
+
+	public void setDatabaseName(String dbName) {
+		this.databaseName = dbName;
 	}
-	
+
 	protected void setupFinalize(HikariDataSourceReliable hikari, Database db) {
-		// Now that we have fully detected the database type we can change to most accurate driver.
-		if (db.getProductName().equals(IMetadataEngine.REDSHIFT_NAME)){
+		// Now that we have fully detected the database type we can change to
+		// most accurate driver.
+		if (db.getProductName().equals(IMetadataEngine.REDSHIFT_NAME)) {
 			hikari.setDriverClassName("com.amazon.redshift.jdbc41.Driver");
 		}
 		if (db.getUrl().contains("jdbc:drill")) {
-			//Do nothing on purpose setAutocommit is/was not well supported.
-		}else if (DataSourceReliable.FeatureSupport.IS_SUPPORTED == getSkin().getFeatureSupport(DataSourceReliable.FeatureSupport.AUTOCOMMIT)) {
+			// Do nothing on purpose setAutocommit is/was not well supported.
+		} else if (DataSourceReliable.FeatureSupport.IS_SUPPORTED == getSkin()
+				.getFeatureSupport(DataSourceReliable.FeatureSupport.AUTOCOMMIT)) {
 			hikari.setAutoCommit(true);
-		}else if(DataSourceReliable.FeatureSupport.IS_NOT_SUPPORTED == getSkin().getFeatureSupport(DataSourceReliable.FeatureSupport.AUTOCOMMIT)){
+		} else if (DataSourceReliable.FeatureSupport.IS_NOT_SUPPORTED == getSkin()
+				.getFeatureSupport(DataSourceReliable.FeatureSupport.AUTOCOMMIT)) {
 			hikari.setAutoCommit(false);
 		}
 	}
-	
-	public ExecuteQueryTask createExecuteQueryTask(String sql){
-		  int queryNum = queryCnt.incrementAndGet();
-	        return new ExecuteQueryTask(this, queryNum, sql);
+
+	public ExecuteQueryTask createExecuteQueryTask(String sql) {
+		int queryNum = queryCnt.incrementAndGet();
+		return new ExecuteQueryTask(this, queryNum, sql);
 	}
-	
-	public Boolean execute(String sql)
-			throws ExecutionException {
+
+	public Boolean execute(String sql) throws ExecutionException {
 		int queryNum = queryCnt.incrementAndGet();
 		long now = System.currentTimeMillis();
 		try {
@@ -205,42 +208,51 @@ public class SimpleDatabaseManager extends DatabaseManager {
 			Connection connection = this.getDatasource().getConnectionBlocking();
 			Statement statement = connection.createStatement();
 			try {
-				//IJDBCDataFormatter formatter = ds.getDataFormatter(connection);
-				logger.info("running SQLQuery#" + queryNum + " on " + this.getDatabase().getUrl()
-						+ ":\n" + sql +"\nHashcode="+sql.hashCode());
-				// make sure auto commit is false (for cursor based ResultSets and postgresql)
-				if(this.getSkin().getFeatureSupport(FeatureSupport.AUTOCOMMIT) == ISkinFeatureSupport.IS_NOT_SUPPORTED){
+				// IJDBCDataFormatter formatter =
+				// ds.getDataFormatter(connection);
+				logger.info("running SQLQuery#" + queryNum + " on " + this.getDatabase().getUrl() + ":\n" + sql
+						+ "\nHashcode=" + sql.hashCode());
+				// make sure auto commit is false (for cursor based ResultSets
+				// and postgresql)
+				if (this.getSkin()
+						.getFeatureSupport(FeatureSupport.AUTOCOMMIT) == ISkinFeatureSupport.IS_NOT_SUPPORTED) {
 					connection.setAutoCommit(false);
 					needCommit = true;
-				}else{
+				} else {
 					connection.setAutoCommit(true);
 				}
 				statement.setFetchSize(10000);
-				//Date start = new Date();
+				// Date start = new Date();
 				Boolean result = statement.execute(sql);
 				if (needCommit) {
 					connection.commit();
 				}
-				/*logger.info("SQLQuery#" + queryNum + " executed in "
-						+ (System.currentTimeMillis() - now) + " ms.");*/
+				/*
+				 * logger.info("SQLQuery#" + queryNum + " executed in " +
+				 * (System.currentTimeMillis() - now) + " ms.");
+				 */
 				long duration = (System.currentTimeMillis() - now);
-				logger.info("task="+this.getClass().getName()+" method=execute"+" duration="+ duration+" error=false status=done");
-				//TODO get project instead of database
-				SQLStats queryLog = new SQLStats(Integer.toString(queryNum), "execute",sql, duration, this.getDatabase().getProductName());
+				logger.info("task=" + this.getClass().getName() + " method=execute" + " duration=" + duration
+						+ " error=false status=done");
+				// TODO get project instead of database
+				SQLStats queryLog = new SQLStats(Integer.toString(queryNum), "execute", sql, duration,
+						this.getDatabase().getProductName());
 				queryLog.setError(false);
 				PerfDB.INSTANCE.save(queryLog);
 
 				return result;
 			} catch (Exception e) {
-				if (needCommit && connection!=null) {
+				if (needCommit && connection != null) {
 					connection.rollback();
 				}
 				throw e;
 			} finally {
 				// ticket:2972
 				// it is our responsibility to dispose connection and statement
-				if (statement!=null) statement.close();
-				if (connection!=null) {
+				if (statement != null) {
+					statement.close();
+				}
+				if (connection != null) {
 					if (needCommit) {
 						connection.commit();
 					}
@@ -251,15 +263,18 @@ public class SimpleDatabaseManager extends DatabaseManager {
 		} catch (Exception e) {
 			logger.info(e.toString());
 			long duration = (System.currentTimeMillis() - now);
-			/*logger.info("SQLQuery#" + queryNum + " failed in "
-					+ (System.currentTimeMillis() - now) + " ms.");*/
-			logger.info("task="+this.getClass().getName()+" method=execute"+" duration="+ duration+" error=true status=done");
-			SQLStats queryLog = new SQLStats(Integer.toString(queryNum), "execute",sql, duration, this.getDatabase().getProductName());
+			/*
+			 * logger.info("SQLQuery#" + queryNum + " failed in " +
+			 * (System.currentTimeMillis() - now) + " ms.");
+			 */
+			logger.info("task=" + this.getClass().getName() + " method=execute" + " duration=" + duration
+					+ " error=true status=done");
+			SQLStats queryLog = new SQLStats(Integer.toString(queryNum), "execute", sql, duration,
+					this.getDatabase().getProductName());
 			queryLog.setError(true);
 			PerfDB.INSTANCE.save(queryLog);
-			throw new ExecutionException("SQLQuery#" + queryNum + " failed:\n"+e.getLocalizedMessage(),e);
+			throw new ExecutionException("SQLQuery#" + queryNum + " failed:\n" + e.getLocalizedMessage(), e);
 		}
 	}
 
-	
 }
