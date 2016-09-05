@@ -95,6 +95,12 @@ public interface AnalyticsQuery {
 	 * @return
 	 */
 	String getQueryID();
+	
+	List<Problem> getProblems();
+	
+	void setProblems(List<Problem> problems);
+	
+	void add(Problem problem);
 
 	@JsonDeserialize(as = AnalysisFacetImpl.class)
 	static public interface AnalysisFacet {

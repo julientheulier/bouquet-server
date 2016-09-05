@@ -1,5 +1,6 @@
 package com.squid.kraken.v4.model;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -44,6 +45,8 @@ public class AnalyticsQueryImpl implements AnalyticsQuery {
 	private String lazy = null;// false
 	
 	private Style style = Style.HUMAN;
+	
+	private List<Problem> problems;
 
 	public AnalyticsQueryImpl() {
 	}
@@ -251,6 +254,22 @@ public class AnalyticsQueryImpl implements AnalyticsQuery {
 		return org.apache.commons.codec.digest.DigestUtils.sha256Hex(toString());
 	}
 	
+	@Override
+	public List<Problem> getProblems() {
+		return problems;
+	}
+
+	@Override
+	public void setProblems(List<Problem> problems) {
+		this.problems = problems;
+	}
+	
+	@Override
+	public void add(Problem problem) {
+		if (problems==null) problems = new ArrayList<>();
+		problems.add(problem);
+	}
+
 	@Override
 	public String toString() {
 		return "AnalysisQueryImpl [BBID=" + BBID + ", domain=" + domain + ", groupBy=" + groupBy + ", metrics="
