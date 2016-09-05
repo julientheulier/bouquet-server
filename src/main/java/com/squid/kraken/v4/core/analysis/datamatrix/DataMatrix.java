@@ -699,7 +699,7 @@ public class DataMatrix {
 			return computeFormat(type);
 		}
 	}
-
+	
 	/**
 	 * @param type
 	 * @return
@@ -721,9 +721,9 @@ public class DataMatrix {
 			case Types.FLOAT:
 			case Types.NUMERIC:
 				if (type.getScale() > 0) {
-					return "%,." + type.getScale() + "f";
+					return "%,.2f";
 				} else {
-					return "%,2f";
+					return "%,d";
 				}
 			default:
 				break;
@@ -838,6 +838,8 @@ public class DataMatrix {
 									value = String.format(format, value);
 								} catch (IllegalFormatException e) {
 									// ignore
+									logger.info(e.toString());
+
 								}
 							}
 							values[colIdx++] = value;
@@ -854,7 +856,27 @@ public class DataMatrix {
 							try {
 								value = String.format(format, value);
 							} catch (IllegalFormatException e) {
-								// ignore
+								IDomain image = header.get( axes_count+ i).getExtendedType().getDomain();
+								if (image.isInstanceOf(IDomain.NUMERIC)){	
+									if (value instanceof Number){
+										// try to cast to a primitive value and format again
+										double dbValue = ((Number) value).doubleValue();
+										if (Math.floor(dbValue) == dbValue){
+											long lgValue = (long)dbValue;
+											try {
+												value = String.format(format, lgValue);
+											} catch (IllegalFormatException e2) {
+												//ignore
+											}
+
+										}else{
+											try {
+												value = String.format(format, dbValue);
+											} catch (IllegalFormatException e2) {
+											}
+										}
+									}
+								}	
 							}
 						}
 						values[colIdx++] = value;
