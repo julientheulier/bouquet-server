@@ -162,6 +162,8 @@ import com.squid.kraken.v4.model.NavigationQuery;
 import com.squid.kraken.v4.model.NavigationReply;
 import com.squid.kraken.v4.model.NavigationResult;
 import com.squid.kraken.v4.model.ObjectType;
+import com.squid.kraken.v4.model.Problem;
+import com.squid.kraken.v4.model.Problem.Severity;
 import com.squid.kraken.v4.model.Project;
 import com.squid.kraken.v4.model.ProjectAnalysisJob;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.Direction;
@@ -1858,8 +1860,19 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 									filters.add(formula);
 								} else {
 									// it's a segment name
-									ExpressionAST seg = localScope.parseExpression("'"+member.getValue()+"'");
-									filters.add(seg.prettyPrint(localOptions));
+									// check the ID
+									try {
+										if (member.getId().startsWith("@")) {
+											ExpressionAST seg = globalScope.parseExpression(member.getId());
+											filters.add(seg.prettyPrint(localOptions));
+										} else {
+											// use the name
+											ExpressionAST seg = globalScope.parseExpression("'"+member.getValue()+"'");
+											filters.add(seg.prettyPrint(localOptions));
+										}
+									} catch (ScopeException e) {
+										query.add(new Problem(Severity.ERROR, member.getId(), "Unable to parse segment with value='"+member+"'", e));
+									}
 								}
 							}
 						}
