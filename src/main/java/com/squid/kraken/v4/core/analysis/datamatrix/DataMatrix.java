@@ -1013,9 +1013,9 @@ public class DataMatrix {
 			maxResults = rows.size();
 		}
 		maxResults = Math.max(maxResults, 0);
-		int endIndex = Math.min(rows.size() - 1, startIndex + maxResults);
-		if (startIndex <= endIndex) {
-			for (int rowIndex = startIndex; rowIndex <= endIndex; rowIndex++) {
+		int endIndex = Math.min(rows.size(), startIndex + maxResults);
+		if (startIndex < endIndex) {
+			for (int rowIndex = startIndex; rowIndex < endIndex; rowIndex++) {
 				RawRow row = rows.get(rowIndex);
 				Object[] values = new Object[visible_count + getDataSize()];
 				int colIdx = 0;
