@@ -1069,12 +1069,18 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		html.append("<form>");
 		createHTMLfilters(html, query);
 		html.append("<table><tr>");
+		html.append("<th></th>");
 		for (Col col : data.getCols()) {
 			html.append("<th>"+col.getName()+"</th>");
 		}
 		html.append("</tr>");
+		int i=1;
+		if (query.getStartIndex()!=null) {
+			i=query.getStartIndex()+1;
+		}
 		for (Row row : data.getRows()) {
 			html.append("<tr>");
+			html.append("<td>#"+(i++)+"</td>");
 			for (Col col : data.getCols()) {
 				Object value = row.getV()[col.getPos()];
 				if (col.getFormat()!=null && col.getFormat().length()>0) {
@@ -1319,15 +1325,15 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		SpaceScope scope = new SpaceScope(space);
 		Domain domain = space.getDomain();
 		// handle period & timeframe
-		if (query.getPeriod()!=null && query.getTimeframe()!=null && query.getTimeframe().length>0) {
+		if (query.getPeriod()!=null && query.getTimeframe()!=null && query.getTimeframe().size()>0) {
 			ExpressionAST expr = scope.parseExpression(query.getPeriod());
 			Facet facet = createFacetInterval(space, expr, query.getTimeframe());
 			selection.getFacets().add(facet);
 		}
 		// handle compareframe
-		if (query.getPeriod()!=null && query.getCompareframe()!=null && query.getCompareframe().length>0) {
+		if (query.getPeriod()!=null && query.getCompareTo()!=null && query.getCompareTo().size()>0) {
 			ExpressionAST expr = scope.parseExpression(query.getPeriod());
-			Facet compareFacet = createFacetInterval(space, expr, query.getCompareframe());
+			Facet compareFacet = createFacetInterval(space, expr, query.getCompareTo());
 			selection.setCompareTo(Collections.singletonList(compareFacet));
 		}
 		// handle filters
@@ -1403,11 +1409,11 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		return null;
 	}
 	
-	private Facet createFacetInterval(Space space, ExpressionAST expr, String[] frame) throws ScopeException {
+	private Facet createFacetInterval(Space space, ExpressionAST expr, List<String> values) throws ScopeException {
 		Facet facet = new Facet();
 		facet.setId(rewriteExpressionToGlobalScope(expr, space));
-		String lowerbound = frame[0];
-		String upperbound = frame.length==2?frame[1]:lowerbound;
+		String lowerbound = values.get(0);
+		String upperbound = values.size()==2?values.get(1):lowerbound;
 		FacetMemberInterval member = new FacetMemberInterval(lowerbound, upperbound);
 		facet.getSelectedItems().add(member);
 		return facet;
@@ -1851,9 +1857,9 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 					query.setPeriod(expr.prettyPrint(localOptions));
 					if (query.getTimeframe()==null) {
 						if (index.getStatus()==Status.DONE) {
-							query.setTimeframe(new String[]{"__CURRENT_MONTH"});
+							query.setTimeframe(Collections.singletonList("__CURRENT_MONTH"));
 						} else {
-							query.setTimeframe(new String[]{"__ALL"});
+							query.setTimeframe(Collections.singletonList("__ALL"));
 						}
 					}
 					// quit the loop!
@@ -1862,10 +1868,10 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			}
 			if (query.getPeriod()==null) {
 				// nothing selected - double check and auto detect?
-				if (query.getTimeframe()!=null && query.getTimeframe().length>0) {
+				if (query.getTimeframe()!=null && query.getTimeframe().size()>0) {
 					throw new APIException("No period defined: you cannot set the timeframe");
 				}
-				if (query.getCompareframe()!=null && query.getCompareframe().length>0) {
+				if (query.getCompareTo()!=null && query.getCompareTo().size()>0) {
 					throw new APIException("No period defined: you cannot set the timeframe");
 				}
 			}
@@ -1894,11 +1900,13 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 								String upperBound = ((FacetMemberInterval) timeframe).getUpperBound();
 								if (upperBound.startsWith("__")) {
 									// it's a shortcut
-									query.setTimeframe(new String[]{upperBound});
+									query.setTimeframe(Collections.singletonList(upperBound));
 								} else {
 									// it's a date
 									String lowerBound = ((FacetMemberInterval) timeframe).getLowerBound();
-									query.setTimeframe(new String[]{lowerBound,upperBound});
+									query.setTimeframe(new ArrayList<String>(2));
+									query.getTimeframe().add(lowerBound);
+									query.getTimeframe().add(upperBound);
 								}
 							}
 						}
@@ -1967,9 +1975,9 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		query.setFilters(filters);
 		//
 		// check timeframe again
-		if (query.getPeriod()!=null && (query.getTimeframe()==null || query.getTimeframe().length==0)) {
+		if (query.getPeriod()!=null && (query.getTimeframe()==null || query.getTimeframe().size()==0)) {
 			// add a default timeframe
-			query.setTimeframe(new String[]{"__CURRENT_MONTH"});
+			query.setTimeframe(Collections.singletonList("__CURRENT_MONTH"));
 		}
 	}
 	
@@ -2610,26 +2618,26 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		if (query.getPeriod()!=null) {
 			html.append("<div class='period'>Selected Period: ");
 			html.append("<input type='text' size=30 name='period' value='"+getFieldValue(query.getPeriod())+"'> ");
-			if (query.getTimeframe()!=null) {
-				if (query.getTimeframe().length==1) {
-					html.append("on <input type='text' name='timeframe' value='"+getFieldValue(query.getTimeframe()[0])+"'>");
-				} else if (query.getTimeframe().length>=1) {
+			if (query.getTimeframe()!=null && query.getTimeframe().size()>0) {
+				if (query.getTimeframe().size()==1) {
+					html.append("on <input type='text' name='timeframe' value='"+getFieldValue(query.getTimeframe().get(0))+"'>");
+				} else if (query.getTimeframe().size()>=1) {
 					html.append("from ");
-					html.append("<input type='date' name='compareTo' value='"+getFieldValue(query.getTimeframe()[0])+"'>");
+					html.append("<input type='date' name='compareTo' value='"+getFieldValue(query.getTimeframe().get(0))+"'>");
 					html.append(" to ");
-					html.append("<input type='date' name='compareTo' value='"+getFieldValue(query.getTimeframe()[1])+"'>");
+					html.append("<input type='date' name='compareTo' value='"+getFieldValue(query.getTimeframe().get(1))+"'>");
 				}
 			} else {
 				html.append("on <input type='text' name='timeframe' value=''>");
 			}
-			if (query.getCompareframe()!=null) {
-				if (query.getCompareframe().length==1) {
-					html.append("compare to <input type='text' name='compareTo' value='"+getFieldValue(query.getCompareframe()[0])+"'>");
-				} else if (query.getCompareframe().length>=1) {
+			if (query.getCompareTo()!=null && query.getCompareTo().size()>0) {
+				if (query.getCompareTo().size()==1) {
+					html.append("compare to <input type='text' name='compareTo' value='"+getFieldValue(query.getCompareTo().get(0))+"'>");
+				} else if (query.getCompareTo().size()>=1) {
 					html.append("compare to range from ");
-					html.append("<input type='date' name='compareTo' value='"+getFieldValue(query.getCompareframe()[0])+"'>");
+					html.append("<input type='date' name='compareTo' value='"+getFieldValue(query.getCompareTo().get(0))+"'>");
 					html.append(" to ");
-					html.append("<input type='date' name='compareTo' value='"+getFieldValue(query.getCompareframe()[1])+"'>");
+					html.append("<input type='date' name='compareTo' value='"+getFieldValue(query.getCompareTo().get(1))+"'>");
 				}
 			} else {
 				html.append("compare to <input type='text' name='compareTo' value=''>");
@@ -2654,7 +2662,11 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		for (Axis axis : space.A()) {
 			try {
 				DimensionIndex index = axis.getIndex();
-				html.append("<span style='display: inline-block;border:1px solid;border-radius:5px;background-color:LavenderBlush ;margin:1px;'>&nbsp;'"+index.getDimensionName()+"'&nbsp;</span>");
+				html.append("<span style='display: inline-block;border:1px solid;border-radius:5px;background-color:LavenderBlush ;margin:1px;'");
+				if (axis.getDescription()!=null) {
+					html.append("title='"+axis.getDescription()+"'");
+				}
+				html.append(">&nbsp;'"+index.getDimensionName()+"'&nbsp;</span>");
 			} catch (Exception e) {
 				// ignore
 			}
@@ -2664,7 +2676,11 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		try {
 			for (Metric metric : space.getMetrics()) {
 				if (!metric.isDynamic()) {
-					html.append("<span style='display: inline-block;border:1px solid;border-radius:5px;background-color:Lavender;margin:1px;'>&nbsp;'"+metric.getName()+"'&nbsp;</span>");
+					html.append("<span style='display: inline-block;border:1px solid;border-radius:5px;background-color:Lavender;margin:1px;'");
+					if (metric.getDescription()!=null) {
+						html.append("title='"+metric.getDescription()+"'");
+					}
+					html.append(">&nbsp;'"+metric.getName()+"'&nbsp;</span>");
 				}
 			}
 		} catch (ScopeException e) {
@@ -2729,8 +2745,8 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 				builder.queryParam(TIMEFRAME_PARAM, item);
 			}
 		}
-		if (query.getCompareframe()!=null) {
-			for (String item : query.getCompareframe()) {
+		if (query.getCompareTo()!=null) {
+			for (String item : query.getCompareTo()) {
 				builder.queryParam(COMPARETO_PARAM, item);
 			}
 		}
@@ -2807,8 +2823,6 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 					(stop - start), job.getId().getProjectId());
 			queryLog.setError(false);
 			PerfDB.INSTANCE.save(queryLog);
-			DataTable res = datamatrix.toDataTable(ctx, maxResults, startIndex, false, job.getOptionKeys());
-			logger.debug("Is result set in REDIS complete? " + res.getFullset());
 			return datamatrix;
 		}
 	}
