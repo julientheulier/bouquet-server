@@ -1076,9 +1076,8 @@ public class DataMatrix {
 										}
 									}
 								}
-								values[colIdx++] = value;
 							}
-
+							values[colIdx++] = value;
 						}
 					}
 				}
