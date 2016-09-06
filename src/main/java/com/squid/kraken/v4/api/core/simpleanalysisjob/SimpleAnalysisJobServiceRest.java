@@ -50,7 +50,6 @@ import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.squid.core.domain.DomainNumericConstant;
 import com.squid.core.domain.IDomain;
 import com.squid.core.domain.sort.DomainSort;
 import com.squid.core.domain.sort.DomainSort.SortDirection;
@@ -171,11 +170,9 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 			analysis.setFilters(Arrays.asList(filterExpressions));
 		}
 		if ((orderExpressions != null) && (orderExpressions.length > 0)) {
-			List<OrderBy> orders = new ArrayList<OrderBy>();
+			List<String> orders = new ArrayList<String>();
 			for (int i = 0; i < orderExpressions.length; i++) {
-				OrderBy order = new OrderBy();
-				order.setExpression(new Expression(orderExpressions[i]));
-				orders.add(order);
+				orders.add(orderExpressions[i]);
 			}
 			analysis.setOrderBy(orders);
 		}
@@ -309,7 +306,8 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 				analysis.setMetrics(metrics);
 			}
 			if (analysis.getOrderBy() == null) {
-				analysis.setOrderBy(config.getOrderBy());
+				// T1864: disabling this feature
+				//analysis.setOrderBy(config.getOrderBy());
 			}
 			if (analysis.getRollups() == null) {
 				analysis.setRollups(config.getRollups());
@@ -436,6 +434,8 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 		List<OrderBy> orderBy = new ArrayList<>();
 		int pos = 1;
 		if (analysis.getOrderBy() != null) {
+			// T1864: disabling this feature
+			/*
 			for (OrderBy order : analysis.getOrderBy()) {
 				if (order.getExpression() != null) {
 					// let's try to parse it
@@ -475,6 +475,7 @@ public class SimpleAnalysisJobServiceRest extends BaseServiceRest {
 				}
 				pos++;
 			}
+			*/
 		}
 		// handle rollup - fix indexes
 		pos = 1;

@@ -75,7 +75,6 @@ import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.Operator;
 import com.squid.core.expression.PrettyPrintOptions;
 import com.squid.core.expression.PrettyPrintOptions.ReferenceStyle;
-import com.squid.core.expression.scope.ExpressionDiagnostic;
 import com.squid.core.expression.scope.ExpressionMaker;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.core.poi.ExcelFile;
@@ -135,6 +134,7 @@ import com.squid.kraken.v4.model.AnalyticsQuery;
 import com.squid.kraken.v4.model.AnalyticsQueryImpl;
 import com.squid.kraken.v4.model.AnalyticsReply;
 import com.squid.kraken.v4.model.AnalyticsResult;
+import com.squid.kraken.v4.model.AnalyticsResult.Info;
 import com.squid.kraken.v4.model.Bookmark;
 import com.squid.kraken.v4.model.BookmarkConfig;
 import com.squid.kraken.v4.model.BookmarkFolderPK;
@@ -162,6 +162,8 @@ import com.squid.kraken.v4.model.NavigationQuery;
 import com.squid.kraken.v4.model.NavigationReply;
 import com.squid.kraken.v4.model.NavigationResult;
 import com.squid.kraken.v4.model.ObjectType;
+import com.squid.kraken.v4.model.Problem;
+import com.squid.kraken.v4.model.Problem.Severity;
 import com.squid.kraken.v4.model.Project;
 import com.squid.kraken.v4.model.ProjectAnalysisJob;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.Direction;
@@ -186,16 +188,16 @@ import com.squid.kraken.v4.vegalite.VegaliteSpecs.*;
  * @author sergefantino
  *
  */
-public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceConstants {
+public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 
 	static final Logger logger = LoggerFactory
-			.getLogger(BookmarkAnalysisServiceBaseImpl.class);
+			.getLogger(AnalyticsServiceBaseImpl.class);
 
 	//private UriInfo uriInfo = null;
 	
 	private URI publicBaseUri = null;
 	
-	protected BookmarkAnalysisServiceBaseImpl(UriInfo uriInfo) {
+	protected AnalyticsServiceBaseImpl(UriInfo uriInfo) {
 		//this.uriInfo = uriInfo;
 		this.publicBaseUri = getPublicBaseUri(uriInfo);
 	}
@@ -490,6 +492,14 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		return builder.build(domain.getId().getProjectId(), domain.getOid());
 	}
 	
+	private URI createObjectLink(AppContext userContext, NavigationQuery query, Bookmark bookmark) {
+		UriBuilder builder = 
+				getPublicBaseUriBuilder().path("/rs/projects/{projectID}/bookmarks/{domainID}");
+		if (query.getStyle()!=null) builder.queryParam(STYLE_PARAM, query.getStyle());
+		builder.queryParam("access_token", userContext.getToken().getOid());
+		return builder.build(bookmark.getId().getProjectId(), bookmark.getOid());
+	}
+	
 	/**
 	 * @param userContext
 	 * @param projectRef
@@ -600,6 +610,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 					if (query.getStyle()==Style.HUMAN || query.getStyle()==Style.HTML) {
 						item.setLink(createLinkToAnalysis(userContext, query, item));
 						item.setViewLink(createLinkToView(userContext, query, item));
+						item.setObjectLink(createObjectLink(userContext, query, bookmark));
 					}
 					HashMap<String, String> attrs = new HashMap<>();
 					attrs.put("dictionary", project.getName());
@@ -898,6 +909,11 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 			)
 	{
 		try {
+			//
+			if (envelope==null) {
+				envelope = computeEnvelope(query);
+			}
+			//
 			Space space = getSpace(userContext, BBID);
 			//
 			Bookmark bookmark = space.getBookmark();
@@ -954,7 +970,9 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 					} else {
 						IDataMatrixConverter<Object[]> converter = getConverter(data);
 						AnalyticsResult result = new AnalyticsResult();
-						result.setData(converter.convert(matrix));
+						Object[] output = converter.convert(query, matrix);
+						result.setData(output);
+						result.setInfo(getAnalyticsResultInfo(output.length, query.getStartIndex(), matrix));
 						reply.setResult(result);
 					}
 				} catch (NotInCacheException e) {
@@ -964,17 +982,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 						throw e;
 					}
 				} catch (ExecutionException e) {
-					Throwable previous = e;
-					Throwable last = e;
-					while (last.getCause()!=null) {
-						previous = last;
-						last = last.getCause();
-					}
-					if (previous.getMessage()!=null) {
-						throwAPIException(previous);
-					} else {
-						throwAPIException(last);
-					}
+					throwCauseException(e);
 				} catch (TimeoutException e) {
 					if (query.getStyle()==Style.HUMAN || query.getStyle()==Style.HTML) {
 						URI link = getPublicBaseUriBuilder().path("/status/{queryID}").queryParam("access_token", userContext.getToken().getOid()).build(query.getQueryID());
@@ -984,20 +992,10 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 					}
 				}
 			}
-			//
-			if (envelope==null) {
-				if (query.getStyle()==Style.HUMAN || query.getStyle()==Style.HTML) {
-					envelope = "RESULT";
-				} else if (query.getStyle()==Style.LEGACY) {
-					envelope = "RESULT";
-				} else {//MACHINE
-					envelope = "ALL";
-				}
-			}
 			if (query.getStyle()==Style.HTML && data.equalsIgnoreCase("SQL")) {
 					return createHTMLsql(reply.getResult().toString());
 			} else if (query.getStyle()==Style.HTML && data.equalsIgnoreCase("LEGACY")) {
-					return createHTMLtable(space, (DataTable)reply.getResult());
+					return createHTMLtable(space, query, (DataTable)reply.getResult());
 			} else if (envelope.equalsIgnoreCase("ALL")) {
 				return Response.ok(reply).build();
 			} else if (envelope.equalsIgnoreCase("RESULT")) {
@@ -1018,6 +1016,34 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 			throw new APIException(e.getMessage(), true);
 		}
 	}
+	
+	/**
+	 * Try to find the most relevant exception in the stack
+	 * @param the execution exception
+	 */
+	private void throwCauseException(ExecutionException e) {
+		Throwable previous = e;
+		Throwable last = e;
+		while (last.getCause()!=null) {
+			previous = last;
+			last = last.getCause();
+		}
+		if (previous.getMessage()!=null) {
+			throwAPIException(previous);
+		} else {
+			throwAPIException(last);
+		}
+	}
+
+	private String computeEnvelope(AnalyticsQuery query) {
+		if (query.getStyle()==Style.HUMAN || query.getStyle()==Style.HTML) {
+			return "ALL";
+		} else if (query.getStyle()==Style.LEGACY) {
+			return "RESULT";
+		} else {//MACHINE
+			return "ALL";
+		}
+	}
 
 	/**
 	 * @param previous
@@ -1035,10 +1061,13 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 	 * @param dataTable 
 	 * @return
 	 */
-	private Response createHTMLtable(Space space, DataTable data) {
+	private Response createHTMLtable(Space space, AnalyticsQuery query, DataTable data) {
 		String title = createHTMLtitle(space);
 		StringBuilder html = new StringBuilder("<html><title>Query: "+title+"</title><body>");
 		html.append("<h1>"+title+"</h1>");
+		createHTMLproblems(html, query);
+		html.append("<form>");
+		createHTMLfilters(html, query);
 		html.append("<table><tr>");
 		for (Col col : data.getCols()) {
 			html.append("<th>"+col.getName()+"</th>");
@@ -1060,16 +1089,80 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 			html.append("</tr>");
 		}
 		html.append("</table>");
-		html.append("<p>rows from "+(data.getStartIndex()+1)+" to "+data.getStartIndex()+data.getRows().size()+" out of "+data.getTotalSize()+" records</p>");
-		if (data.isFromCache()) {
-			html.append("<p>data from cache, last computed "+data.getExecutionDate()+"</p>");
-		} else {
-			html.append("<p>fresh data just computed at "+data.getExecutionDate()+"</p>");
-		}
+		createHTMLpagination(html, data);
+		html.append("<table>");
+		html.append("<tr><td>groupBy</td><td>");
+		createHTMLinputArray(html, "text", "groupBy", query.getGroupBy());
+		html.append("</td></tr>");
+		html.append("<tr><td>metrics</td><td>");
+		createHTMLinputArray(html, "text", "metrics", query.getMetrics());
+		html.append("</td></tr>");
+		html.append("<tr><td>orderBy</td><td>");
+		createHTMLinputArray(html, "text", "orderBy", query.getOrderBy());
+		html.append("</td></tr>");
+		html.append("<tr><td>limit</td><td>");
+		html.append("<input type=\"text\" name=\"limit\" value=\""+getFieldValue(query.getLimit())+"\">");
+		html.append("</td></tr>");
+		html.append("</table>"
+				+ "<input type=\"hidden\" name=\"style\" value=\"HTML\">"
+				+ "<input type=\"hidden\" name=\"access_token\" value=\""+space.getUniverse().getContext().getToken().getOid()+"\">"
+				+ "<input type=\"submit\" value=\"Refresh\">"
+				+ "</form>");
+		createHTMLscope(html, space);
 		html.append("<hr>powered by Open Bouquet");
 		html.append("<p>the OB Analytics API provides more parameters... check <a target='swagger' href='http://swagger.squidsolutions.com/#!/analytics/runAnalysis'>swagger UI</a> for details</p>");
 		html.append("</body></html>");
 		return Response.ok(html.toString(),"text/html").build();
+	}
+	
+	private void createHTMLinputArray(StringBuilder html, String type, String name, List<? extends Object> values) {
+		if (values==null || values.isEmpty()) {
+			html.append("<input type=\""+type+"\" size=100 name=\""+name+"\" value=\"\" placeholder=\"type formula\">");
+		} else {
+			boolean first = true;
+			for (Object value : values) {
+				if (!first) html.append("<br>"); else first=false;
+				html.append("<input type=\""+type+"\" size=100 name=\""+name+"\" value=\""+getFieldValue(value.toString())+"\">");
+			}
+			if (!first) html.append("<br>");
+			html.append("<input type=\""+type+"\" size=100 name=\""+name+"\" value=\"\" placeholder=\"type formula\">");
+		}
+	}
+	
+	private String createHTMLpagination(StringBuilder html, DataTable data) {
+		html.append("<p>rows from "+(data.getStartIndex()+1)+" to "+(data.getStartIndex()+data.getRows().size())+" out of "+data.getTotalSize()+" records");
+		if (data.getFullset()) {
+			html.append(" (the query is complete)");
+		} else {
+			html.append(" (the query has more data)");
+		}
+		html.append("</p>");
+		if (data.isFromSmartCache()) {
+			html.append("<p>data from smart-cache, last computed "+data.getExecutionDate()+"</p>");
+		} else if (data.isFromCache()) {
+			html.append("<p>data from cache, last computed "+data.getExecutionDate()+"</p>");
+		} else {
+			html.append("<p>fresh data just computed at "+data.getExecutionDate()+"</p>");
+		}
+		return html.toString();
+	}
+	
+	private String createHTMLpagination(StringBuilder html, Info info) {
+		html.append("<p>rows from "+(info.getStartingIndex()+1)+" to "+(info.getStartingIndex()+info.getPageSize())+" out of "+info.getTotalSize()+" records");
+		if (info.isComplete()) {
+			html.append(" (the query is complete)");
+		} else {
+			html.append(" (the query has more data)");
+		}
+		html.append("</p>");
+		if (info.isFromSmartCache()) {
+			html.append("<p>data from smart-cache, last computed "+info.getExecutionDate()+"</p>");
+		} else if (info.isFromCache()) {
+			html.append("<p>data from cache, last computed "+info.getExecutionDate()+"</p>");
+		} else {
+			html.append("<p>fresh data just computed at "+info.getExecutionDate()+"</p>");
+		}
+		return html.toString();
 	}
 
 	/**
@@ -1112,7 +1205,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 			//
 			final OutputFormat outFormat;
 			if (fileext == null) {
-				outFormat = OutputFormat.JSON;
+				outFormat = OutputFormat.CSV;
 			} else {
 				outFormat = OutputFormat.valueOf(fileext.toUpperCase());
 			}
@@ -1125,6 +1218,9 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 			}
 			
 			final ExportSourceWriter writer = getWriter(outFormat);
+			if (writer==null) {
+				throw new APIException("unable to handle the format='"+outFormat+"'", true);
+			}
 
 			StreamingOutput stream = new StreamingOutput() {
 				@Override
@@ -1238,17 +1334,24 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		if (query.getFilters() != null) {
 			Facet segment = SegmentManager.newSegmentFacet(domain);
 			for (String filter : query.getFilters()) {
-				ExpressionAST filterExpr = scope.parseExpression(filter);
-				if (!filterExpr.getImageDomain().isInstanceOf(IDomain.CONDITIONAL)) {
-					throw new ScopeException("invalid filter, must be a condition");
-				}
-				Facet facet = createFacet(filterExpr);
-				if (facet!=null) {
-					selection.getFacets().add(facet);
-				} else {
-					// use open-filter
-					FacetMemberString openFilter = SegmentManager.newOpenFilter(filterExpr, filter);
-					segment.getSelectedItems().add(openFilter);
+				filter = filter.trim();
+				if (!filter.equals("")) {
+					try {
+						ExpressionAST filterExpr = scope.parseExpression(filter);
+						if (!filterExpr.getImageDomain().isInstanceOf(IDomain.CONDITIONAL)) {
+							throw new ScopeException("invalid filter, must be a condition");
+						}
+						Facet facet = createFacet(filterExpr);
+						if (facet!=null) {
+							selection.getFacets().add(facet);
+						} else {
+							// use open-filter
+							FacetMemberString openFilter = SegmentManager.newOpenFilter(filterExpr, filter);
+							segment.getSelectedItems().add(openFilter);
+						}
+					} catch (ScopeException e) {
+						query.add(new Problem(Severity.ERROR, filter, "invalid filter definition: \n"+e.getMessage(), e));
+					}
 				}
 			}
 			if (!segment.getSelectedItems().isEmpty()) {
@@ -1310,12 +1413,12 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		return facet;
 	}
 
-	private ProjectAnalysisJob createAnalysisJob(Universe universe, AnalyticsQuery analysis, FacetSelection selection, OutputFormat format) throws ScopeException {
+	private ProjectAnalysisJob createAnalysisJob(Universe universe, AnalyticsQuery query, FacetSelection selection, OutputFormat format) throws ScopeException {
 		// read the domain reference
-		if (analysis.getDomain() == null) {
+		if (query.getDomain() == null) {
 			throw new ScopeException("incomplete specification, you must specify the data domain expression");
 		}
-		Domain domain = getDomain(universe, analysis.getDomain());
+		Domain domain = getDomain(universe, query.getDomain());
 		AccessRightsUtils.getInstance().checkRole(universe.getContext(), domain, AccessRight.Role.READ);
 		// the rest of the ACL is delegated to the AnalysisJob
 		Space root = universe.S(domain);
@@ -1333,8 +1436,8 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 															// analysisJob
 															// indexes
 		HashSet<Integer> metricSet = new HashSet<>();// mark metrics
-		if ((analysis.getGroupBy() == null || analysis.getGroupBy().isEmpty())
-		&& (analysis.getMetrics() == null || analysis.getMetrics().isEmpty())) {
+		if ((query.getGroupBy() == null || query.getGroupBy().isEmpty())
+		&& (query.getMetrics() == null || query.getMetrics().isEmpty())) {
 			throw new ScopeException("there is no defined facet, can't run the analysis");
 		}
 		// now we are going to use the domain Space scope
@@ -1342,78 +1445,68 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		SpaceScope scope = new SpaceScope(universe.S(domain));
 		// quick fix to support the old facet mechanism
 		ArrayList<String> analysisFacets = new ArrayList<>();
-		if (analysis.getGroupBy()!=null) analysisFacets.addAll(analysis.getGroupBy());
-		if (analysis.getMetrics()!=null) analysisFacets.addAll(analysis.getMetrics());
+		if (query.getGroupBy()!=null) analysisFacets.addAll(query.getGroupBy());
+		if (query.getMetrics()!=null) analysisFacets.addAll(query.getMetrics());
 		for (String facet : analysisFacets) {
-			ExpressionAST colExpression = scope.parseExpression(facet);
-			IDomain image = colExpression.getImageDomain();
-			if (image.isInstanceOf(IDomain.AGGREGATE)) {
-				IDomain source = colExpression.getSourceDomain();
-				String name = colExpression.getName();// T1807
-				if (!source.isInstanceOf(DomainDomain.DOMAIN)) {
-					// need to add the domain
-					// check if it needs grouping?
-					if (colExpression instanceof Operator) {
-						Operator op = (Operator)colExpression;
-						if (op.getArguments().size()>1 && op.getOperatorDefinition().getPosition()!=OperatorDefinition.PREFIX_POSITION) {
-							colExpression = ExpressionMaker.GROUP(colExpression);
+			if (facet!=null && facet.length()>0) {// ignore empty values
+				ExpressionAST colExpression = scope.parseExpression(facet);
+				IDomain image = colExpression.getImageDomain();
+				if (image.isInstanceOf(IDomain.AGGREGATE)) {
+					IDomain source = colExpression.getSourceDomain();
+					String name = colExpression.getName();// T1807
+					if (!source.isInstanceOf(DomainDomain.DOMAIN)) {
+						// need to add the domain
+						// check if it needs grouping?
+						if (colExpression instanceof Operator) {
+							Operator op = (Operator)colExpression;
+							if (op.getArguments().size()>1 && op.getOperatorDefinition().getPosition()!=OperatorDefinition.PREFIX_POSITION) {
+								colExpression = ExpressionMaker.GROUP(colExpression);
+							}
 						}
+						// add the domain// relink with the domain
+						colExpression = ExpressionMaker.COMPOSE(new DomainReference(universe, domain), colExpression);
 					}
-					// add the domain// relink with the domain
-					colExpression = ExpressionMaker.COMPOSE(new DomainReference(universe, domain), colExpression);
+					// now it can be transformed into a measure
+					Measure m = universe.asMeasure(colExpression);
+					if (m == null) {
+						throw new ScopeException("cannot use expression='" + facet + "'");
+					}
+					Metric metric = new Metric();
+					metric.setExpression(new Expression(m.prettyPrint()));
+					if (name == null) {
+						name = m.getName();
+					}
+					metric.setName(name);
+					metrics.add(metric);
+					//
+					lookup.put(facetCount, legacyMetricCount++);
+					metricSet.add(facetCount);
+					facetCount++;
+				} else {
+					// it's a dimension
+					Axis axis = root.getUniverse().asAxis(colExpression);
+					if (axis == null) {
+						throw new ScopeException("cannot use expression='" + colExpression.prettyPrint() + "'");
+					}
+					facets.add(new FacetExpression(axis.prettyPrint(), axis.getName()));
+					//
+					lookup.put(facetCount, legacyFacetCount++);
+					facetCount++;
 				}
-				// now it can be transformed into a measure
-				Measure m = universe.asMeasure(colExpression);
-				if (m == null) {
-					throw new ScopeException("cannot use expression='" + facet + "'");
-				}
-				Metric metric = new Metric();
-				metric.setExpression(new Expression(m.prettyPrint()));
-				if (name == null) {
-					name = m.getName();
-				}
-				metric.setName(name);
-				metrics.add(metric);
-				//
-				lookup.put(facetCount, legacyMetricCount++);
-				metricSet.add(facetCount);
-				facetCount++;
-			} else {
-				// it's a dimension
-				Axis axis = root.getUniverse().asAxis(colExpression);
-				if (axis == null) {
-					throw new ScopeException("cannot use expression='" + colExpression.prettyPrint() + "'");
-				}
-				facets.add(new FacetExpression(axis.prettyPrint(), axis.getName()));
-				//
-				lookup.put(facetCount, legacyFacetCount++);
-				facetCount++;
 			}
 		}
 
 		// handle orderBy
 		List<OrderBy> orderBy = new ArrayList<>();
 		int pos = 1;
-		if (analysis.getOrderBy() != null) {
-			for (OrderBy order : analysis.getOrderBy()) {
-				if (order.getExpression() != null) {
+		if (query.getOrderBy() != null) {
+			for (String order : query.getOrderBy()) {
+				if (order != null && order.length()>0) {
 					// let's try to parse it
 					try {
-						ExpressionAST expr = scope.parseExpression(order.getExpression().getValue());
+						ExpressionAST expr = scope.parseExpression(order);
 						IDomain image = expr.getImageDomain();
 						Direction direction = getDirection(image);
-						if (direction != null) {
-							order.setDirection(direction);
-							if (expr instanceof Operator) {
-								Operator op = (Operator)expr;
-								String id = op.getOperatorDefinition().getExtendedID();
-								if (id.equals(SortOperatorDefinition.ASC_ID) || id.equals(SortOperatorDefinition.DESC_ID)) {
-									expr = op.getArguments().get(0);
-								}
-							}
-						} else {
-							direction = order.getDirection()!=null?order.getDirection():Direction.ASC;
-						} 
 						if (image.isInstanceOf(DomainNumericConstant.DOMAIN)) {
 							// it is a reference to the facets
 							DomainNumericConstant num = (DomainNumericConstant) image
@@ -1431,6 +1524,17 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 						} else {
 							// it's an expression which is now scoped into the bookmark
 							// but job is expecting it to be scoped in the universe... (OMG)
+							// also we must remove the sort operator to avoid nasty SQL error when generating the SQL
+							if (expr.getImageDomain().isInstanceOf(DomainSort.DOMAIN) && expr instanceof Operator) {
+								// remove the first operator
+								Operator op = (Operator)expr;
+								if (op.getArguments().size()==1 
+										&& (op.getOperatorDefinition().getExtendedID()==SortOperatorDefinition.ASC_ID
+										|| op.getOperatorDefinition().getExtendedID()==SortOperatorDefinition.DESC_ID)) 
+								{
+									expr = op.getArguments().get(0);
+								}
+							}
 							String universalExpression = rewriteExpressionToGlobalScope(expr, root);
 							orderBy.add(new OrderBy(new Expression(universalExpression), direction));
 						}
@@ -1444,9 +1548,9 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		}
 		// handle rollup - fix indexes
 		pos = 1;
-		if (analysis.getRollups() != null) {
-			for (RollUp rollup : analysis.getRollups()) {
-				if (rollup.getCol() > -1) {// ignore grand-total
+		if (query.getRollups() != null) {
+			for (RollUp rollup : query.getRollups()) {
+				if (rollup!=null && rollup.getCol() > -1) {// ignore grand-total
 					// can't rollup on metric
 					if (metricSet.contains(rollup.getCol())) {
 						throw new ScopeException(
@@ -1465,18 +1569,18 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 
 		// create the actual job
 		// - using the AnalysisQuery.getQueryID() as the job OID: this one is unique for a given query
-		ProjectAnalysisJobPK pk = new ProjectAnalysisJobPK(universe.getProject().getId(), analysis.getQueryID());
+		ProjectAnalysisJobPK pk = new ProjectAnalysisJobPK(universe.getProject().getId(), query.getQueryID());
 		ProjectAnalysisJob analysisJob = new ProjectAnalysisJob(pk);
 		analysisJob.setDomains(Collections.singletonList(domain.getId()));
 		analysisJob.setMetricList(metrics);
 		analysisJob.setFacets(facets);
 		analysisJob.setOrderBy(orderBy);
 		analysisJob.setSelection(selection);
-		analysisJob.setRollups(analysis.getRollups());
+		analysisJob.setRollups(query.getRollups());
 		analysisJob.setAutoRun(true);
 
 		// automatic limit?
-		if (analysis.getLimit() == null && format == OutputFormat.JSON) {
+		if (query.getLimit() == null && format == OutputFormat.JSON) {
 			int complexity = analysisJob.getFacets().size();
 			if (complexity < 4) {
 				analysisJob.setLimit((long) Math.pow(10, complexity + 1));
@@ -1484,18 +1588,23 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 				analysisJob.setLimit(100000L);
 			}
 		} else {
-			analysisJob.setLimit(analysis.getLimit());
+			analysisJob.setLimit(query.getLimit());
+		}
+		
+		// offset
+		if (query.getOffset()!=null) {
+			analysisJob.setOffset(query.getOffset());
 		}
 		
 		// beyond limit
-		if (analysis.getBeyondLimit()!=null && analysis.getBeyondLimit().length>0) {
-			if (analysis.getBeyondLimit().length==1) {
-				Index index = new Index(analysis.getBeyondLimit()[0]);
+		if (query.getBeyondLimit()!=null && query.getBeyondLimit().length>0) {
+			if (query.getBeyondLimit().length==1) {
+				Index index = new Index(query.getBeyondLimit()[0]);
 				analysisJob.setBeyondLimit(Collections.singletonList(index));
 			} else {
 				ArrayList<Index> indexes = new ArrayList<>();
-				for (int i=0;i<analysis.getBeyondLimit().length;i++) {
-					Index index = new Index(analysis.getBeyondLimit()[i]);
+				for (int i=0;i<query.getBeyondLimit().length;i++) {
+					Index index = new Index(query.getBeyondLimit()[i]);
 					indexes.add(index);
 				}
 				analysisJob.setBeyondLimit(indexes);
@@ -1533,7 +1642,12 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 			}
 		}
 		// else
-		return null;
+		// no desc | asc operator provided: use default
+		if (domain.isInstanceOf(IDomain.NUMERIC) || domain.isInstanceOf(IDomain.TEMPORAL)) {
+			return Direction.DESC;
+		} else { //if (image.isInstanceOf(IDomain.STRING)) {
+			return Direction.ASC;
+		} 
 	}
 	
 	private BookmarkConfig createBookmarkConfig(Space space, AnalyticsQuery query) throws ScopeException {
@@ -1566,9 +1680,10 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		//
 		if (query.getOrderBy() != null) {
 			config.setOrderBy(new ArrayList<OrderBy>());
-			for (OrderBy orderBy : query.getOrderBy()) {
-				String value = orderBy.getExpression().getValue();
-				OrderBy copy = new OrderBy(new Expression(query.getDomain()+".("+value+")"), orderBy.getDirection());
+			for (String orderBy : query.getOrderBy()) {
+				ExpressionAST expr = scope.parseExpression(orderBy);
+				Direction direction = getDirection(expr.getImageDomain());
+				OrderBy copy = new OrderBy(new Expression(rewriteExpressionToGlobalScope(expr, space)), direction);
 				config.getOrderBy().add(copy);
 			}
 		}
@@ -1586,43 +1701,44 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 	 * merge the bookmark config with the current query. It modifies the query. Query parameters take precedence over the bookmark config.
 	 * 
 	 * @param space
-	 * @param analysis
+	 * @param query
 	 * @param config
 	 * @throws ScopeException
 	 * @throws ComputingException
 	 * @throws InterruptedException
 	 */
-	private void mergeBoomarkConfig(Space space, AnalyticsQuery analysis, BookmarkConfig config) throws ScopeException, ComputingException, InterruptedException {
-		ReferenceStyle prettyStyle = getReferenceStyle(analysis.getStyle());
-		PrettyPrintOptions prettyOptions = new PrettyPrintOptions(prettyStyle, null);
+	private void mergeBoomarkConfig(Space space, AnalyticsQuery query, BookmarkConfig config) throws ScopeException, ComputingException, InterruptedException {
+		ReferenceStyle prettyStyle = getReferenceStyle(query.getStyle());
+		PrettyPrintOptions globalOptions = new PrettyPrintOptions(prettyStyle, null);
 		UniverseScope globalScope = new UniverseScope(space.getUniverse());
-		if (analysis.getDomain() == null) {
-			analysis.setDomain(space.prettyPrint(prettyOptions));
+		PrettyPrintOptions localOptions = new PrettyPrintOptions(prettyStyle, space.getTop().getImageDomain());
+		SpaceScope localScope = new SpaceScope(space);
+		if (query.getDomain() == null) {
+			query.setDomain(space.prettyPrint(globalOptions));
 		}
-		if (analysis.getLimit() == null) {
+		if (query.getLimit() == null) {
 			if (config!=null) {
-				analysis.setLimit(config.getLimit());
+				query.setLimit(config.getLimit());
 			}
 		}
 		// merging groupBy
-		boolean groupbyWildcard = isWildcard(analysis.getGroupBy());
-		if (analysis.getGroupBy() == null || groupbyWildcard) {
+		boolean groupbyWildcard = isWildcard(query.getGroupBy());
+		if (query.getGroupBy() == null || groupbyWildcard) {
 			List<String> groupBy = new ArrayList<String>();
 			if (config==null) {
 				// it is not a bookmark, then we will provide default select *
 				// only if there is nothing selected at all (groupBy & metrics)
 				// or user ask for it explicitly is wildcard
-				if (groupbyWildcard || analysis.getMetrics() == null) {
+				if (groupbyWildcard || query.getMetrics() == null) {
 					// use a default pivot selection...
 					// -- just list the content of the table
-					PrettyPrintOptions options = new PrettyPrintOptions(prettyStyle, space.getTop().getImageDomain());
 					for (Dimension dimension : space.getDimensions()) {
 						Axis axis = space.A(dimension);
 						try {
 							DimensionIndex index = axis.getIndex();
 							IDomain image = axis.getDefinitionSafe().getImageDomain();
 							if (index!=null && index.isVisible() && index.getStatus()!=Status.ERROR && !image.isInstanceOf(IDomain.OBJECT)) {
-								groupBy.add(axis.prettyPrint(options));
+								groupBy.add(axis.prettyPrint(localOptions));
 							}
 						} catch (ComputingException | InterruptedException e) {
 							// ignore this one
@@ -1635,22 +1751,25 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 					if (chosenDimension.startsWith("@")) {
 						// need to fix the scope
 						ExpressionAST expr = globalScope.parseExpression(chosenDimension);
-						f = rewriteExpressionToLocalScope(expr, space);
+						f = expr.prettyPrint(localOptions);//rewriteExpressionToLocalScope(expr, space);
 					} else {
-						f = "@'" + chosenDimension + "'";
+						// legacy support raw ID
+						// parse to validate and apply prettyPrint options
+						ExpressionAST expr = localScope.parseExpression("@'" + chosenDimension + "'");
+						f = expr.prettyPrint(localOptions);
 					}
 					groupBy.add(f);
 				}
 			}
 			if (groupbyWildcard) {
-				analysis.getGroupBy().remove(0);// remove the first one
-				groupBy.addAll(analysis.getGroupBy());// add reminding
+				query.getGroupBy().remove(0);// remove the first one
+				groupBy.addAll(query.getGroupBy());// add reminding
 			}
-			analysis.setGroupBy(groupBy);
+			query.setGroupBy(groupBy);
 		}
 		// merging Metrics
-		boolean metricWildcard = isWildcard(analysis.getMetrics());
-		if (analysis.getMetrics() == null || metricWildcard) {
+		boolean metricWildcard = isWildcard(query.getMetrics());
+		if (query.getMetrics() == null || metricWildcard) {
 			List<String> metrics = new ArrayList<>();
 			if (config==null) {
 				boolean someIntrinsicMetric = false;
@@ -1660,38 +1779,48 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 						IDomain image = measure.getDefinitionSafe().getImageDomain();
 						if (image.isInstanceOf(IDomain.AGGREGATE)) {
 							Measure m = space.M(metric);
-							metrics.add(rewriteExpressionToLocalScope(new MeasureExpression(m), space));
+							metrics.add((new MeasureExpression(m)).prettyPrint(localOptions));
+							//metrics.add(rewriteExpressionToLocalScope(new MeasureExpression(m), space));
 							someIntrinsicMetric = true;
 						}
 					}
 				}
 				if (!someIntrinsicMetric) {
-					metrics.add("count()");
+					metrics.add("count() // default metric");
 				}
 			} else if (config.getChosenMetrics() != null) {
 				for (String chosenMetric : config.getChosenMetrics()) {
-					metrics.add("@'" + chosenMetric + "'");
+					// parse to validate and reprint
+					ExpressionAST expr = localScope.parseExpression("@'" + chosenMetric + "'");
+					metrics.add(expr.prettyPrint(localOptions));
 				}
 			}
 			if (metricWildcard) {
-				analysis.getMetrics().remove(0);// remove the first one
-				metrics.addAll(analysis.getMetrics());// add reminding
+				query.getMetrics().remove(0);// remove the first one
+				metrics.addAll(query.getMetrics());// add reminding
 			}
-			analysis.setMetrics(metrics);
+			query.setMetrics(metrics);
 		}
-		if (analysis.getOrderBy() == null) {
+		if (query.getOrderBy() == null) {
 			if (config!=null && config.getOrderBy()!=null) {
-				analysis.setOrderBy(new ArrayList<OrderBy>());
+				query.setOrderBy(new ArrayList<String>());
 				for (OrderBy orderBy : config.getOrderBy()) {
 					ExpressionAST expr = globalScope.parseExpression(orderBy.getExpression().getValue());
-					OrderBy copy = new OrderBy(new Expression(rewriteExpressionToLocalScope(expr, space)), orderBy.getDirection());
-					analysis.getOrderBy().add(copy);
+					IDomain image = expr.getImageDomain();
+					if (!image.isInstanceOf(DomainSort.DOMAIN)) {
+						if (orderBy.getDirection()==Direction.ASC) {
+							expr = ExpressionMaker.ASC(expr);
+						} else {
+							expr = ExpressionMaker.DESC(expr);
+						}
+					}
+					query.getOrderBy().add(expr.prettyPrint(localOptions));
 				}
 			}
 		}
-		if (analysis.getRollups() == null) {
+		if (query.getRollups() == null) {
 			if (config!=null) {
-				analysis.setRollups(config.getRollups());
+				query.setRollups(config.getRollups());
 			}
 		}
 		//
@@ -1699,7 +1828,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		//
 		FacetSelection selection = config!=null?config.getSelection():new FacetSelection();
 		// handling the period
-		if (analysis.getPeriod()==null && config!=null && config.getPeriod()!=null && !config.getPeriod().isEmpty()) {
+		if (query.getPeriod()==null && config!=null && config.getPeriod()!=null && !config.getPeriod().isEmpty()) {
 			// look for this domain period
 			String domainID = space.getDomain().getOid();
 			String period = config.getPeriod().get(domainID);
@@ -1708,50 +1837,50 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 				IDomain image = expr.getImageDomain();
 				if (image.isInstanceOf(IDomain.TEMPORAL)) {
 					// ok, it's a date
-					analysis.setPeriod(rewriteExpressionToLocalScope(expr, space));
+					query.setPeriod(expr.prettyPrint(localOptions));
 				}
 			}
 		}
-		if (analysis.getPeriod()==null) {
+		if (query.getPeriod()==null) {
 			DomainHierarchy hierarchy = DomainHierarchyManager.INSTANCE.getHierarchy(space.getUniverse().getProject().getId(), space.getDomain(), false);
 			for (DimensionIndex index : hierarchy.getDimensionIndexes()) {
 				if (index.isVisible() && index.getDimension().getType().equals(Type.CONTINUOUS) && index.getAxis().getDefinitionSafe().getImageDomain().isInstanceOf(IDomain.TEMPORAL)) {
 					// use it as period
 					Axis axis = index.getAxis();
 					AxisExpression expr = new AxisExpression(axis);
-					analysis.setPeriod(rewriteExpressionToLocalScope(expr, space));
-					if (analysis.getTimeframe()==null) {
+					query.setPeriod(expr.prettyPrint(localOptions));
+					if (query.getTimeframe()==null) {
 						if (index.getStatus()==Status.DONE) {
-							analysis.setTimeframe(new String[]{"__CURRENT_MONTH"});
+							query.setTimeframe(new String[]{"__CURRENT_MONTH"});
 						} else {
-							analysis.setTimeframe(new String[]{"__ALL"});
+							query.setTimeframe(new String[]{"__ALL"});
 						}
 					}
 					// quit the loop!
 					break;
 				}
 			}
-			if (analysis.getPeriod()==null) {
+			if (query.getPeriod()==null) {
 				// nothing selected - double check and auto detect?
-				if (analysis.getTimeframe()!=null && analysis.getTimeframe().length>0) {
+				if (query.getTimeframe()!=null && query.getTimeframe().length>0) {
 					throw new APIException("No period defined: you cannot set the timeframe");
 				}
-				if (analysis.getCompareframe()!=null && analysis.getCompareframe().length>0) {
+				if (query.getCompareframe()!=null && query.getCompareframe().length>0) {
 					throw new APIException("No period defined: you cannot set the timeframe");
 				}
 			}
 		}
 		// handling the selection
-		boolean filterWildcard = isWildcardFilters(analysis.getFilters());
-		List<String> filters = analysis.getFilters()!=null?new ArrayList<>(analysis.getFilters()):new ArrayList<String>();
+		boolean filterWildcard = isWildcardFilters(query.getFilters());
+		List<String> filters = query.getFilters()!=null?new ArrayList<>(query.getFilters()):new ArrayList<String>();
 		if (filterWildcard) {
 			filters.remove(0); // remove the *
 		}
 		if (!selection.getFacets().isEmpty()) {// always iterate over selection at least to capture the period
 			boolean keepConfig = filterWildcard || filters.isEmpty();
 			String period = null;
-			if (analysis.getPeriod()!=null && analysis.getTimeframe()==null) {
-				period = analysis.getDomain()+"."+analysis.getPeriod();
+			if (query.getPeriod()!=null && query.getTimeframe()==null) {
+				period = query.getDomain()+"."+query.getPeriod();
 			}
 			// look for the selection
 			for (Facet facet : selection.getFacets()) {
@@ -1765,11 +1894,11 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 								String upperBound = ((FacetMemberInterval) timeframe).getUpperBound();
 								if (upperBound.startsWith("__")) {
 									// it's a shortcut
-									analysis.setTimeframe(new String[]{upperBound});
+									query.setTimeframe(new String[]{upperBound});
 								} else {
 									// it's a date
 									String lowerBound = ((FacetMemberInterval) timeframe).getLowerBound();
-									analysis.setTimeframe(new String[]{lowerBound,upperBound});
+									query.setTimeframe(new String[]{lowerBound,upperBound});
 								}
 							}
 						}
@@ -1787,13 +1916,25 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 									filters.add(formula);
 								} else {
 									// it's a segment name
-									filters.add("'"+member.getValue()+"'");
+									// check the ID
+									try {
+										if (member.getId().startsWith("@")) {
+											ExpressionAST seg = globalScope.parseExpression(member.getId());
+											filters.add(seg.prettyPrint(localOptions));
+										} else {
+											// use the name
+											ExpressionAST seg = globalScope.parseExpression("'"+member.getValue()+"'");
+											filters.add(seg.prettyPrint(localOptions));
+										}
+									} catch (ScopeException e) {
+										query.add(new Problem(Severity.ERROR, member.getId(), "Unable to parse segment with value='"+member+"'", e));
+									}
 								}
 							}
 						}
 					} else if (keepConfig) {
 						ExpressionAST expr = globalScope.parseExpression(facet.getId());
-						String  filter = rewriteExpressionToLocalScope(expr, space);
+						String  filter = expr.prettyPrint(localOptions);
 						if (facet.getSelectedItems().size()==1) {
 							if (facet.getSelectedItems().get(0) instanceof FacetMemberString) {
 								filter += "=";
@@ -1823,18 +1964,19 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 				}
 			}
 		}
-		analysis.setFilters(filters);
+		query.setFilters(filters);
 		//
 		// check timeframe again
-		if (analysis.getPeriod()!=null && (analysis.getTimeframe()==null || analysis.getTimeframe().length==0)) {
+		if (query.getPeriod()!=null && (query.getTimeframe()==null || query.getTimeframe().length==0)) {
 			// add a default timeframe
-			analysis.setTimeframe(new String[]{"__CURRENT_MONTH"});
+			query.setTimeframe(new String[]{"__CURRENT_MONTH"});
 		}
 	}
 	
 	private PrettyPrintOptions.ReferenceStyle getReferenceStyle(Style style) {
 		switch (style) {
 		case HUMAN:
+		case HTML:
 			return ReferenceStyle.NAME;
 		case LEGACY:
 			return ReferenceStyle.LEGACY;
@@ -1860,19 +2002,6 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		} else {
 			return false;// only return true if it is a real wildcard
 		}
-	}
-	
-	/**
-	 * rewrite a global expression (scope into the universe) to a local expression scoped to the given Space
-	 * @param expr
-	 * @param scope
-	 * @return
-	 * @throws ScopeException
-	 */
-	private String rewriteExpressionToLocalScope(ExpressionAST expr, Space space) throws ScopeException {
-		ReferenceStyle style = ReferenceStyle.LEGACY;
-		PrettyPrintOptions options = new PrettyPrintOptions(style, space.getTop().getImageDomain());
-		return expr.prettyPrint(options);
 	}
 	
 	/**
@@ -1917,7 +2046,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 			AnalyticsQuery query) throws ScopeException, ComputingException, InterruptedException {
 		Space space = getSpace(userContext, BBID);
 		//
-		if (data==null) data="URL";
+		if (data==null) data=style==Style.HTML?"EMBEDED":"URL";
 		boolean preFetch = true;// default to prefetch when data mode is URL
 		//
 		Bookmark bookmark = space.getBookmark();
@@ -2211,6 +2340,8 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 				(query.getLimit()==null || query.getLimit()>explicitLimit)) {
 			query.setLimit(explicitLimit);
 		}
+		final int startIndex = query.getStartIndex()!=null?query.getStartIndex():0;
+		final int maxResults = query.getMaxResults()!=null?query.getMaxResults():query.getLimit().intValue();
 		// beyond limit
 		if (outputConfig.isTimeseries()) {
 			query.setBeyondLimit(new int[]{outputConfig.getTimeseriesPosition()});
@@ -2218,10 +2349,35 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		// make sure we order by something
 		if (query.getOrderBy()==null || query.getOrderBy().size()==0) {
 			if (query.getMetrics().size()>0) {
-				ExpressionAST ast = outputConfig.parse(query.getMetrics().get(0));
-				query.setOrderBy(Collections.singletonList(new OrderBy(outputConfig.prettyPrint(ast), Direction.DESC)));
+				ExpressionAST m = outputConfig.parse(query.getMetrics().get(0));
+				query.setOrderBy(Collections.singletonList("desc("+outputConfig.prettyPrint(m)+")"));
 			} else {
-				query.setOrderBy(Collections.singletonList(new OrderBy("count()", Direction.DESC)));
+				query.setOrderBy(Collections.singletonList("desc(count())"));
+			}
+		} else {
+			// check orderBy
+			if (query.getMetrics().size()>0) {
+				ExpressionAST m = outputConfig.parse(query.getMetrics().get(0));
+				boolean check = false;
+				for (String orderBy : query.getOrderBy()) {
+					ExpressionAST o = outputConfig.parse(orderBy);
+					if (o.getImageDomain().isInstanceOf(DomainSort.DOMAIN) && o instanceof Operator) {
+						// remove the first operator
+						Operator op = (Operator)o;
+						if (op.getArguments().size()==1 
+								&& (op.getOperatorDefinition().getExtendedID()==SortOperatorDefinition.ASC_ID
+								|| op.getOperatorDefinition().getExtendedID()==SortOperatorDefinition.DESC_ID)) 
+						{
+							o = op.getArguments().get(0);
+						}
+					}
+					if (o.equals(m)) {
+						check = true;
+					}
+				}
+				if (!check) {
+					query.getOrderBy().add(0, "desc("+outputConfig.prettyPrint(m)+")");
+				}
 			}
 		}
 		//
@@ -2230,30 +2386,45 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		final ProjectAnalysisJob job = createAnalysisJob(space.getUniverse(), query, selection, OutputFormat.JSON);
 		//
 		// handling data
+		AnalyticsResult.Info info = null;
 		if (data.equals("EMBEDED")) {
-			DataMatrix table = compute(userContext, job, query.getMaxResults(), query.getStartIndex(), false);
+			DataMatrix matrix = compute(userContext, job, query.getMaxResults(), query.getStartIndex(), false);
 			if (!outputConfig.isHasMetricSeries()) {
-				specs.data = transformToVegaData(table, "RECORDS");
+				specs.data = transformToVegaData(query, matrix, "RECORDS");
 			} else {
-				specs.data = transformToVegaData(table, "TRANSPOSE");
+				specs.data = transformToVegaData(query, matrix, "TRANSPOSE");
 			}
+			int end = startIndex+maxResults;
+			if (end>matrix.getRows().size()) end=matrix.getRows().size();
+			info = getAnalyticsResultInfo(end-startIndex, startIndex, matrix);
 		} else if (data.equals("URL")) {
-			if (preFetch) {
+			if (preFetch || style==Style.HTML) {// always prefetch if HTML
 				// run the query
 				Callable<DataMatrix> task = new Callable<DataMatrix>() {
 					@Override
 					public DataMatrix call() throws Exception {
-						return compute(userContext, job, null, null, false);
+						return compute(userContext, job, maxResults, startIndex, false);
 					}
 				};
 				// execute the task, no need to wait for result
-				ExecutionManager.INSTANCE.submit(userContext.getCustomerId(), task);
+				Future<DataMatrix> future = ExecutionManager.INSTANCE.submit(userContext.getCustomerId(), task);
+				if (style==Style.HTML) {
+					// in that case we want to wait for the result in order to get data info
+					try {
+						DataMatrix matrix = future.get();
+						int end = startIndex+maxResults;
+						if (end>matrix.getRows().size()) end=matrix.getRows().size();
+						info = getAnalyticsResultInfo(end-startIndex, startIndex, matrix);
+					} catch (ExecutionException e) {
+						throwCauseException(e);
+					}
+				}
 			}
 			specs.data = new Data();
 			if (!outputConfig.isHasMetricSeries()) {
-				specs.data.url = buildAnalyticsQueryURI(userContext, outputConfig.getScope(), query, "RECORDS", "DATA").toString();
+				specs.data.url = buildAnalyticsQueryURI(userContext, outputConfig.getScope(), query, "RECORDS", "DATA", null/*default style*/).toString();
 			} else {
-				specs.data.url = buildAnalyticsQueryURI(userContext, outputConfig.getScope(), query, "TRANSPOSE", "DATA").toString();
+				specs.data.url = buildAnalyticsQueryURI(userContext, outputConfig.getScope(), query, "TRANSPOSE", "DATA", null/*default style*/).toString();
 			}
 			specs.data.format = new Format();
 			specs.data.format.type = FormatType.json;// lowercase only!
@@ -2271,8 +2442,13 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		reply.setQuery(query);
 		reply.setResult(specs);
 		//
+		if (envelope==null) {
+			envelope = computeEnvelope(query);
+		}
+		//
 		if (style!=null && style==Style.HTML) {
-			return createHTMLView(space, view, reply);
+			URI dataLink = buildAnalyticsQueryURI(userContext, outputConfig.getScope(), reply.getQuery(), "RECORDS", "ALL", Style.HTML);
+			return createHTMLView(space, view, info, reply, dataLink);
 		} else if (envelope==null || envelope.equals("") || envelope.equalsIgnoreCase("RESULT")) {
 			return Response.ok(reply.getResult(), MediaType.APPLICATION_JSON_TYPE.toString()).build();
 		} else if(envelope.equalsIgnoreCase("ALL")) {
@@ -2282,6 +2458,21 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		}
 	}
 	
+	/**
+	 * @param matrix
+	 * @return
+	 */
+	private Info getAnalyticsResultInfo(Integer pageSize, Integer startIndex, DataMatrix matrix) {
+		AnalyticsResult.Info info = new Info();
+		info.setFromCache(matrix.isFromCache());
+		info.setFromSmartCache(matrix.isFromSmartCache());// actually we don't know the origin, see T1851
+		info.setExecutionDate(matrix.getExecutionDate().toString());
+		info.setStartingIndex(startIndex);
+		info.setPageSize(pageSize);
+		info.setTotalSize(matrix.getRows().size());
+		return info;
+	}
+
 	private String createHTMLtitle(Space space) {
 		if (space.hasBookmark()) {
 			return space.getBookmark().getPath()+"/"+space.getBookmark().getName();
@@ -2291,7 +2482,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 	}
 	
 	private Response createHTMLlist(AppContext ctx, NavigationQuery query, NavigationResult result) {
-		String title = query.getParent().length()>0?query.getParent():"Root";
+		String title = (query.getParent()!=null && query.getParent().length()>0)?query.getParent():"Root";
 		StringBuilder html = new StringBuilder("<html><title>List: "+title+"</title><body>");
 		html.append("<h1>"+title+"</h1>");
 		//
@@ -2343,74 +2534,147 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		return Response.ok(html.toString(),"text/html").build();
 	}
 	
-	private Response createHTMLView(Space space, ViewQuery view, ViewReply reply) {
+	private Response createHTMLView(Space space, ViewQuery view, Info info, ViewReply reply, URI dataLink) {
 		String title = createHTMLtitle(space);
-		String html = "<html><title>View: "+title+"</title>\r\n";
+		StringBuilder html = new StringBuilder("<html><title>View: "+title+"</title>\r\n");
 		if (getPublicBaseUriBuilder().build().getScheme().equalsIgnoreCase("https")) {
-			html += "<script src=\"https://d3js.org/d3.v3.min.js\" charset=\"utf-8\"></script>\r\n<script src=\"https://vega.github.io/vega/vega.js\" charset=\"utf-8\"></script>\r\n<script src=\"https://vega.github.io/vega-lite/vega-lite.js\" charset=\"utf-8\"></script>\r\n<script src=\"https://vega.github.io/vega-editor/vendor/vega-embed.js\" charset=\"utf-8\"></script>\r\n\r\n";
+			html.append("<script src=\"https://d3js.org/d3.v3.min.js\" charset=\"utf-8\"></script>\r\n<script src=\"https://vega.github.io/vega/vega.js\" charset=\"utf-8\"></script>\r\n<script src=\"https://vega.github.io/vega-lite/vega-lite.js\" charset=\"utf-8\"></script>\r\n<script src=\"https://vega.github.io/vega-editor/vendor/vega-embed.js\" charset=\"utf-8\"></script>\r\n\r\n");
 		} else {
-			html += "<script src=\"http://d3js.org/d3.v3.min.js\" charset=\"utf-8\"></script>\r\n<script src=\"http://vega.github.io/vega/vega.js\" charset=\"utf-8\"></script>\r\n<script src=\"http://vega.github.io/vega-lite/vega-lite.js\" charset=\"utf-8\"></script>\r\n<script src=\"http://vega.github.io/vega-editor/vendor/vega-embed.js\" charset=\"utf-8\"></script>\r\n\r\n";
+			html.append("<script src=\"http://d3js.org/d3.v3.min.js\" charset=\"utf-8\"></script>\r\n<script src=\"http://vega.github.io/vega/vega.js\" charset=\"utf-8\"></script>\r\n<script src=\"http://vega.github.io/vega-lite/vega-lite.js\" charset=\"utf-8\"></script>\r\n<script src=\"http://vega.github.io/vega-editor/vendor/vega-embed.js\" charset=\"utf-8\"></script>\r\n\r\n");
 		}
-		html += "<body>\r\n<h1>"+title+"</h1>\r\n"
-				+ createHTMLfilters(reply.getQuery())
-				+ "<div id=\"vis\"></div>\r\n\r\n<script>\r\nvar embedSpec = {\r\n  mode: \"vega-lite\",\r\n  spec:";
-		ObjectMapper mapper = new ObjectMapper();
-		try {
-			html += mapper.writeValueAsString(reply.getResult());
-		} catch (JsonProcessingException e) {
-			throw new APIException("failed to write vegalite specs to JSON", e, true);
-		}
+		html.append("<body><h1>"+title+"</h1>");
+		createHTMLproblems(html, reply.getQuery());
+		html.append("<form>");
+		createHTMLfilters(html, reply.getQuery());
+		html.append("<div id=\"vis\"></div>\r\n\r\n<script>\r\nvar embedSpec = {\r\n  mode: \"vega-lite\", renderer:\"svg\",  spec:");
+		html.append(writeVegalightSpecs(reply.getResult()));
 		Encoding channels = reply.getResult().encoding;
-		html += "}\r\nvg.embed(\"#vis\", embedSpec, function(error, result) {\r\n  // Callback receiving the View instance and parsed Vega spec\r\n  // result.view is the View, which resides under the '#vis' element\r\n});\r\n</script>\r\n"
-				+ "<form>"
-				+ "<table>"
-				+ "<tr><td>x</td><td>=<input type=\"text\" name=\"x\" value=\""+getFieldValue(view.getX())+"\"></td><td>"+(channels.x!=null?"as <b>"+channels.x.field+"</b>":"")+"</td></tr>"
-				+ "<tr><td>y</td><td>=<input type=\"text\" name=\"y\" value=\""+getFieldValue(view.getY())+"\"></td><td>"+(channels.y!=null?"as <b>"+channels.y.field+"</b>":"")+"</td></tr>"
-				+ "<tr><td>color</td><td>=<input type=\"text\" name=\"color\" value=\""+getFieldValue(view.getColor())+"\"></td><td>"+(channels.color!=null?"as <b>"+channels.color.field+"</b>":"")+"</td></tr>"
-				+ "<tr><td>size</td><td>=<input type=\"text\" name=\"size\" value=\""+getFieldValue(view.getSize())+"\"></td><td>"+(channels.size!=null?"as <b>"+channels.size.field+"</b>":"")+"</td></tr>"
-				+ "<tr><td>column</td><td>=<input type=\"text\" name=\"column\" value=\""+getFieldValue(view.getColumn())+"\"></td><td>"+(channels.column!=null?"as <b>"+channels.column.field+"</b>":"")+"</td></tr>"
-				+ "<tr><td>row</td><td>=<input type=\"text\" name=\"row\" value=\""+getFieldValue(view.getRow())+"\"></td><td>"+(channels.row!=null?"as <b>"+channels.row.field+"</b>":"")+"</td></tr>"
+		html.append("}\r\nvg.embed(\"#vis\", embedSpec, function(error, result) {\r\n  // Callback receiving the View instance and parsed Vega spec\r\n  // result.view is the View, which resides under the '#vis' element\r\n});\r\n</script>\r\n");
+		createHTMLpagination(html, info);
+		if (dataLink!=null) {
+			html.append("<p><a href=\""+StringEscapeUtils.escapeHtml4(dataLink.toASCIIString())+"\">view query data</a></p>");
+		}
+		html.append("<table>"
+				+ "<tr><td>x</td><td>=<input type=\"text\" size=30 name=\"x\" value=\""+getFieldValue(view.getX())+"\"></td><td>"+(channels.x!=null?"as <b>"+channels.x.field+"</b>":"")+"</td></tr>"
+				+ "<tr><td>y</td><td>=<input type=\"text\" size=30 name=\"y\" value=\""+getFieldValue(view.getY())+"\"></td><td>"+(channels.y!=null?"as <b>"+channels.y.field+"</b>":"")+"</td></tr>"
+				+ "<tr><td>color</td><td>=<input type=\"text\" size=30 name=\"color\" value=\""+getFieldValue(view.getColor())+"\"></td><td>"+(channels.color!=null?"as <b>"+channels.color.field+"</b>":"")+"</td></tr>"
+				+ "<tr><td>size</td><td>=<input type=\"text\" size=30 name=\"size\" value=\""+getFieldValue(view.getSize())+"\"></td><td>"+(channels.size!=null?"as <b>"+channels.size.field+"</b>":"")+"</td></tr>"
+				+ "<tr><td>column</td><td>=<input type=\"text\" size=30 name=\"column\" value=\""+getFieldValue(view.getColumn())+"\"></td><td>"+(channels.column!=null?"as <b>"+channels.column.field+"</b>":"")+"</td></tr>"
+				+ "<tr><td>row</td><td>=<input type=\"text\" size=30 name=\"row\" value=\""+getFieldValue(view.getRow())+"\"></td><td>"+(channels.row!=null?"as <b>"+channels.row.field+"</b>":"")+"</td></tr>"
 				+ "</table>"
 				+ "<input type=\"hidden\" name=\"style\" value=\"HTML\">"
 				+ "<input type=\"hidden\" name=\"access_token\" value=\""+space.getUniverse().getContext().getToken().getOid()+"\">"
 				+ "<input type=\"submit\" value=\"Refresh\">"
-				+ "</form>"
-				+ "<hr>powered by Open Bouquet & VegaLite"
+				+ "</form>");
+		createHTMLscope(html, space);
+		html.append("<hr>powered by Open Bouquet & VegaLite"
 				+ "<p>the OB Analytics API provides more parameters... check <a target='swagger' href='http://swagger.squidsolutions.com/#!/analytics/viewAnalysis'>swagger UI</a> for details</p>"
-				+ "</body>\r\n</html>";
-		return Response.ok(html, "text/html; charset=UTF-8").build();
+				+ "</body>\r\n</html>");
+		return Response.ok(html.toString(), "text/html; charset=UTF-8").build();
 	}
 	
+	/**
+	 * @param result
+	 * @return
+	 */
+	private String writeVegalightSpecs(VegaliteSpecs specs) {
+		ObjectMapper mapper = new ObjectMapper();
+		try {
+			return mapper.writeValueAsString(specs);
+		} catch (JsonProcessingException e) {
+			throw new APIException("failed to write vegalite specs to JSON", e, true);
+		}
+	}
+	
+	/**
+	 * displays query problems
+	 * @param html
+	 * @param query
+	 */
+	private void createHTMLproblems(StringBuilder html, AnalyticsQuery query) {
+		if (query.getProblems()!=null && query.getProblems().size()>0) {
+			html.append("<div class='problems' style='border:1px solid red; background-color:lightpink;'>There are some problems with the query:");
+			for (Problem problem : query.getProblems()) {
+				html.append("<li>"+problem.getSeverity().toString()+": "+problem.getSubject()+": "+problem.getMessage()+"</li>");
+			}
+			html.append("</div>");
+		}
+	}
+
 	/**
 	 * create a filter HTML snippet
 	 * @param query
 	 * @return
 	 */
-	private String createHTMLfilters(AnalyticsQuery query) {
-		StringBuilder builder = new StringBuilder();
+	private void createHTMLfilters(StringBuilder html, AnalyticsQuery query) {
 		if (query.getPeriod()!=null) {
-			builder.append("<div class='period'>Selected Period: "+query.getPeriod()+" ");
+			html.append("<div class='period'>Selected Period: ");
+			html.append("<input type='text' size=30 name='period' value='"+getFieldValue(query.getPeriod())+"'> ");
 			if (query.getTimeframe()!=null) {
 				if (query.getTimeframe().length==1) {
-					builder.append("on "+query.getTimeframe()[0]);
+					html.append("on <input type='text' name='timeframe' value='"+getFieldValue(query.getTimeframe()[0])+"'>");
 				} else if (query.getTimeframe().length>=1) {
-					builder.append("from "+query.getTimeframe()[0]+" to "+query.getTimeframe()[1]+" ");
+					html.append("from ");
+					html.append("<input type='date' name='compareTo' value='"+getFieldValue(query.getTimeframe()[0])+"'>");
+					html.append(" to ");
+					html.append("<input type='date' name='compareTo' value='"+getFieldValue(query.getTimeframe()[1])+"'>");
 				}
+			} else {
+				html.append("on <input type='text' name='timeframe' value=''>");
 			}
 			if (query.getCompareframe()!=null) {
 				if (query.getCompareframe().length==1) {
-					builder.append("compare to "+query.getCompareframe()[0]);
+					html.append("compare to <input type='text' name='compareTo' value='"+getFieldValue(query.getCompareframe()[0])+"'>");
 				} else if (query.getCompareframe().length>=1) {
-					builder.append("compare to range from "+query.getCompareframe()[0]+" to "+query.getCompareframe()[1]+" ");
+					html.append("compare to range from ");
+					html.append("<input type='date' name='compareTo' value='"+getFieldValue(query.getCompareframe()[0])+"'>");
+					html.append(" to ");
+					html.append("<input type='date' name='compareTo' value='"+getFieldValue(query.getCompareframe()[1])+"'>");
 				}
+			} else {
+				html.append("compare to <input type='text' name='compareTo' value=''>");
 			}
-			builder.append("</div>");
+			html.append("</div>");
 		}
-		return builder.toString();
+		//
+		html.append("<div class='filters'>Filtering on: ");
+		if (query.getFilters()!=null && query.getFilters().size()>0) {
+			for (String filter : query.getFilters()) {
+				html.append("<input type='text' size=30 name='filters' value='"+getFieldValue(filter)+"'>");
+			}
+		} else {
+			html.append("<input type='text' size=30 name='filters' value=''>");
+		}
+		html.append("</div>");
 	}
 	
-	private String getFieldValue(String var) {
-		if (var==null) return ""; else return var;
+	private void createHTMLscope(StringBuilder html, Space space) {
+		html.append("<fieldset><legend>Query scope: <i>this is the list of objects you can combine to build expressions in the query</legend>");
+		html.append("<table><tr><td>GroupBy:</td><td>");
+		for (Axis axis : space.A()) {
+			try {
+				DimensionIndex index = axis.getIndex();
+				html.append("<span style='display: inline-block;border:1px solid;border-radius:5px;background-color:LavenderBlush ;margin:1px;'>&nbsp;'"+index.getDimensionName()+"'&nbsp;</span>");
+			} catch (Exception e) {
+				// ignore
+			}
+		}
+		html.append("</td></tr>");
+		html.append("<tr><td>Metrics:</td><td>");
+		try {
+			for (Metric metric : space.getMetrics()) {
+				if (!metric.isDynamic()) {
+					html.append("<span style='display: inline-block;border:1px solid;border-radius:5px;background-color:Lavender;margin:1px;'>&nbsp;'"+metric.getName()+"'&nbsp;</span>");
+				}
+			}
+		} catch (ScopeException e) {
+			// ignore
+		}
+		html.append("</td></tr></table></fieldset>");
+	}
+	
+	private String getFieldValue(Object var) {
+		if (var==null) return ""; else return var.toString().replaceAll("\"", "&quot;").replaceAll("'", "&#x27;");
 	}
 	
 	/**
@@ -2425,15 +2689,15 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 	protected URI buildExportURI(AppContext userContext, SpaceScope localScope, String BBID, AnalyticsQuery query, String filename) throws ScopeException {
 		UriBuilder builder = getPublicBaseUriBuilder().
 			path("/analytics/{"+BBID_PARAM_NAME+"}/export/{filename}");
-		addAnalyticsQueryParams(builder, localScope, query);
+		addAnalyticsQueryParams(builder, localScope, query, null);
 		builder.queryParam("access_token", userContext.getToken().getOid());
 		return builder.build(BBID, filename);
 	}
 	
-	private URI buildAnalyticsQueryURI(AppContext userContext, SpaceScope localScope, AnalyticsQuery query, String data, String envelope) throws ScopeException {
+	private URI buildAnalyticsQueryURI(AppContext userContext, SpaceScope localScope, AnalyticsQuery query, String data, String envelope, Style style) throws ScopeException {
 		UriBuilder builder = getPublicBaseUriBuilder().
 			path("/analytics/{"+BBID_PARAM_NAME+"}/query");
-		addAnalyticsQueryParams(builder, localScope, query);
+		addAnalyticsQueryParams(builder, localScope, query, style);
 		builder.queryParam(DATA_PARAM, data).queryParam(ENVELOPE_PARAM, envelope);
 		builder.queryParam("access_token", userContext.getToken().getOid());
 		return builder.build(query.getBBID());
@@ -2443,7 +2707,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 	 * @throws ScopeException 
 	 * 
 	 */
-	private void addAnalyticsQueryParams(UriBuilder builder, SpaceScope localScope, AnalyticsQuery query) throws ScopeException {
+	private void addAnalyticsQueryParams(UriBuilder builder, SpaceScope localScope, AnalyticsQuery query, Style style) throws ScopeException {
 		if (query.getGroupBy()!=null) {
 			for (String item : query.getGroupBy()) {
 				builder.queryParam(GROUP_BY_PARAM, item);
@@ -2471,16 +2735,8 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 			}
 		}
 		if (query.getOrderBy()!=null) {
-			for (OrderBy item : query.getOrderBy()) {
-				ExpressionAST check = localScope.parseExpression(item.getExpression().getValue());
-				IDomain image = check.getImageDomain();
-				if (!image.isInstanceOf(DomainSort.DOMAIN)) {
-					// need to add the sort function
-					String expr = item.getDirection()+"("+item.getExpression().getValue()+")";
-					builder.queryParam(ORDERBY_PARAM, expr);
-				} else {
-					builder.queryParam(ORDERBY_PARAM, item.getExpression().getValue());
-				}
+			for (String item : query.getOrderBy()) {
+				builder.queryParam(ORDERBY_PARAM, item);
 			}
 		}
 		if (query.getRollups()!=null) builder.queryParam(ROLLUP_PARAM, query.getRollups());
@@ -2493,13 +2749,15 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 		if (query.getMaxResults()!=null) builder.queryParam(MAX_RESULTS_PARAM, query.getMaxResults());
 		if (query.getStartIndex()!=null) builder.queryParam(START_INDEX_PARAM, query.getStartIndex());
 		if (query.getLazy()!=null) builder.queryParam(LAZY_PARAM, query.getLazy());
-		if (query.getStyle()!=null) builder.queryParam(STYLE_PARAM, query.getStyle());
+		if (style!=null) {
+			builder.queryParam(STYLE_PARAM, style);
+		} else if (query.getStyle()!=null) builder.queryParam(STYLE_PARAM, query.getStyle());
 	}
 	
-	private Data transformToVegaData(DataMatrix matrix, String format) {
+	private Data transformToVegaData(AnalyticsQuery query, DataMatrix matrix, String format) {
 		IDataMatrixConverter<Object[]> converter = getConverter(format);
 		Data data = new Data();
-		data.values = converter.convert(matrix);
+		data.values = converter.convert(query, matrix);
 		return data;
 	}
 	
@@ -2561,6 +2819,7 @@ public class BookmarkAnalysisServiceBaseImpl implements BookmarkAnalysisServiceC
 	 * list the execution status for a given analysis. Note: an analysis can spam multiple queries.
 	 * @param request
 	 * @param key
+	 * @param style 
 	 * @return
 	 */
 	public List<QueryWorkerJobStatus> getStatus(

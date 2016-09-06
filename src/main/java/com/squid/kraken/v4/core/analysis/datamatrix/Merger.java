@@ -231,6 +231,7 @@ public class Merger {
 	protected DataMatrix createMatrix() {
 		DataMatrix merge = new DataMatrix(left.getDatabase());
 		merge.setFromCache(left.isFromCache() && right.isFromCache());
+		merge.setFromSmartCache(left.isFromSmartCache() && right.isFromSmartCache());
 		merge.setExecutionDate(new Date(Math.max(left.getExecutionDate().getTime(), right.getExecutionDate().getTime())));
 		//
 		createMatrixAxes(merge);

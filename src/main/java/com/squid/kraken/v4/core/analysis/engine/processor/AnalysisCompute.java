@@ -273,6 +273,7 @@ public class AnalysisCompute {
 				}
 			}
 		}
+
 		// copy stuff
 		if (currentAnalysis.hasLimit())
 			compareToAnalysis.limit(currentAnalysis.getLimit());
@@ -421,8 +422,12 @@ public class AnalysisCompute {
 	private PeriodType computePeriodType(IDomain image) {
 		if (image.isInstanceOf(IDomain.YEARLY)) {
 			return PeriodType.years();
+		} else if (image.isInstanceOf(IDomain.QUATERLY)) {
+			return PeriodType.months();
 		} else if (image.isInstanceOf(IDomain.MONTHLY)) {
 			return PeriodType.months();
+		} else if (image.isInstanceOf(IDomain.WEEKLY)) {
+			return PeriodType.weeks();
 		} else {
 			return PeriodType.days();
 		}
@@ -524,7 +529,9 @@ public class AnalysisCompute {
 					}
 				}
 				long end = System.currentTimeMillis();
-				logger.info("HIT! get analysis from Smart Cache in "+(end-start)+"ms : "+request.getKey().getSQL());
+				logger.info("HIT! get analysis from Smart Cache in "+(end-start)+"ms");
+				// set the smart cache flag
+				dm.setFromSmartCache(true);
 				return dm;
 			} catch (Exception ee) {
 				// catch all, we don't want to fail here !
@@ -546,7 +553,7 @@ public class AnalysisCompute {
 		String SQL = query.render();// analysis signature for future use
 		// compute the signature: do it after generating the query to take into account side-effects
 		boolean smartCache = SUPPORT_SMART_CACHE && !analysis.hasRollup();
-		AnalysisSmartCacheRequest request = smartCache?new AnalysisSmartCacheRequest(universe, analysis, group, SQL):null;
+		AnalysisSmartCacheRequest smartCacheRequest = smartCache?new AnalysisSmartCacheRequest(universe, analysis, group, SQL):null;
 		boolean temporarySignature = false;
 		try {
 			// run the query using 1/ first the lazy, 2/ the samrt cache (if allowed) 3/ direct execution if not lazy
@@ -554,18 +561,19 @@ public class AnalysisCompute {
 				// always try lazy first
 				runQuery(query, true/*lazy*/, analysis, qw);
 			} catch (NotInCacheException e) {
-				if (request!=null) {
+				if (smartCacheRequest!=null) {
 					try {
-						return computeAnalysisSimpleForGroupFromSmartCache(analysis, request, qw, optimize);
+						return computeAnalysisSimpleForGroupFromSmartCache(analysis, smartCacheRequest, qw, optimize);
 					} catch (NotInCacheException ee) {
 						// ignore any error in smartCache
 					}
 				}
 				// still not yet, shall we run it?
 				if (!analysis.isLazy()) {
-					// if smart-cache enabled, lets keep a reference
-					if (request!=null) {
-						temporarySignature = AnalysisSmartCache.INSTANCE.put(request);
+					// if smart-cache enabled, lets keep a forward reference
+					// so other can use the smart-cache even if it is not yet computed
+					if (smartCacheRequest!=null) {
+						temporarySignature = AnalysisSmartCache.INSTANCE.put(smartCacheRequest);
 					}
 					runQuery(query, false, analysis, qw);
 				} else {
@@ -581,27 +589,32 @@ public class AnalysisCompute {
 				}
 			}
 			// if it is a full dataset and no rollup, store the layout in the intelligentCache
-			if (request!=null) {
+			if (smartCacheRequest!=null) {
 				if (dm.isFullset() && !analysis.hasRollup()) {
-					request.setRowCount(dm);// record the resultset size - so we know the resultset should be available
-					if (dm.isFromCache()) {
+					smartCacheRequest.setRowCount(dm);// record the resultset size - so we know the resultset should be available
+					if (dm.isFromCache() && !dm.isFromSmartCache()) {
 						// from cache, but is it still in the smartCache ?
-						if (!AnalysisSmartCache.INSTANCE.contains(request)) {
-							AnalysisSmartCache.INSTANCE.put(request);
+						if (!AnalysisSmartCache.INSTANCE.contains(smartCacheRequest)) {
+							AnalysisSmartCache.INSTANCE.put(smartCacheRequest);
 							logger.info("put analysis in Smart Cache");
 						}
 					} else {
 						// add to the smart cache
-						AnalysisSmartCache.INSTANCE.put(request);
+						AnalysisSmartCache.INSTANCE.put(smartCacheRequest);
 						logger.info("put analysis in Smart Cache");
 					}
 				}
 			}
 			return dm;
 		} finally {
-			if (request!=null && temporarySignature) {
+			if (smartCacheRequest!=null && temporarySignature) {
 				// make sure to remove the temporary signature from cache
-				AnalysisSmartCache.INSTANCE.remove(request);
+				//AnalysisSmartCache.INSTANCE.remove(smartCacheRequest);
+				AnalysisSmartCacheSignature sign = AnalysisSmartCache.INSTANCE.get(smartCacheRequest);
+				if (sign!=null && sign.getRowCount()<0) {
+					// this is the temporary entry
+					AnalysisSmartCache.INSTANCE.remove(smartCacheRequest);
+				}
 			}
 		}
 	}

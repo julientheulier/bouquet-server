@@ -55,6 +55,7 @@ import com.squid.kraken.v4.core.analysis.engine.query.mapping.MeasureMapping;
 import com.squid.kraken.v4.core.analysis.engine.query.mapping.QueryMapper;
 import com.squid.kraken.v4.core.analysis.model.DashboardSelection;
 import com.squid.kraken.v4.core.analysis.model.DomainSelection;
+import com.squid.kraken.v4.core.analysis.model.IntervalleObject;
 import com.squid.kraken.v4.core.analysis.model.OrderBy;
 import com.squid.kraken.v4.core.analysis.model.OrderByGrowth;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
@@ -91,10 +92,13 @@ public class DataMatrix {
 
 	private boolean fromCache = false;// true if the data come from the cache
 
+	private boolean fromSmartCache = false;// true if the data come from the
+											// cache via the smart cache
+
 	private Date executionDate = null;// when did we compute the data
 
 	private String redisKey;
-	
+
 	private List<MeasureValues> measures = new ArrayList<MeasureValues>();
 	private List<AxisValues> axes = new ArrayList<AxisValues>();
 
@@ -120,7 +124,9 @@ public class DataMatrix {
 	}
 
 	/**
-	 * create a matrix using the parent layout but with a new list of rows. Note that the parent 
+	 * create a matrix using the parent layout but with a new list of rows. Note
+	 * that the parent
+	 * 
 	 * @param db
 	 * @param rows
 	 */
@@ -207,7 +213,6 @@ public class DataMatrix {
 		// set rows
 		rows = rawMatrix.getRows();
 
-
 		// (T1057) disabling
 		/*
 		 * // index possible values for a dimension for (RawRow row :
@@ -218,31 +223,30 @@ public class DataMatrix {
 	}
 
 	public int getAxisIndirection(int i) {
-		if (this.axesIndirection!=null) {
+		if (this.axesIndirection != null) {
 			return this.axesIndirection[i];
 		} else {
-			return i;//identity
+			return i;// identity
 		}
 	}
 
-
-public int getDataIndirection(int i) {
-		if (this.dataIndirection!=null) {
+	public int getDataIndirection(int i) {
+		if (this.dataIndirection != null) {
 			return this.dataIndirection[i];
 		} else {
-			return i;//identity
+			return i;// identity
 		}
 	}
 
-/**
+	/**
 	 * return the DimensionMember for the ith axis
 	 * 
 	 * @param i
-
+	 * 
 	 * @return
 	 */
 	public Object getAxisValue(int i, RawRow row) {
-		if (this.dataIndirection!=null) {
+		if (this.dataIndirection != null) {
 			return row.data[axesIndirection[i]];
 		} else {
 			return row.data[i];// identity
@@ -250,7 +254,7 @@ public int getDataIndirection(int i) {
 	}
 
 	public int getRowSize() {
-		return this.axes.size()+this.measures.size();
+		return this.axes.size() + this.measures.size();
 	}
 
 	public int getAxesSize() {
@@ -258,10 +262,10 @@ public int getDataIndirection(int i) {
 	}
 
 	public Object getDataValue(int i, RawRow row) {
-		if (this.dataIndirection!=null) {
+		if (this.dataIndirection != null) {
 			return row.data[dataIndirection[i]];
 		} else {
-			return row.data[axes.size()+i];//identity
+			return row.data[axes.size() + i];// identity
 		}
 	}
 
@@ -287,6 +291,14 @@ public int getDataIndirection(int i) {
 
 	public void setFromCache(boolean fromCache) {
 		this.fromCache = fromCache;
+	}
+
+	public boolean isFromSmartCache() {
+		return fromSmartCache;
+	}
+
+	public void setFromSmartCache(boolean fromSmartCache) {
+		this.fromSmartCache = fromSmartCache;
 	}
 
 	public Date getExecutionDate() {
@@ -414,7 +426,7 @@ public int getDataIndirection(int i) {
 			if (!check) {
 
 				for (MeasureValues v : getKPIs()) {
-					
+
 					if (item instanceof OrderByGrowth) {
 						if (v.getMeasure().prettyPrint().equals(((OrderByGrowth) item).expr.getValue())) {
 							ordering.add(pos);
@@ -431,7 +443,7 @@ public int getDataIndirection(int i) {
 							check = true;
 							break;
 						}
-					pos++;
+						pos++;
 					}
 				}
 			}
@@ -473,8 +485,8 @@ public int getDataIndirection(int i) {
 	}
 
 	public void truncate(Long limitValue, Long offsetValue) {
-		int from = offsetValue!=null?((int) Math.max(0, offsetValue)):0;
-		int to = limitValue!=null?((int) Math.min(rows.size(), from + limitValue)):rows.size();
+		int from = offsetValue != null ? ((int) Math.max(0, offsetValue)) : 0;
+		int to = limitValue != null ? ((int) Math.min(rows.size(), from + limitValue)) : rows.size();
 		this.rows = this.rows.subList(from, to);// this is not a copy, just a
 												// view
 	}
@@ -491,7 +503,7 @@ public int getDataIndirection(int i) {
 		return merger.merge(true);
 	}
 
-	public DataMatrix filter(DashboardSelection selection) {
+	public DataMatrix filter(DashboardSelection selection) throws ScopeException {
 		return filter(selection, true);
 	}
 
@@ -502,8 +514,9 @@ public int getDataIndirection(int i) {
 	 * 
 	 * @param selection
 	 * @return
+	 * @throws ScopeException if cannot apply the filter on this matrix
 	 */
-	public DataMatrix filter(DashboardSelection selection, boolean nullIsValid) {
+	public DataMatrix filter(DashboardSelection selection, boolean nullIsValid) throws ScopeException {
 		// first issue: the meta-data are not set
 		if (getRows().isEmpty()) {
 			return this;// nothing left to filter
@@ -515,7 +528,6 @@ public int getDataIndirection(int i) {
 		for (DomainSelection domain : selection.get()) {
 			for (Axis axis : domain.getFilters()) {
 				// check if the axis is defined
-				// if (axis.getDimension().getType()==Type.CATEGORICAL) { //
 				// krkn-75, apply that damn filter please!
 				AxisValues axisData = getAxisColumn(axis);
 				if (axisData != null) {
@@ -530,8 +542,9 @@ public int getDataIndirection(int i) {
 						}
 						item.add(member);
 					}
+				} else {
+					throw new ScopeException("unable to apply the soft-filter on '"+axis.getName()+"' on this matrix");
 				}
-				// }
 			}
 		}
 		// ok, we are ready to iterate through the matrix now...
@@ -560,6 +573,8 @@ public int getDataIndirection(int i) {
 
 		public int index;
 		public HashSet<Object> items = new HashSet<Object>();
+
+		private boolean isInterval = false;
 		private boolean nullIsValid;
 
 		public ApplyFilterCondition(int index, boolean nullIsValid) {
@@ -568,14 +583,35 @@ public int getDataIndirection(int i) {
 		}
 
 		public boolean filter(RawRow row) {
-			// DimensionMember m = DataMatrix.this.getDimensionMember(row,
-			// index);//row.getAxisValue(DataMatrix.this,index);
 			Object m = getAxisValue(index, row);
-			return (m == null && this.nullIsValid) || (m != null && items.contains(m));
+			if (isInterval) {
+				if (m == null) {
+					return this.nullIsValid;
+				}
+				for (Object item : items) {
+					if (item instanceof IntervalleObject && m instanceof Date) {
+						IntervalleObject interval = (IntervalleObject) item;
+						if (interval.compareLowerBoundTo(m) <= 0 && interval.compareUpperBoundTo(m) >= 0) {
+							return true;
+						}
+					} else {
+						if (item.equals(m))
+							return true;
+					}
+				}
+				//
+				return false;
+			} else {
+				return (m == null && this.nullIsValid) || (m != null && items.contains(m));
+			}
 		}
 
 		public void add(DimensionMember filter) {
-			items.add(filter.getID());
+			Object value = filter.getID();
+			items.add(value);
+			if (value instanceof IntervalleObject) {
+				this.isInterval = true;
+			}
 		}
 
 		public boolean isEmpty() {
@@ -771,7 +807,8 @@ public int getDataIndirection(int i) {
 			for (int k = 0; k < getDataSize(); k++, i++) {
 				MeasureValues kpi = measures.get(k);
 				Object value = getDataValue(i, row);
-				output.append(kpi.getProperty().getName()).append("=").append(value != null ? value.toString() : "--").append(";");
+				output.append(kpi.getProperty().getName()).append("=").append(value != null ? value.toString() : "--")
+						.append(";");
 
 			}
 			//
@@ -795,7 +832,6 @@ public int getDataIndirection(int i) {
 			MeasureValues m = measures.get(i);
 			header.append(m.getProperty().getName()).append(";");
 
-
 		}
 		logger.info(header.toString());
 		// expot data
@@ -816,18 +852,19 @@ public int getDataIndirection(int i) {
 	}
 
 	/**
-
+	 * 
 	 * get the number of rows
+	 * 
 	 * @return
 	 */
 	public int getRowCount() {
-		return rows!=null?rows.size():0;
+		return rows != null ? rows.size() : 0;
 	}
-
 
 	private String computeFormat(Axis axis, ExtendedType type) {
 		IDomain image = axis.getDefinitionSafe().getImageDomain();
-		if (image.isInstanceOf(IDomain.NUMERIC)) return null;
+		if (image.isInstanceOf(IDomain.NUMERIC))
+			return null;
 		if (axis.getFormat() != null) {
 			return axis.getFormat();
 		} else {
@@ -856,15 +893,15 @@ public int getDataIndirection(int i) {
 			switch (type.getDataType()) {
 			case Types.INTEGER:
 			case Types.BIGINT:
-			case Types.DOUBLE:
 			case Types.SMALLINT:
 			case Types.TINYINT:
 				return "%,d";
+			case Types.DOUBLE:
 			case Types.DECIMAL:
 			case Types.FLOAT:
 			case Types.NUMERIC:
 				if (type.getScale() > 0) {
-					return "%,." + type.getScale() + "f";
+					return "%,.2f";
 				} else {
 					return "%,d";
 				}
@@ -886,23 +923,23 @@ public int getDataIndirection(int i) {
 		Object option = options.get("applyFormat");
 		return option != null ? option.equals(true) : false;
 	}
-	
+
 	public DataTable toDataTable(AppContext ctx, Integer maxResults, Integer startIndex, boolean replaceNullValues)
 			throws ComputingException {
 		return toDataTable(ctx, maxResults, startIndex, replaceNullValues, null);
 	}
-	
+
 	/**
 	 * convert the DataMatrix in a DataTable format that we can exchange through
 	 * the API
 	 * 
 	 * @param ctx
-
+	 * 
 	 * @return
 	 * @throws ComputingException
 	 */
-	public DataTable toDataTable(AppContext ctx, Integer maxResults, Integer startIndex, boolean replaceNullValues, Map<String, Object> options)
-			throws ComputingException {
+	public DataTable toDataTable(AppContext ctx, Integer maxResults, Integer startIndex, boolean replaceNullValues,
+			Map<String, Object> options) throws ComputingException {
 		DataTable table = new DataTable();
 
 		List<AxisValues> axes = this.getAxes();
@@ -996,6 +1033,8 @@ public int getDataIndirection(int i) {
 									value = String.format(format, value);
 								} catch (IllegalFormatException e) {
 									// ignore
+									logger.info(e.toString());
+
 								}
 							}
 							values[colIdx++] = value;
@@ -1014,12 +1053,32 @@ public int getDataIndirection(int i) {
 								try {
 									value = String.format(format, value);
 								} catch (IllegalFormatException e) {
-									// ignore
+									IDomain image = header.get(axes_count + i).getExtendedType().getDomain();
+									if (image.isInstanceOf(IDomain.NUMERIC)) {
+										if (value instanceof Number) {
+											// try to cast to a primitive value
+											// and format again
+											double dbValue = ((Number) value).doubleValue();
+											if (Math.floor(dbValue) == dbValue) {
+												long lgValue = (long) dbValue;
+												try {
+													value = String.format(format, lgValue);
+												} catch (IllegalFormatException e2) {
+													// ignore
+												}
+
+											} else {
+												try {
+													value = String.format(format, dbValue);
+												} catch (IllegalFormatException e2) {
+												}
+											}
+										}
+									}
 								}
 							}
 							values[colIdx++] = value;
 						}
-
 					}
 				}
 				//
@@ -1029,12 +1088,12 @@ public int getDataIndirection(int i) {
 		table.setStartIndex(startIndex);
 		table.setTotalSize(rows.size());
 		table.setFromCache(isFromCache());
+		table.setFromSmartCache(isFromSmartCache());
 		table.setExecutionDate(getExecutionDate());
 		table.setFullset(this.fullset);
 
 		return table;
 	}
-
 
 	private DataType getDataType(Axis axis) {
 		ExpressionAST expr = axis.getDefinitionSafe();
@@ -1055,7 +1114,6 @@ public int getDataIndirection(int i) {
 	private ExtendedType getExtendedType(ExpressionAST expr) {
 		return expr.computeType(this.database.getSkin());
 	}
-
 
 	public Map<Property, String> getPropertyToAlias() {
 		return this.propertyToAlias;

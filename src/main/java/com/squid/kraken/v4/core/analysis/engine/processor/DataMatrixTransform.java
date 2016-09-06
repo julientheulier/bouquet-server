@@ -23,6 +23,7 @@
  *******************************************************************************/
 package com.squid.kraken.v4.core.analysis.engine.processor;
 
+import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
 
 /**
@@ -37,7 +38,8 @@ public interface DataMatrixTransform {
 	 * apply the transformation to the matrix
 	 * @param input
 	 * @return
+	 * @throws ScopeException 
 	 */
-	public DataMatrix apply(DataMatrix input);
+	public DataMatrix apply(DataMatrix input) throws ScopeException;
 	
 }

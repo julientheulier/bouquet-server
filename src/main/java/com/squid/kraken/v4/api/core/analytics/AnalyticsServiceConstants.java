@@ -27,7 +27,7 @@ package com.squid.kraken.v4.api.core.analytics;
  * @author sergefantino
  *
  */
-public interface BookmarkAnalysisServiceConstants {
+public interface AnalyticsServiceConstants {
 
 	public final static String BBID_PARAM_NAME = "REFERENCE";
 	public final static String FACETID_PARAM_NAME = "FACETID";
@@ -37,10 +37,11 @@ public interface BookmarkAnalysisServiceConstants {
 	public static final String MAX_RESULTS_PARAM = "maxResults";
 	public static final String DATA_PARAM = "data";
 	public static final String LIMIT_PARAM = "limit";
+	public static final String OFFSET_PARAM = "offset";
 	public static final String ENVELOPE_PARAM = "envelope";
 	public static final String ROLLUP_PARAM = "rollup";
-	public static final String ORDERBY_PARAM = "orderby";
-	public static final String COMPARETO_PARAM = "compareto";
+	public static final String ORDERBY_PARAM = "orderBy";
+	public static final String COMPARETO_PARAM = "compareTo";
 	public static final String TIMEFRAME_PARAM = "timeframe";
 	public static final String PERIOD_PARAM = "period";
 	public static final String METRICS_PARAM = "metrics";

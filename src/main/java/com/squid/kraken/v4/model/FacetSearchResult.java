@@ -21,31 +21,48 @@
  * you and Squid Solutions (above licenses and LICENSE.txt included).
  * See http://www.squidsolutions.com/EnterpriseBouquet/
  *******************************************************************************/
-package com.squid.kraken.v4.core.analysis.engine.processor;
+package com.squid.kraken.v4.model;
 
-import com.squid.core.expression.scope.ScopeException;
-import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
-import com.squid.kraken.v4.core.analysis.model.DashboardSelection;
+import java.io.Serializable;
 
+import javax.xml.bind.annotation.XmlType;
+
+@XmlType(namespace = "http://model.v4.kraken.squid.com")
+@SuppressWarnings("serial")
 /**
- * perform a softFilter based on the selection
- * @author sergefantino
- *
+ * A Facet search result.
+ * Wraps a Facet to add the queried filter string back in API response.
  */
-public class DataMatrixTransformSoftFilter implements DataMatrixTransform {
-
-	private DashboardSelection softFilters;
-
-	public DataMatrixTransformSoftFilter(DashboardSelection softFilters) {
-		this.softFilters = softFilters;
+public class FacetSearchResult extends Facet implements Serializable {
+	private String filter;
+	
+	public FacetSearchResult() {
+	}
+	
+	public FacetSearchResult(Facet facet, String filter) {
+		this.filter = filter;
+		this.setCompositeName(facet.isCompositeName());
+		this.setDimension(facet.getDimension());
+		this.setDimensionId(facet.getDimensionId());
+		this.setDone(facet.isDone());
+		this.setError(facet.isError());
+		this.setErrorMessage(facet.getErrorMessage());
+		this.setHasMore(facet.isHasMore());
+		this.setId(facet.getId());
+		this.setItems(facet.getItems());
+		this.setName(facet.getName());
+		this.setProxy(facet.isProxy());
+		this.setSelectedItems(facet.getSelectedItems());
+		this.setTotalSize(facet.getTotalSize());
 	}
 
-	@Override
-	public DataMatrix apply(DataMatrix input) throws ScopeException {
-		// apply the soft filters if any left
-		if (!softFilters.isEmpty()) {
-			input = input.filter(softFilters, false);//ticket:2923 Null values must not be retained.
-		}
-		return input;
+
+	public String getFilter() {
+		return filter;
 	}
+
+	public void setFilter(String filter) {
+		this.filter = filter;
+	}
+
 }

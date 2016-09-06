@@ -21,31 +21,55 @@
  * you and Squid Solutions (above licenses and LICENSE.txt included).
  * See http://www.squidsolutions.com/EnterpriseBouquet/
  *******************************************************************************/
-package com.squid.kraken.v4.core.analysis.engine.processor;
-
-import com.squid.core.expression.scope.ScopeException;
-import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
-import com.squid.kraken.v4.core.analysis.model.DashboardSelection;
+package com.squid.kraken.v4.model;
 
 /**
- * perform a softFilter based on the selection
  * @author sergefantino
  *
  */
-public class DataMatrixTransformSoftFilter implements DataMatrixTransform {
+public class Problem {
+	
+	public enum Severity {
+		WARNING, ERROR
+	}
+	
+	private Severity severity;
+	
+	private String subject;
+	
+	private String message;
+	
+	private Throwable error;
 
-	private DashboardSelection softFilters;
-
-	public DataMatrixTransformSoftFilter(DashboardSelection softFilters) {
-		this.softFilters = softFilters;
+	public Problem(Severity severity, String subject, String message) {
+		super();
+		this.severity = severity;
+		this.subject = subject;
+		this.message = message;
 	}
 
-	@Override
-	public DataMatrix apply(DataMatrix input) throws ScopeException {
-		// apply the soft filters if any left
-		if (!softFilters.isEmpty()) {
-			input = input.filter(softFilters, false);//ticket:2923 Null values must not be retained.
-		}
-		return input;
+	public Problem(Severity severity, String subject, String message, Throwable error) {
+		super();
+		this.severity = severity;
+		this.subject = subject;
+		this.message = message;
+		this.error = error;
 	}
+
+	public Severity getSeverity() {
+		return severity;
+	}
+
+	public String getSubject() {
+		return subject;
+	}
+	
+	public String getMessage() {
+		return message;
+	}
+	
+	public Throwable getError() {
+		return error;
+	}
+
 }

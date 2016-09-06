@@ -1,10 +1,10 @@
 package com.squid.kraken.v4.model;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
 import com.squid.kraken.v4.model.NavigationQuery.Style;
-import com.squid.kraken.v4.model.ProjectAnalysisJob.OrderBy;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.RollUp;
 
 public class AnalyticsQueryImpl implements AnalyticsQuery {
@@ -19,7 +19,7 @@ public class AnalyticsQueryImpl implements AnalyticsQuery {
 	
 	private List<String> filters;
 	
-	private List<OrderBy> orderBy;
+	private List<String> orderBy;
 	
 	private List<RollUp> rollups;
 	
@@ -44,6 +44,8 @@ public class AnalyticsQueryImpl implements AnalyticsQuery {
 	private String lazy = null;// false
 	
 	private Style style = Style.HUMAN;
+	
+	private List<Problem> problems;
 
 	public AnalyticsQueryImpl() {
 	}
@@ -104,7 +106,7 @@ public class AnalyticsQueryImpl implements AnalyticsQuery {
 	 * @see com.squid.kraken.v4.model.Analysis#getOrderBy()
 	 */
 	@Override
-	public List<OrderBy> getOrderBy() {
+	public List<String> getOrderBy() {
 		return orderBy;
 	}
 
@@ -112,7 +114,7 @@ public class AnalyticsQueryImpl implements AnalyticsQuery {
 	 * @see com.squid.kraken.v4.model.Analysis#setOrderBy(java.util.List)
 	 */
 	@Override
-	public void setOrderBy(List<OrderBy> orderBy) {
+	public void setOrderBy(List<String> orderBy) {
 		this.orderBy = orderBy;
 	}
 
@@ -251,6 +253,22 @@ public class AnalyticsQueryImpl implements AnalyticsQuery {
 		return org.apache.commons.codec.digest.DigestUtils.sha256Hex(toString());
 	}
 	
+	@Override
+	public List<Problem> getProblems() {
+		return problems;
+	}
+
+	@Override
+	public void setProblems(List<Problem> problems) {
+		this.problems = problems;
+	}
+	
+	@Override
+	public void add(Problem problem) {
+		if (problems==null) problems = new ArrayList<>();
+		problems.add(problem);
+	}
+
 	@Override
 	public String toString() {
 		return "AnalysisQueryImpl [BBID=" + BBID + ", domain=" + domain + ", groupBy=" + groupBy + ", metrics="

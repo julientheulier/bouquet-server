@@ -25,9 +25,10 @@ package com.squid.kraken.v4.core.analysis.datamatrix;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
 import com.squid.kraken.v4.caching.redis.datastruct.RawRow;
-import com.squid.kraken.v4.core.analysis.universe.Measure;
+import com.squid.kraken.v4.model.AnalyticsQuery;
 
 /**
  * This converter transpose multi-kpis matrix into a single kpi dataset with an additional metric series
@@ -59,24 +60,40 @@ public class TransposeConverter implements IDataMatrixConverter<Object[]> {
 	}
 
 	@Override
-	public Object[] convert(DataMatrix matrix) {
+	public Object[] convert(AnalyticsQuery query, DataMatrix matrix) {
 		ArrayList<Object> records = new ArrayList<>();
-		for (RawRow row : matrix.getRows()) {
-			// size is axis+2
-			HashMap<String, Object> record = new HashMap<>(matrix.getAxes().size()+2);
-			int i = 0;
-			for (AxisValues axis : matrix.getAxes()) {
-				Object value = matrix.getAxisValue(i++, row);
-				record.put(axis.getAxis().getName(), value);
-			}
-			int j = 0;
-			for (MeasureValues measure : matrix.getKPIs()) {
-				// copy axis
-				HashMap<String, Object> copy = new HashMap<>(record);
-				Object value = matrix.getDataValue(j++, row);
-				copy.put(metricSeriesColumn, measure.getMeasure().getName());
-				copy.put(metricValueColumn, value);
-				records.add(copy);
+		List<RawRow> rows = matrix.getRows();
+		// handling pages
+		Integer startIndex = query.getStartIndex();
+		if (startIndex == null) {
+			startIndex = 0;
+		}
+		startIndex = Math.max(startIndex, 0);
+		Integer maxResults = query.getMaxResults();
+		if (maxResults == null) {
+			maxResults = rows.size();
+		}
+		maxResults = Math.max(maxResults, 0);
+		int endIndex = Math.min(rows.size() - 1, startIndex + maxResults);
+		if (startIndex <= endIndex) {
+			for (int rowIndex = startIndex; rowIndex <= endIndex; rowIndex++) {
+				RawRow row = rows.get(rowIndex);
+				// size is axis+2
+				HashMap<String, Object> record = new HashMap<>(matrix.getAxes().size()+2);
+				int i = 0;
+				for (AxisValues axis : matrix.getAxes()) {
+					Object value = matrix.getAxisValue(i++, row);
+					record.put(axis.getAxis().getName(), value);
+				}
+				int j = 0;
+				for (MeasureValues measure : matrix.getKPIs()) {
+					// copy axis
+					HashMap<String, Object> copy = new HashMap<>(record);
+					Object value = matrix.getDataValue(j++, row);
+					copy.put(metricSeriesColumn, measure.getMeasure().getName());
+					copy.put(metricValueColumn, value);
+					records.add(copy);
+				}
 			}
 		}
 		return records.toArray();

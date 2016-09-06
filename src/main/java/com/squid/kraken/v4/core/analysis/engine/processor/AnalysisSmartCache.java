@@ -31,9 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
 
-import org.apache.commons.codec.digest.DigestUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -77,7 +75,7 @@ public class AnalysisSmartCache {
 	// the guava cache
 	private Cache<String, AnalysisSmartCacheSignature> cache;
 	
-	private static int CACHE_SIZE = 200;
+	private long CACHE_SIZE = 200;
 	
 	
 	private AnalysisSmartCache() {
@@ -92,16 +90,15 @@ public class AnalysisSmartCache {
 
 		@Override
 		public void onRemoval(RemovalNotification<String, AnalysisSmartCacheSignature> notif) {
-
 			AnalysisSmartCacheSignature signature = notif.getValue();
 			String key = notif.getKey();
+			logger.info("Removal notification " + key + " from smart cache ; cause "+ notif.getCause());
 			Map<String, HashSet<String>> sameAxes = lookup.get(signature.getAxesSignature());
 			if (sameAxes != null){
 				HashSet<String> sameFilters = sameAxes.get(signature.getFiltersSignature());
 				if (sameFilters.contains(key)){
 					// check if it has been put back in guava
 					if ( cache.getIfPresent(key) == null){
-						logger.info("Removing " + key + " from smart cache");
 						sameFilters.remove(key);
 					}
 				}
@@ -122,25 +119,34 @@ public class AnalysisSmartCache {
 	 */
 	public AnalysisSmartCacheMatch checkMatch(Universe universe, AnalysisSmartCacheRequest request) {
 		// check same axis
-		Map<String, HashSet<String>> sameAxes = lookup.get(request.getAxesSignature());
-		if (sameAxes!=null) {
-			// check same filters
-			HashSet<String> sameFiltersCandidates = sameAxes.get(request.getFiltersSignature());
-			if (sameFiltersCandidates!=null) {
-				AnalysisSmartCacheMatch match = checkMatchMany(null, request, sameFiltersCandidates);
-				if (match!=null) {
-					return match;
+		{
+			Map<String, HashSet<String>> sameAxes = lookup.get(request.getAxesSignature());
+			if (sameAxes!=null) {
+				// check same filters
+				HashSet<String> sameFiltersCandidates = sameAxes.get(request.getFiltersSignature());
+				if (sameFiltersCandidates!=null) {
+					AnalysisSmartCacheMatch match = checkMatchMany(null, request, sameFiltersCandidates);
+					if (match!=null) {
+						return match;
+					}
 				}
 			}
-			// try to generalize the search ?
-			Collection<Axis> filters = request.getAnalysis().getSelection().getFilters();
-			if (filters.size()>1) {
-				// let try by excluding one filter at a time?
-				for (Axis filter : filters) {
+		}
+		// try to generalize the search ?
+		Collection<Axis> filters = request.getAnalysis().getSelection().getFilters();
+		if (filters.size()>1) {
+			// let try by excluding one filter at a time?
+			for (Axis filter : filters) {
+				// generalize the search by adding the filter as an axis
+				AnalysisSmartCacheSignature generalize = new AnalysisSmartCacheSignature(request.getKey(), filter);
+				generalize.setAxesSignature(universe);// ok, the API is a bit ackward
+				Map<String, HashSet<String>> sameAxes = lookup.get(generalize.getAxesSignature());
+				if (sameAxes!=null) {
+					// get candidates with restriction
 					HashSet<Axis> filterMinusOne = new HashSet<>(filters);
 					filterMinusOne.remove(filter);
 					String sign1 = request.computeFiltersSignature(universe, new ArrayList<>(filterMinusOne));
-					sameFiltersCandidates = sameAxes.get(sign1);
+					HashSet<String> sameFiltersCandidates = sameAxes.get(sign1);
 					if (sameFiltersCandidates!=null) {
 						AnalysisSmartCacheMatch match = checkMatchMany(filterMinusOne, request, sameFiltersCandidates);
 						if (match!=null) {
@@ -186,8 +192,10 @@ public class AnalysisSmartCache {
 					Set<Measure> o2 = new HashSet<>(candidate.getMeasures().getKPIs());
 					if (o2.containsAll(o1)) {
 						// hide not requested metrics
-						if (o2.removeAll(o1) && !o2.isEmpty()) {
-							match.addPostProcessing(new DataMatrixTransformHideColumns<Measure>(o2));
+						if (!o2.equals(o1)) {
+							if (o2.removeAll(o1) && !o2.isEmpty()) {
+								match.addPostProcessing(new DataMatrixTransformHideColumns<Measure>(o2));
+							}
 						}
 						// sort
 						if (request.getAnalysis().hasOrderBy()) {
@@ -358,11 +366,21 @@ public class AnalysisSmartCache {
 		if (!sameFilters.contains(key)) {
 			sameFilters.add(key);
 		}
-		if (this.cache.getIfPresent(key ) == null){
-			this.cache.put(key, request.getKey());			
+		if (this.cache.getIfPresent(key) == null){
+			this.cache.put(key, request.getKey());	
 		}
 		//
 		return contains.add(key);
+	}
+	
+	/**
+	 * return the signature for the request if in the cache and still valid
+	 * @param request
+	 * @return
+	 */
+	public AnalysisSmartCacheSignature get(AnalysisSmartCacheRequest request) {
+		String key = this.buildGuavaKey(request);
+		return this.cache.getIfPresent(key);
 	}
 
 	/**
@@ -401,14 +419,17 @@ public class AnalysisSmartCache {
 		return null;
 	}
 	
+	/**
+	 * actually building the gen-key for the request - it uses the same dependencies as the SQL cache
+	 * @param request
+	 * @return
+	 */
 	private String buildGuavaKey(AnalysisSmartCacheRequest request){
-		return buildGuavaKey(request.getKey().getSQL(), request.getAnalysis());
-	}
-	
-	private String buildGuavaKey(String sql, DashboardAnalysis da){
+		String SQL = request.getKey().getSQL();
+		DashboardAnalysis ds = request.getAnalysis();
 		List<String> dependencies = new ArrayList<String>();
-		dependencies.add( da.getUniverse().getProject().getId().toUUID());		
-		return RedisCacheManager.getInstance().buildCacheKey(sql, dependencies ) ;
+		dependencies.add( ds.getUniverse().getProject().getId().toUUID());		
+		return RedisCacheManager.getInstance().buildCacheKey(SQL, dependencies);
 	}
 
 }
