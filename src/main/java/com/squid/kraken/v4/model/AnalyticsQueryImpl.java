@@ -1,7 +1,6 @@
 package com.squid.kraken.v4.model;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 import com.squid.kraken.v4.model.NavigationQuery.Style;
@@ -25,9 +24,9 @@ public class AnalyticsQueryImpl implements AnalyticsQuery {
 	
 	private String period;
 	
-	private String[] timeframe;
+	private List<String> timeframe;
 	
-	private String[] compareframe;
+	private List<String> compareTo;
 
 	private Long offset;
 
@@ -142,20 +141,20 @@ public class AnalyticsQueryImpl implements AnalyticsQuery {
 		this.period = period;
 	}
 	
-	public String[] getTimeframe() {
+	public List<String> getTimeframe() {
 		return timeframe;
 	}
 
-	public void setTimeframe(String[] timeframe) {
+	public void setTimeframe(List<String> timeframe) {
 		this.timeframe = timeframe;
 	}
 
-	public String[] getCompareframe() {
-		return compareframe;
+	public List<String> getCompareTo() {
+		return compareTo;
 	}
 
-	public void setCompareframe(String[] compareframe) {
-		this.compareframe = compareframe;
+	public void setCompareTo(List<String> compareTo) {
+		this.compareTo = compareTo;
 	}
 
 	/* (non-Javadoc)
@@ -273,8 +272,8 @@ public class AnalyticsQueryImpl implements AnalyticsQuery {
 	public String toString() {
 		return "AnalysisQueryImpl [BBID=" + BBID + ", domain=" + domain + ", groupBy=" + groupBy + ", metrics="
 				+ metrics + ", filters=" + filters + ", orderBy=" + orderBy + ", rollups=" + rollups + ", period="
-				+ period + ", timeframe=" + Arrays.toString(timeframe) + ", compareframe="
-				+ Arrays.toString(compareframe) + ", offset=" + offset + ", limit=" + limit + ", bookmarkId="
+				+ period + ", timeframe=" + timeframe + ", compareTo="
+				+ compareTo + ", offset=" + offset + ", limit=" + limit + ", bookmarkId="
 				+ bookmarkId + ", maxResults=" + maxResults + ", startIndex=" + startIndex
 				+ ", lazy=" + lazy + ", style=" + style + "]";
 	}
