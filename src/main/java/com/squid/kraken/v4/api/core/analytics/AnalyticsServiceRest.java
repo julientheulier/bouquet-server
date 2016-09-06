@@ -499,10 +499,18 @@ public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implemen
 			query.setPeriod(period);
 		}
 		if (timeframe != null && timeframe.length>0) {
-			query.setTimeframe(timeframe);
+			query.setTimeframe(new ArrayList<String>());
+			for (String value : timeframe) {
+				// skip empty strings
+				if (value!=null && value.length()>0) query.getTimeframe().add(value);
+			}
 		}
 		if (compareframe != null && compareframe.length>0) {
-			query.setCompareframe(compareframe);
+			query.setCompareTo(new ArrayList<String>());
+			for (String value : compareframe) {
+				// skip empty strings
+				if (value!=null && value.length()>0) query.getCompareTo().add(value);
+			}
 		}
 		if ((orderExpressions != null) && (orderExpressions.length > 0)) {
 			query.setOrderBy(new ArrayList<String>());
