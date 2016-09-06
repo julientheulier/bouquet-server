@@ -50,7 +50,6 @@ import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.model.AnalyticsQuery;
 import com.squid.kraken.v4.model.AnalyticsQueryImpl;
 import com.squid.kraken.v4.model.Bookmark;
-import com.squid.kraken.v4.model.ExpressionSuggestion;
 import com.squid.kraken.v4.model.Facet;
 import com.squid.kraken.v4.model.NavigationQuery.HierarchyMode;
 import com.squid.kraken.v4.model.NavigationQuery.Style;
@@ -158,11 +157,11 @@ public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implemen
 	@ApiOperation(
 			value = "Provide information about the expressions available in the bookmark scope",
 			notes = "It also allows to check if a given expression is valid in the scope, and further explore the scope if the expression is an object. Using the offset parameter you can get suggestion at the caret position instead of the complete expression value.")
-	public ExpressionSuggestion evaluateExpression(
+	public Response scopeAnalysis(
 			@Context HttpServletRequest request, 
 			@PathParam(BBID_PARAM_NAME) String BBID,
 			@ApiParam(value="(optional) the expression to check and get suggestion for, or null in order to get scope level suggestions") 
-			@QueryParam("value") String expression,
+			@QueryParam("value") String value,
 			@ApiParam(value="(optionnal) caret position in the expression value in order to provide relevant suggestions based on the caret position. By default the suggestion are based on the full expression if provided, or else the entire bookmark scope.") 
 			@QueryParam("offset") Integer offset,
 			@ApiParam(
@@ -174,11 +173,15 @@ public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implemen
 					value="(optional) the expression value to filter the suggestions. If undefined all valid expression in the context are returned. ",
 					allowMultiple=true,
 					allowableValues="OBJECT, NUMERIC, AGGREGATE, DATE, STRING, CONDITION, DOMAIN, OTHER, ERROR") 
-			@QueryParam("values") ValueType[] values
+			@QueryParam("values") ValueType[] values,
+			@ApiParam(
+					value="define the response style. If HUMAN, the API will try to use natural reference for objects, like 'My First Project', 'Account', 'Total Sales'... If MACHINE the API will use canonical references that are invariant, e.g. @'5603ca63c531d744b50823a3bis'. If LEGACY the API will also provide internal compound key to lookup objects in the management API.", 
+					allowableValues="LEGACY, MACHINE, HUMAN", defaultValue="HUMAN")
+			@QueryParam(STYLE_PARAM) Style style
 			) throws ScopeException
 	{
 		AppContext userContext = getUserContext(request);
-		return delegate(userContext).evaluateExpression(userContext, BBID, expression, offset, types, values);
+		return delegate(userContext).scopeAnalysis(userContext, BBID, value, offset, types, values, style);
 	}
 
 	@GET

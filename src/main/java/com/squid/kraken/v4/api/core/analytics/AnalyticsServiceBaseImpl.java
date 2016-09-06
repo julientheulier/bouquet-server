@@ -25,8 +25,10 @@ package com.squid.kraken.v4.api.core.analytics;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -48,6 +50,7 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.StreamingOutput;
 import javax.ws.rs.core.UriBuilder;
+import javax.ws.rs.core.UriBuilderException;
 import javax.ws.rs.core.UriInfo;
 import javax.ws.rs.core.Response.ResponseBuilder;
 
@@ -150,6 +153,7 @@ import com.squid.kraken.v4.model.NavigationQuery.Visibility;
 import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.Expression;
 import com.squid.kraken.v4.model.ExpressionSuggestion;
+import com.squid.kraken.v4.model.ExpressionSuggestionItem;
 import com.squid.kraken.v4.model.Facet;
 import com.squid.kraken.v4.model.FacetExpression;
 import com.squid.kraken.v4.model.FacetMember;
@@ -862,16 +866,17 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		}
 	}
 	
-	public ExpressionSuggestion evaluateExpression(
+	public Response scopeAnalysis(
 			AppContext userContext, 
 			String BBID,
-			String expression,
+			String value,
 			Integer offset,
 			ObjectType[] types,
-			ValueType[] values
+			ValueType[] values, 
+			Style style
 			) throws ScopeException
 	{
-		if (expression==null) expression="";
+		if (value==null) value="";
 		Space space = getSpace(userContext, BBID);
 		//
 		DomainExpressionScope scope = new DomainExpressionScope(space.getUniverse(), space.getDomain());
@@ -879,7 +884,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		ExpressionSuggestionHandler handler = new ExpressionSuggestionHandler(
 				scope);
 		if (offset == null) {
-			offset = expression.length()+1;
+			offset = value.length()+1;
 		}
 		Collection<ObjectType> typeFilters = null;
 		if (types!=null) {
@@ -897,10 +902,14 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 				valueFilters = Collections.singletonList(values[0]);
 			}
 		}
-		ExpressionSuggestion suggestions = handler.getSuggestion(expression, offset, typeFilters, valueFilters);
-		return suggestions;
+		ExpressionSuggestion suggestions = handler.getSuggestion(value, offset, typeFilters, valueFilters);
+		if (style==Style.HTML) {
+			return createHTMLscopePage(space, suggestions, BBID, value, types, values);
+		} else {
+			return Response.ok(suggestions).build();
+		}
 	}
-	
+
 	public Response runAnalysis(
 			final AppContext userContext,
 			String BBID,
@@ -1067,7 +1076,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		String title = createHTMLtitle(space);
 		StringBuilder html = new StringBuilder("<html><title>Query: "+title+"</title><body>");
 		html.append("<h1>"+title+"</h1>");
-		createHTMLproblems(html, query);
+		createHTMLproblems(html, query.getProblems());
 		html.append("<form>");
 		createHTMLfilters(html, query);
 		html.append("<table><tr>");
@@ -2553,7 +2562,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			html.append("<script src=\"http://d3js.org/d3.v3.min.js\" charset=\"utf-8\"></script>\r\n<script src=\"http://vega.github.io/vega/vega.js\" charset=\"utf-8\"></script>\r\n<script src=\"http://vega.github.io/vega-lite/vega-lite.js\" charset=\"utf-8\"></script>\r\n<script src=\"http://vega.github.io/vega-editor/vendor/vega-embed.js\" charset=\"utf-8\"></script>\r\n\r\n");
 		}
 		html.append("<body><h1>"+title+"</h1>");
-		createHTMLproblems(html, reply.getQuery());
+		createHTMLproblems(html, reply.getQuery().getProblems());
 		html.append("<form>");
 		createHTMLfilters(html, reply.getQuery());
 		html.append("<div id=\"vis\"></div>\r\n\r\n<script>\r\nvar embedSpec = {\r\n  mode: \"vega-lite\", renderer:\"svg\",  spec:");
@@ -2601,10 +2610,10 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	 * @param html
 	 * @param query
 	 */
-	private void createHTMLproblems(StringBuilder html, AnalyticsQuery query) {
-		if (query.getProblems()!=null && query.getProblems().size()>0) {
+	private void createHTMLproblems(StringBuilder html, List<Problem> problems) {
+		if (problems!=null && problems.size()>0) {
 			html.append("<div class='problems' style='border:1px solid red; background-color:lightpink;'>There are some problems with the query:");
-			for (Problem problem : query.getProblems()) {
+			for (Problem problem : problems) {
 				html.append("<li>"+problem.getSeverity().toString()+": "+problem.getSubject()+": "+problem.getMessage()+"</li>");
 			}
 			html.append("</div>");
@@ -2658,16 +2667,20 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		html.append("</div>");
 	}
 	
+	private static final String axis_style = "display: inline-block;border:1px solid;border-radius:5px;background-color:LavenderBlush ;margin:1px;";
+	private static final String metric_style = "display: inline-block;border:1px solid;border-radius:5px;background-color:Lavender;margin:1px;";
+	private static final String func_style = "display: inline-block;border:1px solid;border-radius:5px;background-color:ghostwhite;margin:1px;";
+	private static final String other_style = "display: inline-block;border:1px solid;border-radius:5px;background-color:azure;margin:1px;";
+	
 	private void createHTMLscope(StringBuilder html, Space space, AnalyticsQuery query) {
 		html.append("<fieldset><legend>Query scope: <i>this is the list of objects you can combine to build expressions in the query</legend>");
 		html.append("<table><tr><td>GroupBy:</td><td>");
 		for (Axis axis : space.A()) {
 			try {
 				DimensionIndex index = axis.getIndex();
-				html.append("<span style='display: inline-block;border:1px solid;border-radius:5px;background-color:LavenderBlush ;margin:1px;'");
-				IDomain image = axis.getDefinitionSafe().getImageDomain();
-				ValueType value = ExpressionSuggestionHandler.computeValueTypeFromImage(image);
-				html.append("title='"+value.toString()+": ");
+				html.append("<span style='"+axis_style+"'");
+				ExpressionAST expr = axis.getDefinitionSafe();
+				html.append("title='"+getExpressionValueType(expr).toString()+": ");
 				if (axis.getDescription()!=null) {
 					html.append(axis.getDescription());
 				}
@@ -2681,10 +2694,9 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		html.append("<tr><td>Metrics:</td><td>");
 		for (Measure m : space.M()) {
 			if (m.getMetric()!=null && !m.getMetric().isDynamic()) {
-				html.append("<span style='display: inline-block;border:1px solid;border-radius:5px;background-color:Lavender;margin:1px;'");
-				IDomain image = m.getDefinitionSafe().getImageDomain();
-				ValueType value = ExpressionSuggestionHandler.computeValueTypeFromImage(image);
-				html.append("title='"+value.toString()+": ");
+				html.append("<span style='"+metric_style+"'");
+				ExpressionAST expr = m.getDefinitionSafe();
+				html.append("title='"+getExpressionValueType(expr).toString()+": ");
 				if (m.getDescription()!=null) {
 					html.append(m.getDescription());
 				}
@@ -2693,9 +2705,81 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			}
 		}
 		html.append("</td></tr></table>");
-		URI scopeLink = getPublicBaseUriBuilder().path("/scope/{reference}").queryParam("access_token", userContext.getToken().getOid()).build(query.getBBID());
-		html.append("<a href='"+StringEscapeUtils.escapeHtml4(scopeLink.toASCIIString())+"'>View the scope</a>");
+		URI scopeLink = getPublicBaseUriBuilder().path("/analytics/{reference}/scope").queryParam("style", Style.HTML).queryParam("access_token", userContext.getToken().getOid()).build(query.getBBID());
+		html.append("<a href=\""+StringEscapeUtils.escapeHtml4(scopeLink.toASCIIString())+"\">View the scope</a>");
 		html.append("</fieldset>");
+	}
+	
+	/**
+	 * @param space
+	 * @param suggestions
+	 * @param values 
+	 * @param types 
+	 * @param expression 
+	 * @return
+	 */
+	private Response createHTMLscopePage(Space space, ExpressionSuggestion suggestions, String BBID, String value, ObjectType[] types, ValueType[] values) {
+		String title = createHTMLtitle(space);
+		StringBuilder html = new StringBuilder("<html><title>Scope: "+title+"</title><body>");
+		html.append("<h1>"+title+"</h1>");
+		if (value!=null && value.length()>0 && suggestions.getValidateMessage()!=null && suggestions.getValidateMessage().length()>0) {
+			createHTMLproblems(html, Collections.singletonList(new Problem(Severity.WARNING, value, suggestions.getValidateMessage())));
+		}
+		html.append("<form>");
+		html.append("<p>Expression:<input type='text' name='value' size=100 value='"+getFieldValue(value)+"'></p>");
+		html.append("<fieldset><legend>Filter by expression type</legend>");
+		html.append("<input type='checkbox' name='types' value='"+ObjectType.DIMENSION+"'>"+ObjectType.DIMENSION);
+		html.append("<input type='checkbox' name='types' value='"+ObjectType.COLUMN+"'>"+ObjectType.COLUMN);
+		html.append("<input type='checkbox' name='types' value='"+ObjectType.RELATION+"'>"+ObjectType.RELATION);
+		html.append("<input type='checkbox' name='types' value='"+ObjectType.METRIC+"'>"+ObjectType.METRIC);
+		html.append("<input type='checkbox' name='types' value='"+ObjectType.FUNCTION+"'>"+ObjectType.FUNCTION);
+		html.append("</fieldset>");
+		html.append("<fieldset><legend>Filter by expression value</legend>");
+		html.append("<input type='checkbox' name='values' value='"+ValueType.DATE+"'>"+ValueType.DATE);
+		html.append("<input type='checkbox' name='values' value='"+ValueType.STRING+"'>"+ValueType.STRING);
+		html.append("<input type='checkbox' name='values' value='"+ValueType.CONDITION+"'>"+ValueType.CONDITION);
+		html.append("<input type='checkbox' name='values' value='"+ValueType.NUMERIC+"'>"+ValueType.NUMERIC);
+		html.append("<input type='checkbox' name='values' value='"+ValueType.AGGREGATE+"'>"+ValueType.AGGREGATE);
+		html.append("</fieldset>");
+		html.append("<input type=\"hidden\" name=\"style\" value=\"HTML\">"
+		+ "<input type=\"hidden\" name=\"access_token\" value=\""+space.getUniverse().getContext().getToken().getOid()+"\">"
+		+ "<input type=\"submit\" value=\"Refresh\">");
+		html.append("</form>");
+		html.append("<table>");
+		for (ExpressionSuggestionItem item : suggestions.getSuggestions()) {
+			html.append("<tr><td>");
+			html.append(item.getObjectType()+"</td><td>");
+			html.append(item.getValueType()+"</td><td>");
+			String style = other_style;
+			if (item.getObjectType()==ObjectType.DIMENSION) style = axis_style;
+			if (item.getObjectType()==ObjectType.METRIC) style = metric_style;
+			if (item.getObjectType()==ObjectType.FUNCTION) style = func_style;
+			html.append("<span style='"+style+"'>&nbsp;"+item.getDisplay()+"&nbsp;</span>");
+			if (item.getSuggestion()!=null) {
+				URI link = getPublicBaseUriBuilder().path("/analytics/{reference}/scope").queryParam("value", value+item.getSuggestion()).queryParam("style", Style.HTML).queryParam("access_token", userContext.getToken().getOid()).build(BBID);
+				html.append("[<a href=\""+StringEscapeUtils.escapeHtml4(link.toASCIIString())+"\">go</a>]");
+			}
+			if (item.getDescription()!=null && item.getDescription().length()>0) {
+				html.append("&nbsp;<i>"+item.getDescription()+"</i>");
+			}
+			html.append("</td></tr>");
+		}
+		html.append("</table>");
+		html.append("<hr>powered by Open Bouquet");
+		String baseUrl = "";
+		try {
+			baseUrl = "?baseUrl="+URLEncoder.encode(getPublicBaseUriBuilder().path("swagger.json").build().toString(),"UTF-8")+"";
+		} catch (UnsupportedEncodingException | IllegalArgumentException | UriBuilderException e) {
+			// default
+		}
+		html.append("<p>the OB Analytics API provides more parameters... check <a target='swagger' href='http://swagger.squidsolutions.com/"+baseUrl+"#!/analytics/scopeAnalysis'>swagger UI</a> for details</p>");
+		html.append("</body></html>");
+		return Response.ok(html.toString(),"text/html").build();
+	}
+	
+	private ValueType getExpressionValueType(ExpressionAST expr) {
+		IDomain image = expr.getImageDomain();
+		return ExpressionSuggestionHandler.computeValueTypeFromImage(image);
 	}
 	
 	private String getFieldValue(Object var) {
