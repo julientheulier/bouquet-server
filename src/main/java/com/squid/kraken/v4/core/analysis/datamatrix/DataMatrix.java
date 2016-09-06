@@ -503,7 +503,7 @@ public class DataMatrix {
 		return merger.merge(true);
 	}
 
-	public DataMatrix filter(DashboardSelection selection) {
+	public DataMatrix filter(DashboardSelection selection) throws ScopeException {
 		return filter(selection, true);
 	}
 
@@ -514,8 +514,9 @@ public class DataMatrix {
 	 * 
 	 * @param selection
 	 * @return
+	 * @throws ScopeException if cannot apply the filter on this matrix
 	 */
-	public DataMatrix filter(DashboardSelection selection, boolean nullIsValid) {
+	public DataMatrix filter(DashboardSelection selection, boolean nullIsValid) throws ScopeException {
 		// first issue: the meta-data are not set
 		if (getRows().isEmpty()) {
 			return this;// nothing left to filter
@@ -527,7 +528,6 @@ public class DataMatrix {
 		for (DomainSelection domain : selection.get()) {
 			for (Axis axis : domain.getFilters()) {
 				// check if the axis is defined
-				// if (axis.getDimension().getType()==Type.CATEGORICAL) { //
 				// krkn-75, apply that damn filter please!
 				AxisValues axisData = getAxisColumn(axis);
 				if (axisData != null) {
@@ -542,8 +542,9 @@ public class DataMatrix {
 						}
 						item.add(member);
 					}
+				} else {
+					throw new ScopeException("unable to apply the soft-filter on '"+axis.getName()+"' on this matrix");
 				}
-				// }
 			}
 		}
 		// ok, we are ready to iterate through the matrix now...

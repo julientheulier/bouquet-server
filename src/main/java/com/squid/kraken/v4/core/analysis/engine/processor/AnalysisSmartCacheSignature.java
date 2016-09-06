@@ -69,6 +69,22 @@ public class AnalysisSmartCacheSignature {
 		this.hash = DigestUtils.sha256Hex(analysis.getUniverse().getProject().getId().toUUID()+"-"+SQL);
 	}
 	
+	private Axis generalize = null;
+	
+	/**
+	 * generalize the original signature by adding one axis
+	 * @param original
+	 * @param generalize
+	 */
+	public AnalysisSmartCacheSignature(AnalysisSmartCacheSignature original, Axis generalize) {
+		super();
+		this.analysis = original.analysis;
+		this.measures = original.measures;
+		this.SQL = original.SQL;
+		this.hash = DigestUtils.sha256Hex(analysis.getUniverse().getProject().getId().toUUID()+"-"+SQL);
+		this.generalize = generalize;
+	}
+	
 	/**
 	 * @return the sQL
 	 */
@@ -135,6 +151,10 @@ public class AnalysisSmartCacheSignature {
 		// add the axes
 		signature.append("#");
 		ArrayList<GroupByAxis> ordered = new ArrayList<>(analysis.getGrouping());
+		// generalize
+		if (generalize!=null) {
+			ordered.add(new GroupByAxis(generalize));
+		}
 		Collections.sort(ordered, new Comparator<GroupByAxis>() {
 			@Override
 			public int compare(GroupByAxis o1, GroupByAxis o2) {
@@ -148,7 +168,7 @@ public class AnalysisSmartCacheSignature {
 			axes.add(axis.getAxis());
 		}
 		//
-		// add the expression filters
+		// add the conditions
 		ArrayList<DomainSelection> domains = new ArrayList<>(analysis.getSelection().get());
 		Collections.sort(domains, new Comparator<DomainSelection>() {
 			@Override

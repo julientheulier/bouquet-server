@@ -23,6 +23,7 @@
  *******************************************************************************/
 package com.squid.kraken.v4.core.analysis.engine.processor;
 
+import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
 import com.squid.kraken.v4.core.analysis.model.DashboardSelection;
 
@@ -40,7 +41,7 @@ public class DataMatrixTransformSoftFilter implements DataMatrixTransform {
 	}
 
 	@Override
-	public DataMatrix apply(DataMatrix input) {
+	public DataMatrix apply(DataMatrix input) throws ScopeException {
 		// apply the soft filters if any left
 		if (!softFilters.isEmpty()) {
 			input = input.filter(softFilters, false);//ticket:2923 Null values must not be retained.
