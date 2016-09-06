@@ -196,10 +196,12 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	//private UriInfo uriInfo = null;
 	
 	private URI publicBaseUri = null;
+	private AppContext userContext = null;
 	
-	protected AnalyticsServiceBaseImpl(UriInfo uriInfo) {
+	protected AnalyticsServiceBaseImpl(UriInfo uriInfo, AppContext userContext) {
 		//this.uriInfo = uriInfo;
 		this.publicBaseUri = getPublicBaseUri(uriInfo);
+		this.userContext = userContext;
 	}
 	
 	public UriBuilder getPublicBaseUriBuilder() {
@@ -1097,13 +1099,13 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		html.append("</table>");
 		createHTMLpagination(html, data);
 		html.append("<table>");
-		html.append("<tr><td>groupBy</td><td>");
+		html.append("<tr><td valign='top'>groupBy</td><td>");
 		createHTMLinputArray(html, "text", "groupBy", query.getGroupBy());
 		html.append("</td></tr>");
-		html.append("<tr><td>metrics</td><td>");
+		html.append("<tr><td valign='top'>metrics</td><td>");
 		createHTMLinputArray(html, "text", "metrics", query.getMetrics());
 		html.append("</td></tr>");
-		html.append("<tr><td>orderBy</td><td>");
+		html.append("<tr><td valign='top'>orderBy</td><td>");
 		createHTMLinputArray(html, "text", "orderBy", query.getOrderBy());
 		html.append("</td></tr>");
 		html.append("<tr><td>limit</td><td>");
@@ -1114,7 +1116,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 				+ "<input type=\"hidden\" name=\"access_token\" value=\""+space.getUniverse().getContext().getToken().getOid()+"\">"
 				+ "<input type=\"submit\" value=\"Refresh\">"
 				+ "</form>");
-		createHTMLscope(html, space);
+		createHTMLscope(html, space, query);
 		html.append("<hr>powered by Open Bouquet");
 		html.append("<p>the OB Analytics API provides more parameters... check <a target='swagger' href='http://swagger.squidsolutions.com/#!/analytics/runAnalysis'>swagger UI</a> for details</p>");
 		html.append("</body></html>");
@@ -2574,7 +2576,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 				+ "<input type=\"hidden\" name=\"access_token\" value=\""+space.getUniverse().getContext().getToken().getOid()+"\">"
 				+ "<input type=\"submit\" value=\"Refresh\">"
 				+ "</form>");
-		createHTMLscope(html, space);
+		createHTMLscope(html, space, reply.getQuery());
 		html.append("<hr>powered by Open Bouquet & VegaLite"
 				+ "<p>the OB Analytics API provides more parameters... check <a target='swagger' href='http://swagger.squidsolutions.com/#!/analytics/viewAnalysis'>swagger UI</a> for details</p>"
 				+ "</body>\r\n</html>");
@@ -2656,16 +2658,20 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		html.append("</div>");
 	}
 	
-	private void createHTMLscope(StringBuilder html, Space space) {
+	private void createHTMLscope(StringBuilder html, Space space, AnalyticsQuery query) {
 		html.append("<fieldset><legend>Query scope: <i>this is the list of objects you can combine to build expressions in the query</legend>");
 		html.append("<table><tr><td>GroupBy:</td><td>");
 		for (Axis axis : space.A()) {
 			try {
 				DimensionIndex index = axis.getIndex();
 				html.append("<span style='display: inline-block;border:1px solid;border-radius:5px;background-color:LavenderBlush ;margin:1px;'");
+				IDomain image = axis.getDefinitionSafe().getImageDomain();
+				ValueType value = ExpressionSuggestionHandler.computeValueTypeFromImage(image);
+				html.append("title='"+value.toString()+": ");
 				if (axis.getDescription()!=null) {
-					html.append("title='"+axis.getDescription()+"'");
+					html.append(axis.getDescription());
 				}
+				html.append("'");
 				html.append(">&nbsp;'"+index.getDimensionName()+"'&nbsp;</span>");
 			} catch (Exception e) {
 				// ignore
@@ -2673,20 +2679,23 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		}
 		html.append("</td></tr>");
 		html.append("<tr><td>Metrics:</td><td>");
-		try {
-			for (Metric metric : space.getMetrics()) {
-				if (!metric.isDynamic()) {
-					html.append("<span style='display: inline-block;border:1px solid;border-radius:5px;background-color:Lavender;margin:1px;'");
-					if (metric.getDescription()!=null) {
-						html.append("title='"+metric.getDescription()+"'");
-					}
-					html.append(">&nbsp;'"+metric.getName()+"'&nbsp;</span>");
+		for (Measure m : space.M()) {
+			if (m.getMetric()!=null && !m.getMetric().isDynamic()) {
+				html.append("<span style='display: inline-block;border:1px solid;border-radius:5px;background-color:Lavender;margin:1px;'");
+				IDomain image = m.getDefinitionSafe().getImageDomain();
+				ValueType value = ExpressionSuggestionHandler.computeValueTypeFromImage(image);
+				html.append("title='"+value.toString()+": ");
+				if (m.getDescription()!=null) {
+					html.append(m.getDescription());
 				}
+				html.append("'");
+				html.append(">&nbsp;'"+m.getName()+"'&nbsp;</span>");
 			}
-		} catch (ScopeException e) {
-			// ignore
 		}
-		html.append("</td></tr></table></fieldset>");
+		html.append("</td></tr></table>");
+		URI scopeLink = getPublicBaseUriBuilder().path("/scope/{reference}").queryParam("access_token", userContext.getToken().getOid()).build(query.getBBID());
+		html.append("<a href='"+StringEscapeUtils.escapeHtml4(scopeLink.toASCIIString())+"'>View the scope</a>");
+		html.append("</fieldset>");
 	}
 	
 	private String getFieldValue(Object var) {
