@@ -415,7 +415,7 @@ public class ExpressionSuggestionHandler {
         return computeValueTypeFromImage(image);
     }
 
-    private ValueType computeValueTypeFromImage(IDomain image) {
+    public static ValueType computeValueTypeFromImage(IDomain image) {
 
         if (image.isInstanceOf(IDomain.AGGREGATE))
 
