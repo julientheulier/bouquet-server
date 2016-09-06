@@ -24,7 +24,6 @@
 package com.squid.kraken.v4.api.core.analytics;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 import javax.servlet.http.HttpServletRequest;
@@ -51,18 +50,16 @@ import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.model.AnalyticsQuery;
 import com.squid.kraken.v4.model.AnalyticsQueryImpl;
 import com.squid.kraken.v4.model.Bookmark;
-import com.squid.kraken.v4.model.Expression;
 import com.squid.kraken.v4.model.ExpressionSuggestion;
 import com.squid.kraken.v4.model.Facet;
+import com.squid.kraken.v4.model.NavigationQuery.HierarchyMode;
+import com.squid.kraken.v4.model.NavigationQuery.Style;
+import com.squid.kraken.v4.model.NavigationQuery.Visibility;
 import com.squid.kraken.v4.model.ObjectType;
-import com.squid.kraken.v4.model.ProjectAnalysisJob.OrderBy;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.Position;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.RollUp;
 import com.squid.kraken.v4.model.ValueType;
 import com.squid.kraken.v4.model.ViewQuery;
-import com.squid.kraken.v4.model.NavigationQuery.HierarchyMode;
-import com.squid.kraken.v4.model.NavigationQuery.Style;
-import com.squid.kraken.v4.model.NavigationQuery.Visibility;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.wordnik.swagger.annotations.Api;
 import com.wordnik.swagger.annotations.ApiOperation;
@@ -478,13 +475,25 @@ public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implemen
 		query.setBBID(BBID);
 		int groupByLength = groupBy!=null?groupBy.length:0;
 		if (groupByLength > 0) {
-			query.setGroupBy(Arrays.asList(groupBy));
+			query.setGroupBy(new ArrayList<String>());
+			for (String value : groupBy) {
+				// skip empty strings
+				if (value!=null && value.length()>0) query.getGroupBy().add(value);
+			}
 		}
 		if ((metrics != null) && (metrics.length > 0)) {
-			query.setMetrics(Arrays.asList(metrics));
+			query.setMetrics(new ArrayList<String>());
+			for (String value : metrics) {
+				// skip empty strings
+				if (value!=null && value.length()>0) query.getMetrics().add(value);
+			}
 		}
 		if ((filterExpressions != null) && (filterExpressions.length > 0)) {
-			query.setFilters(Arrays.asList(filterExpressions));
+			query.setFilters(new ArrayList<String>());
+			for (String value : filterExpressions) {
+				// skip empty strings
+				if (value!=null && value.length()>0) query.getFilters().add(value);
+			}
 		}
 		if (period!=null) {
 			query.setPeriod(period);
@@ -496,13 +505,11 @@ public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implemen
 			query.setCompareframe(compareframe);
 		}
 		if ((orderExpressions != null) && (orderExpressions.length > 0)) {
-			List<OrderBy> orders = new ArrayList<OrderBy>();
-			for (int i = 0; i < orderExpressions.length; i++) {
-				OrderBy order = new OrderBy();
-				order.setExpression(new Expression(orderExpressions[i]));
-				orders.add(order);
+			query.setOrderBy(new ArrayList<String>());
+			for (String value : orderExpressions) {
+				// skip empty strings
+				if (value!=null && value.length()>0) query.getOrderBy().add(value);
 			}
-			query.setOrderBy(orders);
 		}
 		if ((rollupExpressions != null) && (rollupExpressions.length > 0)) {
 			List<RollUp> rollups = new ArrayList<RollUp>();
@@ -550,11 +557,26 @@ public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implemen
 		} catch (InvalidTokenAPIException e) {
 			// add the redirect information
 			String path = uriInfo.getRequestUri().toString();
-			int pos = path.indexOf("/analytics");
 			UriBuilder builder = delegate().getPublicBaseUriBuilder();
-			UriBuilder redirect = builder.path(pos>0?path.substring(pos):path);
+			UriBuilder redirect = builder.path(cleanPath(path));
 			throw new InvalidTokenAPIException(e.getMessage(), redirect.build(), "admin_console", e.isNoError());
 		}
+	}
+	
+	private String cleanPath(String path) {
+		int pos = path.indexOf("/analytics");
+		path = pos>0?path.substring(pos):path;
+		while (path.contains("&access_token")) {
+			int x = path.lastIndexOf("&access_token=");
+			if (path.indexOf("&", x+1)>0) {
+				path = path.substring(0, x)+path.substring(path.indexOf("&", x+1));
+			} else if (path.indexOf("#", x+1)>0) {
+				path = path.substring(0, x)+path.substring(path.indexOf("#", x+1));
+			} else {
+				path = path.substring(0, x);
+			}
+		}
+		return path;
 	}
 
 }
