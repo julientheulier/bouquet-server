@@ -1065,6 +1065,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		String title = createHTMLtitle(space);
 		StringBuilder html = new StringBuilder("<html><title>Query: "+title+"</title><body>");
 		html.append("<h1>"+title+"</h1>");
+		createHTMLproblems(html, query);
 		createHTMLfilters(html, query);
 		html.append("<table><tr>");
 		for (Col col : data.getCols()) {
@@ -1301,17 +1302,21 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			for (String filter : query.getFilters()) {
 				filter = filter.trim();
 				if (!filter.equals("")) {
-					ExpressionAST filterExpr = scope.parseExpression(filter);
-					if (!filterExpr.getImageDomain().isInstanceOf(IDomain.CONDITIONAL)) {
-						throw new ScopeException("invalid filter, must be a condition");
-					}
-					Facet facet = createFacet(filterExpr);
-					if (facet!=null) {
-						selection.getFacets().add(facet);
-					} else {
-						// use open-filter
-						FacetMemberString openFilter = SegmentManager.newOpenFilter(filterExpr, filter);
-						segment.getSelectedItems().add(openFilter);
+					try {
+						ExpressionAST filterExpr = scope.parseExpression(filter);
+						if (!filterExpr.getImageDomain().isInstanceOf(IDomain.CONDITIONAL)) {
+							throw new ScopeException("invalid filter, must be a condition");
+						}
+						Facet facet = createFacet(filterExpr);
+						if (facet!=null) {
+							selection.getFacets().add(facet);
+						} else {
+							// use open-filter
+							FacetMemberString openFilter = SegmentManager.newOpenFilter(filterExpr, filter);
+							segment.getSelectedItems().add(openFilter);
+						}
+					} catch (ScopeException e) {
+						query.add(new Problem(Severity.ERROR, filter, "invalid filter definition: \n"+e.getMessage(), e));
 					}
 				}
 			}
@@ -1993,7 +1998,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			AnalyticsQuery query) throws ScopeException, ComputingException, InterruptedException {
 		Space space = getSpace(userContext, BBID);
 		//
-		if (data==null) data="URL";
+		if (data==null) data=style==Style.HTML?"EMBEDED":"URL";
 		boolean preFetch = true;// default to prefetch when data mode is URL
 		//
 		Bookmark bookmark = space.getBookmark();
@@ -2325,12 +2330,15 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		// handling data
 		AnalyticsResult.Info info = null;
 		if (data.equals("EMBEDED")) {
-			DataMatrix table = compute(userContext, job, query.getMaxResults(), query.getStartIndex(), false);
+			DataMatrix matrix = compute(userContext, job, query.getMaxResults(), query.getStartIndex(), false);
 			if (!outputConfig.isHasMetricSeries()) {
-				specs.data = transformToVegaData(query, table, "RECORDS");
+				specs.data = transformToVegaData(query, matrix, "RECORDS");
 			} else {
-				specs.data = transformToVegaData(query, table, "TRANSPOSE");
+				specs.data = transformToVegaData(query, matrix, "TRANSPOSE");
 			}
+			int end = startIndex+maxResults;
+			if (end>matrix.getRows().size()) end=matrix.getRows().size();
+			info = getAnalyticsResultInfo(end-startIndex, startIndex, matrix);
 		} else if (data.equals("URL")) {
 			if (preFetch || style==Style.HTML) {// always prefetch if HTML
 				// run the query
@@ -2356,9 +2364,9 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			}
 			specs.data = new Data();
 			if (!outputConfig.isHasMetricSeries()) {
-				specs.data.url = buildAnalyticsQueryURI(userContext, outputConfig.getScope(), query, "RECORDS", "DATA").toString();
+				specs.data.url = buildAnalyticsQueryURI(userContext, outputConfig.getScope(), query, "RECORDS", "DATA", null/*default style*/).toString();
 			} else {
-				specs.data.url = buildAnalyticsQueryURI(userContext, outputConfig.getScope(), query, "TRANSPOSE", "DATA").toString();
+				specs.data.url = buildAnalyticsQueryURI(userContext, outputConfig.getScope(), query, "TRANSPOSE", "DATA", null/*default style*/).toString();
 			}
 			specs.data.format = new Format();
 			specs.data.format.type = FormatType.json;// lowercase only!
@@ -2381,7 +2389,8 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		}
 		//
 		if (style!=null && style==Style.HTML) {
-			return createHTMLView(space, view, info, reply);
+			URI dataLink = buildAnalyticsQueryURI(userContext, outputConfig.getScope(), reply.getQuery(), "RECORDS", "ALL", Style.HTML);
+			return createHTMLView(space, view, info, reply, dataLink);
 		} else if (envelope==null || envelope.equals("") || envelope.equalsIgnoreCase("RESULT")) {
 			return Response.ok(reply.getResult(), MediaType.APPLICATION_JSON_TYPE.toString()).build();
 		} else if(envelope.equalsIgnoreCase("ALL")) {
@@ -2467,7 +2476,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		return Response.ok(html.toString(),"text/html").build();
 	}
 	
-	private Response createHTMLView(Space space, ViewQuery view, Info info, ViewReply reply) {
+	private Response createHTMLView(Space space, ViewQuery view, Info info, ViewReply reply, URI dataLink) {
 		String title = createHTMLtitle(space);
 		StringBuilder html = new StringBuilder("<html><title>View: "+title+"</title>\r\n");
 		if (getPublicBaseUriBuilder().build().getScheme().equalsIgnoreCase("https")) {
@@ -2476,21 +2485,25 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			html.append("<script src=\"http://d3js.org/d3.v3.min.js\" charset=\"utf-8\"></script>\r\n<script src=\"http://vega.github.io/vega/vega.js\" charset=\"utf-8\"></script>\r\n<script src=\"http://vega.github.io/vega-lite/vega-lite.js\" charset=\"utf-8\"></script>\r\n<script src=\"http://vega.github.io/vega-editor/vendor/vega-embed.js\" charset=\"utf-8\"></script>\r\n\r\n");
 		}
 		html.append("<body><h1>"+title+"</h1>");
+		createHTMLproblems(html, reply.getQuery());
 		html.append("<form>");
 		createHTMLfilters(html, reply.getQuery());
-		html.append("<div id=\"vis\"></div>\r\n\r\n<script>\r\nvar embedSpec = {\r\n  mode: \"vega-lite\",\r\n  spec:");
+		html.append("<div id=\"vis\"></div>\r\n\r\n<script>\r\nvar embedSpec = {\r\n  mode: \"vega-lite\", renderer:\"svg\",  spec:");
 		html.append(writeVegalightSpecs(reply.getResult()));
 		Encoding channels = reply.getResult().encoding;
 		html.append("}\r\nvg.embed(\"#vis\", embedSpec, function(error, result) {\r\n  // Callback receiving the View instance and parsed Vega spec\r\n  // result.view is the View, which resides under the '#vis' element\r\n});\r\n</script>\r\n");
 		createHTMLpagination(html, info);
+		if (dataLink!=null) {
+			html.append("<p><a href=\""+StringEscapeUtils.escapeHtml4(dataLink.toASCIIString())+"\">view data query</a></p>");
+		}
 		html.append(""//"<form>"
 				+ "<table>"
-				+ "<tr><td>x</td><td>=<input type=\"text\" name=\"x\" value=\""+getFieldValue(view.getX())+"\"></td><td>"+(channels.x!=null?"as <b>"+channels.x.field+"</b>":"")+"</td></tr>"
-				+ "<tr><td>y</td><td>=<input type=\"text\" name=\"y\" value=\""+getFieldValue(view.getY())+"\"></td><td>"+(channels.y!=null?"as <b>"+channels.y.field+"</b>":"")+"</td></tr>"
-				+ "<tr><td>color</td><td>=<input type=\"text\" name=\"color\" value=\""+getFieldValue(view.getColor())+"\"></td><td>"+(channels.color!=null?"as <b>"+channels.color.field+"</b>":"")+"</td></tr>"
-				+ "<tr><td>size</td><td>=<input type=\"text\" name=\"size\" value=\""+getFieldValue(view.getSize())+"\"></td><td>"+(channels.size!=null?"as <b>"+channels.size.field+"</b>":"")+"</td></tr>"
-				+ "<tr><td>column</td><td>=<input type=\"text\" name=\"column\" value=\""+getFieldValue(view.getColumn())+"\"></td><td>"+(channels.column!=null?"as <b>"+channels.column.field+"</b>":"")+"</td></tr>"
-				+ "<tr><td>row</td><td>=<input type=\"text\" name=\"row\" value=\""+getFieldValue(view.getRow())+"\"></td><td>"+(channels.row!=null?"as <b>"+channels.row.field+"</b>":"")+"</td></tr>"
+				+ "<tr><td>x</td><td>=<input type=\"text\" size=30 name=\"x\" value=\""+getFieldValue(view.getX())+"\"></td><td>"+(channels.x!=null?"as <b>"+channels.x.field+"</b>":"")+"</td></tr>"
+				+ "<tr><td>y</td><td>=<input type=\"text\" size=30 name=\"y\" value=\""+getFieldValue(view.getY())+"\"></td><td>"+(channels.y!=null?"as <b>"+channels.y.field+"</b>":"")+"</td></tr>"
+				+ "<tr><td>color</td><td>=<input type=\"text\" size=30 name=\"color\" value=\""+getFieldValue(view.getColor())+"\"></td><td>"+(channels.color!=null?"as <b>"+channels.color.field+"</b>":"")+"</td></tr>"
+				+ "<tr><td>size</td><td>=<input type=\"text\" size=30 name=\"size\" value=\""+getFieldValue(view.getSize())+"\"></td><td>"+(channels.size!=null?"as <b>"+channels.size.field+"</b>":"")+"</td></tr>"
+				+ "<tr><td>column</td><td>=<input type=\"text\" size=30 name=\"column\" value=\""+getFieldValue(view.getColumn())+"\"></td><td>"+(channels.column!=null?"as <b>"+channels.column.field+"</b>":"")+"</td></tr>"
+				+ "<tr><td>row</td><td>=<input type=\"text\" size=30 name=\"row\" value=\""+getFieldValue(view.getRow())+"\"></td><td>"+(channels.row!=null?"as <b>"+channels.row.field+"</b>":"")+"</td></tr>"
 				+ "</table>"
 				+ "<input type=\"hidden\" name=\"style\" value=\"HTML\">"
 				+ "<input type=\"hidden\" name=\"access_token\" value=\""+space.getUniverse().getContext().getToken().getOid()+"\">"
@@ -2515,6 +2528,21 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			throw new APIException("failed to write vegalite specs to JSON", e, true);
 		}
 	}
+	
+	/**
+	 * displays query problems
+	 * @param html
+	 * @param query
+	 */
+	private void createHTMLproblems(StringBuilder html, AnalyticsQuery query) {
+		if (query.getProblems()!=null && query.getProblems().size()>0) {
+			html.append("<div class='problems' style='border:1px solid red; background-color:lightpink;'>There are some problems with the query:");
+			for (Problem problem : query.getProblems()) {
+				html.append("<li>"+problem.getSeverity().toString()+": "+problem.getSubject()+": "+problem.getMessage()+"</li>");
+			}
+			html.append("</div>");
+		}
+	}
 
 	/**
 	 * create a filter HTML snippet
@@ -2524,7 +2552,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	private void createHTMLfilters(StringBuilder html, AnalyticsQuery query) {
 		if (query.getPeriod()!=null) {
 			html.append("<div class='period'>Selected Period: ");
-			html.append("<input type='text' name='period' value='"+getFieldValue(query.getPeriod())+"'> ");
+			html.append("<input type='text' size=30 name='period' value='"+getFieldValue(query.getPeriod())+"'> ");
 			if (query.getTimeframe()!=null) {
 				if (query.getTimeframe().length==1) {
 					html.append("on <input type='text' name='timeframe' value='"+getFieldValue(query.getTimeframe()[0])+"'>");
@@ -2545,28 +2573,31 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		html.append("<div class='filters'>Filtering on: ");
 		if (query.getFilters()!=null && query.getFilters().size()>0) {
 			for (String filter : query.getFilters()) {
-				html.append("<input type='text' name='period' value='"+getFieldValue(filter)+"'>");
+				html.append("<input type='text' size=30 name='filters' value='"+getFieldValue(filter)+"'>");
 			}
 		} else {
-			html.append("<input type='text' name='period' value=''>");
+			html.append("<input type='text' size=30 name='filters' value=''>");
 		}
 		html.append("</div>");
 	}
 	
 	private void createHTMLscope(StringBuilder html, Space space) {
-		html.append("<table><tr><td>");
+		html.append("<table><tr><td>GroupBy:</td><td>");
 		for (Axis axis : space.A()) {
-			html.append("<li>'"+axis.getName()+"'</li>");
+			html.append("<span style='display: inline-block;border:1px solid;border-radius:5px;background-color:LavenderBlush ;margin:1px;'>&nbsp;'"+axis.getName()+"'&nbsp;</span>");
 		}
+		html.append("</td></tr>");
+		html.append("<tr><td>Metrics:</td><td>");
 		try {
 			for (Metric metric : space.getMetrics()) {
 				if (!metric.isDynamic()) {
-					html.append("<li>'"+metric.getName()+"'</li>");
+					html.append("<span style='display: inline-block;border:1px solid;border-radius:5px;background-color:Lavender;margin:1px;'>&nbsp;'"+metric.getName()+"'&nbsp;</span>");
 				}
 			}
 		} catch (ScopeException e) {
 			// ignore
 		}
+		html.append("</td></tr></table>");
 	}
 	
 	private String getFieldValue(String var) {
@@ -2585,15 +2616,15 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	protected URI buildExportURI(AppContext userContext, SpaceScope localScope, String BBID, AnalyticsQuery query, String filename) throws ScopeException {
 		UriBuilder builder = getPublicBaseUriBuilder().
 			path("/analytics/{"+BBID_PARAM_NAME+"}/export/{filename}");
-		addAnalyticsQueryParams(builder, localScope, query);
+		addAnalyticsQueryParams(builder, localScope, query, null);
 		builder.queryParam("access_token", userContext.getToken().getOid());
 		return builder.build(BBID, filename);
 	}
 	
-	private URI buildAnalyticsQueryURI(AppContext userContext, SpaceScope localScope, AnalyticsQuery query, String data, String envelope) throws ScopeException {
+	private URI buildAnalyticsQueryURI(AppContext userContext, SpaceScope localScope, AnalyticsQuery query, String data, String envelope, Style style) throws ScopeException {
 		UriBuilder builder = getPublicBaseUriBuilder().
 			path("/analytics/{"+BBID_PARAM_NAME+"}/query");
-		addAnalyticsQueryParams(builder, localScope, query);
+		addAnalyticsQueryParams(builder, localScope, query, style);
 		builder.queryParam(DATA_PARAM, data).queryParam(ENVELOPE_PARAM, envelope);
 		builder.queryParam("access_token", userContext.getToken().getOid());
 		return builder.build(query.getBBID());
@@ -2603,7 +2634,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	 * @throws ScopeException 
 	 * 
 	 */
-	private void addAnalyticsQueryParams(UriBuilder builder, SpaceScope localScope, AnalyticsQuery query) throws ScopeException {
+	private void addAnalyticsQueryParams(UriBuilder builder, SpaceScope localScope, AnalyticsQuery query, Style style) throws ScopeException {
 		if (query.getGroupBy()!=null) {
 			for (String item : query.getGroupBy()) {
 				builder.queryParam(GROUP_BY_PARAM, item);
@@ -2653,7 +2684,9 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		if (query.getMaxResults()!=null) builder.queryParam(MAX_RESULTS_PARAM, query.getMaxResults());
 		if (query.getStartIndex()!=null) builder.queryParam(START_INDEX_PARAM, query.getStartIndex());
 		if (query.getLazy()!=null) builder.queryParam(LAZY_PARAM, query.getLazy());
-		if (query.getStyle()!=null) builder.queryParam(STYLE_PARAM, query.getStyle());
+		if (style!=null) {
+			builder.queryParam(STYLE_PARAM, style);
+		} else if (query.getStyle()!=null) builder.queryParam(STYLE_PARAM, query.getStyle());
 	}
 	
 	private Data transformToVegaData(AnalyticsQuery query, DataMatrix matrix, String format) {
