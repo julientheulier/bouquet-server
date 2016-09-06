@@ -36,7 +36,6 @@ import com.squid.kraken.v4.core.analysis.scope.SpaceScope;
 import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.model.AnalyticsQuery;
 import com.squid.kraken.v4.model.AnalyticsQueryImpl;
-import com.squid.kraken.v4.model.ProjectAnalysisJob.OrderBy;
 import com.squid.kraken.v4.vegalite.VegaliteSpecs.*;
 
 /**
@@ -66,7 +65,7 @@ public class VegaliteConfigurator {
 		required = new AnalyticsQueryImpl();
 		required.setGroupBy(new ArrayList<String>());
 		required.setMetrics(new ArrayList<String>());
-		required.setOrderBy(new ArrayList<OrderBy>());
+		required.setOrderBy(new ArrayList<String>());
 		//
 		this.space = space;
 		scope = new SpaceScope(this.space);

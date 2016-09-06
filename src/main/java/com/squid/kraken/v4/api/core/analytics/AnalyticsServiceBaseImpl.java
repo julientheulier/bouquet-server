@@ -1066,6 +1066,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		StringBuilder html = new StringBuilder("<html><title>Query: "+title+"</title><body>");
 		html.append("<h1>"+title+"</h1>");
 		createHTMLproblems(html, query);
+		html.append("<form>");
 		createHTMLfilters(html, query);
 		html.append("<table><tr>");
 		for (Col col : data.getCols()) {
@@ -1089,10 +1090,43 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		}
 		html.append("</table>");
 		createHTMLpagination(html, data);
+		html.append("<table>");
+		html.append("<tr><td>groupBy</td><td>");
+		createHTMLinputArray(html, "text", "groupBy", query.getGroupBy());
+		html.append("</td></tr>");
+		html.append("<tr><td>metrics</td><td>");
+		createHTMLinputArray(html, "text", "metrics", query.getMetrics());
+		html.append("</td></tr>");
+		html.append("<tr><td>orderBy</td><td>");
+		createHTMLinputArray(html, "text", "orderBy", query.getOrderBy());
+		html.append("</td></tr>");
+		html.append("<tr><td>limit</td><td>");
+		html.append("<input type=\"text\" name=\"limit\" value=\""+getFieldValue(query.getLimit())+"\">");
+		html.append("</td></tr>");
+		html.append("</table>"
+				+ "<input type=\"hidden\" name=\"style\" value=\"HTML\">"
+				+ "<input type=\"hidden\" name=\"access_token\" value=\""+space.getUniverse().getContext().getToken().getOid()+"\">"
+				+ "<input type=\"submit\" value=\"Refresh\">"
+				+ "</form>");
+		createHTMLscope(html, space);
 		html.append("<hr>powered by Open Bouquet");
 		html.append("<p>the OB Analytics API provides more parameters... check <a target='swagger' href='http://swagger.squidsolutions.com/#!/analytics/runAnalysis'>swagger UI</a> for details</p>");
 		html.append("</body></html>");
 		return Response.ok(html.toString(),"text/html").build();
+	}
+	
+	private void createHTMLinputArray(StringBuilder html, String type, String name, List<? extends Object> values) {
+		if (values==null || values.isEmpty()) {
+			html.append("<input type=\""+type+"\" size=100 name=\""+name+"\" value=\"\" placeholder=\"type formula\">");
+		} else {
+			boolean first = true;
+			for (Object value : values) {
+				if (!first) html.append("<br>"); else first=false;
+				html.append("<input type=\""+type+"\" size=100 name=\""+name+"\" value=\""+getFieldValue(value.toString())+"\">");
+			}
+			if (!first) html.append("<br>");
+			html.append("<input type=\""+type+"\" size=100 name=\""+name+"\" value=\"\" placeholder=\"type formula\">");
+		}
 	}
 	
 	private String createHTMLpagination(StringBuilder html, DataTable data) {
@@ -1414,49 +1448,51 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		if (query.getGroupBy()!=null) analysisFacets.addAll(query.getGroupBy());
 		if (query.getMetrics()!=null) analysisFacets.addAll(query.getMetrics());
 		for (String facet : analysisFacets) {
-			ExpressionAST colExpression = scope.parseExpression(facet);
-			IDomain image = colExpression.getImageDomain();
-			if (image.isInstanceOf(IDomain.AGGREGATE)) {
-				IDomain source = colExpression.getSourceDomain();
-				String name = colExpression.getName();// T1807
-				if (!source.isInstanceOf(DomainDomain.DOMAIN)) {
-					// need to add the domain
-					// check if it needs grouping?
-					if (colExpression instanceof Operator) {
-						Operator op = (Operator)colExpression;
-						if (op.getArguments().size()>1 && op.getOperatorDefinition().getPosition()!=OperatorDefinition.PREFIX_POSITION) {
-							colExpression = ExpressionMaker.GROUP(colExpression);
+			if (facet!=null && facet.length()>0) {// ignore empty values
+				ExpressionAST colExpression = scope.parseExpression(facet);
+				IDomain image = colExpression.getImageDomain();
+				if (image.isInstanceOf(IDomain.AGGREGATE)) {
+					IDomain source = colExpression.getSourceDomain();
+					String name = colExpression.getName();// T1807
+					if (!source.isInstanceOf(DomainDomain.DOMAIN)) {
+						// need to add the domain
+						// check if it needs grouping?
+						if (colExpression instanceof Operator) {
+							Operator op = (Operator)colExpression;
+							if (op.getArguments().size()>1 && op.getOperatorDefinition().getPosition()!=OperatorDefinition.PREFIX_POSITION) {
+								colExpression = ExpressionMaker.GROUP(colExpression);
+							}
 						}
+						// add the domain// relink with the domain
+						colExpression = ExpressionMaker.COMPOSE(new DomainReference(universe, domain), colExpression);
 					}
-					// add the domain// relink with the domain
-					colExpression = ExpressionMaker.COMPOSE(new DomainReference(universe, domain), colExpression);
+					// now it can be transformed into a measure
+					Measure m = universe.asMeasure(colExpression);
+					if (m == null) {
+						throw new ScopeException("cannot use expression='" + facet + "'");
+					}
+					Metric metric = new Metric();
+					metric.setExpression(new Expression(m.prettyPrint()));
+					if (name == null) {
+						name = m.getName();
+					}
+					metric.setName(name);
+					metrics.add(metric);
+					//
+					lookup.put(facetCount, legacyMetricCount++);
+					metricSet.add(facetCount);
+					facetCount++;
+				} else {
+					// it's a dimension
+					Axis axis = root.getUniverse().asAxis(colExpression);
+					if (axis == null) {
+						throw new ScopeException("cannot use expression='" + colExpression.prettyPrint() + "'");
+					}
+					facets.add(new FacetExpression(axis.prettyPrint(), axis.getName()));
+					//
+					lookup.put(facetCount, legacyFacetCount++);
+					facetCount++;
 				}
-				// now it can be transformed into a measure
-				Measure m = universe.asMeasure(colExpression);
-				if (m == null) {
-					throw new ScopeException("cannot use expression='" + facet + "'");
-				}
-				Metric metric = new Metric();
-				metric.setExpression(new Expression(m.prettyPrint()));
-				if (name == null) {
-					name = m.getName();
-				}
-				metric.setName(name);
-				metrics.add(metric);
-				//
-				lookup.put(facetCount, legacyMetricCount++);
-				metricSet.add(facetCount);
-				facetCount++;
-			} else {
-				// it's a dimension
-				Axis axis = root.getUniverse().asAxis(colExpression);
-				if (axis == null) {
-					throw new ScopeException("cannot use expression='" + colExpression.prettyPrint() + "'");
-				}
-				facets.add(new FacetExpression(axis.prettyPrint(), axis.getName()));
-				//
-				lookup.put(facetCount, legacyFacetCount++);
-				facetCount++;
 			}
 		}
 
@@ -1464,25 +1500,13 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		List<OrderBy> orderBy = new ArrayList<>();
 		int pos = 1;
 		if (query.getOrderBy() != null) {
-			for (OrderBy order : query.getOrderBy()) {
-				if (order.getExpression() != null) {
+			for (String order : query.getOrderBy()) {
+				if (order != null && order.length()>0) {
 					// let's try to parse it
 					try {
-						ExpressionAST expr = scope.parseExpression(order.getExpression().getValue());
+						ExpressionAST expr = scope.parseExpression(order);
 						IDomain image = expr.getImageDomain();
 						Direction direction = getDirection(image);
-						if (direction != null) {
-							order.setDirection(direction);
-							if (expr instanceof Operator) {
-								Operator op = (Operator)expr;
-								String id = op.getOperatorDefinition().getExtendedID();
-								if (id.equals(SortOperatorDefinition.ASC_ID) || id.equals(SortOperatorDefinition.DESC_ID)) {
-									expr = op.getArguments().get(0);
-								}
-							}
-						} else {
-							direction = order.getDirection()!=null?order.getDirection():Direction.ASC;
-						} 
 						if (image.isInstanceOf(DomainNumericConstant.DOMAIN)) {
 							// it is a reference to the facets
 							DomainNumericConstant num = (DomainNumericConstant) image
@@ -1500,6 +1524,17 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 						} else {
 							// it's an expression which is now scoped into the bookmark
 							// but job is expecting it to be scoped in the universe... (OMG)
+							// also we must remove the sort operator to avoid nasty SQL error when generating the SQL
+							if (expr.getImageDomain().isInstanceOf(DomainSort.DOMAIN) && expr instanceof Operator) {
+								// remove the first operator
+								Operator op = (Operator)expr;
+								if (op.getArguments().size()==1 
+										&& (op.getOperatorDefinition().getExtendedID()==SortOperatorDefinition.ASC_ID
+										|| op.getOperatorDefinition().getExtendedID()==SortOperatorDefinition.DESC_ID)) 
+								{
+									expr = op.getArguments().get(0);
+								}
+							}
 							String universalExpression = rewriteExpressionToGlobalScope(expr, root);
 							orderBy.add(new OrderBy(new Expression(universalExpression), direction));
 						}
@@ -1515,7 +1550,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		pos = 1;
 		if (query.getRollups() != null) {
 			for (RollUp rollup : query.getRollups()) {
-				if (rollup.getCol() > -1) {// ignore grand-total
+				if (rollup!=null && rollup.getCol() > -1) {// ignore grand-total
 					// can't rollup on metric
 					if (metricSet.contains(rollup.getCol())) {
 						throw new ScopeException(
@@ -1607,7 +1642,12 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			}
 		}
 		// else
-		return null;
+		// no desc | asc operator provided: use default
+		if (domain.isInstanceOf(IDomain.NUMERIC) || domain.isInstanceOf(IDomain.TEMPORAL)) {
+			return Direction.DESC;
+		} else { //if (image.isInstanceOf(IDomain.STRING)) {
+			return Direction.ASC;
+		} 
 	}
 	
 	private BookmarkConfig createBookmarkConfig(Space space, AnalyticsQuery query) throws ScopeException {
@@ -1640,9 +1680,10 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		//
 		if (query.getOrderBy() != null) {
 			config.setOrderBy(new ArrayList<OrderBy>());
-			for (OrderBy orderBy : query.getOrderBy()) {
-				String value = orderBy.getExpression().getValue();
-				OrderBy copy = new OrderBy(new Expression(query.getDomain()+".("+value+")"), orderBy.getDirection());
+			for (String orderBy : query.getOrderBy()) {
+				ExpressionAST expr = scope.parseExpression(orderBy);
+				Direction direction = getDirection(expr.getImageDomain());
+				OrderBy copy = new OrderBy(new Expression(rewriteExpressionToGlobalScope(expr, space)), direction);
 				config.getOrderBy().add(copy);
 			}
 		}
@@ -1762,11 +1803,18 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		}
 		if (query.getOrderBy() == null) {
 			if (config!=null && config.getOrderBy()!=null) {
-				query.setOrderBy(new ArrayList<OrderBy>());
+				query.setOrderBy(new ArrayList<String>());
 				for (OrderBy orderBy : config.getOrderBy()) {
 					ExpressionAST expr = globalScope.parseExpression(orderBy.getExpression().getValue());
-					OrderBy copy = new OrderBy(new Expression(expr.prettyPrint(localOptions)), orderBy.getDirection());
-					query.getOrderBy().add(copy);
+					IDomain image = expr.getImageDomain();
+					if (!image.isInstanceOf(DomainSort.DOMAIN)) {
+						if (orderBy.getDirection()==Direction.ASC) {
+							expr = ExpressionMaker.ASC(expr);
+						} else {
+							expr = ExpressionMaker.DESC(expr);
+						}
+					}
+					query.getOrderBy().add(expr.prettyPrint(localOptions));
 				}
 			}
 		}
@@ -2302,23 +2350,33 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		if (query.getOrderBy()==null || query.getOrderBy().size()==0) {
 			if (query.getMetrics().size()>0) {
 				ExpressionAST m = outputConfig.parse(query.getMetrics().get(0));
-				query.setOrderBy(Collections.singletonList(new OrderBy(outputConfig.prettyPrint(m), Direction.DESC)));
+				query.setOrderBy(Collections.singletonList("desc("+outputConfig.prettyPrint(m)+")"));
 			} else {
-				query.setOrderBy(Collections.singletonList(new OrderBy("count()", Direction.DESC)));
+				query.setOrderBy(Collections.singletonList("desc(count())"));
 			}
 		} else {
 			// check orderBy
 			if (query.getMetrics().size()>0) {
 				ExpressionAST m = outputConfig.parse(query.getMetrics().get(0));
 				boolean check = false;
-				for (OrderBy orderBy : query.getOrderBy()) {
-					ExpressionAST o = outputConfig.parse(orderBy.getExpression().getValue());
+				for (String orderBy : query.getOrderBy()) {
+					ExpressionAST o = outputConfig.parse(orderBy);
+					if (o.getImageDomain().isInstanceOf(DomainSort.DOMAIN) && o instanceof Operator) {
+						// remove the first operator
+						Operator op = (Operator)o;
+						if (op.getArguments().size()==1 
+								&& (op.getOperatorDefinition().getExtendedID()==SortOperatorDefinition.ASC_ID
+								|| op.getOperatorDefinition().getExtendedID()==SortOperatorDefinition.DESC_ID)) 
+						{
+							o = op.getArguments().get(0);
+						}
+					}
 					if (o.equals(m)) {
 						check = true;
 					}
 				}
 				if (!check) {
-					query.getOrderBy().add(0, new OrderBy(outputConfig.prettyPrint(m), Direction.DESC));
+					query.getOrderBy().add(0, "desc("+outputConfig.prettyPrint(m)+")");
 				}
 			}
 		}
@@ -2494,10 +2552,9 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		html.append("}\r\nvg.embed(\"#vis\", embedSpec, function(error, result) {\r\n  // Callback receiving the View instance and parsed Vega spec\r\n  // result.view is the View, which resides under the '#vis' element\r\n});\r\n</script>\r\n");
 		createHTMLpagination(html, info);
 		if (dataLink!=null) {
-			html.append("<p><a href=\""+StringEscapeUtils.escapeHtml4(dataLink.toASCIIString())+"\">view data query</a></p>");
+			html.append("<p><a href=\""+StringEscapeUtils.escapeHtml4(dataLink.toASCIIString())+"\">view query data</a></p>");
 		}
-		html.append(""//"<form>"
-				+ "<table>"
+		html.append("<table>"
 				+ "<tr><td>x</td><td>=<input type=\"text\" size=30 name=\"x\" value=\""+getFieldValue(view.getX())+"\"></td><td>"+(channels.x!=null?"as <b>"+channels.x.field+"</b>":"")+"</td></tr>"
 				+ "<tr><td>y</td><td>=<input type=\"text\" size=30 name=\"y\" value=\""+getFieldValue(view.getY())+"\"></td><td>"+(channels.y!=null?"as <b>"+channels.y.field+"</b>":"")+"</td></tr>"
 				+ "<tr><td>color</td><td>=<input type=\"text\" size=30 name=\"color\" value=\""+getFieldValue(view.getColor())+"\"></td><td>"+(channels.color!=null?"as <b>"+channels.color.field+"</b>":"")+"</td></tr>"
@@ -2557,15 +2614,25 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 				if (query.getTimeframe().length==1) {
 					html.append("on <input type='text' name='timeframe' value='"+getFieldValue(query.getTimeframe()[0])+"'>");
 				} else if (query.getTimeframe().length>=1) {
-					html.append("from "+query.getTimeframe()[0]+" to "+query.getTimeframe()[1]+" ");
+					html.append("from ");
+					html.append("<input type='date' name='compareTo' value='"+getFieldValue(query.getTimeframe()[0])+"'>");
+					html.append(" to ");
+					html.append("<input type='date' name='compareTo' value='"+getFieldValue(query.getTimeframe()[1])+"'>");
 				}
+			} else {
+				html.append("on <input type='text' name='timeframe' value=''>");
 			}
 			if (query.getCompareframe()!=null) {
 				if (query.getCompareframe().length==1) {
-					html.append("compare to "+query.getCompareframe()[0]);
+					html.append("compare to <input type='text' name='compareTo' value='"+getFieldValue(query.getCompareframe()[0])+"'>");
 				} else if (query.getCompareframe().length>=1) {
-					html.append("compare to range from "+query.getCompareframe()[0]+" to "+query.getCompareframe()[1]+" ");
+					html.append("compare to range from ");
+					html.append("<input type='date' name='compareTo' value='"+getFieldValue(query.getCompareframe()[0])+"'>");
+					html.append(" to ");
+					html.append("<input type='date' name='compareTo' value='"+getFieldValue(query.getCompareframe()[1])+"'>");
 				}
+			} else {
+				html.append("compare to <input type='text' name='compareTo' value=''>");
 			}
 			html.append("</div>");
 		}
@@ -2582,9 +2649,15 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	}
 	
 	private void createHTMLscope(StringBuilder html, Space space) {
+		html.append("<fieldset><legend>Query scope: <i>this is the list of objects you can combine to build expressions in the query</legend>");
 		html.append("<table><tr><td>GroupBy:</td><td>");
 		for (Axis axis : space.A()) {
-			html.append("<span style='display: inline-block;border:1px solid;border-radius:5px;background-color:LavenderBlush ;margin:1px;'>&nbsp;'"+axis.getName()+"'&nbsp;</span>");
+			try {
+				DimensionIndex index = axis.getIndex();
+				html.append("<span style='display: inline-block;border:1px solid;border-radius:5px;background-color:LavenderBlush ;margin:1px;'>&nbsp;'"+index.getDimensionName()+"'&nbsp;</span>");
+			} catch (Exception e) {
+				// ignore
+			}
 		}
 		html.append("</td></tr>");
 		html.append("<tr><td>Metrics:</td><td>");
@@ -2597,11 +2670,11 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		} catch (ScopeException e) {
 			// ignore
 		}
-		html.append("</td></tr></table>");
+		html.append("</td></tr></table></fieldset>");
 	}
 	
-	private String getFieldValue(String var) {
-		if (var==null) return ""; else return var.replaceAll("\"", "&quot;").replaceAll("'", "&#x27;");
+	private String getFieldValue(Object var) {
+		if (var==null) return ""; else return var.toString().replaceAll("\"", "&quot;").replaceAll("'", "&#x27;");
 	}
 	
 	/**
@@ -2662,16 +2735,8 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			}
 		}
 		if (query.getOrderBy()!=null) {
-			for (OrderBy item : query.getOrderBy()) {
-				ExpressionAST check = localScope.parseExpression(item.getExpression().getValue());
-				IDomain image = check.getImageDomain();
-				if (!image.isInstanceOf(DomainSort.DOMAIN)) {
-					// need to add the sort function
-					String expr = item.getDirection()+"("+item.getExpression().getValue()+")";
-					builder.queryParam(ORDERBY_PARAM, expr);
-				} else {
-					builder.queryParam(ORDERBY_PARAM, item.getExpression().getValue());
-				}
+			for (String item : query.getOrderBy()) {
+				builder.queryParam(ORDERBY_PARAM, item);
 			}
 		}
 		if (query.getRollups()!=null) builder.queryParam(ROLLUP_PARAM, query.getRollups());

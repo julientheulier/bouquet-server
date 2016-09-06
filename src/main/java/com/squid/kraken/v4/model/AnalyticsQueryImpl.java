@@ -5,7 +5,6 @@ import java.util.Arrays;
 import java.util.List;
 
 import com.squid.kraken.v4.model.NavigationQuery.Style;
-import com.squid.kraken.v4.model.ProjectAnalysisJob.OrderBy;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.RollUp;
 
 public class AnalyticsQueryImpl implements AnalyticsQuery {
@@ -20,7 +19,7 @@ public class AnalyticsQueryImpl implements AnalyticsQuery {
 	
 	private List<String> filters;
 	
-	private List<OrderBy> orderBy;
+	private List<String> orderBy;
 	
 	private List<RollUp> rollups;
 	
@@ -107,7 +106,7 @@ public class AnalyticsQueryImpl implements AnalyticsQuery {
 	 * @see com.squid.kraken.v4.model.Analysis#getOrderBy()
 	 */
 	@Override
-	public List<OrderBy> getOrderBy() {
+	public List<String> getOrderBy() {
 		return orderBy;
 	}
 
@@ -115,7 +114,7 @@ public class AnalyticsQueryImpl implements AnalyticsQuery {
 	 * @see com.squid.kraken.v4.model.Analysis#setOrderBy(java.util.List)
 	 */
 	@Override
-	public void setOrderBy(List<OrderBy> orderBy) {
+	public void setOrderBy(List<String> orderBy) {
 		this.orderBy = orderBy;
 	}
 
