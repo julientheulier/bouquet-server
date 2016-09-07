@@ -1099,19 +1099,23 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			html.append("<td>#"+(i++)+"</td>");
 			for (Col col : data.getCols()) {
 				Object value = row.getV()[col.getPos()];
-				if (col.getFormat()!=null && col.getFormat().length()>0) {
-					try {
-						value = String.format(col.getFormat(), value);
-					} catch (IllegalFormatException e) {
-						// ignore
+				if (value!=null) {
+					if (col.getFormat()!=null && col.getFormat().length()>0) {
+						try {
+							value = String.format(col.getFormat(), value);
+						} catch (IllegalFormatException e) {
+							// ignore
+						}
 					}
+				} else {
+					value="";
 				}
 				html.append("<td>"+value+"</td>");
 			}
 			html.append("</tr>");
 		}
 		html.append("</table>");
-		createHTMLpagination(html, data);
+		createHTMLpagination(html, query, data);
 		html.append("<table>");
 		html.append("<tr><td valign='top'>groupBy</td><td>");
 		createHTMLinputArray(html, "text", "groupBy", query.getGroupBy());
@@ -1156,12 +1160,20 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		}
 	}
 	
-	private String createHTMLpagination(StringBuilder html, DataTable data) {
-		html.append("<p>rows from "+(data.getStartIndex()+1)+" to "+(data.getStartIndex()+data.getRows().size())+" out of "+data.getTotalSize()+" records");
+	private String createHTMLpagination(StringBuilder html, AnalyticsQuery query, DataTable data) {
+		long lastRow = (data.getStartIndex()+data.getRows().size());
+		html.append("<p>rows from "+(data.getStartIndex()+1)+" to "+lastRow+" out of "+data.getTotalSize()+" records");
 		if (data.getFullset()) {
 			html.append(" (the query is complete)");
 		} else {
 			html.append(" (the query has more data)");
+		}
+		if (lastRow<data.getTotalSize()) {
+			// go to next page
+			HashMap<String, Object> override = new HashMap<>();
+			override.put(START_INDEX_PARAM, lastRow);
+			URI nextLink = buildAnalyticsQueryURI(userContext, query, null, null, Style.HTML, override);
+			html.append("[<a href=\""+StringEscapeUtils.escapeHtml4(nextLink.toString())+"\">next</a>]");
 		}
 		html.append("</p>");
 		if (data.isFromSmartCache()) {
@@ -1175,7 +1187,8 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	}
 	
 	private String createHTMLpagination(StringBuilder html, Info info) {
-		html.append("<p>rows from "+(info.getStartingIndex()+1)+" to "+(info.getStartingIndex()+info.getPageSize())+" out of "+info.getTotalSize()+" records");
+		long lastRow = (info.getStartingIndex()+info.getPageSize());
+		html.append("<p>rows from "+(info.getStartingIndex()+1)+" to "+lastRow+" out of "+info.getTotalSize()+" records");
 		if (info.isComplete()) {
 			html.append(" (the query is complete)");
 		} else {
@@ -2451,9 +2464,9 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			}
 			specs.data = new Data();
 			if (!outputConfig.isHasMetricSeries()) {
-				specs.data.url = buildAnalyticsQueryURI(userContext, outputConfig.getScope(), query, "RECORDS", "DATA", null/*default style*/).toString();
+				specs.data.url = buildAnalyticsQueryURI(userContext, query, "RECORDS", "DATA", null/*default style*/, null).toString();
 			} else {
-				specs.data.url = buildAnalyticsQueryURI(userContext, outputConfig.getScope(), query, "TRANSPOSE", "DATA", null/*default style*/).toString();
+				specs.data.url = buildAnalyticsQueryURI(userContext, query, "TRANSPOSE", "DATA", null/*default style*/, null).toString();
 			}
 			specs.data.format = new Format();
 			specs.data.format.type = FormatType.json;// lowercase only!
@@ -2476,7 +2489,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		}
 		//
 		if (style!=null && style==Style.HTML) {
-			URI dataLink = buildAnalyticsQueryURI(userContext, outputConfig.getScope(), reply.getQuery(), "RECORDS", "ALL", Style.HTML);
+			URI dataLink = buildAnalyticsQueryURI(userContext, reply.getQuery(), "RECORDS", "ALL", Style.HTML, null);
 			return createHTMLView(space, view, info, reply, dataLink);
 		} else if (envelope==null || envelope.equals("") || envelope.equalsIgnoreCase("RESULT")) {
 			return Response.ok(reply.getResult(), MediaType.APPLICATION_JSON_TYPE.toString()).build();
@@ -2829,28 +2842,30 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	 * @return
 	 * @throws ScopeException 
 	 */
-	protected URI buildExportURI(AppContext userContext, SpaceScope localScope, String BBID, AnalyticsQuery query, String filename) throws ScopeException {
+	protected URI buildExportURI(AppContext userContext, String BBID, AnalyticsQuery query, String filename) throws ScopeException {
 		UriBuilder builder = getPublicBaseUriBuilder().
 			path("/analytics/{"+BBID_PARAM_NAME+"}/export/{filename}");
-		addAnalyticsQueryParams(builder, localScope, query, null);
+		addAnalyticsQueryParams(builder, query, null, null);
 		builder.queryParam("access_token", userContext.getToken().getOid());
 		return builder.build(BBID, filename);
 	}
 	
-	private URI buildAnalyticsQueryURI(AppContext userContext, SpaceScope localScope, AnalyticsQuery query, String data, String envelope, Style style) throws ScopeException {
+	private URI buildAnalyticsQueryURI(AppContext userContext, AnalyticsQuery query, String data, String envelope, Style style, HashMap<String, Object> override) {
 		UriBuilder builder = getPublicBaseUriBuilder().
 			path("/analytics/{"+BBID_PARAM_NAME+"}/query");
-		addAnalyticsQueryParams(builder, localScope, query, style);
-		builder.queryParam(DATA_PARAM, data).queryParam(ENVELOPE_PARAM, envelope);
+		addAnalyticsQueryParams(builder, query, style, override);
+		if (data!=null) builder.queryParam(DATA_PARAM, data);
+		if (envelope!=null) builder.queryParam(ENVELOPE_PARAM, envelope);
 		builder.queryParam("access_token", userContext.getToken().getOid());
 		return builder.build(query.getBBID());
 	}
 
 	/**
+	 * @param override 
 	 * @throws ScopeException 
 	 * 
 	 */
-	private void addAnalyticsQueryParams(UriBuilder builder, SpaceScope localScope, AnalyticsQuery query, Style style) throws ScopeException {
+	private void addAnalyticsQueryParams(UriBuilder builder, AnalyticsQuery query, Style style, HashMap<String, Object> override) {
 		if (query.getGroupBy()!=null) {
 			for (String item : query.getGroupBy()) {
 				builder.queryParam(GROUP_BY_PARAM, item);
@@ -2889,8 +2904,15 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 				builder.queryParam("beyondLimit", index);
 			}
 		}
-		if (query.getMaxResults()!=null) builder.queryParam(MAX_RESULTS_PARAM, query.getMaxResults());
-		if (query.getStartIndex()!=null) builder.queryParam(START_INDEX_PARAM, query.getStartIndex());
+		// maxResults override
+		if (override!=null && override.containsKey(MAX_RESULTS_PARAM)) {
+			builder.queryParam(MAX_RESULTS_PARAM, override.get(MAX_RESULTS_PARAM));
+		} else if (query.getMaxResults()!=null) builder.queryParam(MAX_RESULTS_PARAM, query.getMaxResults());
+		// startIndex override
+		if (override!=null && override.containsKey(START_INDEX_PARAM)) {
+			builder.queryParam(START_INDEX_PARAM, override.get(START_INDEX_PARAM));
+		} else if (query.getStartIndex()!=null) builder.queryParam(START_INDEX_PARAM, query.getStartIndex());
+		//
 		if (query.getLazy()!=null) builder.queryParam(LAZY_PARAM, query.getLazy());
 		if (style!=null) {
 			builder.queryParam(STYLE_PARAM, style);
