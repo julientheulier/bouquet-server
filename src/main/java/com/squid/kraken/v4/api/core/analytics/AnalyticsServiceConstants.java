@@ -31,6 +31,8 @@ public interface AnalyticsServiceConstants {
 
 	public final static String BBID_PARAM_NAME = "REFERENCE";
 	public final static String FACETID_PARAM_NAME = "FACETID";
+	
+	public final static String ACCESS_TOKEN_PARAM = "access_token";
 
 	public static final String LAZY_PARAM = "lazy";
 	public static final String START_INDEX_PARAM = "startIndex";
