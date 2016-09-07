@@ -47,6 +47,7 @@ import java.util.zip.GZIPOutputStream;
 
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.StreamingOutput;
 import javax.ws.rs.core.UriBuilder;
@@ -197,13 +198,13 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	static final Logger logger = LoggerFactory
 			.getLogger(AnalyticsServiceBaseImpl.class);
 
-	//private UriInfo uriInfo = null;
+	private UriInfo uriInfo = null;
 	
 	private URI publicBaseUri = null;
 	private AppContext userContext = null;
 	
 	protected AnalyticsServiceBaseImpl(UriInfo uriInfo, AppContext userContext) {
-		//this.uriInfo = uriInfo;
+		this.uriInfo = uriInfo;
 		this.publicBaseUri = getPublicBaseUri(uriInfo);
 		this.userContext = userContext;
 	}
@@ -1126,8 +1127,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 				+ "<input type=\"submit\" value=\"Refresh\">"
 				+ "</form>");
 		createHTMLscope(html, space, query);
-		html.append("<hr>powered by Open Bouquet");
-		html.append("<p>the OB Analytics API provides more parameters... check <a target='swagger' href='http://swagger.squidsolutions.com/#!/analytics/runAnalysis'>swagger UI</a> for details</p>");
+		createHTMLAPIpanel(html, "runAnalysis");
 		html.append("</body></html>");
 		return Response.ok(html.toString(),"text/html").build();
 	}
@@ -2547,8 +2547,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			}
 		}
 		html.append("</table>");
-		html.append("<hr>powered by Open Bouquet");
-		html.append("<p>the OB Analytics API provides more parameters... check <a target='swagger' href='http://swagger.squidsolutions.com/#!/analytics/listContent'>swagger UI</a> for details</p>");
+		createHTMLAPIpanel(html, "listContent");
 		html.append("</body></html>");
 		return Response.ok(html.toString(),"text/html").build();
 	}
@@ -2586,9 +2585,8 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 				+ "<input type=\"submit\" value=\"Refresh\">"
 				+ "</form>");
 		createHTMLscope(html, space, reply.getQuery());
-		html.append("<hr>powered by Open Bouquet & VegaLite"
-				+ "<p>the OB Analytics API provides more parameters... check <a target='swagger' href='http://swagger.squidsolutions.com/#!/analytics/viewAnalysis'>swagger UI</a> for details</p>"
-				+ "</body>\r\n</html>");
+		createHTMLAPIpanel(html, "viewAnalysis");
+		html.append("</body>\r\n</html>");
 		return Response.ok(html.toString(), "text/html; charset=UTF-8").build();
 	}
 	
@@ -2673,7 +2671,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	private static final String other_style = "display: inline-block;border:1px solid;border-radius:5px;background-color:azure;margin:1px;";
 	
 	private void createHTMLscope(StringBuilder html, Space space, AnalyticsQuery query) {
-		html.append("<fieldset><legend>Query scope: <i>this is the list of objects you can combine to build expressions in the query</legend>");
+		html.append("<fieldset><legend>Query scope: <i>this is the list of objects you can combine to build expressions in the query</i></legend>");
 		html.append("<table><tr><td>GroupBy:</td><td>");
 		for (Axis axis : space.A()) {
 			try {
@@ -2726,7 +2724,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			createHTMLproblems(html, Collections.singletonList(new Problem(Severity.WARNING, value, suggestions.getValidateMessage())));
 		}
 		html.append("<form>");
-		html.append("<p>Expression:<input type='text' name='value' size=100 value='"+getFieldValue(value)+"'></p>");
+		html.append("<p>Expression:<input type='text' name='value' size=100 value='"+getFieldValue(value)+"' placeholder='type expression to validate it or to filter the suggestion list'></p>");
 		html.append("<fieldset><legend>Filter by expression type</legend>");
 		html.append("<input type='checkbox' name='types' value='"+ObjectType.DIMENSION+"'>"+ObjectType.DIMENSION);
 		html.append("<input type='checkbox' name='types' value='"+ObjectType.COLUMN+"'>"+ObjectType.COLUMN);
@@ -2745,6 +2743,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		+ "<input type=\"hidden\" name=\"access_token\" value=\""+space.getUniverse().getContext().getToken().getOid()+"\">"
 		+ "<input type=\"submit\" value=\"Refresh\">");
 		html.append("</form>");
+		html.append("<p><i> This is the list of all available expressions and function in this scope. Relation expression can be composed in order to navigate the data model.</i></p>");
 		html.append("<table>");
 		for (ExpressionSuggestionItem item : suggestions.getSuggestions()) {
 			html.append("<tr><td>");
@@ -2765,16 +2764,41 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			html.append("</td></tr>");
 		}
 		html.append("</table>");
-		html.append("<hr>powered by Open Bouquet");
+		createHTMLAPIpanel(html, "scopeAnalysis");
+		html.append("</body></html>");
+		return Response.ok(html.toString(),"text/html").build();
+	}
+
+	private void createHTMLAPIpanel(StringBuilder html, String method) {
+		html.append("<hr>");
+		html.append("<fieldset><legend>API reference</legend>");
+		// compute the raw URI
+		UriBuilder builder = getPublicBaseUriBuilder().path(uriInfo.getPath());
+		MultivaluedMap<String, String> parameters = uriInfo.getQueryParameters();
+		parameters.remove("access_token");
+		parameters.remove("style");
+		parameters.remove("envelope");
+		for (Entry<String, List<String>> parameter : parameters.entrySet()) {
+			for (String value : parameter.getValue()) {
+				builder.queryParam(parameter.getKey(), value);
+			}
+		}
+		html.append("<p>Request URL:</p><div style='display:block;'><pre style='background-color: #fcf6db;border: 1px solid #e5e0c6; width:1000px; max-height: 400px;overflow-y: auto;'>"+StringEscapeUtils.escapeHtml4(builder.build().toString())+"</pre></div>");
+		String curlURL = "\""+(StringEscapeUtils.escapeHtml4(builder.build().toString()).replace("'", "'"))+"\"";
+		html.append("<p>CURL:</p><div style='display:block;'><pre style='background-color: #fcf6db;border: 1px solid #e5e0c6; width:1000px; max-height: 400px;overflow-y: auto;'>curl -X GET --header 'Accept: application/json' --header 'Authorization: Bearer "+userContext.getToken().getOid()+"' "+curlURL+"</pre></div>");
+		createHTMLswaggerLink(html, method);
+		html.append("</fieldset>");
+		html.append("powered by Open Bouquet");
+	}
+	
+	private void createHTMLswaggerLink(StringBuilder html, String method) {
 		String baseUrl = "";
 		try {
-			baseUrl = "?baseUrl="+URLEncoder.encode(getPublicBaseUriBuilder().path("swagger.json").build().toString(),"UTF-8")+"";
+			baseUrl = "?url="+URLEncoder.encode(getPublicBaseUriBuilder().path("swagger.json").build().toString(),"UTF-8")+"";
 		} catch (UnsupportedEncodingException | IllegalArgumentException | UriBuilderException e) {
 			// default
 		}
-		html.append("<p>the OB Analytics API provides more parameters... check <a target='swagger' href='http://swagger.squidsolutions.com/"+baseUrl+"#!/analytics/scopeAnalysis'>swagger UI</a> for details</p>");
-		html.append("</body></html>");
-		return Response.ok(html.toString(),"text/html").build();
+		html.append("<p>the OB Analytics API provides more parameters... check in <a target='swagger' href='http://swagger.squidsolutions.com/"+baseUrl+"#!/analytics/"+method+"'>swagger UI</a> for details</p>");
 	}
 	
 	private ValueType getExpressionValueType(ExpressionAST expr) {
