@@ -960,6 +960,10 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 				if (query.getStyle()==Style.HTML) {
 					// change data format to legacy
 					data="LEGACY";
+					if (query.getLimit()>100 && query.getMaxResults()==null) {
+						// try to apply maxResults
+						query.setMaxResults(100);
+					}
 				}
 				try {
 					Callable<DataMatrix> task = new Callable<DataMatrix>() {
@@ -2775,9 +2779,9 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		// compute the raw URI
 		UriBuilder builder = getPublicBaseUriBuilder().path(uriInfo.getPath());
 		MultivaluedMap<String, String> parameters = uriInfo.getQueryParameters();
-		parameters.remove("access_token");
-		parameters.remove("style");
-		parameters.remove("envelope");
+		parameters.remove(ACCESS_TOKEN_PARAM);
+		parameters.remove(STYLE_PARAM);
+		parameters.remove(ENVELOPE_PARAM);
 		for (Entry<String, List<String>> parameter : parameters.entrySet()) {
 			for (String value : parameter.getValue()) {
 				builder.queryParam(parameter.getKey(), value);
