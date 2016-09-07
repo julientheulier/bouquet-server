@@ -29,6 +29,7 @@ import org.joda.time.LocalDate;
 import org.joda.time.Period;
 
 import com.squid.core.expression.scope.ScopeException;
+import com.squid.kraken.v4.caching.redis.datastruct.RawRow;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
 import com.squid.kraken.v4.core.analysis.universe.Measure;
 import com.squid.kraken.v4.core.analysis.universe.Property.OriginType;
@@ -87,51 +88,21 @@ public class CompareMerger extends JoinMerger {
 		}
 	}
 	
-	/* (non-Javadoc)
-	 * @see com.squid.kraken.v4.core.analysis.datamatrix.Merger#createDefaultIndirectionRow()
-	 */
-	@Override
-	protected IndirectionRow createDefaultIndirectionRow() throws ScopeException {
-		if (left.getDataSize()!=right.getDataSize()) {
-			throw new ScopeException("Invalid matrix layout for comparaison, both matrices must have the same columns");
-		}
-		if (computeGrowth) {
-			// add a column to compute the growth
-			return createDefaultIndirectionRow(left.getAxes().size(),3*left.getDataSize());
-		} else {
-			return createDefaultIndirectionRow(left.getAxes().size(),2*left.getDataSize());
-		}
-	}
-	
 	/**
 	 * override to interleave present/past values
 	 */
 	@Override
-	protected void mergeMeasures(IndirectionRow left, IndirectionRow right, IndirectionRow merged) {
-		int pos = merged.getAxesCount();// start after axes
-		int size = left!=null?left.getDataCount():(right!=null?right.getDataCount():0);
-		for (int i = 0; i < size; i++) {
-			Object leftValue = left!=null?left.getDataValue(i):null;
-			Object rightValue = right!=null?right.getDataValue(i):null;
-			merged.rawrow[pos++] = leftValue;
-			merged.rawrow[pos++] = rightValue;
-			// compute growth ?
-			if (computeGrowth) {
-				if (leftValue!=null && rightValue!=null) {
-					if (leftValue instanceof Number && rightValue instanceof Number) {
-						float leftf = ((Number)leftValue).floatValue();
-						float rightf = ((Number)rightValue).floatValue();
-						// compute the growth in %
-						if (rightf!=0) {
-							float growth = (leftf-rightf)*100/rightf;
-							//String output = String.format("%+.2f%%", growth);
-							merged.rawrow[pos] = growth;
-						}
-					}
-				}
-				// always advance
-				pos++;
+	protected void mergeMeasures(DataMatrix merge, RawRow leftrow, RawRow rightrow, RawRow merged) {
+		int pos = merge.getAxesSize();// start after axes
+		for (int i = 0; i < left.getDataSize(); i++) {// left.size==right.size
+			if (leftrow!=null) {
+				merged.data[pos] = left.getDataValue(i, leftrow);
 			}
+			pos++;// always advance
+			if (rightrow!=null) {
+				merged.data[pos] = right.getDataValue(i, rightrow);
+			}
+			pos++;// always advance
 		}
 	}
 	
@@ -141,14 +112,6 @@ public class CompareMerger extends JoinMerger {
 		for (int i=0; i<left.getKPIs().size(); i++) {
 			merge.getKPIs().add(left.getKPIs().get(i));
 			merge.getKPIs().add(right.getKPIs().get(i));
-			if (computeGrowth) {
-				// add the growth definition...
-				Measure growth = new Measure(left.getKPIs().get(i));
-				growth.setOriginType(OriginType.GROWTH);
-				growth.setName(growth.getName() + " [growth]");
-				growth.setFormat("%+.2f%%");
-				merge.getKPIs().add(growth);
-			}
 		}
 	}
 

@@ -72,7 +72,7 @@ public class APIException extends RuntimeException {
 	}
 
 	public APIException(Throwable cause, boolean noError) {
-		this(null, cause, noError, null);
+		this(cause.getMessage(), cause, noError, null);
 	}
 
 	/**

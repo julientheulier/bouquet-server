@@ -25,8 +25,10 @@ package com.squid.kraken.v4.core.analysis.datamatrix;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
-import com.squid.kraken.v4.core.analysis.universe.Measure;
+import com.squid.kraken.v4.caching.redis.datastruct.RawRow;
+import com.squid.kraken.v4.model.AnalyticsQuery;
 
 /**
  * return the DataMatrix as a array of records
@@ -39,21 +41,37 @@ public class RecordConverter implements IDataMatrixConverter<Object[]> {
 	 * @see com.squid.kraken.v4.api.core.bb.IDataMatrixConverter#convert(com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix)
 	 */
 	@Override
-	public Object[] convert(DataMatrix matrix) {
+	public Object[] convert(AnalyticsQuery query, DataMatrix matrix) {
 		ArrayList<Object> records = new ArrayList<>();
-		for (IndirectionRow row : matrix.getRows()) {
-			HashMap<String, Object> record = new HashMap<>(row.size());
-			int i = 0;
-			for (AxisValues axis : matrix.getAxes()) {
-				Object value = row.getAxisValue(i++);
-				record.put(axis.getAxis().getName(), value);
+		List<RawRow> rows = matrix.getRows();
+		// handling pages
+		Integer startIndex = query.getStartIndex();
+		if (startIndex == null) {
+			startIndex = 0;
+		}
+		startIndex = Math.max(startIndex, 0);
+		Integer maxResults = query.getMaxResults();
+		if (maxResults == null) {
+			maxResults = rows.size();
+		}
+		maxResults = Math.max(maxResults, 0);
+		int endIndex = Math.min(rows.size(), startIndex + maxResults);
+		if (startIndex < endIndex) {
+			for (int rowIndex = startIndex; rowIndex < endIndex; rowIndex++) {
+				RawRow row = rows.get(rowIndex);
+				HashMap<String, Object> record = new HashMap<>(row.size());
+				int i = 0;
+				for (AxisValues axis : matrix.getAxes()) {
+					Object value =  matrix.getAxisValue(i++, row); 
+					record.put(axis.getAxis().getName(), value);
+				}
+				int j = 0;
+				for (MeasureValues measure : matrix.getKPIs()) {
+					Object value = matrix.getDataValue(j++, row);
+					record.put(measure.getMeasure().getName(), value);
+				}
+				records.add(record);
 			}
-			int j = 0;
-			for (Measure measure : matrix.getKPIs()) {
-				Object value = row.getDataValue(j++);
-				record.put(measure.getName(), value);
-			}
-			records.add(record);
 		}
 		return records.toArray();
 	}

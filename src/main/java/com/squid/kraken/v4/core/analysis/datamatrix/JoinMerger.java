@@ -24,6 +24,7 @@
 package com.squid.kraken.v4.core.analysis.datamatrix;
 
 import com.squid.core.expression.scope.ScopeException;
+import com.squid.kraken.v4.caching.redis.datastruct.RawRow;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
 
 /**
@@ -100,44 +101,39 @@ public class JoinMerger extends Merger {
 	 * @see com.squid.kraken.v4.core.analysis.datamatrix.Merger#createDefaultIndirectionRow(int, int)
 	 */
 	@Override
-	protected IndirectionRow createDefaultIndirectionRow(int axes, int metrics) {
-		if (joinRight!=null) {
-			// add the join copy for comparison
-			return super.createDefaultIndirectionRow(axes+1, metrics);
-		} else {
-			return super.createDefaultIndirectionRow(axes, metrics);
-		}
-	}
-	
-	@Override
-	protected void mergeAxes(IndirectionRow left, IndirectionRow right, IndirectionRow merged) {
-		if (left == null) {
+
+	protected void mergeAxes(DataMatrix merge, RawRow leftrow, RawRow rightrow, RawRow merged) {
+		if (leftrow == null && rightrow == null) {
+			// ignore, should not happen
+		} if (leftrow == null) {
+
 			// copy axes
 			int rrInd = 0;
-			for (int i = 0; i < right.getAxesCount(); i++) {
+			// left & right matrices having the same size
+			for (int i = 0; i < left.getAxesSize(); i++) {
 				if (hasJoinColumn && i==joinIndex) {
-					merged.rawrow[rrInd] = translateRightToLeft(right.getAxisValue(i));
+					merged.data[rrInd] = translateRightToLeft(right.getAxisValue(i, rightrow));
 					rrInd++;
 					if (joinRight!=null) {// if the join (compare) column is present
-						merged.rawrow[rrInd] = right.getAxisValue(i);
+						merged.data[rrInd] = right.getAxisValue(i, rightrow);
 						rrInd++;
 					}
 				} else {
-					merged.rawrow[rrInd] = right.getAxisValue(i);
+					merged.data[rrInd] = right.getAxisValue(i, rightrow);
 					rrInd++;
 				}
 			}
 		} else {
 			// copy axes
 			int rrInd = 0;
-			for (int i = 0; i < left.getAxesCount(); i++) {
-				merged.rawrow[rrInd] = left.getAxisValue(i);
+			for (int i = 0; i < left.getAxesSize(); i++) {
+				merged.data[rrInd] = left.getAxisValue(i, leftrow);
 				rrInd++;
 				if (joinRight!=null && i==joinIndex) {
-					if (right!=null) {
-						merged.rawrow[rrInd] = right.getAxisValue(i);
+					if (rightrow!=null) {
+						merged.data[rrInd] = right.getAxisValue(i, rightrow);
 					} else {
-						merged.rawrow[rrInd] = translateLeftToRight(left.getAxisValue(i));
+						merged.data[rrInd] = translateLeftToRight(left.getAxisValue(i, leftrow));
 					}
 					rrInd++;
 				}

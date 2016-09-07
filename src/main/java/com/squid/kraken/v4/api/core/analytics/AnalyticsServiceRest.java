@@ -24,7 +24,6 @@
 package com.squid.kraken.v4.api.core.analytics;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 import javax.servlet.http.HttpServletRequest;
@@ -51,18 +50,15 @@ import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.model.AnalyticsQuery;
 import com.squid.kraken.v4.model.AnalyticsQueryImpl;
 import com.squid.kraken.v4.model.Bookmark;
-import com.squid.kraken.v4.model.Expression;
-import com.squid.kraken.v4.model.ExpressionSuggestion;
 import com.squid.kraken.v4.model.Facet;
+import com.squid.kraken.v4.model.NavigationQuery.HierarchyMode;
+import com.squid.kraken.v4.model.NavigationQuery.Style;
+import com.squid.kraken.v4.model.NavigationQuery.Visibility;
 import com.squid.kraken.v4.model.ObjectType;
-import com.squid.kraken.v4.model.ProjectAnalysisJob.OrderBy;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.Position;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.RollUp;
 import com.squid.kraken.v4.model.ValueType;
 import com.squid.kraken.v4.model.ViewQuery;
-import com.squid.kraken.v4.model.NavigationQuery.HierarchyMode;
-import com.squid.kraken.v4.model.NavigationQuery.Style;
-import com.squid.kraken.v4.model.NavigationQuery.Visibility;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.wordnik.swagger.annotations.Api;
 import com.wordnik.swagger.annotations.ApiOperation;
@@ -83,18 +79,18 @@ import com.wordnik.swagger.annotations.AuthorizationScope;
 		description = "this is the new analytics API intented to provide all the fun without the pain",
 		authorizations = { @Authorization(value = "kraken_auth", type = "oauth2", scopes = { @AuthorizationScope(scope = "access", description = "Access") }) })
 @Produces({ MediaType.APPLICATION_JSON })
-public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest implements BookmarkAnalysisServiceConstants {
+public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implements AnalyticsServiceConstants {
 
-	static final Logger logger = LoggerFactory.getLogger(BookmarkAnalysisServiceRest.class);
+	static final Logger logger = LoggerFactory.getLogger(AnalyticsServiceRest.class);
 	
 	@Context
 	UriInfo uriInfo;
 	
-	private BookmarkAnalysisServiceBaseImpl getDelegate() {
-		return new BookmarkAnalysisServiceBaseImpl(uriInfo);
+	private AnalyticsServiceBaseImpl delegate(AppContext userContxt) {
+		return new AnalyticsServiceBaseImpl(uriInfo, userContxt);
 	}
 	
-	public BookmarkAnalysisServiceRest() {
+	public AnalyticsServiceRest() {
 	}
 
 	@GET
@@ -127,7 +123,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 			@QueryParam(ENVELOPE_PARAM) String envelope
 		) throws ScopeException {
 		AppContext userContext = getUserContext(request);
-		return getDelegate().listContent(userContext, parent, search, hierarchyMode, visibility, style, envelope);
+		return delegate(userContext).listContent(userContext, parent, search, hierarchyMode, visibility, style, envelope);
 	}
 
 	@GET
@@ -137,7 +133,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 			@Context HttpServletRequest request, 
 			@PathParam(BBID_PARAM_NAME) String BBID) throws ScopeException {
 		AppContext userContext = getUserContext(request);
-		return getDelegate().getItem(userContext, BBID);
+		return delegate(userContext).getItem(userContext, BBID);
 	}
 
 	@POST
@@ -153,7 +149,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 			@ApiParam(value="the new bookmark folder, can be /MYBOOKMARKS, /MYBOOKMARKS/any/folders or /SHARED/any/folders") @QueryParam("parent") String parent)
 	{
 		AppContext userContext = getUserContext(request);
-		return getDelegate().createBookmark(userContext, query, BBID, name, parent);
+		return delegate(userContext).createBookmark(userContext, query, BBID, name, parent);
 	}
 	
 	@GET
@@ -161,11 +157,11 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 	@ApiOperation(
 			value = "Provide information about the expressions available in the bookmark scope",
 			notes = "It also allows to check if a given expression is valid in the scope, and further explore the scope if the expression is an object. Using the offset parameter you can get suggestion at the caret position instead of the complete expression value.")
-	public ExpressionSuggestion evaluateExpression(
+	public Response scopeAnalysis(
 			@Context HttpServletRequest request, 
 			@PathParam(BBID_PARAM_NAME) String BBID,
 			@ApiParam(value="(optional) the expression to check and get suggestion for, or null in order to get scope level suggestions") 
-			@QueryParam("value") String expression,
+			@QueryParam("value") String value,
 			@ApiParam(value="(optionnal) caret position in the expression value in order to provide relevant suggestions based on the caret position. By default the suggestion are based on the full expression if provided, or else the entire bookmark scope.") 
 			@QueryParam("offset") Integer offset,
 			@ApiParam(
@@ -177,11 +173,15 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 					value="(optional) the expression value to filter the suggestions. If undefined all valid expression in the context are returned. ",
 					allowMultiple=true,
 					allowableValues="OBJECT, NUMERIC, AGGREGATE, DATE, STRING, CONDITION, DOMAIN, OTHER, ERROR") 
-			@QueryParam("values") ValueType[] values
+			@QueryParam("values") ValueType[] values,
+			@ApiParam(
+					value="define the response style. If HUMAN, the API will try to use natural reference for objects, like 'My First Project', 'Account', 'Total Sales'... If MACHINE the API will use canonical references that are invariant, e.g. @'5603ca63c531d744b50823a3bis'. If LEGACY the API will also provide internal compound key to lookup objects in the management API.", 
+					allowableValues="LEGACY, MACHINE, HUMAN", defaultValue="HUMAN")
+			@QueryParam(STYLE_PARAM) Style style
 			) throws ScopeException
 	{
 		AppContext userContext = getUserContext(request);
-		return getDelegate().evaluateExpression(userContext, BBID, expression, offset, types, values);
+		return delegate(userContext).scopeAnalysis(userContext, BBID, value, offset, types, values, style);
 	}
 
 	@GET
@@ -202,7 +202,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 			) throws ComputingException {
 
 		AppContext userContext = getUserContext(request);
-		return getDelegate().getFacet(userContext, BBID, facetId, search, filters, maxResults, startIndex, timeoutMs);
+		return delegate(userContext).getFacet(userContext, BBID, facetId, search, filters, maxResults, startIndex, timeoutMs);
 	}
 
 	@POST
@@ -224,7 +224,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 			@QueryParam(TIMEOUT_PARAM) Integer timeout
 			) throws ComputingException, ScopeException, InterruptedException {
 		AppContext userContext = getUserContext(request);
-		return getDelegate().runAnalysis(userContext, BBID, query, data, envelope, timeout);
+		return delegate(userContext).runAnalysis(userContext, BBID, query, data, envelope, timeout);
 	}
 
 	@GET
@@ -258,8 +258,10 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 			@QueryParam(ORDERBY_PARAM) String[] orderExpressions,
 			@ApiParam(allowMultiple = true) 
 			@QueryParam(ROLLUP_PARAM) String[] rollupExpressions,
-			@ApiParam(value="limit the resultset size as computed by the database. Note that this is independant from the paging size.")
+			@ApiParam(value="limit the resultset size as computed by the database. Note that this is independant from the paging size defined by "+MAX_RESULTS_PARAM+".")
 			@QueryParam(LIMIT_PARAM) Long limit,
+			@ApiParam(value="offset the resultset first row - usually used with limit to paginate the database. Note that this is independant from the paging defined by "+START_INDEX_PARAM+".")
+			@QueryParam(OFFSET_PARAM) Long offset,
 			@ApiParam(
 					value="exclude some dimensions from the limit",
 					allowMultiple=true
@@ -285,8 +287,8 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 			@QueryParam(TIMEOUT_PARAM) Integer timeout
 			) throws ComputingException, ScopeException, InterruptedException {
 		AppContext userContext = getUserContext(request);
-		AnalyticsQuery analysis = createAnalysisFromParams(BBID, groupBy, metrics, filterExpressions, period, timeframe, compareframe, orderExpressions, rollupExpressions, limit, beyondLimit, maxResults, startIndex, lazy, style);
-		return getDelegate().runAnalysis(userContext, BBID, analysis, data, envelope, timeout);
+		AnalyticsQuery analysis = createAnalysisFromParams(BBID, groupBy, metrics, filterExpressions, period, timeframe, compareframe, orderExpressions, rollupExpressions, limit, offset, beyondLimit, maxResults, startIndex, lazy, style);
+		return delegate(userContext).runAnalysis(userContext, BBID, analysis, data, envelope, timeout);
 	}
 
 
@@ -326,8 +328,12 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 			@QueryParam(COMPARETO_PARAM) String[] compareframe,
 			@ApiParam(allowMultiple = true) 
 			@QueryParam(ORDERBY_PARAM) String[] orderby, 
-			@ApiParam(value="limit the resultset size as computed by the database. Note that this is independant from the paging size.")
+			@ApiParam(value="limit the resultset size as computed by the database. Note that this is independant from the paging size defined by "+MAX_RESULTS_PARAM+".")
 			@QueryParam(LIMIT_PARAM) Long limit,
+			@ApiParam(value="offset the resultset first row - usually used with limit to paginate the database. Note that this is independant from the paging defined by "+START_INDEX_PARAM+".")
+			@QueryParam(OFFSET_PARAM) Long offset,
+			@ApiParam(value = "paging size") @QueryParam(MAX_RESULTS_PARAM) Integer maxResults,
+			@ApiParam(value = "paging start index") @QueryParam(START_INDEX_PARAM) Integer startIndex,
 			@ApiParam(
 					value="define how to provide the data, either EMBEDED or through an URL",
 					allowableValues="EMBEDED,URL", defaultValue="EMBEDED")
@@ -343,7 +349,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 	) throws ScopeException, ComputingException, InterruptedException
 	{
 		AppContext userContext = getUserContext(request);
-		AnalyticsQuery query = createAnalysisFromParams(BBID, null, null, filterExpressions, period, timeframe, compareframe, orderby, null, limit, null, null, null, null, null);
+		AnalyticsQuery query = createAnalysisFromParams(BBID, null, null, filterExpressions, period, timeframe, compareframe, orderby, null, limit, offset, null, maxResults, startIndex, null, null);
 		ViewQuery view = new ViewQuery();
 		view.setX(x);
 		view.setY(y);
@@ -351,7 +357,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 		view.setSize(size);
 		view.setColumn(column);
 		view.setRow(row);
-		return getDelegate().viewAnalysis(userContext, BBID, view, data, style, envelope, query);
+		return delegate(userContext).viewAnalysis(userContext, BBID, view, data, style, envelope, query);
 	}
 
 	@GET
@@ -385,7 +391,10 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 			@QueryParam(ORDERBY_PARAM) String[] orderExpressions, 
 			@ApiParam(allowMultiple = true) 
 			@QueryParam(ROLLUP_PARAM) String[] rollupExpressions,
+			@ApiParam(value="limit the resultset size as computed by the database. Note that this is independant from the paging size defined by "+MAX_RESULTS_PARAM+".")
 			@QueryParam(LIMIT_PARAM) Long limit,
+			@ApiParam(value="offset the resultset first row - usually used with limit to paginate the database. Note that this is independant from the paging defined by "+START_INDEX_PARAM+".")
+			@QueryParam(OFFSET_PARAM) Long offset,
 			@ApiParam(
 					value="exclude some dimensions from the limit",
 					allowMultiple=true
@@ -409,8 +418,8 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 				compression = "gzip";
 			}
 		}
-		AnalyticsQuery analysis = createAnalysisFromParams(BBID, groupBy, metrics, filterExpressions, period, timeframe, compareframe, orderExpressions, rollupExpressions, limit, beyondLimit, null, null, null, null);
-		return getDelegate().exportAnalysis(userContext, BBID, analysis, filepart, fileext, compression);
+		AnalyticsQuery analysis = createAnalysisFromParams(BBID, groupBy, metrics, filterExpressions, period, timeframe, compareframe, orderExpressions, rollupExpressions, limit, offset, beyondLimit, null, null, null, null);
+		return delegate(userContext).exportAnalysis(userContext, BBID, analysis, filepart, fileext, compression);
 	}
 	
 	@GET
@@ -420,7 +429,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 			@Context HttpServletRequest request, 
 			@ApiParam(value="this is the AnalysisQuery QueryID") @PathParam("QUERYID") String key) {
 		AppContext userContext = getUserContext(request);
-		return getDelegate().getStatus(userContext, key);
+		return delegate(userContext).getStatus(userContext, key);
 	}
 	
 	@GET
@@ -430,7 +439,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 			@Context HttpServletRequest request, 
 			@ApiParam(value="this is the AnalysisQuery QueryID") @PathParam("QUERYID") String key) {
 		AppContext userContext = getUserContext(request);
-		return getDelegate().cancelQuery(userContext, key);
+		return delegate(userContext).cancelQuery(userContext, key);
 	}
 	
 	/**
@@ -442,6 +451,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 	 * @param orderExpressions
 	 * @param rollupExpressions
 	 * @param limit
+	 * @param offset 
 	 * @return
 	 * @throws ScopeException
 	 */
@@ -456,6 +466,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 			String[] orderExpressions, 
 			String[] rollupExpressions, 
 			Long limit,
+			Long offset, 
 			int[] beyondLimit,
 			Integer maxResults, 
 			Integer startIndex, 
@@ -467,31 +478,49 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 		query.setBBID(BBID);
 		int groupByLength = groupBy!=null?groupBy.length:0;
 		if (groupByLength > 0) {
-			query.setGroupBy(Arrays.asList(groupBy));
+			query.setGroupBy(new ArrayList<String>());
+			for (String value : groupBy) {
+				// skip empty strings
+				if (value!=null && value.length()>0) query.getGroupBy().add(value);
+			}
 		}
 		if ((metrics != null) && (metrics.length > 0)) {
-			query.setMetrics(Arrays.asList(metrics));
+			query.setMetrics(new ArrayList<String>());
+			for (String value : metrics) {
+				// skip empty strings
+				if (value!=null && value.length()>0) query.getMetrics().add(value);
+			}
 		}
 		if ((filterExpressions != null) && (filterExpressions.length > 0)) {
-			query.setFilters(Arrays.asList(filterExpressions));
+			query.setFilters(new ArrayList<String>());
+			for (String value : filterExpressions) {
+				// skip empty strings
+				if (value!=null && value.length()>0) query.getFilters().add(value);
+			}
 		}
 		if (period!=null) {
 			query.setPeriod(period);
 		}
 		if (timeframe != null && timeframe.length>0) {
-			query.setTimeframe(timeframe);
+			query.setTimeframe(new ArrayList<String>());
+			for (String value : timeframe) {
+				// skip empty strings
+				if (value!=null && value.length()>0) query.getTimeframe().add(value);
+			}
 		}
 		if (compareframe != null && compareframe.length>0) {
-			query.setCompareframe(compareframe);
+			query.setCompareTo(new ArrayList<String>());
+			for (String value : compareframe) {
+				// skip empty strings
+				if (value!=null && value.length()>0) query.getCompareTo().add(value);
+			}
 		}
 		if ((orderExpressions != null) && (orderExpressions.length > 0)) {
-			List<OrderBy> orders = new ArrayList<OrderBy>();
-			for (int i = 0; i < orderExpressions.length; i++) {
-				OrderBy order = new OrderBy();
-				order.setExpression(new Expression(orderExpressions[i]));
-				orders.add(order);
+			query.setOrderBy(new ArrayList<String>());
+			for (String value : orderExpressions) {
+				// skip empty strings
+				if (value!=null && value.length()>0) query.getOrderBy().add(value);
 			}
-			query.setOrderBy(orders);
 		}
 		if ((rollupExpressions != null) && (rollupExpressions.length > 0)) {
 			List<RollUp> rollups = new ArrayList<RollUp>();
@@ -523,6 +552,7 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 			query.setRollups(rollups);
 		}
 		if (limit!=null) query.setLimit(limit);
+		if (offset!=null) query.setOffset(offset);
 		if (beyondLimit!=null) query.setBeyondLimit(beyondLimit);
 		if (maxResults!=null) query.setMaxResults(maxResults);
 		if (startIndex!=null) query.setStartIndex(startIndex);
@@ -538,11 +568,26 @@ public class BookmarkAnalysisServiceRest  extends CoreAuthenticatedServiceRest i
 		} catch (InvalidTokenAPIException e) {
 			// add the redirect information
 			String path = uriInfo.getRequestUri().toString();
-			int pos = path.indexOf("/analytics");
-			UriBuilder builder = getDelegate().getPublicBaseUriBuilder();
-			UriBuilder redirect = builder.path(pos>0?path.substring(pos):path);
+			UriBuilder builder = delegate(null).getPublicBaseUriBuilder();
+			UriBuilder redirect = builder.path(cleanPath(path)).queryParam(STYLE_PARAM, Style.HTML);
 			throw new InvalidTokenAPIException(e.getMessage(), redirect.build(), "admin_console", e.isNoError());
 		}
+	}
+	
+	private String cleanPath(String path) {
+		int pos = path.indexOf("/analytics");
+		path = pos>0?path.substring(pos):path;
+		while (path.contains("&access_token")) {
+			int x = path.lastIndexOf("&access_token=");
+			if (path.indexOf("&", x+1)>0) {
+				path = path.substring(0, x)+path.substring(path.indexOf("&", x+1));
+			} else if (path.indexOf("#", x+1)>0) {
+				path = path.substring(0, x)+path.substring(path.indexOf("#", x+1));
+			} else {
+				path = path.substring(0, x);
+			}
+		}
+		return path;
 	}
 
 }

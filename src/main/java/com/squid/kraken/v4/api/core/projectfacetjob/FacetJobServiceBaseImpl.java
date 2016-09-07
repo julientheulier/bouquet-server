@@ -44,6 +44,7 @@ import com.squid.kraken.v4.core.analysis.universe.Axis;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.Facet;
+import com.squid.kraken.v4.model.FacetSearchResult;
 import com.squid.kraken.v4.model.FacetSelection;
 import com.squid.kraken.v4.model.Project;
 import com.squid.kraken.v4.model.ProjectFacetJob;
@@ -82,7 +83,7 @@ public class FacetJobServiceBaseImpl extends
 						projectId));
 	}
 
-	public Facet readFacet(AppContext userContext, String projectId,
+	public FacetSearchResult readFacet(AppContext userContext, String projectId,
 			String jobId, String facetId, String filter, Integer timeoutMs,
 			Integer maxResults, Integer startIndex) {
 		//
@@ -118,8 +119,8 @@ public class FacetJobServiceBaseImpl extends
 				for (Domain domain : domains) {
 					DomainHierarchy hierarchy = universe
 							.getDomainHierarchy(domain, true);
-					return SegmentManager.createSegmentFacet(universe, hierarchy, domain,
-							facetId, filter, maxResults, startIndex, sel);
+					return new FacetSearchResult(SegmentManager.createSegmentFacet(universe, hierarchy, domain,
+							facetId, filter, maxResults, startIndex, sel), filter);
 				}
 			} else {
 				Axis axis = EngineUtils.getInstance().getFacetAxis(userContext,
@@ -160,7 +161,7 @@ public class FacetJobServiceBaseImpl extends
 					userContext.isNoError(), null);
 		}
 		//
-		return facet;
+		return new FacetSearchResult(facet, filter);
 	}
 
 }

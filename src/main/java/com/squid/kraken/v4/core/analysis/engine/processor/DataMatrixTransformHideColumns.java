@@ -21,42 +21,48 @@
  * you and Squid Solutions (above licenses and LICENSE.txt included).
  * See http://www.squidsolutions.com/EnterpriseBouquet/
  *******************************************************************************/
-package com.squid.kraken.v4.writers;
+package com.squid.kraken.v4.core.analysis.engine.processor;
 
-import com.squid.core.expression.scope.ScopeException;
-import com.squid.kraken.v4.caching.redis.RedisCacheManager;
-import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
-import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValuesList;
+import java.util.Collection;
+
+import com.squid.kraken.v4.core.analysis.datamatrix.AxisValues;
 import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
+import com.squid.kraken.v4.core.analysis.datamatrix.MeasureValues;
+import com.squid.kraken.v4.core.analysis.universe.Axis;
+import com.squid.kraken.v4.core.analysis.universe.Measure;
+import com.squid.kraken.v4.core.analysis.universe.Property;
 
 /**
- * transform a RawMatrix into a DataMatrix
- * @author hoa
+ * Hide some fields
+ * @author sergefantino
  *
  */
-public class PreviewWriter extends QueryWriter {
-
-	private DataMatrix dm = null;
-
-	public PreviewWriter() {
+public class DataMatrixTransformHideColumns <T extends Property> implements DataMatrixTransform {
+	
+	private Collection<T> hideProperties = null;
+	
+	public DataMatrixTransformHideColumns(Collection<T> hideProperties) {
+		this.hideProperties = hideProperties;
 	}
 
+	/* (non-Javadoc)
+	 * @see com.squid.kraken.v4.core.analysis.engine.processor.DataMatrixTransform#apply(com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix)
+	 */
 	@Override
-	public void write() throws ScopeException {
-		if (val != null) {
-			if (val instanceof RawMatrix) {
-				this.dm = new DataMatrix(db, (RawMatrix) val, mapper);
-			} else {
-				if (val instanceof RedisCacheValuesList) {
-					RawMatrix raw = RedisCacheManager.getInstance().getRawMatrix(val.getRedisKey());
-					this.dm = new DataMatrix(db, raw, mapper);
+	public DataMatrix apply(DataMatrix input) {
+		for (Property property : hideProperties) {
+			if (property instanceof Axis) {
+				AxisValues column = input.getAxisColumn((Axis)property);
+				if (column!=null) {
+					column.setVisible(false);
+				}
+			} else if (property instanceof Measure) {
+				MeasureValues column = input.getColumn((Measure)property);
+				if (column!=null) {
+					column.setVisible(false);
 				}
 			}
 		}
+		return input;
 	}
-
-	public DataMatrix getDataMatrix() {
-		return dm;
-	};
-	
 }

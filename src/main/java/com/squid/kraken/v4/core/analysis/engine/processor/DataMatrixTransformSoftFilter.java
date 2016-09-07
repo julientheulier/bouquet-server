@@ -21,46 +21,31 @@
  * you and Squid Solutions (above licenses and LICENSE.txt included).
  * See http://www.squidsolutions.com/EnterpriseBouquet/
  *******************************************************************************/
-package com.squid.kraken.v4.writers;
+package com.squid.kraken.v4.core.analysis.engine.processor;
 
-import com.squid.core.database.model.Database;
 import com.squid.core.expression.scope.ScopeException;
-import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValue;
-import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
-import com.squid.kraken.v4.core.analysis.engine.query.mapping.QueryMapper;
+import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
+import com.squid.kraken.v4.core.analysis.model.DashboardSelection;
 
 /**
- * this is an abstract class that define the generic interface for write a Redis RawMatrix into "something".
- * It is used as an abstraction to handle both in-memory representation (DataMatrix) and exporting the data
- * @author hoa
+ * perform a softFilter based on the selection
+ * @author sergefantino
  *
  */
-public abstract class QueryWriter {
+public class DataMatrixTransformSoftFilter implements DataMatrixTransform {
 
-	protected RedisCacheValue val;
-	protected QueryMapper mapper;
-	protected Database db;
-	protected String SQL;
+	private DashboardSelection softFilters;
 
-	public QueryWriter() {
+	public DataMatrixTransformSoftFilter(DashboardSelection softFilters) {
+		this.softFilters = softFilters;
 	}
 
-	public abstract void write() throws ScopeException, ComputingException;
-
-	public void setSource(RedisCacheValue val) {
-		this.val = val;
-	};
-
-	public void setMapper(QueryMapper mapper) {
-		this.mapper = mapper;
+	@Override
+	public DataMatrix apply(DataMatrix input) throws ScopeException {
+		// apply the soft filters if any left
+		if (!softFilters.isEmpty()) {
+			input = input.filter(softFilters, false);//ticket:2923 Null values must not be retained.
+		}
+		return input;
 	}
-
-	public void setDatabase(Database db) {
-		this.db = db;
-	}
-
-	public void setSQL(String sql) {
-		this.SQL = sql;
-	}
-
 }

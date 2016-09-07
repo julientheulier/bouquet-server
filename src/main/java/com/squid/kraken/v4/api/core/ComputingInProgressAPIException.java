@@ -23,11 +23,16 @@
  *******************************************************************************/
 package com.squid.kraken.v4.api.core;
 
+import java.net.URI;
 
 @SuppressWarnings("serial")
 public class ComputingInProgressAPIException extends APIException {
 	
 	private final Integer retryAfter;
+	
+	private final String queryID;
+	
+	private final URI statusLink;
 
 	/**
 	 * @param message
@@ -37,15 +42,45 @@ public class ComputingInProgressAPIException extends APIException {
     public ComputingInProgressAPIException(String message, boolean noError, Integer retryAfter) {
         super(message, noError, ApiError.COMPUTING_IN_PROGRESS);
         this.retryAfter = retryAfter;
+        this.queryID = null;
+        this.statusLink = null;
     }
-    
-    @Override
+
+    public ComputingInProgressAPIException(String message, boolean noError, Integer retryAfter, String queryID) {
+        super(message, noError, ApiError.COMPUTING_IN_PROGRESS);
+        this.retryAfter = retryAfter;
+        this.queryID = queryID;
+        this.statusLink = null;
+    }
+
+    public ComputingInProgressAPIException(String message, boolean noError, Integer retryAfter, String queryID, URI statusLink) {
+        super(message, noError, ApiError.COMPUTING_IN_PROGRESS);
+        this.retryAfter = retryAfter;
+        this.queryID = queryID;
+        this.statusLink = statusLink;
+    }
+
+	@Override
     protected Integer getErrorCode() {
     	return 200;
     }
 
 	public Integer getRetryAfter() {
 		return retryAfter;
+	}
+	
+	/**
+	 * return the queryId of the job in progress
+	 */
+	public String getQueryID() {
+		return queryID;
+	}
+	
+	/**
+	 * return the link to the status API that can provide information regarding the query identified by its queryID
+	 */
+	public URI getStatusLink() {
+		return statusLink;
 	}
 
 }

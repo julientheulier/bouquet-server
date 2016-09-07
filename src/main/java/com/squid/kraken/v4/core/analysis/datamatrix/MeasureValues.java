@@ -23,38 +23,29 @@
  *******************************************************************************/
 package com.squid.kraken.v4.core.analysis.datamatrix;
 
-import java.util.HashSet;
-
-import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionMember;
+import com.squid.kraken.v4.core.analysis.universe.Measure;
 
 /**
- * Wrap a filter condition and apply it to a row
+ * Simple wrapper for Measure in a DataMatrix
  * @author sergefantino
  *
  */
-public class ApplyFilterCondition {
-	
-	public int index;
-	public HashSet<Object> items = new HashSet<Object>();
-	private boolean nullIsValid;
-	
-	public ApplyFilterCondition(int index, boolean nullIsValid) {
-		this.index = index;
-		this.nullIsValid = nullIsValid;
+public class MeasureValues extends PropertyValues<Measure> {
+
+	/**
+	 * @param property
+	 */
+	public MeasureValues(Measure property) {
+		super(property);
 	}
 	
-	public boolean filter(IndirectionRow row) {
-		//DimensionMember m = DataMatrix.this.getDimensionMember(row, index);//row.getAxisValue(DataMatrix.this,index);
-		Object m = row.getAxisValue(index);
-		return (m==null && this.nullIsValid) || (m!=null && items.contains(row.getAxisValue(index)));
+	public Measure getMeasure() {
+		return getProperty();
 	}
 
-	public void add(DimensionMember filter) {
-		items.add(filter.getID());
+	@Override
+	public String toString() {
+		return "MeasureValues:{measure="+getProperty().toString()+";"+getOrdering()+";visible="+isVisible();
 	}
-	
-	public boolean isEmpty() {
-		return items.isEmpty();
-	}
-	
+
 }

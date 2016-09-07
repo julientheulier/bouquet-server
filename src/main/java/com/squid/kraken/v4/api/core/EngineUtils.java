@@ -348,7 +348,13 @@ public class EngineUtils {
 				throw new ComputingException("failed to retrieve period interval");
 			}
 		} else {
-			return ServiceUtils.getInstance().toDate(value);
+			Date date = ServiceUtils.getInstance().toDate(value);
+			if (bound==Bound.UPPER && !index.getAxis().getDefinitionSafe().getImageDomain().isInstanceOf(IDomain.TIME)) {
+				// clear the timestamp
+				return new LocalDate(date.getTime()).toDate();
+			} else {
+				return date;
+			}
 		}
 	}
 	

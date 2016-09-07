@@ -21,46 +21,55 @@
  * you and Squid Solutions (above licenses and LICENSE.txt included).
  * See http://www.squidsolutions.com/EnterpriseBouquet/
  *******************************************************************************/
-package com.squid.kraken.v4.writers;
-
-import com.squid.core.database.model.Database;
-import com.squid.core.expression.scope.ScopeException;
-import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValue;
-import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
-import com.squid.kraken.v4.core.analysis.engine.query.mapping.QueryMapper;
+package com.squid.kraken.v4.model;
 
 /**
- * this is an abstract class that define the generic interface for write a Redis RawMatrix into "something".
- * It is used as an abstraction to handle both in-memory representation (DataMatrix) and exporting the data
- * @author hoa
+ * @author sergefantino
  *
  */
-public abstract class QueryWriter {
+public class Problem {
+	
+	public enum Severity {
+		WARNING, ERROR
+	}
+	
+	private Severity severity;
+	
+	private String subject;
+	
+	private String message;
+	
+	private Throwable error;
 
-	protected RedisCacheValue val;
-	protected QueryMapper mapper;
-	protected Database db;
-	protected String SQL;
-
-	public QueryWriter() {
+	public Problem(Severity severity, String subject, String message) {
+		super();
+		this.severity = severity;
+		this.subject = subject;
+		this.message = message;
 	}
 
-	public abstract void write() throws ScopeException, ComputingException;
-
-	public void setSource(RedisCacheValue val) {
-		this.val = val;
-	};
-
-	public void setMapper(QueryMapper mapper) {
-		this.mapper = mapper;
+	public Problem(Severity severity, String subject, String message, Throwable error) {
+		super();
+		this.severity = severity;
+		this.subject = subject;
+		this.message = message;
+		this.error = error;
 	}
 
-	public void setDatabase(Database db) {
-		this.db = db;
+	public Severity getSeverity() {
+		return severity;
 	}
 
-	public void setSQL(String sql) {
-		this.SQL = sql;
+	public String getSubject() {
+		return subject;
+	}
+	
+	public String getMessage() {
+		return message;
+	}
+	
+	public Throwable getError() {
+		return error;
 	}
 
 }

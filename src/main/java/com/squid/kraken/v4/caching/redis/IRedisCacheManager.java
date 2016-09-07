@@ -66,6 +66,8 @@ public interface IRedisCacheManager {
 
 	public RedisKey getKey(RedisKey key);
 
+	public String buildCacheKey(String SQLQuery, List<String> dependencies);
+	
 	public boolean isValid(RedisKey key);
 
 	public boolean inCache(RedisKey key);

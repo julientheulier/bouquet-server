@@ -239,7 +239,7 @@ public class RedisCacheManager implements IRedisCacheManager {
 		}
 	}
 
-	private String buildCacheKey(String SQLQuery, List<String> dependencies) {
+	public String buildCacheKey(String SQLQuery, List<String> dependencies) {
 		String key = "";
 		if (dependencies.size() > 0) {
 			key += dependencies.get(0);

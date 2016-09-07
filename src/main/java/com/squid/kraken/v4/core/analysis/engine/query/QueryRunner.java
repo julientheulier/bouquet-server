@@ -37,6 +37,8 @@ import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
 import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValue;
 import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValuesList;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
+import com.squid.kraken.v4.core.analysis.engine.processor.DataMatrixTransformOrderBy;
+import com.squid.kraken.v4.core.analysis.engine.processor.DataMatrixTransformTruncate;
 import com.squid.kraken.v4.model.Project;
 import com.squid.kraken.v4.model.ProjectPK;
 import com.squid.kraken.v4.persistence.AppContext;
@@ -60,7 +62,7 @@ public class QueryRunner {
 		this.jobId = jobId;
 	}
 
-	public void run() throws ComputingException {
+	public void run() throws ComputingException, NotInCacheException {
 		try {
 
 			Project project = query.getUniverse().asRootUserContext().getProject();
@@ -93,7 +95,12 @@ public class QueryRunner {
 					result = null;
 				}
 				if (result != null) {
-					writer.setNeedPostProcessing(true);
+					if (!query.getOrderBy().isEmpty()) {
+						query.addPostProcessing(new DataMatrixTransformOrderBy(query.getOrderBy()));
+					}
+					if (query.getSelect().getStatement().hasLimitValue() || query.getSelect().getStatement().hasOffsetValue()) {
+						query.addPostProcessing(new DataMatrixTransformTruncate(query.getSelect().getStatement().getLimitValue(), query.getSelect().getStatement().getOffsetValue()));
+					}
 				}
 			}
 			if (result != null) {

@@ -21,46 +21,48 @@
  * you and Squid Solutions (above licenses and LICENSE.txt included).
  * See http://www.squidsolutions.com/EnterpriseBouquet/
  *******************************************************************************/
-package com.squid.kraken.v4.writers;
+package com.squid.kraken.v4.model;
 
-import com.squid.core.database.model.Database;
-import com.squid.core.expression.scope.ScopeException;
-import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValue;
-import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
-import com.squid.kraken.v4.core.analysis.engine.query.mapping.QueryMapper;
+import java.io.Serializable;
 
+import javax.xml.bind.annotation.XmlType;
+
+@XmlType(namespace = "http://model.v4.kraken.squid.com")
+@SuppressWarnings("serial")
 /**
- * this is an abstract class that define the generic interface for write a Redis RawMatrix into "something".
- * It is used as an abstraction to handle both in-memory representation (DataMatrix) and exporting the data
- * @author hoa
- *
+ * A Facet search result.
+ * Wraps a Facet to add the queried filter string back in API response.
  */
-public abstract class QueryWriter {
-
-	protected RedisCacheValue val;
-	protected QueryMapper mapper;
-	protected Database db;
-	protected String SQL;
-
-	public QueryWriter() {
+public class FacetSearchResult extends Facet implements Serializable {
+	private String filter;
+	
+	public FacetSearchResult() {
+	}
+	
+	public FacetSearchResult(Facet facet, String filter) {
+		this.filter = filter;
+		this.setCompositeName(facet.isCompositeName());
+		this.setDimension(facet.getDimension());
+		this.setDimensionId(facet.getDimensionId());
+		this.setDone(facet.isDone());
+		this.setError(facet.isError());
+		this.setErrorMessage(facet.getErrorMessage());
+		this.setHasMore(facet.isHasMore());
+		this.setId(facet.getId());
+		this.setItems(facet.getItems());
+		this.setName(facet.getName());
+		this.setProxy(facet.isProxy());
+		this.setSelectedItems(facet.getSelectedItems());
+		this.setTotalSize(facet.getTotalSize());
 	}
 
-	public abstract void write() throws ScopeException, ComputingException;
 
-	public void setSource(RedisCacheValue val) {
-		this.val = val;
-	};
-
-	public void setMapper(QueryMapper mapper) {
-		this.mapper = mapper;
+	public String getFilter() {
+		return filter;
 	}
 
-	public void setDatabase(Database db) {
-		this.db = db;
-	}
-
-	public void setSQL(String sql) {
-		this.SQL = sql;
+	public void setFilter(String filter) {
+		this.filter = filter;
 	}
 
 }

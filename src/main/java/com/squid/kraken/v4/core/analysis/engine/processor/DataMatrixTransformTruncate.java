@@ -21,33 +21,29 @@
  * you and Squid Solutions (above licenses and LICENSE.txt included).
  * See http://www.squidsolutions.com/EnterpriseBouquet/
  *******************************************************************************/
-package com.squid.kraken.v4.api.core.analytics;
+package com.squid.kraken.v4.core.analysis.engine.processor;
+
+import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
 
 /**
+ * truncate the matrix given limit & offset
  * @author sergefantino
  *
  */
-public interface BookmarkAnalysisServiceConstants {
+public class DataMatrixTransformTruncate implements DataMatrixTransform {
+	
+	private Long limit;
+	private Long offset;
 
-	public final static String BBID_PARAM_NAME = "REFERENCE";
-	public final static String FACETID_PARAM_NAME = "FACETID";
-
-	public static final String LAZY_PARAM = "lazy";
-	public static final String START_INDEX_PARAM = "startIndex";
-	public static final String MAX_RESULTS_PARAM = "maxResults";
-	public static final String DATA_PARAM = "data";
-	public static final String LIMIT_PARAM = "limit";
-	public static final String ENVELOPE_PARAM = "envelope";
-	public static final String ROLLUP_PARAM = "rollup";
-	public static final String ORDERBY_PARAM = "orderby";
-	public static final String COMPARETO_PARAM = "compareto";
-	public static final String TIMEFRAME_PARAM = "timeframe";
-	public static final String PERIOD_PARAM = "period";
-	public static final String METRICS_PARAM = "metrics";
-	public static final String GROUP_BY_PARAM = "groupBy";
-	public static final String TIMEOUT_PARAM = "timeout";
-	public static final String FILTERS_PARAM = "filters";
-	public static final String STYLE_PARAM = "style";
-	public static final String VISIBILITY_PARAM = "visibility";
+	public DataMatrixTransformTruncate(Long limit, Long offset) {
+		this.limit = limit;
+		this.offset = offset;
+	}
+	
+	@Override
+	public DataMatrix apply(DataMatrix input) {
+		input.truncate(limit, offset);
+		return input;
+	}
 
 }

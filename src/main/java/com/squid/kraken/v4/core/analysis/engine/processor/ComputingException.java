@@ -25,6 +25,11 @@ package com.squid.kraken.v4.core.analysis.engine.processor;
 
 public class ComputingException extends Exception {
 
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 2890864115159192793L;
+
 	public ComputingException() {
 		super();
 		// TODO Auto-generated constructor stub

@@ -5,7 +5,6 @@ import java.util.List;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.squid.kraken.v4.model.AnalyticsQueryImpl.AnalysisFacetImpl;
 import com.squid.kraken.v4.model.NavigationQuery.Style;
-import com.squid.kraken.v4.model.ProjectAnalysisJob.OrderBy;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.RollUp;
 
 @JsonDeserialize(as = AnalyticsQueryImpl.class)
@@ -36,21 +35,21 @@ public interface AnalyticsQuery {
 	
 	public void setPeriod(String expression);
 	
-	public String[] getTimeframe();
+	public List<String> getTimeframe();
 	
-	public void setTimeframe(String[] timeframe);
+	public void setTimeframe(List<String> timeframe);
 	
-	public String[] getCompareframe();
+	public List<String> getCompareTo();
 	
-	public void setCompareframe(String[] compareframe);
+	public void setCompareTo(List<String> compareframe);
 
 	public List<String> getFilters();
 
 	public void setFilters(List<String> filters);
 
-	public List<OrderBy> getOrderBy();
+	public List<String> getOrderBy();
 
-	public void setOrderBy(List<OrderBy> orderBy);
+	public void setOrderBy(List<String> orderBy);
 
 	public List<RollUp> getRollups();
 
@@ -95,6 +94,12 @@ public interface AnalyticsQuery {
 	 * @return
 	 */
 	String getQueryID();
+	
+	List<Problem> getProblems();
+	
+	void setProblems(List<Problem> problems);
+	
+	void add(Problem problem);
 
 	@JsonDeserialize(as = AnalysisFacetImpl.class)
 	static public interface AnalysisFacet {

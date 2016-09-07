@@ -100,7 +100,7 @@ public class RawMatrixExportSource implements IRawExportSource {
 		@Override
 		public Object[] next() {
 			 if(this.hasNext()) {
-				 Object[] res =matrix.getRows().get(cursor).getData();
+				 Object[] res =matrix.getRows().get(cursor).data;
 				 cursor+=1;
 				 return res;
 			}else{

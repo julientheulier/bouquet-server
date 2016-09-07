@@ -21,46 +21,25 @@
  * you and Squid Solutions (above licenses and LICENSE.txt included).
  * See http://www.squidsolutions.com/EnterpriseBouquet/
  *******************************************************************************/
-package com.squid.kraken.v4.writers;
+package com.squid.kraken.v4.core.analysis.engine.processor;
 
-import com.squid.core.database.model.Database;
 import com.squid.core.expression.scope.ScopeException;
-import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValue;
-import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
-import com.squid.kraken.v4.core.analysis.engine.query.mapping.QueryMapper;
+import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
 
 /**
- * this is an abstract class that define the generic interface for write a Redis RawMatrix into "something".
- * It is used as an abstraction to handle both in-memory representation (DataMatrix) and exporting the data
- * @author hoa
+ * simple interface to define a dataMatrix transformation. The idea is to add a list of transformation while creating the query,
+ * and to be able to apply them once we get the dataMatrix.
+ * @author sergefantino
  *
  */
-public abstract class QueryWriter {
+public interface DataMatrixTransform {
 
-	protected RedisCacheValue val;
-	protected QueryMapper mapper;
-	protected Database db;
-	protected String SQL;
-
-	public QueryWriter() {
-	}
-
-	public abstract void write() throws ScopeException, ComputingException;
-
-	public void setSource(RedisCacheValue val) {
-		this.val = val;
-	};
-
-	public void setMapper(QueryMapper mapper) {
-		this.mapper = mapper;
-	}
-
-	public void setDatabase(Database db) {
-		this.db = db;
-	}
-
-	public void setSQL(String sql) {
-		this.SQL = sql;
-	}
-
+	/**
+	 * apply the transformation to the matrix
+	 * @param input
+	 * @return
+	 * @throws ScopeException 
+	 */
+	public DataMatrix apply(DataMatrix input) throws ScopeException;
+	
 }

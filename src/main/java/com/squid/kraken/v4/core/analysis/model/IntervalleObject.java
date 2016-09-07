@@ -113,7 +113,7 @@ public class IntervalleObject extends IntervalleAbstract implements Comparable<I
 		} else if (o2==null) {
 			return 1;
 		}
-		else if (o1.getClass().equals(o2.getClass()) && o1 instanceof Comparable<?>) {
+		else if (o1.getClass().isAssignableFrom(o2.getClass()) && o1 instanceof Comparable<?>) {
     		return ((Comparable<T>)o1).compareTo((T)o2);
     	} else {
     		return o1.toString().compareTo(o2.toString());

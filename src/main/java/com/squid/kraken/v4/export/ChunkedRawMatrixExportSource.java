@@ -96,7 +96,7 @@ public class ChunkedRawMatrixExportSource extends ChunkedRawMatrixBaseSource imp
 		@Override
 		public Object[] next() {			
 			Object[] res;
-			res = currentChunk.getRows().get(cursor).getData();
+			res = currentChunk.getRows().get(cursor).data;
 			cursor++;
 			
 			if (cursor>= currentChunk.getRows().size()){

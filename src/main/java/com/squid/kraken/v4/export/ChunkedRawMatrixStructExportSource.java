@@ -202,7 +202,7 @@ public class ChunkedRawMatrixStructExportSource extends ChunkedRawMatrixBaseSour
 			@Override
 			public IRow next() {
 				count+=1;
-				Object[] rr = currentChunk.getRows().get(cursor).getData();
+				Object[] rr = currentChunk.getRows().get(cursor).data;
 				cursor++;
 
 				if (cursor>= currentChunk.getRows().size()){

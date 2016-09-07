@@ -23,9 +23,11 @@
  *******************************************************************************/
 package com.squid.kraken.v4.core.analysis.model;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Hashtable;
+import java.util.List;
 
 import com.squid.core.domain.IDomain;
 import com.squid.core.expression.scope.ScopeException;
@@ -82,6 +84,18 @@ public class DashboardSelection {
 	
 	public Collection<DomainSelection> get() {
 		return selections.values();
+	}
+	
+	/**
+	 * return all selected axes
+	 * @return
+	 */
+	public List<Axis> getFilters() {
+		ArrayList<Axis> filters = new ArrayList<>();
+		for (DomainSelection ds : get()) {
+			filters.addAll(ds.getFilters());
+		}
+		return filters;
 	}
 	
 	protected DomainSelection getDomainSelection(Axis axis) {
