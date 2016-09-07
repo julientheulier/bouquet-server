@@ -411,7 +411,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 							item.setViewLink(createLinkToView(userContext, query, item));
 						}
 						HashMap<String, String> attrs = new HashMap<>();
-						attrs.put("dictionary", project.getName());
+						attrs.put("project", project.getName());
 						item.setAttributes(attrs);
 						content.add(item);
 					}
@@ -619,7 +619,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 						item.setObjectLink(createObjectLink(userContext, query, bookmark));
 					}
 					HashMap<String, String> attrs = new HashMap<>();
-					attrs.put("dictionary", project.getName());
+					attrs.put("project", project.getName());
 					item.setAttributes(attrs);
 					content.add(item);
 				}
