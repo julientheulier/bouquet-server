@@ -1125,6 +1125,12 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		html.append("<tr><td>limit</td><td>");
 		html.append("<input type=\"text\" name=\"limit\" value=\""+getFieldValue(query.getLimit())+"\">");
 		html.append("</td></tr>");
+		html.append("<tr><td>maxResults</td><td>");
+		html.append("<input type=\"text\" name=\"maxResults\" value=\""+getFieldValue(query.getMaxResults())+"\">");
+		html.append("</td></tr>");
+		html.append("<tr><td>startIndex</td><td>");
+		html.append("<input type=\"text\" name=\"startIndex\" value=\""+getFieldValue(query.getStartIndex())+"\"><i>index is zero-based, so use the #count of the last row to view the next page</i>");
+		html.append("</td></tr>");
 		html.append("</table>"
 				+ "<input type=\"hidden\" name=\"style\" value=\"HTML\">"
 				+ "<input type=\"hidden\" name=\"access_token\" value=\""+space.getUniverse().getContext().getToken().getOid()+"\">"
