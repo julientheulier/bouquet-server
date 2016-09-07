@@ -1160,9 +1160,9 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		}
 	}
 	
-	private String createHTMLpagination(StringBuilder html, AnalyticsQuery query, DataTable data) {
+	private void createHTMLpagination(StringBuilder html, AnalyticsQuery query, DataTable data) {
 		long lastRow = (data.getStartIndex()+data.getRows().size());
-		html.append("<p>rows from "+(data.getStartIndex()+1)+" to "+lastRow+" out of "+data.getTotalSize()+" records");
+		html.append("<br><div>rows from "+(data.getStartIndex()+1)+" to "+lastRow+" out of "+data.getTotalSize()+" records");
 		if (data.getFullset()) {
 			html.append(" (the query is complete)");
 		} else {
@@ -1173,20 +1173,25 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			HashMap<String, Object> override = new HashMap<>();
 			override.put(START_INDEX_PARAM, lastRow);
 			URI nextLink = buildAnalyticsQueryURI(userContext, query, null, null, Style.HTML, override);
-			html.append("[<a href=\""+StringEscapeUtils.escapeHtml4(nextLink.toString())+"\">next</a>]");
+			html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(nextLink.toString())+"\">next</a>]");
 		}
-		html.append("</p>");
+		html.append("</div><div>");
 		if (data.isFromSmartCache()) {
-			html.append("<p>data from smart-cache, last computed "+data.getExecutionDate()+"</p>");
+			html.append("data from smart-cache, last computed "+data.getExecutionDate());
 		} else if (data.isFromCache()) {
-			html.append("<p>data from cache, last computed "+data.getExecutionDate()+"</p>");
+			html.append("data from cache, last computed "+data.getExecutionDate());
 		} else {
-			html.append("<p>fresh data just computed at "+data.getExecutionDate()+"</p>");
+			html.append("fresh data just computed at "+data.getExecutionDate());
 		}
-		return html.toString();
+		// add links
+		{
+			URI nextLink = buildAnalyticsQueryURI(userContext, query, "SQL", null, Style.HTML, null);
+			html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(nextLink.toString())+"\">view SQL</a>]");
+		}
+		html.append("</div><br>");
 	}
 	
-	private String createHTMLpagination(StringBuilder html, Info info) {
+	private void createHTMLpagination(StringBuilder html, Info info) {
 		long lastRow = (info.getStartingIndex()+info.getPageSize());
 		html.append("<p>rows from "+(info.getStartingIndex()+1)+" to "+lastRow+" out of "+info.getTotalSize()+" records");
 		if (info.isComplete()) {
@@ -1202,7 +1207,6 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		} else {
 			html.append("<p>fresh data just computed at "+info.getExecutionDate()+"</p>");
 		}
-		return html.toString();
 	}
 
 	/**
