@@ -39,6 +39,7 @@ import com.squid.kraken.v4.api.core.SQLStats;
 import com.squid.kraken.v4.caching.NotInCacheException;
 import com.squid.kraken.v4.caching.redis.RedisCacheException;
 
+import org.joda.time.DateTime;
 import org.joda.time.LocalDate;
 import org.joda.time.Period;
 import org.joda.time.PeriodType;
@@ -413,7 +414,26 @@ public class AnalysisCompute {
 		PeriodType type = computePeriodType(image);
 		//
 		if (present instanceof Date && past instanceof Date) {
-			return new Period(new LocalDate(((Date) past).getTime()), new LocalDate(((Date) present).getTime()), type);
+			Date pastDate= (Date) past;
+			DateTime dt = new DateTime(pastDate);
+			if (image.isInstanceOf(IDomain.YEARLY)) {
+				DateTime newDT = new DateTime( dt.getYear(), 1, 1, 0, 0 );				
+				pastDate = newDT.toDate();
+			} else if (image.isInstanceOf(IDomain.QUATERLY) || image.isInstanceOf(IDomain.MONTHLY)) {
+				DateTime newDT = new DateTime(dt.getYear(),dt.getMonthOfYear(), 1, 0,0 );
+				pastDate = newDT.toDate();
+			} else if (image.isInstanceOf(IDomain.WEEKLY)) {
+				DateTime newDT = new DateTime(dt.getYear(), dt.getMonthOfYear(),dt.getWeekyear(), 0, 0 );
+				pastDate = newDT.toDate();
+			} else {
+				// daily, keep Date as it is
+			}
+			
+			
+			
+			return new Period(new LocalDate((pastDate).getTime()), new LocalDate(((Date) present).getTime()), type);
+			//return Period.fieldDifference(new LocalDate(((Date) past).getTime()), new LocalDate(((Date) present).getTime())) ;
+			
 		} else {
 			return null;
 		}
