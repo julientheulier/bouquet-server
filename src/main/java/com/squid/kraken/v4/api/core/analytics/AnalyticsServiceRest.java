@@ -569,7 +569,7 @@ public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implemen
 			// add the redirect information
 			String path = uriInfo.getRequestUri().toString();
 			UriBuilder builder = delegate(null).getPublicBaseUriBuilder();
-			UriBuilder redirect = builder.path(cleanPath(path));
+			UriBuilder redirect = builder.path(cleanPath(path)).queryParam(STYLE_PARAM, Style.HTML);
 			throw new InvalidTokenAPIException(e.getMessage(), redirect.build(), "admin_console", e.isNoError());
 		}
 	}
