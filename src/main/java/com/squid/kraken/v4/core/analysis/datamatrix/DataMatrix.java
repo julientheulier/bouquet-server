@@ -1019,9 +1019,11 @@ public class DataMatrix {
 				RawRow row = rows.get(rowIndex);
 				Object[] values = new Object[visible_count + getDataSize()];
 				int colIdx = 0;
+				int nbAxesVisibles = -1;
 				for (int i = 0; i < axes_count; i++) {
 					AxisValues m = axes.get(i);
 					if (m.isVisible()) {
+						nbAxesVisibles+=1;
 						String format = header.get(colIdx).getFormat();
 
 						Object value = getAxisValue(i, row);
@@ -1041,9 +1043,12 @@ public class DataMatrix {
 						}
 					}
 				}
+				int nbKPIVisibles=-1;
 				for (int i = 0; i < kpi_count; i++) {
 					MeasureValues m = kpis.get(i);
+					
 					if (m.isVisible()) {
+						nbKPIVisibles+=1;
 						String format = header.get(colIdx).getFormat();
 						Object value = getDataValue(i, row);
 						if ((value == null) && replaceNullValues) {
@@ -1053,7 +1058,7 @@ public class DataMatrix {
 								try {
 									value = String.format(format, value);
 								} catch (IllegalFormatException e) {
-									IDomain image = header.get(axes_count + i).getExtendedType().getDomain();
+									IDomain image = header.get(nbAxesVisibles + nbKPIVisibles).getExtendedType().getDomain();
 									if (image.isInstanceOf(IDomain.NUMERIC)) {
 										if (value instanceof Number) {
 											// try to cast to a primitive value
