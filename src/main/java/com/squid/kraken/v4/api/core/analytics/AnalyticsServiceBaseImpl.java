@@ -1002,7 +1002,14 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 						throw e;
 					}
 				} catch (ExecutionException e) {
-					throwCauseException(e);
+					if (query.getStyle()==Style.HUMAN || query.getStyle()==Style.HTML) {
+						// wrap the exception in a Problem
+						Throwable cause = getCauseException(e);
+						query.add(new Problem(Severity.ERROR, "SQL", "Failed to run the query: "+cause.getMessage(), cause));
+					} else {
+						// just let if go
+						throwCauseException(e);
+					}
 				} catch (TimeoutException e) {
 					if (query.getStyle()==Style.HUMAN || query.getStyle()==Style.HTML) {
 						URI link = getPublicBaseUriBuilder().path("/status/{queryID}").queryParam("access_token", userContext.getToken().getOid()).build(query.getQueryID());
@@ -1042,6 +1049,11 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	 * @param the execution exception
 	 */
 	private void throwCauseException(ExecutionException e) {
+		Throwable cause = getCauseException(e);
+		throwAPIException(cause);
+	}
+	
+	private Throwable getCauseException(ExecutionException e) {
 		Throwable previous = e;
 		Throwable last = e;
 		while (last.getCause()!=null) {
@@ -1049,9 +1061,9 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			last = last.getCause();
 		}
 		if (previous.getMessage()!=null) {
-			throwAPIException(previous);
+			return previous;
 		} else {
-			throwAPIException(last);
+			return last;
 		}
 	}
 
@@ -1088,38 +1100,42 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		createHTMLproblems(html, query.getProblems());
 		html.append("<form>");
 		createHTMLfilters(html, query);
-		html.append("<table><tr>");
-		html.append("<th></th>");
-		for (Col col : data.getCols()) {
-			html.append("<th>"+col.getName()+"</th>");
-		}
-		html.append("</tr>");
-		int i=1;
-		if (query.getStartIndex()!=null) {
-			i=query.getStartIndex()+1;
-		}
-		for (Row row : data.getRows()) {
-			html.append("<tr>");
-			html.append("<td>#"+(i++)+"</td>");
+		if (data!=null) {
+			html.append("<table><tr>");
+			html.append("<th></th>");
 			for (Col col : data.getCols()) {
-				Object value = row.getV()[col.getPos()];
-				if (value!=null) {
-					if (col.getFormat()!=null && col.getFormat().length()>0) {
-						try {
-							value = String.format(col.getFormat(), value);
-						} catch (IllegalFormatException e) {
-							// ignore
-						}
-					}
-				} else {
-					value="";
-				}
-				html.append("<td>"+value+"</td>");
+				html.append("<th>"+col.getName()+"</th>");
 			}
 			html.append("</tr>");
+			int i=1;
+			if (query.getStartIndex()!=null) {
+				i=query.getStartIndex()+1;
+			}
+			for (Row row : data.getRows()) {
+				html.append("<tr>");
+				html.append("<td valign='top'>#"+(i++)+"</td>");
+				for (Col col : data.getCols()) {
+					Object value = row.getV()[col.getPos()];
+					if (value!=null) {
+						if (col.getFormat()!=null && col.getFormat().length()>0) {
+							try {
+								value = String.format(col.getFormat(), value);
+							} catch (IllegalFormatException e) {
+								// ignore
+							}
+						}
+					} else {
+						value="";
+					}
+					html.append("<td valign='top'>"+value+"</td>");
+				}
+				html.append("</tr>");
+			}
+			html.append("</table>");
+			createHTMLpagination(html, query, data);
+		} else {
+			html.append("<i>Result is not available, it's probably due to an error</i>");
 		}
-		html.append("</table>");
-		createHTMLpagination(html, query, data);
 		html.append("<table>");
 		html.append("<tr><td valign='top'>groupBy</td><td>");
 		createHTMLinputArray(html, "text", "groupBy", query.getGroupBy());
@@ -1131,13 +1147,13 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		createHTMLinputArray(html, "text", "orderBy", query.getOrderBy());
 		html.append("</td></tr>");
 		html.append("<tr><td>limit</td><td>");
-		html.append("<input type=\"text\" name=\"limit\" value=\""+getFieldValue(query.getLimit())+"\">");
+		html.append("<input type=\"text\" name=\"limit\" value=\""+getFieldValue(query.getLimit(),0)+"\">");
 		html.append("</td></tr>");
 		html.append("<tr><td>maxResults</td><td>");
-		html.append("<input type=\"text\" name=\"maxResults\" value=\""+getFieldValue(query.getMaxResults())+"\">");
+		html.append("<input type=\"text\" name=\"maxResults\" value=\""+getFieldValue(query.getMaxResults(),100)+"\">");
 		html.append("</td></tr>");
 		html.append("<tr><td>startIndex</td><td>");
-		html.append("<input type=\"text\" name=\"startIndex\" value=\""+getFieldValue(query.getStartIndex())+"\"><i>index is zero-based, so use the #count of the last row to view the next page</i>");
+		html.append("<input type=\"text\" name=\"startIndex\" value=\""+getFieldValue(query.getStartIndex(),0)+"\"><i>index is zero-based, so use the #count of the last row to view the next page</i>");
 		html.append("</td></tr>");
 		html.append("</table>"
 				+ "<input type=\"hidden\" name=\"style\" value=\"HTML\">"
@@ -1164,9 +1180,9 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		}
 	}
 	
-	private String createHTMLpagination(StringBuilder html, AnalyticsQuery query, DataTable data) {
+	private void createHTMLpagination(StringBuilder html, AnalyticsQuery query, DataTable data) {
 		long lastRow = (data.getStartIndex()+data.getRows().size());
-		html.append("<p>rows from "+(data.getStartIndex()+1)+" to "+lastRow+" out of "+data.getTotalSize()+" records");
+		html.append("<br><div>rows from "+(data.getStartIndex()+1)+" to "+lastRow+" out of "+data.getTotalSize()+" records");
 		if (data.getFullset()) {
 			html.append(" (the query is complete)");
 		} else {
@@ -1179,18 +1195,38 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			URI nextLink = buildAnalyticsQueryURI(userContext, query, null, null, Style.HTML, override);
 			html.append("[<a href=\""+StringEscapeUtils.escapeHtml4(nextLink.toString())+"\">next</a>]");
 		}
-		html.append("</p>");
-		if (data.isFromSmartCache()) {
-			html.append("<p>data from smart-cache, last computed "+data.getExecutionDate()+"</p>");
-		} else if (data.isFromCache()) {
-			html.append("<p>data from cache, last computed "+data.getExecutionDate()+"</p>");
-		} else {
-			html.append("<p>fresh data just computed at "+data.getExecutionDate()+"</p>");
+		if (lastRow<data.getTotalSize()) {
+			// go to next page
+			HashMap<String, Object> override = new HashMap<>();
+			override.put(START_INDEX_PARAM, lastRow);
+			URI nextLink = buildAnalyticsQueryURI(userContext, query, null, null, Style.HTML, override);
+			html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(nextLink.toString())+"\">next</a>]");
 		}
-		return html.toString();
+		html.append("</div><div>");
+		if (data.isFromSmartCache()) {
+			html.append("data from smart-cache, last computed "+data.getExecutionDate());
+		} else if (data.isFromCache()) {
+			html.append("data from cache, last computed "+data.getExecutionDate());
+		} else {
+			html.append("fresh data just computed at "+data.getExecutionDate());
+		}
+		// add links
+		{ // for SQL
+			URI sqlLink = buildAnalyticsQueryURI(userContext, query, "SQL", null, Style.HTML, null);
+			html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(sqlLink.toString())+"\">view SQL</a>]");
+		}
+		{ // for CSV export
+			URI csvExport = buildAnalyticsExportURI(userContext, query, ".csv");
+			html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(csvExport.toString())+"\">Export CSV</a>]");
+		}
+		{ // for XLS export
+			URI xlsExport = buildAnalyticsExportURI(userContext, query, ".xls");
+			html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(xlsExport.toString())+"\">Export XLS</a>]");
+		}
+		html.append("</div><br>");
 	}
 	
-	private String createHTMLpagination(StringBuilder html, Info info) {
+	private void createHTMLpagination(StringBuilder html, Info info) {
 		long lastRow = (info.getStartingIndex()+info.getPageSize());
 		html.append("<p>rows from "+(info.getStartingIndex()+1)+" to "+lastRow+" out of "+info.getTotalSize()+" records");
 		if (info.isComplete()) {
@@ -1206,7 +1242,6 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		} else {
 			html.append("<p>fresh data just computed at "+info.getExecutionDate()+"</p>");
 		}
-		return html.toString();
 	}
 
 	/**
@@ -1528,9 +1563,26 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 					facetCount++;
 				} else {
 					// it's a dimension
+					IDomain source = colExpression.getSourceDomain();
+					String name = colExpression.getName();// T1807
+					if (!source.isInstanceOf(DomainDomain.DOMAIN)) {
+						// need to add the domain
+						// check if it needs grouping?
+						if (colExpression instanceof Operator) {
+							Operator op = (Operator)colExpression;
+							if (op.getArguments().size()>1 && op.getOperatorDefinition().getPosition()!=OperatorDefinition.PREFIX_POSITION) {
+								colExpression = ExpressionMaker.GROUP(colExpression);
+							}
+						}
+						// add the domain// relink with the domain
+						colExpression = ExpressionMaker.COMPOSE(new DomainReference(universe, domain), colExpression);
+					}
 					Axis axis = root.getUniverse().asAxis(colExpression);
 					if (axis == null) {
 						throw new ScopeException("cannot use expression='" + colExpression.prettyPrint() + "'");
+					}
+					if (name!=null) {
+						axis.setName(name);
 					}
 					facets.add(new FacetExpression(axis.prettyPrint(), axis.getName()));
 					//
@@ -2534,7 +2586,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		//
 		// form
 		html.append("<form><table>");
-		html.append("<tr><td><input type='text' name='q' value='"+(query.getQ()!=null?query.getQ():"")+"'></td><td><input type=\"submit\" value=\"Filter\"></td></tr>");
+		html.append("<tr><td><input type='text' name='q' placeholder='filter the list' value='"+(query.getQ()!=null?query.getQ():"")+"'></td><td><input type=\"submit\" value=\"Filter\"></td></tr>");
 		html.append("<input type='hidden' name='parent' value='"+(query.getParent()!=null?query.getParent():"")+"'>");
 		if (query.getStyle()!=null)
 			html.append("<input type='hidden' name='style' value='"+(query.getStyle()!=null?query.getStyle():"")+"'>");
@@ -2551,11 +2603,11 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		html.append("<table style='border-collapse:collapse'>");
 		for (NavigationItem item : result.getChildren()) {
 			html.append("<tr>");
-			html.append("<td>"+item.getType()+"</td>");
+			html.append("<td valign='top'>"+item.getType()+"</td>");
 			if (item.getLink()!=null) {
-				html.append("<td><a href=\""+StringEscapeUtils.escapeHtml4(item.getLink().toString())+"\">"+item.getName()+"</a>");
+				html.append("<td valign='top'><a href=\""+StringEscapeUtils.escapeHtml4(item.getLink().toString())+"\">"+item.getName()+"</a>");
 			} else {
-				html.append("<td>"+item.getName());
+				html.append("<td valign='top'>"+item.getName());
 			}
 			if (item.getObjectLink()!=null) {
 				html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(item.getObjectLink().toString())+"\">info</a>]");
@@ -2569,7 +2621,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			html.append("</td>");
 			if (item.getAttributes()!=null) {
 				for (Entry<String, String> entry : item.getAttributes().entrySet()) {
-					html.append("<td>"+entry.getKey()+"="+entry.getValue()+"</td>");
+					html.append("<td valign='top'>"+entry.getKey()+"="+entry.getValue()+"</td>");
 				}
 			}
 		}
@@ -2837,6 +2889,10 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		if (var==null) return ""; else return var.toString().replaceAll("\"", "&quot;").replaceAll("'", "&#x27;");
 	}
 	
+	private String getFieldValue(Object var, Object defaultValue) {
+		if (var==null) return defaultValue.toString(); else return var.toString().replaceAll("\"", "&quot;").replaceAll("'", "&#x27;");
+	}
+	
 	/**
 	 * @param uriInfo
 	 * @param userContext 
@@ -2862,6 +2918,14 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		if (envelope!=null) builder.queryParam(ENVELOPE_PARAM, envelope);
 		builder.queryParam("access_token", userContext.getToken().getOid());
 		return builder.build(query.getBBID());
+	}
+	
+	private URI buildAnalyticsExportURI(AppContext userContext, AnalyticsQuery query, String filename) {
+		UriBuilder builder = getPublicBaseUriBuilder().
+			path("/analytics/{"+BBID_PARAM_NAME+"}/export/{filename}");
+		addAnalyticsQueryParams(builder, query, null, null);
+		builder.queryParam("access_token", userContext.getToken().getOid());
+		return builder.build(query.getBBID(), filename);
 	}
 
 	/**
