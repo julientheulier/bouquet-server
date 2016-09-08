@@ -1127,13 +1127,13 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		createHTMLinputArray(html, "text", "orderBy", query.getOrderBy());
 		html.append("</td></tr>");
 		html.append("<tr><td>limit</td><td>");
-		html.append("<input type=\"text\" name=\"limit\" value=\""+getFieldValue(query.getLimit())+"\">");
+		html.append("<input type=\"text\" name=\"limit\" value=\""+getFieldValue(query.getLimit(),0)+"\">");
 		html.append("</td></tr>");
 		html.append("<tr><td>maxResults</td><td>");
-		html.append("<input type=\"text\" name=\"maxResults\" value=\""+getFieldValue(query.getMaxResults())+"\">");
+		html.append("<input type=\"text\" name=\"maxResults\" value=\""+getFieldValue(query.getMaxResults(),100)+"\">");
 		html.append("</td></tr>");
 		html.append("<tr><td>startIndex</td><td>");
-		html.append("<input type=\"text\" name=\"startIndex\" value=\""+getFieldValue(query.getStartIndex())+"\"><i>index is zero-based, so use the #count of the last row to view the next page</i>");
+		html.append("<input type=\"text\" name=\"startIndex\" value=\""+getFieldValue(query.getStartIndex(),0)+"\"><i>index is zero-based, so use the #count of the last row to view the next page</i>");
 		html.append("</td></tr>");
 		html.append("</table>"
 				+ "<input type=\"hidden\" name=\"style\" value=\"HTML\">"
@@ -1167,6 +1167,13 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			html.append(" (the query is complete)");
 		} else {
 			html.append(" (the query has more data)");
+		}
+		if (lastRow<data.getTotalSize()) {
+			// go to next page
+			HashMap<String, Object> override = new HashMap<>();
+			override.put(START_INDEX_PARAM, lastRow);
+			URI nextLink = buildAnalyticsQueryURI(userContext, query, null, null, Style.HTML, override);
+			html.append("[<a href=\""+StringEscapeUtils.escapeHtml4(nextLink.toString())+"\">next</a>]");
 		}
 		if (lastRow<data.getTotalSize()) {
 			// go to next page
@@ -2843,6 +2850,10 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	
 	private String getFieldValue(Object var) {
 		if (var==null) return ""; else return var.toString().replaceAll("\"", "&quot;").replaceAll("'", "&#x27;");
+	}
+	
+	private String getFieldValue(Object var, Object defaultValue) {
+		if (var==null) return defaultValue.toString(); else return var.toString().replaceAll("\"", "&quot;").replaceAll("'", "&#x27;");
 	}
 	
 	/**
