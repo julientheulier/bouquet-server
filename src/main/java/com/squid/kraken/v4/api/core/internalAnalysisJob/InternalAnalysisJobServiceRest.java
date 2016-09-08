@@ -50,6 +50,7 @@ import com.squid.core.database.model.Table;
 import com.squid.core.database.model.impl.SchemaImpl;
 import com.squid.core.database.model.impl.TableImpl;
 import com.squid.core.domain.IDomain;
+import com.squid.core.domain.operators.ExtendedType;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.reference.Cardinality;
 import com.squid.core.expression.reference.ColumnReference;
@@ -447,7 +448,7 @@ public class InternalAnalysisJobServiceRest extends BaseServiceRest {
                     List<IPiece> subpieces = new ArrayList<IPiece>();
                     i = 0;
                     for(Object s : row.getV()) {
-                        IDomain domain_subpiece = columns.get(i).getType().getDomain();
+                        ExtendedType domain_subpiece = columns.get(i).getType();
                         subpieces.add(new SimpleConstantValuePiece(s,domain_subpiece));
                         i++;
                     }

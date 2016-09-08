@@ -200,7 +200,7 @@ public abstract class PieceCreator implements ISelect {
 		}
 		if (expression instanceof ConstantValue) {
 			ConstantValue cst = (ConstantValue)expression;
-			return new SimpleConstantValuePiece(cst.getValue(),cst.getImageDomain());
+			return new SimpleConstantValuePiece(cst.getValue(),cst.computeType(getSkin()));
 		}
 		// else	
 		throw new SQLScopeException("expression not supported: " + expression.prettyPrint());
