@@ -212,7 +212,7 @@ public class CustomerServiceRest extends CoreAuthenticatedServiceRest {
 	@Path("/token")
 	@POST
 	@ApiOperation(value = "Retrieve an AccessToken given an AuthCode or a Refresh Token or a JWT")
-	public AccessToken authToken(
+	public AccessToken token(
 			@Context HttpServletRequest request,
 			@ApiParam(required = true) @FormParam("grant_type") String grantType,
 			@ApiParam @FormParam("code") String code,

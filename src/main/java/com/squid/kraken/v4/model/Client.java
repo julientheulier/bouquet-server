@@ -153,7 +153,7 @@ public class Client extends PersistentBaseImpl<ClientPK> implements HasConfig {
 				.readNotNull(ctx, new CustomerPK(ctx.getCustomerId()));
 	}
 
-	@ApiModelProperty(position = 1)
+	@ApiModelProperty
 	public String getName() {
 		return name;
 	}

@@ -103,7 +103,7 @@ public class Customer extends PersistentBaseImpl<CustomerPK> implements HasChild
      * An informative (non localized) name
      */
     @XmlElement
-    @ApiModelProperty(position = 1)
+    @ApiModelProperty
     public String getName() {
         return name;
     }

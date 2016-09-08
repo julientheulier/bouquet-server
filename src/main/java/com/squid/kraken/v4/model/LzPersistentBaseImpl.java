@@ -82,7 +82,7 @@ public abstract class LzPersistentBaseImpl<PK extends GenericPK> extends Persist
      * The localized version of the name (localized according to {@link AppContext}'s locale).
      */
     
-    @ApiModelProperty(position = 0)
+    @ApiModelProperty
     public String getLName() {
         return name;
     }

@@ -74,7 +74,7 @@ public class Metric extends ExpressionObject<MetricPK> implements Cloneable {
 	 * An expression relative to the Domain, used to define the Analysis.
 	 */
 	@Override
-	@ApiModelProperty(position = 1)
+	@ApiModelProperty
 	public Expression getExpression() {
 		return expression;
 	}
@@ -99,7 +99,7 @@ public class Metric extends ExpressionObject<MetricPK> implements Cloneable {
 	}
 
 	@Override
-	@ApiModelProperty(position = 0)
+	@ApiModelProperty
 	public String toString() {
 		return "Metric [expression=" + expression + ", id=" + id
 				+ ", getName()=" + getName() + "]";

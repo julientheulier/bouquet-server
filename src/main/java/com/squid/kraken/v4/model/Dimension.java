@@ -102,7 +102,7 @@ public class Dimension extends ExpressionObject<DimensionPK> implements Cloneabl
 		return super.clone();
 	}
 
-	@ApiModelProperty(position = 2)
+	@ApiModelProperty
 	public DimensionPK getParentId() {
 		return parentId;
 	}
@@ -111,7 +111,7 @@ public class Dimension extends ExpressionObject<DimensionPK> implements Cloneabl
 		this.parentId = parentId;
 	}
 	
-	@ApiModelProperty(position = 1)
+	@ApiModelProperty
 	public Type getType() {
 		return type;
 	}
@@ -125,7 +125,7 @@ public class Dimension extends ExpressionObject<DimensionPK> implements Cloneabl
 	 * Dimension.
 	 */
 	@Override
-	@ApiModelProperty(position = 3)
+	@ApiModelProperty
 	public Expression getExpression() {
 		return expression;
 	}

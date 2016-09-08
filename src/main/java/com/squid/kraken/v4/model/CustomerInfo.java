@@ -88,7 +88,7 @@ public class CustomerInfo implements HasAccessRights, HasChildren  {
 	/**
 	 * An informative (non localized) name
 	 */
-	@ApiModelProperty(position = 1)
+	@ApiModelProperty
 	public String getName() {
 		return name;
 	}

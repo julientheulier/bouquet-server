@@ -188,7 +188,7 @@ public class Relation extends DynamicObject<RelationPK> implements Cloneable {
 
 	@XmlTransient
 	@JsonIgnore
-	@ApiModelProperty(position = 1)
+	@ApiModelProperty
 	public String getName() {
 		return leftName + "/" + rightName;
 	}

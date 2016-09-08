@@ -110,7 +110,7 @@ public class Domain extends DynamicObject<DomainPK> implements Cloneable, HasChi
     /**
      * An Expression relative to the parent Project, and used to define the Domain mapping.
      */
-    @ApiModelProperty(position = 1)
+    @ApiModelProperty
     public Expression getSubject() {
         return subject;
     }

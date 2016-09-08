@@ -55,7 +55,7 @@ public interface HasLocalizedName {
     /**
      * The localized version of the name (localized according to {@link AppContext}'s locale).
      */
-    @ApiModelProperty(position = 1)
+    @ApiModelProperty
     @JsonProperty("name")
     public String getLName();
 
