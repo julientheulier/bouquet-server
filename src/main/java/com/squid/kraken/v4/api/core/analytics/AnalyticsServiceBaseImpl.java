@@ -998,7 +998,14 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 						throw e;
 					}
 				} catch (ExecutionException e) {
-					throwCauseException(e);
+					if (query.getStyle()==Style.HUMAN || query.getStyle()==Style.HTML) {
+						// wrap the exception in a Problem
+						Throwable cause = getCauseException(e);
+						query.add(new Problem(Severity.ERROR, "SQL", "Failed to run the query: "+cause.getMessage(), cause));
+					} else {
+						// just let if go
+						throwCauseException(e);
+					}
 				} catch (TimeoutException e) {
 					if (query.getStyle()==Style.HUMAN || query.getStyle()==Style.HTML) {
 						URI link = getPublicBaseUriBuilder().path("/status/{queryID}").queryParam("access_token", userContext.getToken().getOid()).build(query.getQueryID());
@@ -1038,6 +1045,11 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	 * @param the execution exception
 	 */
 	private void throwCauseException(ExecutionException e) {
+		Throwable cause = getCauseException(e);
+		throwAPIException(cause);
+	}
+	
+	private Throwable getCauseException(ExecutionException e) {
 		Throwable previous = e;
 		Throwable last = e;
 		while (last.getCause()!=null) {
@@ -1045,9 +1057,9 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			last = last.getCause();
 		}
 		if (previous.getMessage()!=null) {
-			throwAPIException(previous);
+			return previous;
 		} else {
-			throwAPIException(last);
+			return last;
 		}
 	}
 
@@ -1084,38 +1096,42 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		createHTMLproblems(html, query.getProblems());
 		html.append("<form>");
 		createHTMLfilters(html, query);
-		html.append("<table><tr>");
-		html.append("<th></th>");
-		for (Col col : data.getCols()) {
-			html.append("<th>"+col.getName()+"</th>");
-		}
-		html.append("</tr>");
-		int i=1;
-		if (query.getStartIndex()!=null) {
-			i=query.getStartIndex()+1;
-		}
-		for (Row row : data.getRows()) {
-			html.append("<tr>");
-			html.append("<td>#"+(i++)+"</td>");
+		if (data!=null) {
+			html.append("<table><tr>");
+			html.append("<th></th>");
 			for (Col col : data.getCols()) {
-				Object value = row.getV()[col.getPos()];
-				if (value!=null) {
-					if (col.getFormat()!=null && col.getFormat().length()>0) {
-						try {
-							value = String.format(col.getFormat(), value);
-						} catch (IllegalFormatException e) {
-							// ignore
-						}
-					}
-				} else {
-					value="";
-				}
-				html.append("<td>"+value+"</td>");
+				html.append("<th>"+col.getName()+"</th>");
 			}
 			html.append("</tr>");
+			int i=1;
+			if (query.getStartIndex()!=null) {
+				i=query.getStartIndex()+1;
+			}
+			for (Row row : data.getRows()) {
+				html.append("<tr>");
+				html.append("<td valign='top'>#"+(i++)+"</td>");
+				for (Col col : data.getCols()) {
+					Object value = row.getV()[col.getPos()];
+					if (value!=null) {
+						if (col.getFormat()!=null && col.getFormat().length()>0) {
+							try {
+								value = String.format(col.getFormat(), value);
+							} catch (IllegalFormatException e) {
+								// ignore
+							}
+						}
+					} else {
+						value="";
+					}
+					html.append("<td valign='top'>"+value+"</td>");
+				}
+				html.append("</tr>");
+			}
+			html.append("</table>");
+			createHTMLpagination(html, query, data);
+		} else {
+			html.append("<i>Result is not available, it's probably due to an error</i>");
 		}
-		html.append("</table>");
-		createHTMLpagination(html, query, data);
 		html.append("<table>");
 		html.append("<tr><td valign='top'>groupBy</td><td>");
 		createHTMLinputArray(html, "text", "groupBy", query.getGroupBy());
@@ -1543,9 +1559,26 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 					facetCount++;
 				} else {
 					// it's a dimension
+					IDomain source = colExpression.getSourceDomain();
+					String name = colExpression.getName();// T1807
+					if (!source.isInstanceOf(DomainDomain.DOMAIN)) {
+						// need to add the domain
+						// check if it needs grouping?
+						if (colExpression instanceof Operator) {
+							Operator op = (Operator)colExpression;
+							if (op.getArguments().size()>1 && op.getOperatorDefinition().getPosition()!=OperatorDefinition.PREFIX_POSITION) {
+								colExpression = ExpressionMaker.GROUP(colExpression);
+							}
+						}
+						// add the domain// relink with the domain
+						colExpression = ExpressionMaker.COMPOSE(new DomainReference(universe, domain), colExpression);
+					}
 					Axis axis = root.getUniverse().asAxis(colExpression);
 					if (axis == null) {
 						throw new ScopeException("cannot use expression='" + colExpression.prettyPrint() + "'");
+					}
+					if (name!=null) {
+						axis.setName(name);
 					}
 					facets.add(new FacetExpression(axis.prettyPrint(), axis.getName()));
 					//
@@ -2549,7 +2582,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		//
 		// form
 		html.append("<form><table>");
-		html.append("<tr><td><input type='text' name='q' value='"+(query.getQ()!=null?query.getQ():"")+"'></td><td><input type=\"submit\" value=\"Filter\"></td></tr>");
+		html.append("<tr><td><input type='text' name='q' placeholder='filter the list' value='"+(query.getQ()!=null?query.getQ():"")+"'></td><td><input type=\"submit\" value=\"Filter\"></td></tr>");
 		html.append("<input type='hidden' name='parent' value='"+(query.getParent()!=null?query.getParent():"")+"'>");
 		if (query.getStyle()!=null)
 			html.append("<input type='hidden' name='style' value='"+(query.getStyle()!=null?query.getStyle():"")+"'>");
@@ -2566,11 +2599,11 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		html.append("<table style='border-collapse:collapse'>");
 		for (NavigationItem item : result.getChildren()) {
 			html.append("<tr>");
-			html.append("<td>"+item.getType()+"</td>");
+			html.append("<td valign='top'>"+item.getType()+"</td>");
 			if (item.getLink()!=null) {
-				html.append("<td><a href=\""+StringEscapeUtils.escapeHtml4(item.getLink().toString())+"\">"+item.getName()+"</a>");
+				html.append("<td valign='top'><a href=\""+StringEscapeUtils.escapeHtml4(item.getLink().toString())+"\">"+item.getName()+"</a>");
 			} else {
-				html.append("<td>"+item.getName());
+				html.append("<td valign='top'>"+item.getName());
 			}
 			if (item.getObjectLink()!=null) {
 				html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(item.getObjectLink().toString())+"\">info</a>]");
@@ -2584,7 +2617,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			html.append("</td>");
 			if (item.getAttributes()!=null) {
 				for (Entry<String, String> entry : item.getAttributes().entrySet()) {
-					html.append("<td>"+entry.getKey()+"="+entry.getValue()+"</td>");
+					html.append("<td valign='top'>"+entry.getKey()+"="+entry.getValue()+"</td>");
 				}
 			}
 		}
