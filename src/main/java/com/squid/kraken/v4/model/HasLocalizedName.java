@@ -29,7 +29,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.LocalizationDataStoreDecorator;
-import com.wordnik.swagger.annotations.ApiModelProperty;
+import io.swagger.annotations.ApiModelProperty;
 
 /**
  * Marks the object has having a name which can be Localized.<br>

@@ -26,13 +26,10 @@ package com.squid.kraken.v4.core.analysis.engine.index;
 import java.util.Collections;
 import java.util.List;
 
-import com.squid.kraken.v4.api.core.ServiceUtils;
-import com.squid.kraken.v4.api.core.attribute.AttributeServiceBaseImpl;
 import com.squid.kraken.v4.caching.redis.RedisCacheManager;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex;
 import com.squid.kraken.v4.model.Attribute;
 import com.squid.kraken.v4.model.Dimension;
-import com.squid.kraken.v4.persistence.AppContext;
 
 public abstract class DimensionStoreAbstract implements IDimensionStore {
     

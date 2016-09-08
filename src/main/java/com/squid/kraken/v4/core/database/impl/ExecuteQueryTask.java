@@ -35,8 +35,8 @@ import org.slf4j.LoggerFactory;
 
 import com.squid.core.concurrent.CancellableCallable;
 import com.squid.core.concurrent.ExecutionManager;
-import com.squid.core.database.impl.DatabaseServiceException;
 import com.squid.core.database.impl.DataSourceReliable.FeatureSupport;
+import com.squid.core.database.impl.DatabaseServiceException;
 import com.squid.core.database.model.impl.DatabaseManager;
 import com.squid.core.jdbc.engine.ExecutionItem;
 import com.squid.core.jdbc.engine.IExecutionItem;

@@ -23,6 +23,9 @@
  *******************************************************************************/
 package com.squid.kraken.v4.api.core.internalAnalysisJob;
 
+import java.io.OutputStream;
+import java.util.List;
+
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.core.sql.model.SQLScopeException;
 import com.squid.core.sql.render.RenderingException;
@@ -37,9 +40,6 @@ import com.squid.kraken.v4.model.DataTable;
 import com.squid.kraken.v4.model.ProjectAnalysisJob;
 import com.squid.kraken.v4.model.ProjectAnalysisJobPK;
 import com.squid.kraken.v4.persistence.AppContext;
-
-import java.io.OutputStream;
-import java.util.List;
 
 /**
  * Created by lrabiet on 18/11/15.

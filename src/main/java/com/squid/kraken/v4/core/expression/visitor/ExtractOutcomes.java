@@ -25,7 +25,6 @@ package com.squid.kraken.v4.core.expression.visitor;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 
 import com.squid.core.domain.operators.Operators;

@@ -33,12 +33,6 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
-import com.squid.kraken.v4.KrakenConfig;
-import com.squid.kraken.v4.api.core.PerfDB;
-import com.squid.kraken.v4.api.core.SQLStats;
-import com.squid.kraken.v4.caching.NotInCacheException;
-import com.squid.kraken.v4.caching.redis.RedisCacheException;
-
 import org.joda.time.LocalDate;
 import org.joda.time.Period;
 import org.joda.time.PeriodType;
@@ -54,6 +48,11 @@ import com.squid.core.sql.model.SQLScopeException;
 import com.squid.core.sql.render.IOrderByPiece.ORDERING;
 import com.squid.core.sql.render.ISelectPiece;
 import com.squid.core.sql.render.RenderingException;
+import com.squid.kraken.v4.KrakenConfig;
+import com.squid.kraken.v4.api.core.PerfDB;
+import com.squid.kraken.v4.api.core.SQLStats;
+import com.squid.kraken.v4.caching.NotInCacheException;
+import com.squid.kraken.v4.caching.redis.RedisCacheException;
 import com.squid.kraken.v4.core.analysis.datamatrix.AxisValues;
 import com.squid.kraken.v4.core.analysis.datamatrix.CompareMerger;
 import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;

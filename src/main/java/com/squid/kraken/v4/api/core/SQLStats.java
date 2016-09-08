@@ -24,7 +24,6 @@
 package com.squid.kraken.v4.api.core;
 
 import org.mongodb.morphia.annotations.Entity;
-import org.mongodb.morphia.annotations.Id;
 
 /**
  * Created by lrabiet on 02/11/15.

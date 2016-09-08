@@ -33,23 +33,22 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 
-import com.squid.kraken.v4.api.core.PerfDB;
-import com.squid.kraken.v4.api.core.SQLStats;
-
 import org.apache.commons.io.output.ByteArrayOutputStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.esotericsoftware.kryo.Kryo;
+import com.esotericsoftware.kryo.io.Input;
+import com.esotericsoftware.kryo.io.Output;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.core.jdbc.engine.IExecutionItem;
 import com.squid.core.jdbc.formatter.IJDBCDataFormatter;
 import com.squid.core.jdbc.vendor.IVendorSupport;
 import com.squid.core.jdbc.vendor.VendorSupportRegistry;
+import com.squid.kraken.v4.api.core.PerfDB;
+import com.squid.kraken.v4.api.core.SQLStats;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionValuesDictionary;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
-import com.esotericsoftware.kryo.Kryo;
-import com.esotericsoftware.kryo.io.Output;
-import com.esotericsoftware.kryo.io.Input;
 
 public class RawMatrix extends RedisCacheValue {
 

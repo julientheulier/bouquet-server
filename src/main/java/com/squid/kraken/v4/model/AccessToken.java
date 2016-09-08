@@ -43,7 +43,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.squid.kraken.v4.model.AccessRight.Role;
 import com.squid.kraken.v4.model.visitor.ModelVisitor;
 import com.squid.kraken.v4.persistence.AppContext;
-import com.wordnik.swagger.annotations.ApiModel;
+import io.swagger.annotations.ApiModel;
 
 /**
  * An authentication token.<br>

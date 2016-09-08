@@ -62,11 +62,11 @@ import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DAOFactory;
 import com.squid.kraken.v4.persistence.DataStoreEventBus;
 import com.squid.kraken.v4.persistence.dao.CustomerDAO;
-import com.wordnik.swagger.config.ScannerFactory;
-import com.wordnik.swagger.jaxrs.config.ReflectiveJaxrsScanner;
-import com.wordnik.swagger.models.Info;
-import com.wordnik.swagger.models.Swagger;
-import com.wordnik.swagger.models.auth.OAuth2Definition;
+import io.swagger.config.ScannerFactory;
+import io.swagger.jaxrs.config.ReflectiveJaxrsScanner;
+import io.swagger.models.Info;
+import io.swagger.models.Swagger;
+import io.swagger.models.auth.OAuth2Definition;
 
 @SuppressWarnings("serial")
 public class CXFServletService extends CXFNonSpringJaxrsServlet {
@@ -97,7 +97,7 @@ public class CXFServletService extends CXFNonSpringJaxrsServlet {
 			// init the API
 			logger.info("Facet: Front");
 			servletConf.setJaxrsServiceClassesParam(AnalyticsServiceRest.class.getName() + "," + CustomerServiceRest.class.getName() + ","
-					+ AdminServiceRest.class.getName() + "," + "com.wordnik.swagger.jaxrs.listing.ApiListingResource");
+					+ AdminServiceRest.class.getName() + "," + "io.swagger.jaxrs.listing.ApiListingResource");
 		} else {
 			servletConf.setJaxrsServiceClassesParam(CacheInitPoint.class.getName());
 		}

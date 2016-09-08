@@ -27,10 +27,8 @@ import java.util.Collection;
 
 import com.squid.core.domain.IDomain;
 import com.squid.core.expression.ExpressionAST;
-import com.squid.kraken.v4.core.expression.scope.DomainExpressionScope;
 import com.squid.core.expression.scope.ExpressionDiagnostic;
 import com.squid.core.expression.scope.ExpressionScope;
-import com.squid.kraken.v4.core.expression.scope.MetricExpressionScope;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.core.analysis.universe.Universe;

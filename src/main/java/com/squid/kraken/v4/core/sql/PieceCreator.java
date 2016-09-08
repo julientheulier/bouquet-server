@@ -23,13 +23,11 @@
  *******************************************************************************/
 package com.squid.kraken.v4.core.sql;
 
-import java.sql.Types;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 
 import com.squid.core.database.impl.DatabaseServiceException;
-import com.squid.kraken.v4.core.database.impl.DatabaseServiceImpl;
 import com.squid.core.database.model.Column;
 import com.squid.core.database.model.Database;
 import com.squid.core.database.model.ForeignKey;
@@ -45,13 +43,12 @@ import com.squid.core.expression.Compose;
 import com.squid.core.expression.ConstantValue;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.NullExpression;
-import com.squid.core.expression.NumericConstant;
 import com.squid.core.expression.Operator;
-import com.squid.core.expression.StringConstant;
 import com.squid.core.expression.reference.ColumnReference;
 import com.squid.core.expression.reference.ForeignKeyReference;
 import com.squid.core.expression.scope.ExpressionMaker;
 import com.squid.core.expression.scope.ScopeException;
+import com.squid.core.sql.Context;
 import com.squid.core.sql.ISelect;
 import com.squid.core.sql.db.render.ColumnPiece;
 import com.squid.core.sql.db.templates.SkinFactory;
@@ -68,8 +65,8 @@ import com.squid.core.sql.render.SimpleConstantValuePiece;
 import com.squid.kraken.v4.core.analysis.scope.AxisExpression;
 import com.squid.kraken.v4.core.analysis.scope.MeasureExpression;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
+import com.squid.kraken.v4.core.database.impl.DatabaseServiceImpl;
 import com.squid.kraken.v4.model.Domain;
-import com.squid.core.sql.Context;
 
 
 public abstract class PieceCreator implements ISelect {

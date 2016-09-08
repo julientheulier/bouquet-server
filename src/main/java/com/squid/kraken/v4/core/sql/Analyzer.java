@@ -43,7 +43,6 @@ import com.squid.core.sql.render.JoinDecorator;
 import com.squid.core.sql.render.WherePiece;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionMember;
 import com.squid.kraken.v4.core.analysis.model.Intervalle;
-import com.squid.kraken.v4.core.sql.Constraint;
 
 /**
  * The analyzer is the SelectUniversal companion class. 

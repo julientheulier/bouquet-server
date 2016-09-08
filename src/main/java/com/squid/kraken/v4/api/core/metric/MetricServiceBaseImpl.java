@@ -36,7 +36,6 @@ import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainHierarchyManager
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
-import com.squid.kraken.v4.model.Dimension;
 import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.DomainPK;
 import com.squid.kraken.v4.model.DynamicObject;

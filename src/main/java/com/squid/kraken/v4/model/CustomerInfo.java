@@ -37,7 +37,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import com.squid.kraken.v4.model.AccessRight.Role;
 import com.squid.kraken.v4.model.Customer.AUTH_MODE;
-import com.wordnik.swagger.annotations.ApiModelProperty;
+import io.swagger.annotations.ApiModelProperty;
 
 @XmlType(namespace = "http://model.v4.kraken.squid.com")
 @XmlRootElement

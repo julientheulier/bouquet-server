@@ -23,8 +23,8 @@
  *******************************************************************************/
 package com.squid.kraken.v4.core.analysis.engine.query.mapping;
 
-import com.squid.core.sql.render.ISelectPiece;
 import com.squid.core.sql.render.IOrderByPiece.ORDERING;
+import com.squid.core.sql.render.ISelectPiece;
 import com.squid.kraken.v4.core.analysis.datamatrix.AxisValues;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;

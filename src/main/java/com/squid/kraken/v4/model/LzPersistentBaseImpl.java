@@ -26,7 +26,7 @@ package com.squid.kraken.v4.model;
 import org.mongodb.morphia.annotations.Property;
 
 import com.squid.kraken.v4.persistence.AppContext;
-import com.wordnik.swagger.annotations.ApiModelProperty;
+import io.swagger.annotations.ApiModelProperty;
 
 /**
  * A Localized {@link PersistentBaseImpl}.

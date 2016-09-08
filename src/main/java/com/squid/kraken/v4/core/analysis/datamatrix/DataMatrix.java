@@ -35,13 +35,12 @@ import java.util.IllegalFormatException;
 import java.util.List;
 import java.util.Map;
 
-import com.squid.core.domain.operators.ExtendedType;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.squid.core.database.model.Database;
 import com.squid.core.domain.IDomain;
+import com.squid.core.domain.operators.ExtendedType;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.core.sql.render.IOrderByPiece.ORDERING;
@@ -60,6 +59,7 @@ import com.squid.kraken.v4.core.analysis.model.OrderBy;
 import com.squid.kraken.v4.core.analysis.model.OrderByGrowth;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
 import com.squid.kraken.v4.core.analysis.universe.Measure;
+import com.squid.kraken.v4.core.analysis.universe.Property;
 import com.squid.kraken.v4.model.DataTable;
 import com.squid.kraken.v4.model.DataTable.Col;
 import com.squid.kraken.v4.model.DataTable.Col.DataType;
@@ -68,8 +68,6 @@ import com.squid.kraken.v4.model.Dimension.Type;
 import com.squid.kraken.v4.model.DimensionPK;
 import com.squid.kraken.v4.model.Metric;
 import com.squid.kraken.v4.persistence.AppContext;
-
-import com.squid.kraken.v4.core.analysis.universe.Property;
 
 /**
  * A DataMatrix stores the result of a query. There are two part in the Matrix:

@@ -26,13 +26,14 @@ package com.squid.kraken.v4.export;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
+import org.apache.avro.Schema;
+
 import com.squid.core.export.IRawExportSource;
 import com.squid.kraken.v4.caching.redis.datastruct.RawRow;
 import com.squid.kraken.v4.core.analysis.datamatrix.AxisValues;
 import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
 import com.squid.kraken.v4.core.analysis.datamatrix.MeasureValues;
 import com.squid.kraken.v4.core.analysis.universe.Measure;
-import org.apache.avro.Schema;
 
 public class DataMatrixExportSource implements IRawExportSource{
 	

@@ -28,7 +28,6 @@ import org.slf4j.LoggerFactory;
 
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex;
 import com.squid.kraken.v4.model.DomainPK;
-import com.squid.kraken.v4.model.Project;
 
 public class DimensionStoreManager implements IDimensionStoreManager {
 

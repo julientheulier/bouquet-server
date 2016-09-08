@@ -26,13 +26,11 @@ package com.squid.kraken.v4.core.analysis.engine.query.rollup;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.squid.core.database.model.DatabaseProduct;
 import com.squid.core.domain.associative.AssociativeDomainInformation;
 import com.squid.core.domain.operators.OperatorDefinition;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.scope.ExpressionMaker;
 import com.squid.core.expression.scope.ScopeException;
-import com.squid.core.sql.db.templates.DefaultJDBCSkin;
 import com.squid.core.sql.model.IAlias;
 import com.squid.core.sql.model.SQLScopeException;
 import com.squid.core.sql.render.IPiece;

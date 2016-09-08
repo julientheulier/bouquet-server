@@ -29,26 +29,26 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 
-import com.squid.kraken.v4.core.database.impl.DatabaseServiceImpl;
 import com.squid.core.expression.Compose;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.PrettyPrintConstant;
 import com.squid.core.expression.PrettyPrintOptions;
 import com.squid.core.expression.PrettyPrintOptions.ReferenceStyle;
-import com.squid.core.expression.reference.ColumnReference;
 import com.squid.core.expression.UndefinedExpression;
+import com.squid.core.expression.reference.ColumnReference;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionMember;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainHierarchy;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.core.analysis.scope.AxisExpression;
+import com.squid.kraken.v4.core.database.impl.DatabaseServiceImpl;
 import com.squid.kraken.v4.model.Attribute;
 import com.squid.kraken.v4.model.Dimension;
+import com.squid.kraken.v4.model.Dimension.Type;
 import com.squid.kraken.v4.model.ExpressionObject;
 import com.squid.kraken.v4.model.GenericPK;
 import com.squid.kraken.v4.model.LzPersistentBaseImpl;
-import com.squid.kraken.v4.model.Dimension.Type;
 
 // AXIS
 public class Axis implements Property {
