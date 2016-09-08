@@ -1184,9 +1184,17 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			html.append("fresh data just computed at "+data.getExecutionDate());
 		}
 		// add links
-		{
-			URI nextLink = buildAnalyticsQueryURI(userContext, query, "SQL", null, Style.HTML, null);
-			html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(nextLink.toString())+"\">view SQL</a>]");
+		{ // for SQL
+			URI sqlLink = buildAnalyticsQueryURI(userContext, query, "SQL", null, Style.HTML, null);
+			html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(sqlLink.toString())+"\">view SQL</a>]");
+		}
+		{ // for CSV export
+			URI csvExport = buildAnalyticsExportURI(userContext, query, ".csv");
+			html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(csvExport.toString())+"\">Export CSV</a>]");
+		}
+		{ // for XLS export
+			URI xlsExport = buildAnalyticsExportURI(userContext, query, ".xls");
+			html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(xlsExport.toString())+"\">Export XLS</a>]");
 		}
 		html.append("</div><br>");
 	}
@@ -2862,6 +2870,14 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		if (envelope!=null) builder.queryParam(ENVELOPE_PARAM, envelope);
 		builder.queryParam("access_token", userContext.getToken().getOid());
 		return builder.build(query.getBBID());
+	}
+	
+	private URI buildAnalyticsExportURI(AppContext userContext, AnalyticsQuery query, String filename) {
+		UriBuilder builder = getPublicBaseUriBuilder().
+			path("/analytics/{"+BBID_PARAM_NAME+"}/export/{filename}");
+		addAnalyticsQueryParams(builder, query, null, null);
+		builder.queryParam("access_token", userContext.getToken().getOid());
+		return builder.build(query.getBBID(), filename);
 	}
 
 	/**
