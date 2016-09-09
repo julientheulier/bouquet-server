@@ -27,10 +27,12 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import org.apache.commons.codec.digest.DigestUtils;
 
+import com.squid.kraken.v4.caching.redis.RedisCacheManager;
 import com.squid.kraken.v4.core.analysis.model.DashboardAnalysis;
 import com.squid.kraken.v4.core.analysis.model.DomainSelection;
 import com.squid.kraken.v4.core.analysis.model.ExpressionInput;
@@ -54,19 +56,20 @@ public class AnalysisSmartCacheSignature {
 	
 	private String axesSignature = null;
 	private String filtersSignature = null;
-	private String hash;
 	
+	// T1895: need to store the SQL and the dependencies in order to compute the genKey
 	private String SQL;
+	private List<String> dependencies;
 	
 	private Set<Axis> axes = null;
 	private int rowCount = -1;// default to -1 meaning the resultset is not yet available (being computed)
 
-	public AnalysisSmartCacheSignature(DashboardAnalysis analysis, MeasureGroup measures, String SQL) {
+	public AnalysisSmartCacheSignature(DashboardAnalysis analysis, MeasureGroup measures, String SQL, List<String> dependencies) {
 		super();
 		this.analysis = analysis;
 		this.measures = measures;
 		this.SQL = SQL;
-		this.hash = DigestUtils.sha256Hex(analysis.getUniverse().getProject().getId().toUUID()+"-"+SQL);
+		this.dependencies = dependencies;
 	}
 	
 	private Axis generalize = null;
@@ -81,7 +84,6 @@ public class AnalysisSmartCacheSignature {
 		this.analysis = original.analysis;
 		this.measures = original.measures;
 		this.SQL = original.SQL;
-		this.hash = DigestUtils.sha256Hex(analysis.getUniverse().getProject().getId().toUUID()+"-"+SQL);
 		this.generalize = generalize;
 	}
 	
@@ -93,10 +95,10 @@ public class AnalysisSmartCacheSignature {
 	}
 	
 	/**
-	 * @return the hash
+	 * @return the dependencies
 	 */
-	public String getHash() {
-		return hash;
+	public List<String> getDependencies() {
+		return dependencies;
 	}
 	
 	/**
@@ -225,29 +227,8 @@ public class AnalysisSmartCacheSignature {
 		return rowCount;
 	}
 	
-	@Override
-	public int hashCode() {
-		final int prime = 31;
-		int result = 1;
-		result = prime * result + ((hash == null) ? 0 : hash.hashCode());
-		return result;
-	}
-
-	@Override
-	public boolean equals(Object obj) {
-		if (this == obj)
-			return true;
-		if (obj == null)
-			return false;
-		if (getClass() != obj.getClass())
-			return false;
-		AnalysisSmartCacheSignature other = (AnalysisSmartCacheSignature) obj;
-		if (hash == null) {
-			if (other.hash != null)
-				return false;
-		} else if (!hash.equals(other.hash))
-			return false;
-		return true;
+	public String buildCacheKey() {	
+		return RedisCacheManager.getInstance().buildCacheKey(SQL, dependencies);
 	}
 
 }
