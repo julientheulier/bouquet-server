@@ -31,6 +31,8 @@ import org.joda.time.Period;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.caching.redis.datastruct.RawRow;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
+import com.squid.kraken.v4.core.analysis.universe.Measure;
+import com.squid.kraken.v4.core.analysis.universe.Property.OriginType;
 
 /**
  * specialized version to support date comparison
@@ -91,7 +93,7 @@ public class CompareMerger extends JoinMerger {
 	 */
 	@Override
 	protected void mergeMeasures(DataMatrix merge, RawRow leftrow, RawRow rightrow, RawRow merged) {
-		int pos = merge.getAxesSize();// start after axes
+	/*	int pos = merge.getAxesSize();// start after axes
 		for (int i = 0; i < left.getDataSize(); i++) {// left.size==right.size
 			if (leftrow!=null) {
 				merged.data[pos] = left.getDataValue(i, leftrow);
@@ -101,7 +103,35 @@ public class CompareMerger extends JoinMerger {
 				merged.data[pos] = right.getDataValue(i, rightrow);
 			}
 			pos++;// always advance
+		}*/
+		int pos = merge.getAxesSize();// start after axes
+		int size = left!=null?left.getDataSize():(right!=null?right.getDataSize():0);
+		for (int i = 0; i < size; i++) {
+			Object leftValue = left!=null?left.getDataValue(i, leftrow):null;
+			Object rightValue = right!=null?right.getDataValue(i, rightrow):null;
+			merged.data[pos++] = leftValue;
+			merged.data[pos++] = rightValue;
+			// compute growth ?
+			if (computeGrowth) {
+				if (leftValue!=null && rightValue!=null) {
+					if (leftValue instanceof Number && rightValue instanceof Number) {
+						float leftf = ((Number)leftValue).floatValue();
+						float rightf = ((Number)rightValue).floatValue();
+						// compute the growth in %
+						if (rightf!=0) {
+							float growth = (leftf-rightf)*100/rightf;
+							//String output = String.format("%+.2f%%", growth);
+							merged.data[pos] = growth;
+						}
+					}
+				}
+				// always advance
+				pos++;
+			}
 		}
+		
+		
+		
 	}
 	
 	@Override
@@ -110,6 +140,14 @@ public class CompareMerger extends JoinMerger {
 		for (int i=0; i<left.getKPIs().size(); i++) {
 			merge.getKPIs().add(left.getKPIs().get(i));
 			merge.getKPIs().add(right.getKPIs().get(i));
+			if (computeGrowth) {
+				// add the growth definition...
+				Measure growth = new Measure(left.getKPIs().get(i).getMeasure());
+				growth.setOriginType(OriginType.COMPARETO);
+				growth.setName(growth.getName() + " [growth%]");
+				growth.setFormat("%.2f");
+				merge.getKPIs().add(new MeasureValues(growth));
+			}
 		}
 	}
 
