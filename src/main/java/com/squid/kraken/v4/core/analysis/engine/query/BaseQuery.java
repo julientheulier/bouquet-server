@@ -297,12 +297,14 @@ public class BaseQuery implements IQuery {
 	}
 
 	/**
-	 * override to add more dependencies
+	 * compute the dependencies for the query
 	 * 
 	 * @param deps
 	 */
-	protected void setDependencies(List<String> deps) {
-		// nothing for now
+	public List<String> computeDependencies() {
+		List<String> deps = new ArrayList<>();
+		deps.add(getUniverse().getProject().getId().toUUID());
+		return deps;
 	}
 	
 	protected DataMatrix computeDataMatrix(Database database, RawMatrix rawMatrix) throws ScopeException {

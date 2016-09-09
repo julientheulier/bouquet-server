@@ -484,9 +484,13 @@ public class SimpleQuery extends BaseQuery {
 	}
     
     @Override
-    protected void setDependencies(List<String> deps) {
-    	super.setDependencies(deps);
+    /**
+     * override to add subject
+     */
+	public List<String> computeDependencies() {
+    	List<String> deps = super.computeDependencies();
     	deps.add(subject.getId().toUUID());
+    	return deps;
     }
 
 }
