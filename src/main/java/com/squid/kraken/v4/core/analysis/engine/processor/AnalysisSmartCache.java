@@ -428,7 +428,7 @@ public class AnalysisSmartCache {
 		String SQL = request.getKey().getSQL();
 		DashboardAnalysis ds = request.getAnalysis();
 		List<String> dependencies = new ArrayList<String>();
-		dependencies.add( ds.getUniverse().getProject().getId().toUUID());		
+		dependencies.add(ds.getUniverse().getProject().getId().toUUID());		
 		return RedisCacheManager.getInstance().buildCacheKey(SQL, dependencies);
 	}
 
