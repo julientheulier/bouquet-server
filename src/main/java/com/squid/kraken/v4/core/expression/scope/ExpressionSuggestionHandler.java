@@ -287,7 +287,7 @@ public class ExpressionSuggestionHandler {
 		                            for (ContentAssistEntry contentAssistEntry : listContentAssistEntry.getContentAssistEntries()) {
 		                                //TODO this code should disappear when we get to XTEXT
 		                                ExpressionSuggestionItem item =
-		                                        new ExpressionSuggestionItem(
+		                                        new ExpressionSuggestionItem(null,
 		                                                opDef.getSymbol() + "(" + contentAssistEntry.getLabel() + ")",
 		                                                contentAssistEntry.getDescription(),
 		                                                opDef.getSymbol() + "(" + contentAssistEntry.getLabel() + ")",
@@ -342,42 +342,42 @@ public class ExpressionSuggestionHandler {
         //TODO handle description escpaially for domain's suggestion.
         if (expr instanceof ExpressionRef && !(expr instanceof ParameterReference)) {
             if (expr instanceof TableReference) {
-                return new ExpressionSuggestionItem(
+                return new ExpressionSuggestionItem(expr,
                         ((ExpressionRef) expr).getReferenceName(),
                         ((TableReference) expr).getDescription(),
                         suggestion,
                         computeObjectType(expr),
                         computeValueType(expr));
             } else if (expr instanceof DomainReference) {
-                return new ExpressionSuggestionItem(
+                return new ExpressionSuggestionItem(expr,
                         ((ExpressionRef) expr).getReferenceName(),
                         ((DomainReference) expr).getDescription(),
                         suggestion,
                         computeObjectType(expr),
                         computeValueType(expr));
             } else if (expr instanceof RelationReference) {
-                return new ExpressionSuggestionItem(
+                return new ExpressionSuggestionItem(expr,
                         ((ExpressionRef) expr).getReferenceName(),
                         ((RelationReference) expr).getDescription(),
                         suggestion,
                         computeObjectType(expr),
                         computeValueType(expr));
             } else if (expr instanceof ColumnReference) {
-                return new ExpressionSuggestionItem(
+                return new ExpressionSuggestionItem(expr,
                         ((ExpressionRef) expr).getReferenceName(),
                         ((ColumnReference) expr).getDescription(),
                         suggestion,
                         computeObjectType(expr),
                         computeValueType(expr));
             } else {
-                return new ExpressionSuggestionItem(
+                return new ExpressionSuggestionItem(expr,
                         ((ExpressionRef) expr).getReferenceName(),
                         suggestion,
                         computeObjectType(expr),
                         computeValueType(expr));
             }
         } else {
-            return new ExpressionSuggestionItem(
+            return new ExpressionSuggestionItem(expr,
                     suggestion,
                     computeObjectType(expr),
                     computeValueType(expr));

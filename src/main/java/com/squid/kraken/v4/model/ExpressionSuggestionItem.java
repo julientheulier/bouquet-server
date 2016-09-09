@@ -23,6 +23,9 @@
  *******************************************************************************/
 package com.squid.kraken.v4.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.squid.core.expression.ExpressionAST;
+
 /**
  * define a piece of suggestion
  * @author sergefantino
@@ -44,6 +47,9 @@ public class ExpressionSuggestionItem {
     
     private ValueType valueType = null;
     
+    @JsonIgnore
+    private ExpressionAST expression = null;
+    
     public ExpressionSuggestionItem() {
 	}
 
@@ -57,8 +63,9 @@ public class ExpressionSuggestionItem {
 		this.valueType = valueType;
 	}
 
-	public ExpressionSuggestionItem(String display, String description, String caption, String suggestion,
+	public ExpressionSuggestionItem(ExpressionAST expr, String display, String description, String caption, String suggestion,
 									ObjectType objectType, ValueType valueType, int ranking) {
+		this.expression = expr;
 		this.display = display;
 		this.description = description;
 		this.caption = caption;
@@ -68,8 +75,9 @@ public class ExpressionSuggestionItem {
 		this.ranking = ranking;
 	}
 
-    public ExpressionSuggestionItem(String display, String description, String suggestion,
+    public ExpressionSuggestionItem(ExpressionAST expr, String display, String description, String suggestion,
 			ObjectType objectType, ValueType valueType) {
+		this.expression = expr;
     	this.display = display;
 		this.description = description;
     	this.suggestion = suggestion;
@@ -77,16 +85,18 @@ public class ExpressionSuggestionItem {
     	this.valueType = valueType;
 	}
 
-	public ExpressionSuggestionItem(String display, String suggestion,
+	public ExpressionSuggestionItem(ExpressionAST expr, String display, String suggestion,
 									ObjectType objectType, ValueType valueType) {
+		this.expression = expr;
 		this.display = display;
 		this.suggestion = suggestion;
 		this.objectType = objectType;
 		this.valueType = valueType;
 	}
 
-    public ExpressionSuggestionItem(String suggestion,
+    public ExpressionSuggestionItem(ExpressionAST expr, String suggestion,
 			ObjectType objectType, ValueType valueType) {
+		this.expression = expr;
     	this.suggestion = suggestion;
     	this.objectType = objectType;
     	this.valueType = valueType;
@@ -150,5 +160,8 @@ public class ExpressionSuggestionItem {
 		this.ranking = ranking;
 	}
 
+	public ExpressionAST getExpression() {
+		return expression;
+	}
 
 }

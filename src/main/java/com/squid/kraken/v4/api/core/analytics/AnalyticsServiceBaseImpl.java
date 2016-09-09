@@ -1139,9 +1139,11 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		html.append("<table>");
 		html.append("<tr><td valign='top'>groupBy</td><td>");
 		createHTMLinputArray(html, "text", "groupBy", query.getGroupBy());
+		html.append("</td><td valign='top'><p><i>Define the group-by facets to apply to results. Facet can be defined using it's ID or any valid expression. If empty, the subject default parameters will apply. You can use the * token to extend the subject default parameters.</i></p>");
 		html.append("</td></tr>");
 		html.append("<tr><td valign='top'>metrics</td><td>");
 		createHTMLinputArray(html, "text", "metrics", query.getMetrics());
+		html.append("</td><td valign='top'><p><i>Define the metrics to compute. Metric can be defined using it's ID or any valid expression. If empty, the subject default parameters will apply. You can use the * token to extend the subject default parameters.</i></p>");
 		html.append("</td></tr>");
 		html.append("<tr><td valign='top'>orderBy</td><td>");
 		createHTMLinputArray(html, "text", "orderBy", query.getOrderBy());
@@ -2751,11 +2753,11 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	
 	private void createHTMLscope(StringBuilder html, Space space, AnalyticsQuery query) {
 		html.append("<fieldset><legend>Query scope: <i>this is the list of objects you can combine to build expressions in the query</i></legend>");
-		html.append("<table><tr><td>GroupBy:</td><td>");
+		html.append("<table><tr><td valign='top'>GroupBy:</td><td valign='top'>");
 		for (Axis axis : space.A()) {
 			try {
 				DimensionIndex index = axis.getIndex();
-				html.append("<span style='"+axis_style+"'");
+				html.append("<span draggable='true' style='"+axis_style+"'");
 				ExpressionAST expr = axis.getDefinitionSafe();
 				html.append("title='"+getExpressionValueType(expr).toString()+": ");
 				if (axis.getDescription()!=null) {
@@ -2768,10 +2770,10 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			}
 		}
 		html.append("</td></tr>");
-		html.append("<tr><td>Metrics:</td><td>");
+		html.append("<tr><td valign='top'>Metrics:</td><td valign='top'>");
 		for (Measure m : space.M()) {
 			if (m.getMetric()!=null && !m.getMetric().isDynamic()) {
-				html.append("<span style='"+metric_style+"'");
+				html.append("<span draggable='true'  style='"+metric_style+"'");
 				ExpressionAST expr = m.getDefinitionSafe();
 				html.append("title='"+getExpressionValueType(expr).toString()+": ");
 				if (m.getDescription()!=null) {
@@ -2835,7 +2837,18 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			html.append("<span style='"+style+"'>&nbsp;"+item.getDisplay()+"&nbsp;</span>");
 			if (item.getSuggestion()!=null) {
 				URI link = getPublicBaseUriBuilder().path("/analytics/{reference}/scope").queryParam("value", value+item.getSuggestion()).queryParam("style", Style.HTML).queryParam("access_token", userContext.getToken().getOid()).build(BBID);
-				html.append("[<a href=\""+StringEscapeUtils.escapeHtml4(link.toASCIIString())+"\">go</a>]");
+				html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(link.toASCIIString())+"\">+</a>]");
+			}
+			if (item.getExpression()!=null && item.getExpression() instanceof AxisExpression) {
+				AxisExpression ref = (AxisExpression)item.getExpression();
+				Axis axis = ref.getAxis();
+				if (axis.getDimensionType()==Type.CATEGORICAL) {
+					URI link = getPublicBaseUriBuilder().path("/analytics/{reference}/facets/{facetId}").queryParam("style", Style.HTML).queryParam("access_token", userContext.getToken().getOid()).build(BBID, item.getSuggestion());
+					html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(link.toASCIIString())+"\">Indexed</a>]");
+				} else if (axis.getDimensionType()==Type.CONTINUOUS) {
+					URI link = getPublicBaseUriBuilder().path("/analytics/{reference}/facets/{facetId}").queryParam("style", Style.HTML).queryParam("access_token", userContext.getToken().getOid()).build(BBID, item.getSuggestion());
+					html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(link.toASCIIString())+"\">Period</a>]");
+				}
 			}
 			if (item.getDescription()!=null && item.getDescription().length()>0) {
 				html.append("&nbsp;<i>"+item.getDescription()+"</i>");

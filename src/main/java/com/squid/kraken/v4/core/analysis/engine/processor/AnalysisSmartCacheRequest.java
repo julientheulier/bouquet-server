@@ -29,7 +29,9 @@ import java.util.List;
 
 import org.apache.commons.codec.digest.DigestUtils;
 
+import com.squid.core.sql.render.RenderingException;
 import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
+import com.squid.kraken.v4.core.analysis.engine.query.SimpleQuery;
 import com.squid.kraken.v4.core.analysis.model.DashboardAnalysis;
 import com.squid.kraken.v4.core.analysis.model.DashboardSelection;
 import com.squid.kraken.v4.core.analysis.model.MeasureGroup;
@@ -44,34 +46,35 @@ import com.squid.kraken.v4.core.analysis.universe.Universe;
 public class AnalysisSmartCacheRequest {
 
 	private Universe universe;
-	private AnalysisSmartCacheSignature key = null;
+	private AnalysisSmartCacheSignature signature = null;
 	
 	/**
+	 * @throws RenderingException 
 	 * 
 	 */
-	public AnalysisSmartCacheRequest(Universe universe, DashboardAnalysis analysis, MeasureGroup measures, String SQL) {
+	public AnalysisSmartCacheRequest(Universe universe, DashboardAnalysis analysis, MeasureGroup measures, SimpleQuery query) throws RenderingException {
 		this.universe = universe;
-		this.key = new AnalysisSmartCacheSignature(analysis, measures, SQL);
+		this.signature = new AnalysisSmartCacheSignature(analysis, measures, query.render(), query.computeDependencies());
 	}
 	/**
 	 * @return
 	 */
 	public DashboardAnalysis getAnalysis() {
-		return key.getAnalysis();
+		return signature.getAnalysis();
 	}
 	
 	/**
 	 * @return
 	 */
 	public MeasureGroup getMeasures() {
-		return key.getMeasures();
+		return signature.getMeasures();
 	}
 	
 	/**
 	 * @return the key
 	 */
-	public AnalysisSmartCacheSignature getKey() {
-		return key;
+	public AnalysisSmartCacheSignature getSignature() {
+		return signature;
 	}
 	
 	/**
@@ -79,27 +82,27 @@ public class AnalysisSmartCacheRequest {
 	 * @param dm
 	 */
 	public void setRowCount(DataMatrix dm) {
-		key.setRowCount(dm!=null?dm.getRowCount():-1);
+		signature.setRowCount(dm!=null?dm.getRowCount():-1);
 	}
 	
 	/**
 	 * @return the axesSignature
 	 */
 	public String getAxesSignature() {
-		if (key.getAxesSignature()==null) {
-			key.setAxesSignature(universe);
+		if (signature.getAxesSignature()==null) {
+			signature.setAxesSignature(universe);
 		}
-		return key.getAxesSignature();
+		return signature.getAxesSignature();
 	}
 
 	/**
 	 * @return the axesSignature
 	 */
 	public String getFiltersSignature() {
-		if (key.getFiltersSignature()==null) {
-			key.setFiltersSignature(computeFiltersSignature(universe, key.getAnalysis().getSelection()));
+		if (signature.getFiltersSignature()==null) {
+			signature.setFiltersSignature(computeFiltersSignature(universe, signature.getAnalysis().getSelection()));
 		}
-		return key.getFiltersSignature();
+		return signature.getFiltersSignature();
 	}
 	
 	public String computeFiltersSignature(Universe universe, DashboardSelection selection) {

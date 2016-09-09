@@ -549,10 +549,9 @@ public class AnalysisCompute {
 		PreviewWriter qw = new PreviewWriter();
 		SimpleQuery query = this.genAnalysisQueryCachable(analysis,
 				group, optimize);
-		String SQL = query.render();// analysis signature for future use
 		// compute the signature: do it after generating the query to take into account side-effects
 		boolean smartCache = SUPPORT_SMART_CACHE && !analysis.hasRollup();
-		AnalysisSmartCacheRequest smartCacheRequest = smartCache?new AnalysisSmartCacheRequest(universe, analysis, group, SQL):null;
+		AnalysisSmartCacheRequest smartCacheRequest = smartCache?new AnalysisSmartCacheRequest(universe, analysis, group, query):null;
 		boolean temporarySignature = false;
 		try {
 			// run the query using 1/ first the lazy, 2/ the samrt cache (if allowed) 3/ direct execution if not lazy
@@ -587,7 +586,7 @@ public class AnalysisCompute {
 					dm = transform.apply(dm);
 				}
 			}
-			// if it is a full dataset and no rollup, store the layout in the intelligentCache
+			// if it is a full dataset and no rollup, store the layout in the smartCache
 			if (smartCacheRequest!=null) {
 				if (dm.isFullset() && !analysis.hasRollup()) {
 					smartCacheRequest.setRowCount(dm);// record the resultset size - so we know the resultset should be available
