@@ -37,13 +37,12 @@ import org.mongodb.morphia.annotations.Transient;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
-import com.squid.core.domain.IDomain;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.api.core.ObjectNotFoundAPIException;
 import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
 import com.squid.kraken.v4.model.visitor.ModelVisitor;
 import com.squid.kraken.v4.persistence.AppContext;
-import com.wordnik.swagger.annotations.ApiModelProperty;
+import io.swagger.annotations.ApiModelProperty;
 
 @XmlType(namespace = "http://model.v4.kraken.squid.com")
 @SuppressWarnings("serial")
@@ -103,7 +102,7 @@ public class Dimension extends ExpressionObject<DimensionPK> implements Cloneabl
 		return super.clone();
 	}
 
-	@ApiModelProperty(position = 2)
+	@ApiModelProperty
 	public DimensionPK getParentId() {
 		return parentId;
 	}
@@ -112,7 +111,7 @@ public class Dimension extends ExpressionObject<DimensionPK> implements Cloneabl
 		this.parentId = parentId;
 	}
 	
-	@ApiModelProperty(position = 1)
+	@ApiModelProperty
 	public Type getType() {
 		return type;
 	}
@@ -126,7 +125,7 @@ public class Dimension extends ExpressionObject<DimensionPK> implements Cloneabl
 	 * Dimension.
 	 */
 	@Override
-	@ApiModelProperty(position = 3)
+	@ApiModelProperty
 	public Expression getExpression() {
 		return expression;
 	}

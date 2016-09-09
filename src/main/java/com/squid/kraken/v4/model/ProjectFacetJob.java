@@ -30,11 +30,10 @@ import javax.xml.bind.annotation.XmlRootElement;
 import javax.xml.bind.annotation.XmlTransient;
 import javax.xml.bind.annotation.XmlType;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-
 import org.mongodb.morphia.annotations.Index;
 import org.mongodb.morphia.annotations.Indexes;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
 import com.squid.kraken.v4.model.visitor.ModelVisitor;

@@ -33,8 +33,8 @@ import com.squid.kraken.v4.core.analysis.model.IntervalleObject;
 import com.squid.kraken.v4.core.expression.scope.DimensionDefaultValueScope;
 import com.squid.kraken.v4.core.expression.scope.ExpressionEvaluator;
 import com.squid.kraken.v4.model.Dimension;
-import com.squid.kraken.v4.model.DimensionOption;
 import com.squid.kraken.v4.model.Dimension.Type;
+import com.squid.kraken.v4.model.DimensionOption;
 import com.squid.kraken.v4.persistence.AppContext;
 
 /**

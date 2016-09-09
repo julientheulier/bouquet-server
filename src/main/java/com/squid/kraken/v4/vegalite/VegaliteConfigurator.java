@@ -36,7 +36,9 @@ import com.squid.kraken.v4.core.analysis.scope.SpaceScope;
 import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.model.AnalyticsQuery;
 import com.squid.kraken.v4.model.AnalyticsQueryImpl;
-import com.squid.kraken.v4.vegalite.VegaliteSpecs.*;
+import com.squid.kraken.v4.vegalite.VegaliteSpecs.ChannelDef;
+import com.squid.kraken.v4.vegalite.VegaliteSpecs.DataType;
+import com.squid.kraken.v4.vegalite.VegaliteSpecs.TimeUnit;
 
 /**
  * Simple class to handle the vegalite configuration state

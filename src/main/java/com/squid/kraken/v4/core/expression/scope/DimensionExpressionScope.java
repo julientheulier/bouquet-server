@@ -26,8 +26,6 @@ package com.squid.kraken.v4.core.expression.scope;
 import java.util.Collection;
 import java.util.List;
 
-import com.squid.kraken.v4.core.expression.reference.ParameterReference;
-import com.squid.kraken.v4.core.expression.scope.DomainExpressionScope;
 import com.squid.core.domain.IDomain;
 import com.squid.core.domain.analytics.AnalyticDomain;
 import com.squid.core.expression.ExpressionAST;
@@ -37,6 +35,7 @@ import com.squid.core.expression.scope.IdentifierType;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
+import com.squid.kraken.v4.core.expression.reference.ParameterReference;
 import com.squid.kraken.v4.model.Dimension;
 import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.ExpressionObject;

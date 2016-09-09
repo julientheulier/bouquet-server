@@ -23,7 +23,7 @@
  *******************************************************************************/
 package com.squid.kraken.v4.persistence.dao;
 
-import java.util.ArrayList; 
+import java.util.ArrayList;
 import java.util.List;
 
 import com.squid.kraken.v4.caching.Cache;

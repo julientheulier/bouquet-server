@@ -27,7 +27,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -43,7 +42,6 @@ import com.google.common.collect.ImmutableMap;
 import com.squid.core.domain.IDomain;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.scope.ScopeException;
-import com.squid.kraken.v4.caching.redis.RedisCacheManager;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionMember;
 import com.squid.kraken.v4.core.analysis.model.DashboardAnalysis;
 import com.squid.kraken.v4.core.analysis.model.DashboardSelection;
@@ -138,7 +136,7 @@ public class AnalysisSmartCache {
 			// let try by excluding one filter at a time?
 			for (Axis filter : filters) {
 				// generalize the search by adding the filter as an axis
-				AnalysisSmartCacheSignature generalize = new AnalysisSmartCacheSignature(request.getKey(), filter);
+				AnalysisSmartCacheSignature generalize = new AnalysisSmartCacheSignature(request.getSignature(), filter);
 				generalize.setAxesSignature(universe);// ok, the API is a bit ackward
 				Map<String, HashSet<String>> sameAxes = lookup.get(generalize.getAxesSignature());
 				if (sameAxes!=null) {
@@ -183,8 +181,9 @@ public class AnalysisSmartCache {
 		ImmutableMap<String, AnalysisSmartCacheSignature> sameFiltersCandidates = cache.getAllPresent(sameFiltersCandidatesKeys) ;
 		
 		for (AnalysisSmartCacheSignature candidate  : sameFiltersCandidates.values()) {
-			
+			// if not computing more kpis
 			if (request.getMeasures().getKPIs().size() <= candidate.getMeasures().getKPIs().size()) {
+				// check the filters to see if candidate contains request
 				AnalysisSmartCacheMatch match = checkMatchSingle(restrict, request, candidate);
 				if (match!=null) {
 					// check the measures
@@ -330,7 +329,7 @@ public class AnalysisSmartCache {
 		if (sameAxes!=null) {
 			HashSet<String> sameFilters = sameAxes.get(request.getFiltersSignature());
 			if (sameFilters!=null) {
-				String key = this.buildGuavaKey(request);
+				String key = request.getSignature().buildCacheKey();
 				if (!sameFilters.contains(key)) {
 					boolean check = sameFilters.remove(key);
 					return check;
@@ -362,12 +361,12 @@ public class AnalysisSmartCache {
 			sameFilters = new HashSet<String>();// create the signature set
 			sameAxes.put(request.getFiltersSignature(), sameFilters);
 		}
-		String key = this.buildGuavaKey(request);
+		String key = request.getSignature().buildCacheKey();
 		if (!sameFilters.contains(key)) {
 			sameFilters.add(key);
 		}
 		if (this.cache.getIfPresent(key) == null){
-			this.cache.put(key, request.getKey());	
+			this.cache.put(key, request.getSignature());	
 		}
 		//
 		return contains.add(key);
@@ -379,7 +378,7 @@ public class AnalysisSmartCache {
 	 * @return
 	 */
 	public AnalysisSmartCacheSignature get(AnalysisSmartCacheRequest request) {
-		String key = this.buildGuavaKey(request);
+		String key = request.getSignature().buildCacheKey();
 		return this.cache.getIfPresent(key);
 	}
 
@@ -389,7 +388,7 @@ public class AnalysisSmartCache {
 	 * @return
 	 */
 	public boolean contains(AnalysisSmartCacheRequest request) {
-		return contains.contains(this.buildGuavaKey(request));
+		return contains.contains(request.getSignature().buildCacheKey());
 	}
 
 	/**
@@ -417,19 +416,6 @@ public class AnalysisSmartCache {
 		}
 		// else
 		return null;
-	}
-	
-	/**
-	 * actually building the gen-key for the request - it uses the same dependencies as the SQL cache
-	 * @param request
-	 * @return
-	 */
-	private String buildGuavaKey(AnalysisSmartCacheRequest request){
-		String SQL = request.getKey().getSQL();
-		DashboardAnalysis ds = request.getAnalysis();
-		List<String> dependencies = new ArrayList<String>();
-		dependencies.add( ds.getUniverse().getProject().getId().toUUID());		
-		return RedisCacheManager.getInstance().buildCacheKey(SQL, dependencies);
 	}
 
 }

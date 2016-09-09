@@ -26,7 +26,6 @@ package com.squid.kraken.v4.model;
 import javax.xml.bind.annotation.XmlTransient;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-
 import com.squid.kraken.v4.api.core.ServiceUtils;
 
 @SuppressWarnings("serial")

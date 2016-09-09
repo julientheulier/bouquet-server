@@ -31,7 +31,6 @@ import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.ExpressionLeaf;
 import com.squid.core.expression.reference.ColumnReference;
 import com.squid.core.expression.scope.ScopeException;
-import com.squid.kraken.v4.core.expression.visitor.LeafVisitor;
 import com.squid.kraken.v4.core.analysis.scope.AxisExpression;
 import com.squid.kraken.v4.core.analysis.scope.MeasureExpression;
 import com.squid.kraken.v4.core.analysis.universe.Axis;

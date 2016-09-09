@@ -23,15 +23,15 @@
  *******************************************************************************/
 package com.squid.kraken.v4.caching;
 
-import net.sf.ehcache.CacheManager;
-import net.sf.ehcache.Element;
-import net.sf.ehcache.ObjectExistsException;
-import net.sf.ehcache.config.CacheConfiguration;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Optional;
+
+import net.sf.ehcache.CacheManager;
+import net.sf.ehcache.Element;
+import net.sf.ehcache.ObjectExistsException;
+import net.sf.ehcache.config.CacheConfiguration;
 
 public class EHCacheImpl<K, V> implements Cache<K, V> {
 

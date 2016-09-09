@@ -23,7 +23,7 @@
  *******************************************************************************/
 package com.squid.kraken.v4.core.analysis.engine.cartography;
 
-import java.util.ArrayList; 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;

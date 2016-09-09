@@ -23,10 +23,10 @@
  *******************************************************************************/
 package com.squid.kraken.v4.export;
 
+import java.sql.Types;
+
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
-
-import java.sql.Types;
 
 /**
  * Created by lrabiet on 07/01/16.

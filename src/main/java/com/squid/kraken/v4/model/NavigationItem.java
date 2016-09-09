@@ -125,9 +125,9 @@ public class NavigationItem {
 		if (query.getStyle()==Style.HUMAN) {
 			// only use the project name
 			// cannot rely on the bookmark name for lookup
-			this.selfRef =  "'"+project.getName()+"'.[bookmark:'"+bookmark.getOid()+"']";
+			this.selfRef =  "'"+project.getName()+"'.@bookmark:'"+bookmark.getOid()+"'";
 		} else {
-			this.selfRef =  "@'"+project.getOid()+"'.[bookmark:'"+bookmark.getOid()+"']";
+			this.selfRef =  "@'"+project.getOid()+"'.@bookmark:'"+bookmark.getOid()+"'";
 		}
 		this.type = BOOKMARK_TYPE;
 	}

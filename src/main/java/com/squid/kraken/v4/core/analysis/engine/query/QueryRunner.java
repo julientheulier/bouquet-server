@@ -24,7 +24,7 @@
 
 package com.squid.kraken.v4.core.analysis.engine.query;
 
-import java.util.ArrayList;
+import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -67,9 +67,7 @@ public class QueryRunner {
 
 			Project project = query.getUniverse().asRootUserContext().getProject();
 			//
-			ArrayList<String> deps = new ArrayList<String>();
-			deps.add(project.getId().toUUID());
-			query.setDependencies(deps);// to override
+			List<String> deps = query.computeDependencies();// to override
 			//
 			String url = project.getDbUrl();
 			String user = project.getDbUser();

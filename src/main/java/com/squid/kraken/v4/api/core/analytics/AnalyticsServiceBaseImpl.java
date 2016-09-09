@@ -25,8 +25,10 @@ package com.squid.kraken.v4.api.core.analytics;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -45,11 +47,13 @@ import java.util.zip.GZIPOutputStream;
 
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Response;
+import javax.ws.rs.core.Response.ResponseBuilder;
 import javax.ws.rs.core.StreamingOutput;
 import javax.ws.rs.core.UriBuilder;
+import javax.ws.rs.core.UriBuilderException;
 import javax.ws.rs.core.UriInfo;
-import javax.ws.rs.core.Response.ResponseBuilder;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringEscapeUtils;
@@ -87,9 +91,9 @@ import com.squid.kraken.v4.api.core.AccessRightsUtils;
 import com.squid.kraken.v4.api.core.ComputingInProgressAPIException;
 import com.squid.kraken.v4.api.core.EngineUtils;
 import com.squid.kraken.v4.api.core.InvalidIdAPIException;
-import com.squid.kraken.v4.api.core.JobStats;
 import com.squid.kraken.v4.api.core.JobServiceBaseImpl.OutputCompression;
 import com.squid.kraken.v4.api.core.JobServiceBaseImpl.OutputFormat;
+import com.squid.kraken.v4.api.core.JobStats;
 import com.squid.kraken.v4.api.core.ObjectNotFoundAPIException;
 import com.squid.kraken.v4.api.core.PerfDB;
 import com.squid.kraken.v4.api.core.bookmark.BookmarkServiceBaseImpl;
@@ -130,6 +134,7 @@ import com.squid.kraken.v4.export.ExportSourceWriter;
 import com.squid.kraken.v4.export.ExportSourceWriterCSV;
 import com.squid.kraken.v4.export.ExportSourceWriterXLSX;
 import com.squid.kraken.v4.model.AccessRight;
+import com.squid.kraken.v4.model.AccessRight.Role;
 import com.squid.kraken.v4.model.AnalyticsQuery;
 import com.squid.kraken.v4.model.AnalyticsQueryImpl;
 import com.squid.kraken.v4.model.AnalyticsReply;
@@ -144,12 +149,10 @@ import com.squid.kraken.v4.model.DataTable.Col;
 import com.squid.kraken.v4.model.DataTable.Row;
 import com.squid.kraken.v4.model.Dimension;
 import com.squid.kraken.v4.model.Dimension.Type;
-import com.squid.kraken.v4.model.NavigationQuery.HierarchyMode;
-import com.squid.kraken.v4.model.NavigationQuery.Style;
-import com.squid.kraken.v4.model.NavigationQuery.Visibility;
 import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.Expression;
 import com.squid.kraken.v4.model.ExpressionSuggestion;
+import com.squid.kraken.v4.model.ExpressionSuggestionItem;
 import com.squid.kraken.v4.model.Facet;
 import com.squid.kraken.v4.model.FacetExpression;
 import com.squid.kraken.v4.model.FacetMember;
@@ -159,6 +162,9 @@ import com.squid.kraken.v4.model.FacetSelection;
 import com.squid.kraken.v4.model.Metric;
 import com.squid.kraken.v4.model.NavigationItem;
 import com.squid.kraken.v4.model.NavigationQuery;
+import com.squid.kraken.v4.model.NavigationQuery.HierarchyMode;
+import com.squid.kraken.v4.model.NavigationQuery.Style;
+import com.squid.kraken.v4.model.NavigationQuery.Visibility;
 import com.squid.kraken.v4.model.NavigationReply;
 import com.squid.kraken.v4.model.NavigationResult;
 import com.squid.kraken.v4.model.ObjectType;
@@ -176,13 +182,16 @@ import com.squid.kraken.v4.model.ProjectPK;
 import com.squid.kraken.v4.model.ValueType;
 import com.squid.kraken.v4.model.ViewQuery;
 import com.squid.kraken.v4.model.ViewReply;
-import com.squid.kraken.v4.model.AccessRight.Role;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DAOFactory;
 import com.squid.kraken.v4.persistence.dao.ProjectDAO;
 import com.squid.kraken.v4.vegalite.VegaliteConfigurator;
 import com.squid.kraken.v4.vegalite.VegaliteSpecs;
-import com.squid.kraken.v4.vegalite.VegaliteSpecs.*;
+import com.squid.kraken.v4.vegalite.VegaliteSpecs.Data;
+import com.squid.kraken.v4.vegalite.VegaliteSpecs.Encoding;
+import com.squid.kraken.v4.vegalite.VegaliteSpecs.Format;
+import com.squid.kraken.v4.vegalite.VegaliteSpecs.FormatType;
+import com.squid.kraken.v4.vegalite.VegaliteSpecs.Mark;
 
 /**
  * @author sergefantino
@@ -193,13 +202,15 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	static final Logger logger = LoggerFactory
 			.getLogger(AnalyticsServiceBaseImpl.class);
 
-	//private UriInfo uriInfo = null;
+	private UriInfo uriInfo = null;
 	
 	private URI publicBaseUri = null;
+	private AppContext userContext = null;
 	
-	protected AnalyticsServiceBaseImpl(UriInfo uriInfo) {
-		//this.uriInfo = uriInfo;
+	protected AnalyticsServiceBaseImpl(UriInfo uriInfo, AppContext userContext) {
+		this.uriInfo = uriInfo;
 		this.publicBaseUri = getPublicBaseUri(uriInfo);
+		this.userContext = userContext;
 	}
 	
 	public UriBuilder getPublicBaseUriBuilder() {
@@ -405,7 +416,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 							item.setViewLink(createLinkToView(userContext, query, item));
 						}
 						HashMap<String, String> attrs = new HashMap<>();
-						attrs.put("dictionary", project.getName());
+						attrs.put("project", project.getName());
 						item.setAttributes(attrs);
 						content.add(item);
 					}
@@ -613,7 +624,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 						item.setObjectLink(createObjectLink(userContext, query, bookmark));
 					}
 					HashMap<String, String> attrs = new HashMap<>();
-					attrs.put("dictionary", project.getName());
+					attrs.put("project", project.getName());
 					item.setAttributes(attrs);
 					content.add(item);
 				}
@@ -860,16 +871,17 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		}
 	}
 	
-	public ExpressionSuggestion evaluateExpression(
+	public Response scopeAnalysis(
 			AppContext userContext, 
 			String BBID,
-			String expression,
+			String value,
 			Integer offset,
 			ObjectType[] types,
-			ValueType[] values
+			ValueType[] values, 
+			Style style
 			) throws ScopeException
 	{
-		if (expression==null) expression="";
+		if (value==null) value="";
 		Space space = getSpace(userContext, BBID);
 		//
 		DomainExpressionScope scope = new DomainExpressionScope(space.getUniverse(), space.getDomain());
@@ -877,7 +889,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		ExpressionSuggestionHandler handler = new ExpressionSuggestionHandler(
 				scope);
 		if (offset == null) {
-			offset = expression.length()+1;
+			offset = value.length()+1;
 		}
 		Collection<ObjectType> typeFilters = null;
 		if (types!=null) {
@@ -895,10 +907,14 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 				valueFilters = Collections.singletonList(values[0]);
 			}
 		}
-		ExpressionSuggestion suggestions = handler.getSuggestion(expression, offset, typeFilters, valueFilters);
-		return suggestions;
+		ExpressionSuggestion suggestions = handler.getSuggestion(value, offset, typeFilters, valueFilters);
+		if (style==Style.HTML) {
+			return createHTMLscopePage(space, suggestions, BBID, value, types, values);
+		} else {
+			return Response.ok(suggestions).build();
+		}
 	}
-	
+
 	public Response runAnalysis(
 			final AppContext userContext,
 			String BBID,
@@ -948,6 +964,10 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 				if (query.getStyle()==Style.HTML) {
 					// change data format to legacy
 					data="LEGACY";
+					if (query.getLimit()>100 && query.getMaxResults()==null) {
+						// try to apply maxResults
+						query.setMaxResults(100);
+					}
 				}
 				try {
 					Callable<DataMatrix> task = new Callable<DataMatrix>() {
@@ -982,7 +1002,14 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 						throw e;
 					}
 				} catch (ExecutionException e) {
-					throwCauseException(e);
+					if (query.getStyle()==Style.HUMAN || query.getStyle()==Style.HTML) {
+						// wrap the exception in a Problem
+						Throwable cause = getCauseException(e);
+						query.add(new Problem(Severity.ERROR, "SQL", "Failed to run the query: "+cause.getMessage(), cause));
+					} else {
+						// just let if go
+						throwCauseException(e);
+					}
 				} catch (TimeoutException e) {
 					if (query.getStyle()==Style.HUMAN || query.getStyle()==Style.HTML) {
 						URI link = getPublicBaseUriBuilder().path("/status/{queryID}").queryParam("access_token", userContext.getToken().getOid()).build(query.getQueryID());
@@ -1022,6 +1049,11 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	 * @param the execution exception
 	 */
 	private void throwCauseException(ExecutionException e) {
+		Throwable cause = getCauseException(e);
+		throwAPIException(cause);
+	}
+	
+	private Throwable getCauseException(ExecutionException e) {
 		Throwable previous = e;
 		Throwable last = e;
 		while (last.getCause()!=null) {
@@ -1029,9 +1061,9 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			last = last.getCause();
 		}
 		if (previous.getMessage()!=null) {
-			throwAPIException(previous);
+			return previous;
 		} else {
-			throwAPIException(last);
+			return last;
 		}
 	}
 
@@ -1065,52 +1097,73 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		String title = createHTMLtitle(space);
 		StringBuilder html = new StringBuilder("<html><title>Query: "+title+"</title><body>");
 		html.append("<h1>"+title+"</h1>");
-		createHTMLproblems(html, query);
+		createHTMLproblems(html, query.getProblems());
 		html.append("<form>");
 		createHTMLfilters(html, query);
-		html.append("<table><tr>");
-		for (Col col : data.getCols()) {
-			html.append("<th>"+col.getName()+"</th>");
-		}
-		html.append("</tr>");
-		for (Row row : data.getRows()) {
-			html.append("<tr>");
+		if (data!=null) {
+			html.append("<table><tr>");
+			html.append("<th></th>");
 			for (Col col : data.getCols()) {
-				Object value = row.getV()[col.getPos()];
-				if (col.getFormat()!=null && col.getFormat().length()>0) {
-					try {
-						value = String.format(col.getFormat(), value);
-					} catch (IllegalFormatException e) {
-						// ignore
-					}
-				}
-				html.append("<td>"+value+"</td>");
+				html.append("<th>"+col.getName()+"</th>");
 			}
 			html.append("</tr>");
+			int i=1;
+			if (query.getStartIndex()!=null) {
+				i=query.getStartIndex()+1;
+			}
+			for (Row row : data.getRows()) {
+				html.append("<tr>");
+				html.append("<td valign='top'>#"+(i++)+"</td>");
+				for (Col col : data.getCols()) {
+					Object value = row.getV()[col.getPos()];
+					if (value!=null) {
+						if (col.getFormat()!=null && col.getFormat().length()>0) {
+							try {
+								value = String.format(col.getFormat(), value);
+							} catch (IllegalFormatException e) {
+								// ignore
+							}
+						}
+					} else {
+						value="";
+					}
+					html.append("<td valign='top'>"+value+"</td>");
+				}
+				html.append("</tr>");
+			}
+			html.append("</table>");
+			createHTMLpagination(html, query, data);
+		} else {
+			html.append("<i>Result is not available, it's probably due to an error</i>");
 		}
-		html.append("</table>");
-		createHTMLpagination(html, data);
 		html.append("<table>");
-		html.append("<tr><td>groupBy</td><td>");
+		html.append("<tr><td valign='top'>groupBy</td><td>");
 		createHTMLinputArray(html, "text", "groupBy", query.getGroupBy());
+		html.append("</td><td valign='top'><p><i>Define the group-by facets to apply to results. Facet can be defined using it's ID or any valid expression. If empty, the subject default parameters will apply. You can use the * token to extend the subject default parameters.</i></p>");
 		html.append("</td></tr>");
-		html.append("<tr><td>metrics</td><td>");
+		html.append("<tr><td valign='top'>metrics</td><td>");
 		createHTMLinputArray(html, "text", "metrics", query.getMetrics());
+		html.append("</td><td valign='top'><p><i>Define the metrics to compute. Metric can be defined using it's ID or any valid expression. If empty, the subject default parameters will apply. You can use the * token to extend the subject default parameters.</i></p>");
 		html.append("</td></tr>");
-		html.append("<tr><td>orderBy</td><td>");
+		html.append("<tr><td valign='top'>orderBy</td><td>");
 		createHTMLinputArray(html, "text", "orderBy", query.getOrderBy());
 		html.append("</td></tr>");
 		html.append("<tr><td>limit</td><td>");
-		html.append("<input type=\"text\" name=\"limit\" value=\""+getFieldValue(query.getLimit())+"\">");
+		html.append("<input type=\"text\" name=\"limit\" value=\""+getFieldValue(query.getLimit(),0)+"\">");
+		html.append("</td></tr>");
+		html.append("<tr><td>maxResults</td><td>");
+		html.append("<input type=\"text\" name=\"maxResults\" value=\""+getFieldValue(query.getMaxResults(),100)+"\">");
+		html.append("</td></tr>");
+		html.append("<tr><td>startIndex</td><td>");
+		html.append("<input type=\"text\" name=\"startIndex\" value=\""+getFieldValue(query.getStartIndex(),0)+"\"><i>index is zero-based, so use the #count of the last row to view the next page</i>");
 		html.append("</td></tr>");
 		html.append("</table>"
 				+ "<input type=\"hidden\" name=\"style\" value=\"HTML\">"
 				+ "<input type=\"hidden\" name=\"access_token\" value=\""+space.getUniverse().getContext().getToken().getOid()+"\">"
 				+ "<input type=\"submit\" value=\"Refresh\">"
 				+ "</form>");
-		createHTMLscope(html, space);
-		html.append("<hr>powered by Open Bouquet");
-		html.append("<p>the OB Analytics API provides more parameters... check <a target='swagger' href='http://swagger.squidsolutions.com/#!/analytics/runAnalysis'>swagger UI</a> for details</p>");
+		createHTMLscope(html, space, query);
+		createHTMLAPIpanel(html, "runAnalysis");
 		html.append("</body></html>");
 		return Response.ok(html.toString(),"text/html").build();
 	}
@@ -1129,26 +1182,55 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		}
 	}
 	
-	private String createHTMLpagination(StringBuilder html, DataTable data) {
-		html.append("<p>rows from "+(data.getStartIndex()+1)+" to "+(data.getStartIndex()+data.getRows().size())+" out of "+data.getTotalSize()+" records");
+	private void createHTMLpagination(StringBuilder html, AnalyticsQuery query, DataTable data) {
+		long lastRow = (data.getStartIndex()+data.getRows().size());
+		html.append("<br><div>rows from "+(data.getStartIndex()+1)+" to "+lastRow+" out of "+data.getTotalSize()+" records");
 		if (data.getFullset()) {
 			html.append(" (the query is complete)");
 		} else {
 			html.append(" (the query has more data)");
 		}
-		html.append("</p>");
-		if (data.isFromSmartCache()) {
-			html.append("<p>data from smart-cache, last computed "+data.getExecutionDate()+"</p>");
-		} else if (data.isFromCache()) {
-			html.append("<p>data from cache, last computed "+data.getExecutionDate()+"</p>");
-		} else {
-			html.append("<p>fresh data just computed at "+data.getExecutionDate()+"</p>");
+		if (lastRow<data.getTotalSize()) {
+			// go to next page
+			HashMap<String, Object> override = new HashMap<>();
+			override.put(START_INDEX_PARAM, lastRow);
+			URI nextLink = buildAnalyticsQueryURI(userContext, query, null, null, Style.HTML, override);
+			html.append("[<a href=\""+StringEscapeUtils.escapeHtml4(nextLink.toString())+"\">next</a>]");
 		}
-		return html.toString();
+		if (lastRow<data.getTotalSize()) {
+			// go to next page
+			HashMap<String, Object> override = new HashMap<>();
+			override.put(START_INDEX_PARAM, lastRow);
+			URI nextLink = buildAnalyticsQueryURI(userContext, query, null, null, Style.HTML, override);
+			html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(nextLink.toString())+"\">next</a>]");
+		}
+		html.append("</div><div>");
+		if (data.isFromSmartCache()) {
+			html.append("data from smart-cache, last computed "+data.getExecutionDate());
+		} else if (data.isFromCache()) {
+			html.append("data from cache, last computed "+data.getExecutionDate());
+		} else {
+			html.append("fresh data just computed at "+data.getExecutionDate());
+		}
+		// add links
+		{ // for SQL
+			URI sqlLink = buildAnalyticsQueryURI(userContext, query, "SQL", null, Style.HTML, null);
+			html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(sqlLink.toString())+"\">view SQL</a>]");
+		}
+		{ // for CSV export
+			URI csvExport = buildAnalyticsExportURI(userContext, query, ".csv");
+			html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(csvExport.toString())+"\">Export CSV</a>]");
+		}
+		{ // for XLS export
+			URI xlsExport = buildAnalyticsExportURI(userContext, query, ".xls");
+			html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(xlsExport.toString())+"\">Export XLS</a>]");
+		}
+		html.append("</div><br>");
 	}
 	
-	private String createHTMLpagination(StringBuilder html, Info info) {
-		html.append("<p>rows from "+(info.getStartingIndex()+1)+" to "+(info.getStartingIndex()+info.getPageSize())+" out of "+info.getTotalSize()+" records");
+	private void createHTMLpagination(StringBuilder html, Info info) {
+		long lastRow = (info.getStartingIndex()+info.getPageSize());
+		html.append("<p>rows from "+(info.getStartingIndex()+1)+" to "+lastRow+" out of "+info.getTotalSize()+" records");
 		if (info.isComplete()) {
 			html.append(" (the query is complete)");
 		} else {
@@ -1162,7 +1244,6 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		} else {
 			html.append("<p>fresh data just computed at "+info.getExecutionDate()+"</p>");
 		}
-		return html.toString();
 	}
 
 	/**
@@ -1319,15 +1400,15 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		SpaceScope scope = new SpaceScope(space);
 		Domain domain = space.getDomain();
 		// handle period & timeframe
-		if (query.getPeriod()!=null && query.getTimeframe()!=null && query.getTimeframe().length>0) {
+		if (query.getPeriod()!=null && query.getTimeframe()!=null && query.getTimeframe().size()>0) {
 			ExpressionAST expr = scope.parseExpression(query.getPeriod());
 			Facet facet = createFacetInterval(space, expr, query.getTimeframe());
 			selection.getFacets().add(facet);
 		}
 		// handle compareframe
-		if (query.getPeriod()!=null && query.getCompareframe()!=null && query.getCompareframe().length>0) {
+		if (query.getPeriod()!=null && query.getCompareTo()!=null && query.getCompareTo().size()>0) {
 			ExpressionAST expr = scope.parseExpression(query.getPeriod());
-			Facet compareFacet = createFacetInterval(space, expr, query.getCompareframe());
+			Facet compareFacet = createFacetInterval(space, expr, query.getCompareTo());
 			selection.setCompareTo(Collections.singletonList(compareFacet));
 		}
 		// handle filters
@@ -1403,11 +1484,11 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		return null;
 	}
 	
-	private Facet createFacetInterval(Space space, ExpressionAST expr, String[] frame) throws ScopeException {
+	private Facet createFacetInterval(Space space, ExpressionAST expr, List<String> values) throws ScopeException {
 		Facet facet = new Facet();
 		facet.setId(rewriteExpressionToGlobalScope(expr, space));
-		String lowerbound = frame[0];
-		String upperbound = frame.length==2?frame[1]:lowerbound;
+		String lowerbound = values.get(0);
+		String upperbound = values.size()==2?values.get(1):lowerbound;
 		FacetMemberInterval member = new FacetMemberInterval(lowerbound, upperbound);
 		facet.getSelectedItems().add(member);
 		return facet;
@@ -1484,9 +1565,26 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 					facetCount++;
 				} else {
 					// it's a dimension
+					IDomain source = colExpression.getSourceDomain();
+					String name = colExpression.getName();// T1807
+					if (!source.isInstanceOf(DomainDomain.DOMAIN)) {
+						// need to add the domain
+						// check if it needs grouping?
+						if (colExpression instanceof Operator) {
+							Operator op = (Operator)colExpression;
+							if (op.getArguments().size()>1 && op.getOperatorDefinition().getPosition()!=OperatorDefinition.PREFIX_POSITION) {
+								colExpression = ExpressionMaker.GROUP(colExpression);
+							}
+						}
+						// add the domain// relink with the domain
+						colExpression = ExpressionMaker.COMPOSE(new DomainReference(universe, domain), colExpression);
+					}
 					Axis axis = root.getUniverse().asAxis(colExpression);
 					if (axis == null) {
 						throw new ScopeException("cannot use expression='" + colExpression.prettyPrint() + "'");
+					}
+					if (name!=null) {
+						axis.setName(name);
 					}
 					facets.add(new FacetExpression(axis.prettyPrint(), axis.getName()));
 					//
@@ -1851,9 +1949,9 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 					query.setPeriod(expr.prettyPrint(localOptions));
 					if (query.getTimeframe()==null) {
 						if (index.getStatus()==Status.DONE) {
-							query.setTimeframe(new String[]{"__CURRENT_MONTH"});
+							query.setTimeframe(Collections.singletonList("__CURRENT_MONTH"));
 						} else {
-							query.setTimeframe(new String[]{"__ALL"});
+							query.setTimeframe(Collections.singletonList("__ALL"));
 						}
 					}
 					// quit the loop!
@@ -1862,10 +1960,10 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			}
 			if (query.getPeriod()==null) {
 				// nothing selected - double check and auto detect?
-				if (query.getTimeframe()!=null && query.getTimeframe().length>0) {
+				if (query.getTimeframe()!=null && query.getTimeframe().size()>0) {
 					throw new APIException("No period defined: you cannot set the timeframe");
 				}
-				if (query.getCompareframe()!=null && query.getCompareframe().length>0) {
+				if (query.getCompareTo()!=null && query.getCompareTo().size()>0) {
 					throw new APIException("No period defined: you cannot set the timeframe");
 				}
 			}
@@ -1894,11 +1992,13 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 								String upperBound = ((FacetMemberInterval) timeframe).getUpperBound();
 								if (upperBound.startsWith("__")) {
 									// it's a shortcut
-									query.setTimeframe(new String[]{upperBound});
+									query.setTimeframe(Collections.singletonList(upperBound));
 								} else {
 									// it's a date
 									String lowerBound = ((FacetMemberInterval) timeframe).getLowerBound();
-									query.setTimeframe(new String[]{lowerBound,upperBound});
+									query.setTimeframe(new ArrayList<String>(2));
+									query.getTimeframe().add(lowerBound);
+									query.getTimeframe().add(upperBound);
 								}
 							}
 						}
@@ -1967,9 +2067,9 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		query.setFilters(filters);
 		//
 		// check timeframe again
-		if (query.getPeriod()!=null && (query.getTimeframe()==null || query.getTimeframe().length==0)) {
+		if (query.getPeriod()!=null && (query.getTimeframe()==null || query.getTimeframe().size()==0)) {
 			// add a default timeframe
-			query.setTimeframe(new String[]{"__CURRENT_MONTH"});
+			query.setTimeframe(Collections.singletonList("__CURRENT_MONTH"));
 		}
 	}
 	
@@ -2422,9 +2522,9 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			}
 			specs.data = new Data();
 			if (!outputConfig.isHasMetricSeries()) {
-				specs.data.url = buildAnalyticsQueryURI(userContext, outputConfig.getScope(), query, "RECORDS", "DATA", null/*default style*/).toString();
+				specs.data.url = buildAnalyticsQueryURI(userContext, query, "RECORDS", "DATA", null/*default style*/, null).toString();
 			} else {
-				specs.data.url = buildAnalyticsQueryURI(userContext, outputConfig.getScope(), query, "TRANSPOSE", "DATA", null/*default style*/).toString();
+				specs.data.url = buildAnalyticsQueryURI(userContext, query, "TRANSPOSE", "DATA", null/*default style*/, null).toString();
 			}
 			specs.data.format = new Format();
 			specs.data.format.type = FormatType.json;// lowercase only!
@@ -2447,7 +2547,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		}
 		//
 		if (style!=null && style==Style.HTML) {
-			URI dataLink = buildAnalyticsQueryURI(userContext, outputConfig.getScope(), reply.getQuery(), "RECORDS", "ALL", Style.HTML);
+			URI dataLink = buildAnalyticsQueryURI(userContext, reply.getQuery(), "RECORDS", "ALL", Style.HTML, null);
 			return createHTMLView(space, view, info, reply, dataLink);
 		} else if (envelope==null || envelope.equals("") || envelope.equalsIgnoreCase("RESULT")) {
 			return Response.ok(reply.getResult(), MediaType.APPLICATION_JSON_TYPE.toString()).build();
@@ -2488,7 +2588,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		//
 		// form
 		html.append("<form><table>");
-		html.append("<tr><td><input type='text' name='q' value='"+(query.getQ()!=null?query.getQ():"")+"'></td><td><input type=\"submit\" value=\"Filter\"></td></tr>");
+		html.append("<tr><td><input type='text' name='q' placeholder='filter the list' value='"+(query.getQ()!=null?query.getQ():"")+"'></td><td><input type=\"submit\" value=\"Filter\"></td></tr>");
 		html.append("<input type='hidden' name='parent' value='"+(query.getParent()!=null?query.getParent():"")+"'>");
 		if (query.getStyle()!=null)
 			html.append("<input type='hidden' name='style' value='"+(query.getStyle()!=null?query.getStyle():"")+"'>");
@@ -2505,11 +2605,11 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		html.append("<table style='border-collapse:collapse'>");
 		for (NavigationItem item : result.getChildren()) {
 			html.append("<tr>");
-			html.append("<td>"+item.getType()+"</td>");
+			html.append("<td valign='top'>"+item.getType()+"</td>");
 			if (item.getLink()!=null) {
-				html.append("<td><a href=\""+StringEscapeUtils.escapeHtml4(item.getLink().toString())+"\">"+item.getName()+"</a>");
+				html.append("<td valign='top'><a href=\""+StringEscapeUtils.escapeHtml4(item.getLink().toString())+"\">"+item.getName()+"</a>");
 			} else {
-				html.append("<td>"+item.getName());
+				html.append("<td valign='top'>"+item.getName());
 			}
 			if (item.getObjectLink()!=null) {
 				html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(item.getObjectLink().toString())+"\">info</a>]");
@@ -2523,13 +2623,12 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			html.append("</td>");
 			if (item.getAttributes()!=null) {
 				for (Entry<String, String> entry : item.getAttributes().entrySet()) {
-					html.append("<td>"+entry.getKey()+"="+entry.getValue()+"</td>");
+					html.append("<td valign='top'>"+entry.getKey()+"="+entry.getValue()+"</td>");
 				}
 			}
 		}
 		html.append("</table>");
-		html.append("<hr>powered by Open Bouquet");
-		html.append("<p>the OB Analytics API provides more parameters... check <a target='swagger' href='http://swagger.squidsolutions.com/#!/analytics/listContent'>swagger UI</a> for details</p>");
+		createHTMLAPIpanel(html, "listContent");
 		html.append("</body></html>");
 		return Response.ok(html.toString(),"text/html").build();
 	}
@@ -2543,7 +2642,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			html.append("<script src=\"http://d3js.org/d3.v3.min.js\" charset=\"utf-8\"></script>\r\n<script src=\"http://vega.github.io/vega/vega.js\" charset=\"utf-8\"></script>\r\n<script src=\"http://vega.github.io/vega-lite/vega-lite.js\" charset=\"utf-8\"></script>\r\n<script src=\"http://vega.github.io/vega-editor/vendor/vega-embed.js\" charset=\"utf-8\"></script>\r\n\r\n");
 		}
 		html.append("<body><h1>"+title+"</h1>");
-		createHTMLproblems(html, reply.getQuery());
+		createHTMLproblems(html, reply.getQuery().getProblems());
 		html.append("<form>");
 		createHTMLfilters(html, reply.getQuery());
 		html.append("<div id=\"vis\"></div>\r\n\r\n<script>\r\nvar embedSpec = {\r\n  mode: \"vega-lite\", renderer:\"svg\",  spec:");
@@ -2566,10 +2665,9 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 				+ "<input type=\"hidden\" name=\"access_token\" value=\""+space.getUniverse().getContext().getToken().getOid()+"\">"
 				+ "<input type=\"submit\" value=\"Refresh\">"
 				+ "</form>");
-		createHTMLscope(html, space);
-		html.append("<hr>powered by Open Bouquet & VegaLite"
-				+ "<p>the OB Analytics API provides more parameters... check <a target='swagger' href='http://swagger.squidsolutions.com/#!/analytics/viewAnalysis'>swagger UI</a> for details</p>"
-				+ "</body>\r\n</html>");
+		createHTMLscope(html, space, reply.getQuery());
+		createHTMLAPIpanel(html, "viewAnalysis");
+		html.append("</body>\r\n</html>");
 		return Response.ok(html.toString(), "text/html; charset=UTF-8").build();
 	}
 	
@@ -2591,10 +2689,10 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	 * @param html
 	 * @param query
 	 */
-	private void createHTMLproblems(StringBuilder html, AnalyticsQuery query) {
-		if (query.getProblems()!=null && query.getProblems().size()>0) {
+	private void createHTMLproblems(StringBuilder html, List<Problem> problems) {
+		if (problems!=null && problems.size()>0) {
 			html.append("<div class='problems' style='border:1px solid red; background-color:lightpink;'>There are some problems with the query:");
-			for (Problem problem : query.getProblems()) {
+			for (Problem problem : problems) {
 				html.append("<li>"+problem.getSeverity().toString()+": "+problem.getSubject()+": "+problem.getMessage()+"</li>");
 			}
 			html.append("</div>");
@@ -2610,26 +2708,26 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		if (query.getPeriod()!=null) {
 			html.append("<div class='period'>Selected Period: ");
 			html.append("<input type='text' size=30 name='period' value='"+getFieldValue(query.getPeriod())+"'> ");
-			if (query.getTimeframe()!=null) {
-				if (query.getTimeframe().length==1) {
-					html.append("on <input type='text' name='timeframe' value='"+getFieldValue(query.getTimeframe()[0])+"'>");
-				} else if (query.getTimeframe().length>=1) {
+			if (query.getTimeframe()!=null && query.getTimeframe().size()>0) {
+				if (query.getTimeframe().size()==1) {
+					html.append("on <input type='text' name='timeframe' value='"+getFieldValue(query.getTimeframe().get(0))+"'>");
+				} else if (query.getTimeframe().size()>=1) {
 					html.append("from ");
-					html.append("<input type='date' name='compareTo' value='"+getFieldValue(query.getTimeframe()[0])+"'>");
+					html.append("<input type='date' name='compareTo' value='"+getFieldValue(query.getTimeframe().get(0))+"'>");
 					html.append(" to ");
-					html.append("<input type='date' name='compareTo' value='"+getFieldValue(query.getTimeframe()[1])+"'>");
+					html.append("<input type='date' name='compareTo' value='"+getFieldValue(query.getTimeframe().get(1))+"'>");
 				}
 			} else {
 				html.append("on <input type='text' name='timeframe' value=''>");
 			}
-			if (query.getCompareframe()!=null) {
-				if (query.getCompareframe().length==1) {
-					html.append("compare to <input type='text' name='compareTo' value='"+getFieldValue(query.getCompareframe()[0])+"'>");
-				} else if (query.getCompareframe().length>=1) {
+			if (query.getCompareTo()!=null && query.getCompareTo().size()>0) {
+				if (query.getCompareTo().size()==1) {
+					html.append("compare to <input type='text' name='compareTo' value='"+getFieldValue(query.getCompareTo().get(0))+"'>");
+				} else if (query.getCompareTo().size()>=1) {
 					html.append("compare to range from ");
-					html.append("<input type='date' name='compareTo' value='"+getFieldValue(query.getCompareframe()[0])+"'>");
+					html.append("<input type='date' name='compareTo' value='"+getFieldValue(query.getCompareTo().get(0))+"'>");
 					html.append(" to ");
-					html.append("<input type='date' name='compareTo' value='"+getFieldValue(query.getCompareframe()[1])+"'>");
+					html.append("<input type='date' name='compareTo' value='"+getFieldValue(query.getCompareTo().get(1))+"'>");
 				}
 			} else {
 				html.append("compare to <input type='text' name='compareTo' value=''>");
@@ -2648,33 +2746,164 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		html.append("</div>");
 	}
 	
-	private void createHTMLscope(StringBuilder html, Space space) {
-		html.append("<fieldset><legend>Query scope: <i>this is the list of objects you can combine to build expressions in the query</legend>");
-		html.append("<table><tr><td>GroupBy:</td><td>");
+	private static final String axis_style = "display: inline-block;border:1px solid;border-radius:5px;background-color:LavenderBlush ;margin:1px;";
+	private static final String metric_style = "display: inline-block;border:1px solid;border-radius:5px;background-color:Lavender;margin:1px;";
+	private static final String func_style = "display: inline-block;border:1px solid;border-radius:5px;background-color:ghostwhite;margin:1px;";
+	private static final String other_style = "display: inline-block;border:1px solid;border-radius:5px;background-color:azure;margin:1px;";
+	
+	private void createHTMLscope(StringBuilder html, Space space, AnalyticsQuery query) {
+		html.append("<fieldset><legend>Query scope: <i>this is the list of objects you can combine to build expressions in the query</i></legend>");
+		html.append("<table><tr><td valign='top'>GroupBy:</td><td valign='top'>");
 		for (Axis axis : space.A()) {
 			try {
 				DimensionIndex index = axis.getIndex();
-				html.append("<span style='display: inline-block;border:1px solid;border-radius:5px;background-color:LavenderBlush ;margin:1px;'>&nbsp;'"+index.getDimensionName()+"'&nbsp;</span>");
+				html.append("<span draggable='true' style='"+axis_style+"'");
+				ExpressionAST expr = axis.getDefinitionSafe();
+				html.append("title='"+getExpressionValueType(expr).toString()+": ");
+				if (axis.getDescription()!=null) {
+					html.append(axis.getDescription());
+				}
+				html.append("'");
+				html.append(">&nbsp;'"+index.getDimensionName()+"'&nbsp;</span>");
 			} catch (Exception e) {
 				// ignore
 			}
 		}
 		html.append("</td></tr>");
-		html.append("<tr><td>Metrics:</td><td>");
-		try {
-			for (Metric metric : space.getMetrics()) {
-				if (!metric.isDynamic()) {
-					html.append("<span style='display: inline-block;border:1px solid;border-radius:5px;background-color:Lavender;margin:1px;'>&nbsp;'"+metric.getName()+"'&nbsp;</span>");
+		html.append("<tr><td valign='top'>Metrics:</td><td valign='top'>");
+		for (Measure m : space.M()) {
+			if (m.getMetric()!=null && !m.getMetric().isDynamic()) {
+				html.append("<span draggable='true'  style='"+metric_style+"'");
+				ExpressionAST expr = m.getDefinitionSafe();
+				html.append("title='"+getExpressionValueType(expr).toString()+": ");
+				if (m.getDescription()!=null) {
+					html.append(m.getDescription());
+				}
+				html.append("'");
+				html.append(">&nbsp;'"+m.getName()+"'&nbsp;</span>");
+			}
+		}
+		html.append("</td></tr></table>");
+		URI scopeLink = getPublicBaseUriBuilder().path("/analytics/{reference}/scope").queryParam("style", Style.HTML).queryParam("access_token", userContext.getToken().getOid()).build(query.getBBID());
+		html.append("<a href=\""+StringEscapeUtils.escapeHtml4(scopeLink.toASCIIString())+"\">View the scope</a>");
+		html.append("</fieldset>");
+	}
+	
+	/**
+	 * @param space
+	 * @param suggestions
+	 * @param values 
+	 * @param types 
+	 * @param expression 
+	 * @return
+	 */
+	private Response createHTMLscopePage(Space space, ExpressionSuggestion suggestions, String BBID, String value, ObjectType[] types, ValueType[] values) {
+		String title = createHTMLtitle(space);
+		StringBuilder html = new StringBuilder("<html><title>Scope: "+title+"</title><body>");
+		html.append("<h1>"+title+"</h1>");
+		if (value!=null && value.length()>0 && suggestions.getValidateMessage()!=null && suggestions.getValidateMessage().length()>0) {
+			createHTMLproblems(html, Collections.singletonList(new Problem(Severity.WARNING, value, suggestions.getValidateMessage())));
+		}
+		html.append("<form>");
+		html.append("<p>Expression:<input type='text' name='value' size=100 value='"+getFieldValue(value)+"' placeholder='type expression to validate it or to filter the suggestion list'></p>");
+		html.append("<fieldset><legend>Filter by expression type</legend>");
+		html.append("<input type='checkbox' name='types' value='"+ObjectType.DIMENSION+"'>"+ObjectType.DIMENSION);
+		html.append("<input type='checkbox' name='types' value='"+ObjectType.COLUMN+"'>"+ObjectType.COLUMN);
+		html.append("<input type='checkbox' name='types' value='"+ObjectType.RELATION+"'>"+ObjectType.RELATION);
+		html.append("<input type='checkbox' name='types' value='"+ObjectType.METRIC+"'>"+ObjectType.METRIC);
+		html.append("<input type='checkbox' name='types' value='"+ObjectType.FUNCTION+"'>"+ObjectType.FUNCTION);
+		html.append("</fieldset>");
+		html.append("<fieldset><legend>Filter by expression value</legend>");
+		html.append("<input type='checkbox' name='values' value='"+ValueType.DATE+"'>"+ValueType.DATE);
+		html.append("<input type='checkbox' name='values' value='"+ValueType.STRING+"'>"+ValueType.STRING);
+		html.append("<input type='checkbox' name='values' value='"+ValueType.CONDITION+"'>"+ValueType.CONDITION);
+		html.append("<input type='checkbox' name='values' value='"+ValueType.NUMERIC+"'>"+ValueType.NUMERIC);
+		html.append("<input type='checkbox' name='values' value='"+ValueType.AGGREGATE+"'>"+ValueType.AGGREGATE);
+		html.append("</fieldset>");
+		html.append("<input type=\"hidden\" name=\"style\" value=\"HTML\">"
+		+ "<input type=\"hidden\" name=\"access_token\" value=\""+space.getUniverse().getContext().getToken().getOid()+"\">"
+		+ "<input type=\"submit\" value=\"Refresh\">");
+		html.append("</form>");
+		html.append("<p><i> This is the list of all available expressions and function in this scope. Relation expression can be composed in order to navigate the data model.</i></p>");
+		html.append("<table>");
+		for (ExpressionSuggestionItem item : suggestions.getSuggestions()) {
+			html.append("<tr><td>");
+			html.append(item.getObjectType()+"</td><td>");
+			html.append(item.getValueType()+"</td><td>");
+			String style = other_style;
+			if (item.getObjectType()==ObjectType.DIMENSION) style = axis_style;
+			if (item.getObjectType()==ObjectType.METRIC) style = metric_style;
+			if (item.getObjectType()==ObjectType.FUNCTION) style = func_style;
+			html.append("<span style='"+style+"'>&nbsp;"+item.getDisplay()+"&nbsp;</span>");
+			if (item.getSuggestion()!=null) {
+				URI link = getPublicBaseUriBuilder().path("/analytics/{reference}/scope").queryParam("value", value+item.getSuggestion()).queryParam("style", Style.HTML).queryParam("access_token", userContext.getToken().getOid()).build(BBID);
+				html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(link.toASCIIString())+"\">+</a>]");
+			}
+			if (item.getExpression()!=null && item.getExpression() instanceof AxisExpression) {
+				AxisExpression ref = (AxisExpression)item.getExpression();
+				Axis axis = ref.getAxis();
+				if (axis.getDimensionType()==Type.CATEGORICAL) {
+					URI link = getPublicBaseUriBuilder().path("/analytics/{reference}/facets/{facetId}").queryParam("style", Style.HTML).queryParam("access_token", userContext.getToken().getOid()).build(BBID, item.getSuggestion());
+					html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(link.toASCIIString())+"\">Indexed</a>]");
+				} else if (axis.getDimensionType()==Type.CONTINUOUS) {
+					URI link = getPublicBaseUriBuilder().path("/analytics/{reference}/facets/{facetId}").queryParam("style", Style.HTML).queryParam("access_token", userContext.getToken().getOid()).build(BBID, item.getSuggestion());
+					html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(link.toASCIIString())+"\">Period</a>]");
 				}
 			}
-		} catch (ScopeException e) {
-			// ignore
+			if (item.getDescription()!=null && item.getDescription().length()>0) {
+				html.append("&nbsp;<i>"+item.getDescription()+"</i>");
+			}
+			html.append("</td></tr>");
 		}
-		html.append("</td></tr></table></fieldset>");
+		html.append("</table>");
+		createHTMLAPIpanel(html, "scopeAnalysis");
+		html.append("</body></html>");
+		return Response.ok(html.toString(),"text/html").build();
+	}
+
+	private void createHTMLAPIpanel(StringBuilder html, String method) {
+		html.append("<hr>");
+		html.append("<fieldset><legend>API reference</legend>");
+		// compute the raw URI
+		UriBuilder builder = getPublicBaseUriBuilder().path(uriInfo.getPath());
+		MultivaluedMap<String, String> parameters = uriInfo.getQueryParameters();
+		parameters.remove(ACCESS_TOKEN_PARAM);
+		parameters.remove(STYLE_PARAM);
+		parameters.remove(ENVELOPE_PARAM);
+		for (Entry<String, List<String>> parameter : parameters.entrySet()) {
+			for (String value : parameter.getValue()) {
+				builder.queryParam(parameter.getKey(), value);
+			}
+		}
+		html.append("<p>Request URL:</p><div style='display:block;'><pre style='background-color: #fcf6db;border: 1px solid #e5e0c6; width:1000px; max-height: 400px;overflow-y: auto;'>"+StringEscapeUtils.escapeHtml4(builder.build().toString())+"</pre></div>");
+		String curlURL = "\""+(StringEscapeUtils.escapeHtml4(builder.build().toString()).replace("'", "'"))+"\"";
+		html.append("<p>CURL:</p><div style='display:block;'><pre style='background-color: #fcf6db;border: 1px solid #e5e0c6; width:1000px; max-height: 400px;overflow-y: auto;'>curl -X GET --header 'Accept: application/json' --header 'Authorization: Bearer "+userContext.getToken().getOid()+"' "+curlURL+"</pre></div>");
+		createHTMLswaggerLink(html, method);
+		html.append("</fieldset>");
+		html.append("powered by Open Bouquet");
+	}
+	
+	private void createHTMLswaggerLink(StringBuilder html, String method) {
+		String baseUrl = "";
+		try {
+			baseUrl = "?url="+URLEncoder.encode(getPublicBaseUriBuilder().path("swagger.json").build().toString(),"UTF-8")+"";
+		} catch (UnsupportedEncodingException | IllegalArgumentException | UriBuilderException e) {
+			// default
+		}
+		html.append("<p>the OB Analytics API provides more parameters... check in <a target='swagger' href='http://swagger.squidsolutions.com/"+baseUrl+"#!/analytics/"+method+"'>swagger UI</a> for details</p>");
+	}
+	
+	private ValueType getExpressionValueType(ExpressionAST expr) {
+		IDomain image = expr.getImageDomain();
+		return ExpressionSuggestionHandler.computeValueTypeFromImage(image);
 	}
 	
 	private String getFieldValue(Object var) {
 		if (var==null) return ""; else return var.toString().replaceAll("\"", "&quot;").replaceAll("'", "&#x27;");
+	}
+	
+	private String getFieldValue(Object var, Object defaultValue) {
+		if (var==null) return defaultValue.toString(); else return var.toString().replaceAll("\"", "&quot;").replaceAll("'", "&#x27;");
 	}
 	
 	/**
@@ -2686,28 +2915,38 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	 * @return
 	 * @throws ScopeException 
 	 */
-	protected URI buildExportURI(AppContext userContext, SpaceScope localScope, String BBID, AnalyticsQuery query, String filename) throws ScopeException {
+	protected URI buildExportURI(AppContext userContext, String BBID, AnalyticsQuery query, String filename) throws ScopeException {
 		UriBuilder builder = getPublicBaseUriBuilder().
 			path("/analytics/{"+BBID_PARAM_NAME+"}/export/{filename}");
-		addAnalyticsQueryParams(builder, localScope, query, null);
+		addAnalyticsQueryParams(builder, query, null, null);
 		builder.queryParam("access_token", userContext.getToken().getOid());
 		return builder.build(BBID, filename);
 	}
 	
-	private URI buildAnalyticsQueryURI(AppContext userContext, SpaceScope localScope, AnalyticsQuery query, String data, String envelope, Style style) throws ScopeException {
+	private URI buildAnalyticsQueryURI(AppContext userContext, AnalyticsQuery query, String data, String envelope, Style style, HashMap<String, Object> override) {
 		UriBuilder builder = getPublicBaseUriBuilder().
 			path("/analytics/{"+BBID_PARAM_NAME+"}/query");
-		addAnalyticsQueryParams(builder, localScope, query, style);
-		builder.queryParam(DATA_PARAM, data).queryParam(ENVELOPE_PARAM, envelope);
+		addAnalyticsQueryParams(builder, query, style, override);
+		if (data!=null) builder.queryParam(DATA_PARAM, data);
+		if (envelope!=null) builder.queryParam(ENVELOPE_PARAM, envelope);
 		builder.queryParam("access_token", userContext.getToken().getOid());
 		return builder.build(query.getBBID());
 	}
+	
+	private URI buildAnalyticsExportURI(AppContext userContext, AnalyticsQuery query, String filename) {
+		UriBuilder builder = getPublicBaseUriBuilder().
+			path("/analytics/{"+BBID_PARAM_NAME+"}/export/{filename}");
+		addAnalyticsQueryParams(builder, query, null, null);
+		builder.queryParam("access_token", userContext.getToken().getOid());
+		return builder.build(query.getBBID(), filename);
+	}
 
 	/**
+	 * @param override 
 	 * @throws ScopeException 
 	 * 
 	 */
-	private void addAnalyticsQueryParams(UriBuilder builder, SpaceScope localScope, AnalyticsQuery query, Style style) throws ScopeException {
+	private void addAnalyticsQueryParams(UriBuilder builder, AnalyticsQuery query, Style style, HashMap<String, Object> override) {
 		if (query.getGroupBy()!=null) {
 			for (String item : query.getGroupBy()) {
 				builder.queryParam(GROUP_BY_PARAM, item);
@@ -2729,8 +2968,8 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 				builder.queryParam(TIMEFRAME_PARAM, item);
 			}
 		}
-		if (query.getCompareframe()!=null) {
-			for (String item : query.getCompareframe()) {
+		if (query.getCompareTo()!=null) {
+			for (String item : query.getCompareTo()) {
 				builder.queryParam(COMPARETO_PARAM, item);
 			}
 		}
@@ -2746,8 +2985,15 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 				builder.queryParam("beyondLimit", index);
 			}
 		}
-		if (query.getMaxResults()!=null) builder.queryParam(MAX_RESULTS_PARAM, query.getMaxResults());
-		if (query.getStartIndex()!=null) builder.queryParam(START_INDEX_PARAM, query.getStartIndex());
+		// maxResults override
+		if (override!=null && override.containsKey(MAX_RESULTS_PARAM)) {
+			builder.queryParam(MAX_RESULTS_PARAM, override.get(MAX_RESULTS_PARAM));
+		} else if (query.getMaxResults()!=null) builder.queryParam(MAX_RESULTS_PARAM, query.getMaxResults());
+		// startIndex override
+		if (override!=null && override.containsKey(START_INDEX_PARAM)) {
+			builder.queryParam(START_INDEX_PARAM, override.get(START_INDEX_PARAM));
+		} else if (query.getStartIndex()!=null) builder.queryParam(START_INDEX_PARAM, query.getStartIndex());
+		//
 		if (query.getLazy()!=null) builder.queryParam(LAZY_PARAM, query.getLazy());
 		if (style!=null) {
 			builder.queryParam(STYLE_PARAM, style);
@@ -2807,8 +3053,6 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 					(stop - start), job.getId().getProjectId());
 			queryLog.setError(false);
 			PerfDB.INSTANCE.save(queryLog);
-			DataTable res = datamatrix.toDataTable(ctx, maxResults, startIndex, false, job.getOptionKeys());
-			logger.debug("Is result set in REDIS complete? " + res.getFullset());
 			return datamatrix;
 		}
 	}

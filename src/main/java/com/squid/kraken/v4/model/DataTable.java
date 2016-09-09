@@ -25,7 +25,7 @@ package com.squid.kraken.v4.model;
 
 // Inspired from google's DataTables (http://code.google.com/apis/chart/interactive/docs/roles.html))
 
-import java.io.Serializable; 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;

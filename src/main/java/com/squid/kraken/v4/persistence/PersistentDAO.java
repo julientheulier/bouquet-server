@@ -33,10 +33,10 @@ import com.squid.kraken.v4.api.core.ObjectNotFoundAPIException;
 import com.squid.kraken.v4.caching.Cache;
 import com.squid.kraken.v4.caching.CacheFactoryEHCache;
 import com.squid.kraken.v4.model.AccessRight.Role;
-import com.squid.kraken.v4.model.visitor.DeepReadVisitor;
 import com.squid.kraken.v4.model.CustomerPK;
 import com.squid.kraken.v4.model.GenericPK;
 import com.squid.kraken.v4.model.Persistent;
+import com.squid.kraken.v4.model.visitor.DeepReadVisitor;
 
 /**
  * DAO base abstract implementation.<br>

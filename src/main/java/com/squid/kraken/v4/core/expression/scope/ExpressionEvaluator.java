@@ -23,17 +23,17 @@
  *******************************************************************************/
 package com.squid.kraken.v4.core.expression.scope;
 
-import java.util.ArrayList; 
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 
 import com.squid.core.domain.extensions.date.AddMonthsOperatorDefinition;
-import com.squid.core.domain.extensions.date.operator.DateOperatorDefinition;
 import com.squid.core.domain.extensions.date.DateTruncateOperatorDefinition;
 import com.squid.core.domain.extensions.date.DateTruncateShortcutsOperatorDefinition;
 import com.squid.core.domain.extensions.date.extract.ExtractOperatorDefinition;
+import com.squid.core.domain.extensions.date.operator.DateOperatorDefinition;
 import com.squid.core.domain.operators.IntrinsicOperators;
 import com.squid.core.domain.operators.OperatorScope;
 import com.squid.core.domain.vector.VectorOperatorDefinition;

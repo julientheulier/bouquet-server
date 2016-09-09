@@ -41,13 +41,13 @@ import com.squid.kraken.v4.model.AccessRight;
 import com.squid.kraken.v4.model.Shortcut;
 import com.squid.kraken.v4.model.ShortcutPK;
 import com.squid.kraken.v4.persistence.AppContext;
-import com.wordnik.swagger.annotations.Api;
-import com.wordnik.swagger.annotations.ApiOperation;
-import com.wordnik.swagger.annotations.ApiParam;
-import com.wordnik.swagger.annotations.Authorization;
-import com.wordnik.swagger.annotations.AuthorizationScope;
+import io.swagger.annotations.Api;
+import io.swagger.annotations.ApiOperation;
+import io.swagger.annotations.ApiParam;
+import io.swagger.annotations.Authorization;
+import io.swagger.annotations.AuthorizationScope;
 
-@Api(hidden = true, value = "shortcuts", authorizations = { @Authorization(value = "kraken_auth", type = "oauth2", scopes = { @AuthorizationScope(scope = "access", description = "Access")}) })
+@Api(hidden = true, value = "shortcuts", authorizations = { @Authorization(value = "kraken_auth", scopes = { @AuthorizationScope(scope = "access", description = "Access")}) })
 @Produces({ MediaType.APPLICATION_JSON })
 public class ShortcutServiceRest extends BaseServiceRest {
 
