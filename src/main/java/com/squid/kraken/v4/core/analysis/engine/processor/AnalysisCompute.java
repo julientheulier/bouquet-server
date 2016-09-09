@@ -360,6 +360,57 @@ public class AnalysisCompute {
 		}			
 	}
 
+	private void alignPeriodBounds(DataMatrix dm, IntervalleObject presentInterval, IntervalleObject pastInterval, Axis joinAxis) throws ScopeException{
+		if  ( joinAxis != null && presentInterval != null && pastInterval != null){
+		
+			AxisValues check = dm.find(joinAxis);
+			if (check != null) {
+			
+				Object lowerPresent = presentInterval.getLowerBound();
+				Object lowerPast = pastInterval.getLowerBound();
+				Object upperPresent= presentInterval.getUpperBound();
+				Object upperPast= pastInterval.getUpperBound();
+				//
+				IDomain image = check.getAxis().getDefinition().getImageDomain();
+				PeriodType type = computePeriodType(image);
+				if (lowerPresent instanceof Date && lowerPast instanceof Date) {
+					
+					DateTime lowerPresentDT= new DateTime( (Date) lowerPresent);				
+					DateTime upperPresentDT= new DateTime( (Date) upperPresent);
+					DateTime lowerPastDT= new DateTime( (Date) lowerPast);				
+					DateTime upperPastDT= new DateTime( (Date) upperPast);
+										
+					//realign 
+					if (image.isInstanceOf(IDomain.YEARLY)) {
+						lowerPresent = new DateTime(lowerPresentDT.getYear(), 1, 1, 0, 0).toDate() ;
+						upperPresent = new DateTime(upperPresentDT.getYear(), 12, 31, 59, 59).toDate(); 
+						lowerPast = new DateTime(lowerPastDT.getYear(), 1, 1, 0, 0).toDate() ;
+						upperPast = new DateTime(upperPastDT.getYear(), 12, 31, 59, 59).toDate();
+						
+					} else if (image.isInstanceOf(IDomain.QUATERLY) || image.isInstanceOf(IDomain.MONTHLY)) {
+						lowerPresent = new DateTime(lowerPresentDT.getYear(), lowerPresentDT.getMonthOfYear(), 1, 0, 0).toDate() ;
+						upperPresent = new DateTime(upperPresentDT.getYear(), upperPresentDT.getMonthOfYear(),new LocalDate((Date) upperPresent).dayOfMonth().getMaximumValue(), 59, 59).toDate(); 
+						lowerPast = new DateTime(lowerPastDT.getYear(),lowerPresentDT.getMonthOfYear(), 1, 0, 0).toDate() ;
+						upperPast = new DateTime(upperPastDT.getYear(), upperPastDT.getMonthOfYear(), new LocalDate((Date) upperPast).dayOfMonth().getMaximumValue(), 59, 59).toDate();
+
+					} else if (image.isInstanceOf(IDomain.WEEKLY)) {
+						//fixed number of days in a week,  keep bounds as it is
+						
+					} else {
+						// daily, keep bounds as it is
+					}
+					
+					
+					presentInterval.setLowerBound(lowerPresent);
+					presentInterval.setUpperBound(upperPresent);
+					pastInterval.setLowerBound(lowerPast);
+					pastInterval.setUpperBound(upperPast);
+				}
+			}
+		}
+	} 
+	
+	
 	private boolean compareAxis(Axis x1, Axis x2) {
 		DateExpressionAssociativeTransformationExtractor checker = new DateExpressionAssociativeTransformationExtractor();
 		ExpressionAST naked1 = checker.eval(x1.getDimension() != null ? x1.getReference() : x1.getDefinitionSafe());
@@ -428,11 +479,7 @@ public class AnalysisCompute {
 			} else {
 				// daily, keep Date as it is
 			}
-			
-			
-			
 			return new Period(new LocalDate((pastDate).getTime()), new LocalDate(((Date) present).getTime()), type);
-			//return Period.fieldDifference(new LocalDate(((Date) past).getTime()), new LocalDate(((Date) present).getTime())) ;
 			
 		} else {
 			return null;
