@@ -31,6 +31,26 @@ package com.squid.kraken.v4.vegalite;
  *
  */
 public class VegaliteSpecs {
+	
+
+	public static class Cell {
+		
+		public Cell(int width, int height) {
+			this.width = width;
+			this.height = height;
+		}
+
+		public int width;
+		
+		public int height;
+		
+	}
+	
+	public static class Config {
+		
+		public Cell cell;
+		
+	}
 
 	public static class Encoding {
 
@@ -88,5 +108,7 @@ public class VegaliteSpecs {
 	public Mark mark;
 
 	public Encoding encoding = new Encoding();
+	
+	public Config config = new Config();
 
 }
