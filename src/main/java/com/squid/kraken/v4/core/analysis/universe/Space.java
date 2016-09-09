@@ -38,8 +38,7 @@ import com.squid.core.expression.PrettyPrintConstant;
 import com.squid.core.expression.PrettyPrintOptions;
 import com.squid.core.expression.PrettyPrintOptions.ReferenceStyle;
 import com.squid.core.expression.UndefinedExpression;
-import com.squid.kraken.v4.core.expression.reference.RelationReference;
-import com.squid.kraken.v4.core.model.domain.ProxyDomainDomain;
+import com.squid.core.expression.reference.RelationDirection;
 import com.squid.core.expression.scope.ExpressionMaker;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex;
@@ -47,6 +46,8 @@ import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainHierarchy;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainHierarchyManager;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
+import com.squid.kraken.v4.core.expression.reference.RelationReference;
+import com.squid.kraken.v4.core.model.domain.ProxyDomainDomain;
 import com.squid.kraken.v4.model.Bookmark;
 import com.squid.kraken.v4.model.Dimension;
 import com.squid.kraken.v4.model.Domain;
@@ -54,7 +55,6 @@ import com.squid.kraken.v4.model.DomainOption;
 import com.squid.kraken.v4.model.ExpressionObject;
 import com.squid.kraken.v4.model.Metric;
 import com.squid.kraken.v4.model.Relation;
-import com.squid.core.expression.reference.RelationDirection;
 
 /**
  * A Space identifies a Domain

@@ -62,11 +62,14 @@ import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DAOFactory;
 import com.squid.kraken.v4.persistence.DataStoreEventBus;
 import com.squid.kraken.v4.persistence.dao.CustomerDAO;
-import com.wordnik.swagger.config.ScannerFactory;
-import com.wordnik.swagger.jaxrs.config.ReflectiveJaxrsScanner;
-import com.wordnik.swagger.models.Info;
-import com.wordnik.swagger.models.Swagger;
-import com.wordnik.swagger.models.auth.OAuth2Definition;
+
+import io.swagger.config.ScannerFactory;
+import io.swagger.jaxrs.config.ReflectiveJaxrsScanner;
+import io.swagger.jaxrs.config.SwaggerContextService;
+import io.swagger.jaxrs.listing.ApiListingResource;
+import io.swagger.models.Info;
+import io.swagger.models.Swagger;
+import io.swagger.models.auth.OAuth2Definition;
 
 @SuppressWarnings("serial")
 public class CXFServletService extends CXFNonSpringJaxrsServlet {
@@ -97,7 +100,7 @@ public class CXFServletService extends CXFNonSpringJaxrsServlet {
 			// init the API
 			logger.info("Facet: Front");
 			servletConf.setJaxrsServiceClassesParam(AnalyticsServiceRest.class.getName() + "," + CustomerServiceRest.class.getName() + ","
-					+ AdminServiceRest.class.getName() + "," + "com.wordnik.swagger.jaxrs.listing.ApiListingResource");
+					+ AdminServiceRest.class.getName() + "," + ApiListingResource.class.getName());
 		} else {
 			servletConf.setJaxrsServiceClassesParam(CacheInitPoint.class.getName());
 		}
@@ -236,7 +239,6 @@ public class CXFServletService extends CXFNonSpringJaxrsServlet {
 
 		Info info = new Info().title("Bouquet").version("4.2").description("This is Bouquet API");
 
-		ServletContext context = config.getServletContext();
 		String basePath = "/" + KrakenConfig.getProperty("kraken.ws.api", "release") + "/"
 				+ KrakenConfig.getProperty("kraken.ws.version", "v4.2");
 		Swagger swagger = new Swagger().info(info).basePath(basePath);
@@ -246,7 +248,10 @@ public class CXFServletService extends CXFNonSpringJaxrsServlet {
 		swagger.securityDefinition("kraken_auth",
 				new OAuth2Definition().implicit(oauthEndpoint).scope("access", "Access protected resources"));
 
+		ServletContext context = config.getServletContext();
 		context.setAttribute("swagger", swagger);
+		// apparently required by swagger 1.5 (see SwaggerContextService#getScanner)
+		context.setAttribute(SwaggerContextService.SCANNER_ID_DEFAULT, scanner);
 	}
 
 	@Override

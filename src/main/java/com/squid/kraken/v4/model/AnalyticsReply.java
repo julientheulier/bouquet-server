@@ -23,7 +23,7 @@
  *******************************************************************************/
 package com.squid.kraken.v4.model;
 
-import com.wordnik.swagger.annotations.ApiModelProperty;
+import io.swagger.annotations.ApiModelProperty;
 
 /**
  * This is the result of an analysis

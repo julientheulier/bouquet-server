@@ -29,16 +29,16 @@ import java.util.Properties;
 import javax.servlet.ServletContextEvent;
 import javax.servlet.ServletContextListener;
 
-import net.sf.ehcache.CacheManager;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.squid.core.concurrent.ExecutionManager;
+import com.squid.kraken.v4.api.core.ServiceUtils;
 import com.squid.kraken.v4.core.analysis.engine.index.DimensionStoreManagerFactory;
 import com.squid.kraken.v4.core.database.impl.DatabaseServiceImpl;
-import com.squid.kraken.v4.api.core.ServiceUtils;
 import com.squid.kraken.v4.persistence.MongoDBHelper;
+
+import net.sf.ehcache.CacheManager;
 
 public class ServletContextListenerImpl implements ServletContextListener {
     

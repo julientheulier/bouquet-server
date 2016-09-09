@@ -27,7 +27,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
-import com.squid.kraken.v4.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -48,6 +47,16 @@ import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.kraken.v4.core.expression.scope.AttributeExpressionScope;
 import com.squid.kraken.v4.core.expression.scope.ExpressionSuggestionHandler;
 import com.squid.kraken.v4.model.AccessRight.Role;
+import com.squid.kraken.v4.model.Dimension;
+import com.squid.kraken.v4.model.DimensionPK;
+import com.squid.kraken.v4.model.Domain;
+import com.squid.kraken.v4.model.DomainPK;
+import com.squid.kraken.v4.model.DynamicObject;
+import com.squid.kraken.v4.model.ExpressionObject;
+import com.squid.kraken.v4.model.ExpressionSuggestion;
+import com.squid.kraken.v4.model.Project;
+import com.squid.kraken.v4.model.ProjectPK;
+import com.squid.kraken.v4.model.ValueType;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DAOFactory;
 import com.squid.kraken.v4.persistence.dao.DimensionDAO;

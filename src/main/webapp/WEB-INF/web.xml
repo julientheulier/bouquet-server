@@ -19,7 +19,8 @@
 				<param-value>
 				com.squid.kraken.v4.api.core.ExceptionsMapper,
 				org.apache.cxf.rs.security.cors.CrossOriginResourceSharingFilter,
-				com.squid.kraken.v4.runtime.CustomJacksonJsonProvider
+				com.squid.kraken.v4.runtime.CustomJacksonJsonProvider,
+				io.swagger.jaxrs.listing.SwaggerSerializers
 				</param-value>
 		</init-param>
 		<!-- registers CXF in interceptors -->

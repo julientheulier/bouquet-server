@@ -70,7 +70,6 @@ import com.squid.kraken.v4.api.core.project.ProjectServiceBaseImpl;
 import com.squid.kraken.v4.api.core.projectanalysisjob.AnalysisJobServiceBaseImpl;
 import com.squid.kraken.v4.api.core.relation.RelationServiceBaseImpl;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex;
-import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.core.analysis.engine.project.DynamicDomainContentConstructor;
 import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
 import com.squid.kraken.v4.core.analysis.engine.query.BaseQuery;
@@ -100,18 +99,18 @@ import com.squid.kraken.v4.model.ProjectPK;
 import com.squid.kraken.v4.model.Relation;
 import com.squid.kraken.v4.model.RelationPK;
 import com.squid.kraken.v4.persistence.AppContext;
-import com.wordnik.swagger.annotations.Api;
-import com.wordnik.swagger.annotations.ApiOperation;
-import com.wordnik.swagger.annotations.ApiParam;
-import com.wordnik.swagger.annotations.Authorization;
-import com.wordnik.swagger.annotations.AuthorizationScope;
+import io.swagger.annotations.Api;
+import io.swagger.annotations.ApiOperation;
+import io.swagger.annotations.ApiParam;
+import io.swagger.annotations.Authorization;
+import io.swagger.annotations.AuthorizationScope;
 
 /**
  * Created by lrabiet on 18/11/15.
  */
 
 @Produces({MediaType.APPLICATION_JSON})
-@Api(value = "internalanalysisjobs", hidden = true, authorizations = {@Authorization(value = "kraken_auth", type = "oauth2", scopes = { @AuthorizationScope(scope = "access", description = "Access")})})
+@Api(value = "internalanalysisjobs", hidden = true, authorizations = {@Authorization(value = "kraken_auth", scopes = { @AuthorizationScope(scope = "access", description = "Access")})})
 public class InternalAnalysisJobServiceRest extends BaseServiceRest {
     private static final Logger logger = LoggerFactory
             .getLogger(InternalAnalysisJobServiceRest.class);

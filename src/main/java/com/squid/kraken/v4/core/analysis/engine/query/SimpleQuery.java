@@ -46,6 +46,7 @@ import com.squid.core.expression.reference.ColumnReference;
 import com.squid.core.expression.reference.ForeignKeyReference;
 import com.squid.core.expression.scope.ExpressionMaker;
 import com.squid.core.expression.scope.ScopeException;
+import com.squid.core.sql.Context;
 import com.squid.core.sql.model.SQLScopeException;
 import com.squid.core.sql.model.Scope;
 import com.squid.core.sql.render.IFromPiece;
@@ -71,7 +72,6 @@ import com.squid.kraken.v4.core.expression.reference.RelationReference;
 import com.squid.kraken.v4.core.sql.FromSelectUniversal;
 import com.squid.kraken.v4.core.sql.SelectUniversal;
 import com.squid.kraken.v4.core.sql.script.SQLScript;
-import com.squid.core.sql.Context;
 import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.Relation;
 

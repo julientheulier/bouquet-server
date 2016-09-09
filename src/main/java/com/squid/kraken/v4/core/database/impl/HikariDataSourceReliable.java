@@ -29,15 +29,14 @@ import java.sql.SQLTransientException;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
-import com.google.common.util.concurrent.Striped;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.util.concurrent.RateLimiter;
+import com.google.common.util.concurrent.Striped;
 import com.squid.core.database.impl.DataSourceReliable;
 import com.squid.core.database.impl.DatabaseServiceException;
 import com.zaxxer.hikari.HikariDataSource;
-import com.google.common.util.concurrent.RateLimiter;
 import com.zaxxer.hikari.pool.HikariPool.PoolInitializationException;
 
 public class HikariDataSourceReliable extends HikariDataSource implements DataSourceReliable {

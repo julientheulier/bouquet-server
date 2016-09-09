@@ -23,22 +23,27 @@
  *******************************************************************************/
 package com.squid.kraken.v4.api.core.internalAnalysisJob;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.core.sql.model.SQLScopeException;
 import com.squid.core.sql.render.RenderingException;
 import com.squid.kraken.v4.api.core.JobServiceBaseImpl;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.core.analysis.engine.query.SimpleQuery;
-import com.squid.kraken.v4.model.*;
+import com.squid.kraken.v4.model.DataTable;
+import com.squid.kraken.v4.model.Domain;
+import com.squid.kraken.v4.model.Project;
+import com.squid.kraken.v4.model.ProjectAnalysisJob;
+import com.squid.kraken.v4.model.ProjectAnalysisJobPK;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DAOFactory;
 import com.squid.kraken.v4.persistence.dao.DomainDAO;
 import com.squid.kraken.v4.persistence.dao.ProjectDAO;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Created by lrabiet on 18/11/15.

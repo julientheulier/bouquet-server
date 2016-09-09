@@ -23,7 +23,6 @@
  *******************************************************************************/
 package com.squid.kraken.v4.core.expression.scope;
 
-import com.squid.kraken.v4.core.expression.scope.DomainExpressionScope;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.kraken.v4.model.Domain;

@@ -29,7 +29,7 @@ import java.util.Set;
 import com.squid.kraken.v4.model.AccessRight.Role;
 import com.squid.kraken.v4.model.visitor.ModelVisitor;
 import com.squid.kraken.v4.persistence.AppContext;
-import com.wordnik.swagger.annotations.ApiModelProperty;
+import io.swagger.annotations.ApiModelProperty;
 
 public interface Persistent<PK extends GenericPK> extends Serializable, HasAccessRights {
     

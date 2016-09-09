@@ -31,8 +31,6 @@ import org.joda.time.Period;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.caching.redis.datastruct.RawRow;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
-import com.squid.kraken.v4.core.analysis.universe.Measure;
-import com.squid.kraken.v4.core.analysis.universe.Property.OriginType;
 
 /**
  * specialized version to support date comparison

@@ -37,7 +37,7 @@ import org.mongodb.morphia.annotations.Transient;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.squid.kraken.v4.model.visitor.ModelVisitor;
 import com.squid.kraken.v4.persistence.AppContext;
-import com.wordnik.swagger.annotations.ApiModelProperty;
+import io.swagger.annotations.ApiModelProperty;
 
 /**
  * Top-level object of the graph.<br>
@@ -103,7 +103,7 @@ public class Customer extends PersistentBaseImpl<CustomerPK> implements HasChild
      * An informative (non localized) name
      */
     @XmlElement
-    @ApiModelProperty(position = 1)
+    @ApiModelProperty
     public String getName() {
         return name;
     }

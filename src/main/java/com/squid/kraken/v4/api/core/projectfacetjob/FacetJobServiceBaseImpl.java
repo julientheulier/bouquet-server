@@ -23,7 +23,7 @@
  *******************************************************************************/
 package com.squid.kraken.v4.api.core.projectfacetjob;
 
-import java.util.List; 
+import java.util.List;
 import java.util.concurrent.TimeoutException;
 
 import com.squid.core.expression.scope.ScopeException;

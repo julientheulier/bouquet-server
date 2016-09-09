@@ -26,7 +26,6 @@ package com.squid.kraken.v4.api.core;
 
 import java.util.Set;
 
-
 import com.google.common.base.Optional;
 import com.squid.kraken.v4.caching.redis.RedisCacheManager;
 import com.squid.kraken.v4.caching.redis.generationalkeysserver.RedisKey;

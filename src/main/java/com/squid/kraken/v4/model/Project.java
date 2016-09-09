@@ -45,7 +45,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.squid.kraken.v4.model.visitor.ModelVisitor;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DAOFactory;
-import com.wordnik.swagger.annotations.ApiModelProperty;
+import io.swagger.annotations.ApiModelProperty;
 
 @XmlRootElement
 @XmlType(namespace = "http://model.v4.kraken.squid.com")
@@ -177,7 +177,7 @@ public class Project extends LzPersistentBaseImpl<ProjectPK> implements
 		this.dbArguments = arguments;
 	}
 
-	@ApiModelProperty(value = "The DataBase JDBC URL (requires WRITE role to view)", position = 1)
+	@ApiModelProperty(value = "The DataBase JDBC URL (requires WRITE role to view)")
 	public String getDbUrl() {
 		return dbUrl;
 	}
@@ -186,7 +186,7 @@ public class Project extends LzPersistentBaseImpl<ProjectPK> implements
 		this.dbUrl = dbUrl;
 	}
 
-	@ApiModelProperty(value = "The DataBase JDBC user (requires WRITE role to view)", position = 2)
+	@ApiModelProperty(value = "The DataBase JDBC user (requires WRITE role to view)")
 	public String getDbUser() {
 		return dbUser;
 	}
@@ -195,7 +195,7 @@ public class Project extends LzPersistentBaseImpl<ProjectPK> implements
 		this.dbUser = dbUser;
 	}
 
-	@ApiModelProperty(value = "The DataBase JDBC password (write-only)", position = 3)
+	@ApiModelProperty(value = "The DataBase JDBC password (write-only)")
 	public String getDbPassword() {
 		return dbPassword;
 	}
@@ -205,7 +205,7 @@ public class Project extends LzPersistentBaseImpl<ProjectPK> implements
 	}
 
 	@ApiModelProperty(value = "The DataBase Schemas enabled (requires WRITE role). "
-			+ "The list of available discovered Schemas can be found via the {projectId}/schemas-suggestion method", position = 4)
+			+ "The list of available discovered Schemas can be found via the {projectId}/schemas-suggestion method")
 	public List<String> getDbSchemas() {
 		return (dbSchemas == null) ? Collections.<String> emptyList()
 				: dbSchemas;
@@ -215,7 +215,7 @@ public class Project extends LzPersistentBaseImpl<ProjectPK> implements
 		this.dbSchemas = dbSchemas;
 	}
 
-	@ApiModelProperty(value = "If the Project is using In Memory Extension", position = 5)
+	@ApiModelProperty(value = "If the Project is using In Memory Extension")
 	public String getUsingInMemExt() {
 		return inMemExt;
 	}

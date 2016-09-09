@@ -40,7 +40,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonView;
 import com.squid.kraken.v4.model.AccessRight.Role;
 import com.squid.kraken.v4.osgi.DeepReadView;
-import com.wordnik.swagger.annotations.ApiModelProperty;
+import io.swagger.annotations.ApiModelProperty;
 
 @SuppressWarnings("serial")
 @XmlType(namespace = "http://model.v4.kraken.squid.com")

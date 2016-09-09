@@ -23,10 +23,8 @@
  *******************************************************************************/
 package com.squid.kraken.v4.api.core;
 
-import com.squid.kraken.v4.model.ProjectAnalysisJob;
 import org.mongodb.morphia.annotations.Entity;
 import org.mongodb.morphia.annotations.Id;
-import org.slf4j.Logger;
 
 /**
  * Created by lrabiet on 02/11/15.

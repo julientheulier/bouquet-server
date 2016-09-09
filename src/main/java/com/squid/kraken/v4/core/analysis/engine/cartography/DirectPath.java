@@ -25,11 +25,11 @@ package com.squid.kraken.v4.core.analysis.engine.cartography;
 
 import java.util.List;
 
+import com.squid.core.expression.reference.Cardinality;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.model.DomainPK;
 import com.squid.kraken.v4.model.Relation;
-import com.squid.core.expression.reference.Cardinality;
 
 /**
  * A simple path made of a single relation

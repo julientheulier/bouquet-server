@@ -24,7 +24,7 @@
 package com.squid.kraken.v4.api.core.domain;
 
 import java.util.ArrayList;
-import java.util.List; 
+import java.util.List;
 
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.api.core.APIException;

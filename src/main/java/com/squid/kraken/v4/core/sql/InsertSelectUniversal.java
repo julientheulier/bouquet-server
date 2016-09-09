@@ -23,58 +23,26 @@
  *******************************************************************************/
 package com.squid.kraken.v4.core.sql;
 
-/**
- * Created by lrabiet on 26/10/15.
- */
+import java.util.List;
 
-import com.squid.core.database.impl.DatabaseServiceException;
 import com.squid.core.database.model.Column;
 import com.squid.core.database.model.Table;
-import com.squid.core.domain.IDomain;
-import com.squid.core.domain.aggregate.AggregateDomain;
-import com.squid.core.domain.analytics.AnalyticDomain;
-import com.squid.core.domain.operators.Operators;
 import com.squid.core.expression.Compose;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.ExpressionRef;
-import com.squid.core.expression.reference.Cardinality;
-import com.squid.core.expression.reference.RelationDirection;
-import com.squid.core.expression.scope.ExpressionMaker;
 import com.squid.core.expression.scope.ScopeException;
-import com.squid.core.sql.Context;
-import com.squid.core.sql.GroupingInterface;
-import com.squid.core.sql.db.render.FromTablePiece;
 import com.squid.core.sql.db.statements.DatabaseInsertInterface;
 import com.squid.core.sql.model.Aliaser;
 import com.squid.core.sql.model.SQLScopeException;
 import com.squid.core.sql.model.Scope;
+import com.squid.core.sql.render.IPiece;
+import com.squid.core.sql.render.ISelectPiece;
+import com.squid.core.sql.render.RenderingException;
+import com.squid.core.sql.render.SQLSkin;
 import com.squid.core.sql.render.groupby.IGroupByPiece;
 import com.squid.core.sql.statements.InsertSelectStatement;
 import com.squid.core.sql.statements.SelectStatement;
-import com.squid.kraken.v4.core.analysis.scope.SpaceExpression;
-import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
-import com.squid.kraken.v4.core.database.impl.DatabaseServiceImpl;
-import com.squid.kraken.v4.core.database.impl.DatasourceDefinition;
-import com.squid.kraken.v4.core.expression.reference.DomainReference;
-import com.squid.kraken.v4.core.expression.reference.RelationReference;
-import com.squid.kraken.v4.core.model.domain.DomainDomainImp;
-import com.squid.kraken.v4.model.Domain;
-import com.squid.kraken.v4.model.Relation;
-import java.util.HashMap;
-import java.util.List;
-
-import com.squid.core.sql.render.IFromPiece;
-import com.squid.core.sql.render.IPiece;
-import com.squid.core.sql.render.ISelectPiece;
-import com.squid.core.sql.render.IWherePiece;
-import com.squid.core.sql.render.JoinDecorator;
-import com.squid.core.sql.render.OperatorPiece;
-import com.squid.core.sql.render.OrderByPiece;
-import com.squid.core.sql.render.RenderingException;
-import com.squid.core.sql.render.SQLSkin;
-import com.squid.core.sql.render.SelectPiece;
-import com.squid.core.sql.render.WherePiece;
 
 
 

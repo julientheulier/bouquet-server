@@ -29,13 +29,13 @@ import com.squid.core.domain.IDomain;
 import com.squid.core.domain.operators.OperatorDefinition;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.Operator;
+import com.squid.core.sql.GroupingInterface.GroupingSet;
 import com.squid.core.sql.model.SQLScopeException;
 import com.squid.core.sql.render.IPiece;
 import com.squid.core.sql.render.ISelectPiece;
 import com.squid.core.sql.render.OperatorPiece;
 import com.squid.core.sql.render.SubSelectReferencePiece;
 import com.squid.kraken.v4.core.sql.FromSelectUniversal;
-import com.squid.core.sql.GroupingInterface.GroupingSet;
 import com.squid.kraken.v4.core.sql.SelectUniversal;
 
 /**
