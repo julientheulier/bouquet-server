@@ -2275,16 +2275,17 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 				// add reminding groupBy
 				int next = 0;
 				while (next<dims) {
-					if (!query.getGroupBy().get(next).equals("__PERIOD") && !inputConfig.getRequired().getGroupBy().contains(query.getGroupBy().get(next))) {
+					String groupBy = query.getGroupBy().get(next++);
+					if (!groupBy.equals("__PERIOD") && !groupBy.equals(query.getPeriod()) && !inputConfig.getRequired().getGroupBy().contains(groupBy)) {
 						if (view.getColor()==null) {
 							// use it as the color
-							view.setColor(query.getGroupBy().get(next++));
+							view.setColor(groupBy);
 						} else if (view.getColumn()==null) {
 							// use it as the column
-							view.setColumn(query.getGroupBy().get(next++));
+							view.setColumn(groupBy);
 						} else if (view.getRow()==null) {
 							// use it as the column
-							view.setRow(query.getGroupBy().get(next++));
+							view.setRow(groupBy);
 						} else {
 							break;// no more channel available
 						}
