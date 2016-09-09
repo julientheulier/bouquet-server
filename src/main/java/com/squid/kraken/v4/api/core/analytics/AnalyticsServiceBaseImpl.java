@@ -49,11 +49,11 @@ import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Response;
+import javax.ws.rs.core.Response.ResponseBuilder;
 import javax.ws.rs.core.StreamingOutput;
 import javax.ws.rs.core.UriBuilder;
 import javax.ws.rs.core.UriBuilderException;
 import javax.ws.rs.core.UriInfo;
-import javax.ws.rs.core.Response.ResponseBuilder;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringEscapeUtils;
@@ -91,9 +91,9 @@ import com.squid.kraken.v4.api.core.AccessRightsUtils;
 import com.squid.kraken.v4.api.core.ComputingInProgressAPIException;
 import com.squid.kraken.v4.api.core.EngineUtils;
 import com.squid.kraken.v4.api.core.InvalidIdAPIException;
-import com.squid.kraken.v4.api.core.JobStats;
 import com.squid.kraken.v4.api.core.JobServiceBaseImpl.OutputCompression;
 import com.squid.kraken.v4.api.core.JobServiceBaseImpl.OutputFormat;
+import com.squid.kraken.v4.api.core.JobStats;
 import com.squid.kraken.v4.api.core.ObjectNotFoundAPIException;
 import com.squid.kraken.v4.api.core.PerfDB;
 import com.squid.kraken.v4.api.core.bookmark.BookmarkServiceBaseImpl;
@@ -134,6 +134,7 @@ import com.squid.kraken.v4.export.ExportSourceWriter;
 import com.squid.kraken.v4.export.ExportSourceWriterCSV;
 import com.squid.kraken.v4.export.ExportSourceWriterXLSX;
 import com.squid.kraken.v4.model.AccessRight;
+import com.squid.kraken.v4.model.AccessRight.Role;
 import com.squid.kraken.v4.model.AnalyticsQuery;
 import com.squid.kraken.v4.model.AnalyticsQueryImpl;
 import com.squid.kraken.v4.model.AnalyticsReply;
@@ -148,9 +149,6 @@ import com.squid.kraken.v4.model.DataTable.Col;
 import com.squid.kraken.v4.model.DataTable.Row;
 import com.squid.kraken.v4.model.Dimension;
 import com.squid.kraken.v4.model.Dimension.Type;
-import com.squid.kraken.v4.model.NavigationQuery.HierarchyMode;
-import com.squid.kraken.v4.model.NavigationQuery.Style;
-import com.squid.kraken.v4.model.NavigationQuery.Visibility;
 import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.Expression;
 import com.squid.kraken.v4.model.ExpressionSuggestion;
@@ -164,6 +162,9 @@ import com.squid.kraken.v4.model.FacetSelection;
 import com.squid.kraken.v4.model.Metric;
 import com.squid.kraken.v4.model.NavigationItem;
 import com.squid.kraken.v4.model.NavigationQuery;
+import com.squid.kraken.v4.model.NavigationQuery.HierarchyMode;
+import com.squid.kraken.v4.model.NavigationQuery.Style;
+import com.squid.kraken.v4.model.NavigationQuery.Visibility;
 import com.squid.kraken.v4.model.NavigationReply;
 import com.squid.kraken.v4.model.NavigationResult;
 import com.squid.kraken.v4.model.ObjectType;
@@ -181,13 +182,16 @@ import com.squid.kraken.v4.model.ProjectPK;
 import com.squid.kraken.v4.model.ValueType;
 import com.squid.kraken.v4.model.ViewQuery;
 import com.squid.kraken.v4.model.ViewReply;
-import com.squid.kraken.v4.model.AccessRight.Role;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DAOFactory;
 import com.squid.kraken.v4.persistence.dao.ProjectDAO;
 import com.squid.kraken.v4.vegalite.VegaliteConfigurator;
 import com.squid.kraken.v4.vegalite.VegaliteSpecs;
-import com.squid.kraken.v4.vegalite.VegaliteSpecs.*;
+import com.squid.kraken.v4.vegalite.VegaliteSpecs.Data;
+import com.squid.kraken.v4.vegalite.VegaliteSpecs.Encoding;
+import com.squid.kraken.v4.vegalite.VegaliteSpecs.Format;
+import com.squid.kraken.v4.vegalite.VegaliteSpecs.FormatType;
+import com.squid.kraken.v4.vegalite.VegaliteSpecs.Mark;
 
 /**
  * @author sergefantino
@@ -1135,9 +1139,11 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		html.append("<table>");
 		html.append("<tr><td valign='top'>groupBy</td><td>");
 		createHTMLinputArray(html, "text", "groupBy", query.getGroupBy());
+		html.append("</td><td valign='top'><p><i>Define the group-by facets to apply to results. Facet can be defined using it's ID or any valid expression. If empty, the subject default parameters will apply. You can use the * token to extend the subject default parameters.</i></p>");
 		html.append("</td></tr>");
 		html.append("<tr><td valign='top'>metrics</td><td>");
 		createHTMLinputArray(html, "text", "metrics", query.getMetrics());
+		html.append("</td><td valign='top'><p><i>Define the metrics to compute. Metric can be defined using it's ID or any valid expression. If empty, the subject default parameters will apply. You can use the * token to extend the subject default parameters.</i></p>");
 		html.append("</td></tr>");
 		html.append("<tr><td valign='top'>orderBy</td><td>");
 		createHTMLinputArray(html, "text", "orderBy", query.getOrderBy());
@@ -2747,11 +2753,11 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	
 	private void createHTMLscope(StringBuilder html, Space space, AnalyticsQuery query) {
 		html.append("<fieldset><legend>Query scope: <i>this is the list of objects you can combine to build expressions in the query</i></legend>");
-		html.append("<table><tr><td>GroupBy:</td><td>");
+		html.append("<table><tr><td valign='top'>GroupBy:</td><td valign='top'>");
 		for (Axis axis : space.A()) {
 			try {
 				DimensionIndex index = axis.getIndex();
-				html.append("<span style='"+axis_style+"'");
+				html.append("<span draggable='true' style='"+axis_style+"'");
 				ExpressionAST expr = axis.getDefinitionSafe();
 				html.append("title='"+getExpressionValueType(expr).toString()+": ");
 				if (axis.getDescription()!=null) {
@@ -2764,10 +2770,10 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			}
 		}
 		html.append("</td></tr>");
-		html.append("<tr><td>Metrics:</td><td>");
+		html.append("<tr><td valign='top'>Metrics:</td><td valign='top'>");
 		for (Measure m : space.M()) {
 			if (m.getMetric()!=null && !m.getMetric().isDynamic()) {
-				html.append("<span style='"+metric_style+"'");
+				html.append("<span draggable='true'  style='"+metric_style+"'");
 				ExpressionAST expr = m.getDefinitionSafe();
 				html.append("title='"+getExpressionValueType(expr).toString()+": ");
 				if (m.getDescription()!=null) {
@@ -2831,7 +2837,18 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			html.append("<span style='"+style+"'>&nbsp;"+item.getDisplay()+"&nbsp;</span>");
 			if (item.getSuggestion()!=null) {
 				URI link = getPublicBaseUriBuilder().path("/analytics/{reference}/scope").queryParam("value", value+item.getSuggestion()).queryParam("style", Style.HTML).queryParam("access_token", userContext.getToken().getOid()).build(BBID);
-				html.append("[<a href=\""+StringEscapeUtils.escapeHtml4(link.toASCIIString())+"\">go</a>]");
+				html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(link.toASCIIString())+"\">+</a>]");
+			}
+			if (item.getExpression()!=null && item.getExpression() instanceof AxisExpression) {
+				AxisExpression ref = (AxisExpression)item.getExpression();
+				Axis axis = ref.getAxis();
+				if (axis.getDimensionType()==Type.CATEGORICAL) {
+					URI link = getPublicBaseUriBuilder().path("/analytics/{reference}/facets/{facetId}").queryParam("style", Style.HTML).queryParam("access_token", userContext.getToken().getOid()).build(BBID, item.getSuggestion());
+					html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(link.toASCIIString())+"\">Indexed</a>]");
+				} else if (axis.getDimensionType()==Type.CONTINUOUS) {
+					URI link = getPublicBaseUriBuilder().path("/analytics/{reference}/facets/{facetId}").queryParam("style", Style.HTML).queryParam("access_token", userContext.getToken().getOid()).build(BBID, item.getSuggestion());
+					html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(link.toASCIIString())+"\">Period</a>]");
+				}
 			}
 			if (item.getDescription()!=null && item.getDescription().length()>0) {
 				html.append("&nbsp;<i>"+item.getDescription()+"</i>");
