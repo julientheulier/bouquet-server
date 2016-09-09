@@ -23,9 +23,16 @@
  *******************************************************************************/
 package com.squid.kraken.v4.core.expression.scope;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Set;
 
 import javax.swing.text.BadLocationException;
+
+import org.eclipse.xtext.ide.editor.contentassist.ContentAssistEntry;
 
 import com.squid.core.database.domain.TableDomain;
 import com.squid.core.database.model.Table;
@@ -36,8 +43,8 @@ import com.squid.core.domain.operators.OperatorDefinition;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.ExpressionRef;
 import com.squid.core.expression.PrettyPrintOptions;
-import com.squid.core.expression.UndefinedExpression;
 import com.squid.core.expression.PrettyPrintOptions.ReferenceStyle;
+import com.squid.core.expression.UndefinedExpression;
 import com.squid.core.expression.parser.ParseException;
 import com.squid.core.expression.parser.TokenMgrError;
 import com.squid.core.expression.reference.ColumnReference;
@@ -56,7 +63,6 @@ import com.squid.kraken.v4.model.ExpressionSuggestion;
 import com.squid.kraken.v4.model.ExpressionSuggestionItem;
 import com.squid.kraken.v4.model.ObjectType;
 import com.squid.kraken.v4.model.ValueType;
-import org.eclipse.xtext.ide.editor.contentassist.ContentAssistEntry;
 
 public class ExpressionSuggestionHandler {
 
@@ -281,7 +287,7 @@ public class ExpressionSuggestionHandler {
 		                            for (ContentAssistEntry contentAssistEntry : listContentAssistEntry.getContentAssistEntries()) {
 		                                //TODO this code should disappear when we get to XTEXT
 		                                ExpressionSuggestionItem item =
-		                                        new ExpressionSuggestionItem(
+		                                        new ExpressionSuggestionItem(null,
 		                                                opDef.getSymbol() + "(" + contentAssistEntry.getLabel() + ")",
 		                                                contentAssistEntry.getDescription(),
 		                                                opDef.getSymbol() + "(" + contentAssistEntry.getLabel() + ")",
@@ -336,42 +342,42 @@ public class ExpressionSuggestionHandler {
         //TODO handle description escpaially for domain's suggestion.
         if (expr instanceof ExpressionRef && !(expr instanceof ParameterReference)) {
             if (expr instanceof TableReference) {
-                return new ExpressionSuggestionItem(
+                return new ExpressionSuggestionItem(expr,
                         ((ExpressionRef) expr).getReferenceName(),
                         ((TableReference) expr).getDescription(),
                         suggestion,
                         computeObjectType(expr),
                         computeValueType(expr));
             } else if (expr instanceof DomainReference) {
-                return new ExpressionSuggestionItem(
+                return new ExpressionSuggestionItem(expr,
                         ((ExpressionRef) expr).getReferenceName(),
                         ((DomainReference) expr).getDescription(),
                         suggestion,
                         computeObjectType(expr),
                         computeValueType(expr));
             } else if (expr instanceof RelationReference) {
-                return new ExpressionSuggestionItem(
+                return new ExpressionSuggestionItem(expr,
                         ((ExpressionRef) expr).getReferenceName(),
                         ((RelationReference) expr).getDescription(),
                         suggestion,
                         computeObjectType(expr),
                         computeValueType(expr));
             } else if (expr instanceof ColumnReference) {
-                return new ExpressionSuggestionItem(
+                return new ExpressionSuggestionItem(expr,
                         ((ExpressionRef) expr).getReferenceName(),
                         ((ColumnReference) expr).getDescription(),
                         suggestion,
                         computeObjectType(expr),
                         computeValueType(expr));
             } else {
-                return new ExpressionSuggestionItem(
+                return new ExpressionSuggestionItem(expr,
                         ((ExpressionRef) expr).getReferenceName(),
                         suggestion,
                         computeObjectType(expr),
                         computeValueType(expr));
             }
         } else {
-            return new ExpressionSuggestionItem(
+            return new ExpressionSuggestionItem(expr,
                     suggestion,
                     computeObjectType(expr),
                     computeValueType(expr));
