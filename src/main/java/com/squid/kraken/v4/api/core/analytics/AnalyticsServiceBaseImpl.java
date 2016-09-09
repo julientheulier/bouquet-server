@@ -324,7 +324,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		}
 		// create results
 		if (style==Style.HTML) {
-			return createHTMLlist(userContext, query, result);
+			return createHTMLPageList(userContext, query, result);
 		} else if (envelope.equalsIgnoreCase("ALL")) {
 			return Response.ok(new NavigationReply(query, result)).build();
 		} else {// RESULT
@@ -909,7 +909,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		}
 		ExpressionSuggestion suggestions = handler.getSuggestion(value, offset, typeFilters, valueFilters);
 		if (style==Style.HTML) {
-			return createHTMLscopePage(space, suggestions, BBID, value, types, values);
+			return createHTMLPageScope(space, suggestions, BBID, value, types, values);
 		} else {
 			return Response.ok(suggestions).build();
 		}
@@ -1022,7 +1022,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			if (query.getStyle()==Style.HTML && data.equalsIgnoreCase("SQL")) {
 					return createHTMLsql(reply.getResult().toString());
 			} else if (query.getStyle()==Style.HTML && data.equalsIgnoreCase("LEGACY")) {
-					return createHTMLtable(space, query, (DataTable)reply.getResult());
+					return createHTMLPageTable(space, query, (DataTable)reply.getResult());
 			} else if (envelope.equalsIgnoreCase("ALL")) {
 				return Response.ok(reply).build();
 			} else if (envelope.equalsIgnoreCase("RESULT")) {
@@ -1093,15 +1093,15 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	 * @param dataTable 
 	 * @return
 	 */
-	private Response createHTMLtable(Space space, AnalyticsQuery query, DataTable data) {
-		String title = createHTMLtitle(space);
-		StringBuilder html = new StringBuilder("<html><title>Query: "+title+"</title><body>");
-		html.append("<h1>"+title+"</h1>");
+	private Response createHTMLPageTable(Space space, AnalyticsQuery query, DataTable data) {
+		String title = getPageTitle(space);
+		StringBuilder html = createHTMLHeader("Query: "+title);
+		createHTMLtitle(html, title);
 		createHTMLproblems(html, query.getProblems());
 		html.append("<form>");
 		createHTMLfilters(html, query);
 		if (data!=null) {
-			html.append("<table><tr>");
+			html.append("<table class='data'><tr>");
 			html.append("<th></th>");
 			for (Col col : data.getCols()) {
 				html.append("<th>"+col.getName()+"</th>");
@@ -1184,7 +1184,8 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	
 	private void createHTMLpagination(StringBuilder html, AnalyticsQuery query, DataTable data) {
 		long lastRow = (data.getStartIndex()+data.getRows().size());
-		html.append("<br><div>rows from "+(data.getStartIndex()+1)+" to "+lastRow+" out of "+data.getTotalSize()+" records");
+		long firstRow = data.getRows().size()>0?(data.getStartIndex()+1):0;
+		html.append("<br><div>rows from "+firstRow+" to "+lastRow+" out of "+data.getTotalSize()+" records");
 		if (data.getFullset()) {
 			html.append(" (the query is complete)");
 		} else {
@@ -2532,11 +2533,15 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		} else {
 			throw new APIException("undefined value for data parameter, must be EMBEDED or URL");
 		}
-		//
+		// mark
 		if (outputConfig.isTimeseries()) {
 			specs.mark = Mark.line;
 		} else {
 			specs.mark = Mark.bar;
+		}
+		// size
+		if (specs.encoding.row==null && specs.encoding.column==null) {
+			specs.config.cell = new VegaliteSpecs.Cell(640,400);
 		}
 		//
 		ViewReply reply = new ViewReply();
@@ -2549,7 +2554,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		//
 		if (style!=null && style==Style.HTML) {
 			URI dataLink = buildAnalyticsQueryURI(userContext, reply.getQuery(), "RECORDS", "ALL", Style.HTML, null);
-			return createHTMLView(space, view, info, reply, dataLink);
+			return createHTMLPageView(space, view, info, reply, dataLink);
 		} else if (envelope==null || envelope.equals("") || envelope.equalsIgnoreCase("RESULT")) {
 			return Response.ok(reply.getResult(), MediaType.APPLICATION_JSON_TYPE.toString()).build();
 		} else if(envelope.equalsIgnoreCase("ALL")) {
@@ -2574,18 +2579,36 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		return info;
 	}
 
-	private String createHTMLtitle(Space space) {
+	private String getPageTitle(Space space) {
 		if (space.hasBookmark()) {
 			return space.getBookmark().getPath()+"/"+space.getBookmark().getName();
 		} else {
-			return space.getUniverse().getProject().getName()+" > "+space.getDomain().getName();
+			return "/PROJECTS/"+space.getUniverse().getProject().getName()+"/"+space.getDomain().getName();
 		}
 	}
 	
-	private Response createHTMLlist(AppContext ctx, NavigationQuery query, NavigationResult result) {
+	private void createHTMLtitle(StringBuilder html, String title) {
+		html.append("<div class='header'><h3>Open Bouquet Analytics Rest API Viewer / STYLE=HTML</h3>");
+		html.append("<h2>"+title+"</h2><hr></div>");
+	}
+	
+	private StringBuilder createHTMLHeader(String title) {
+		StringBuilder html = new StringBuilder("<html><title>List: "+title+"</title>");
+		html.append("<style>"
+				+ "* {font-family: \"Helvetica Neue\",Helvetica,Arial,sans-serif; color: #666; }"
+				+ "table.data {border-collapse: collapse;width: 100%;}"
+				+ "th, td {text-align: left;padding: 8px; vertical-align: top;}"
+				+ ".data tr:nth-child(even) {background-color: #f2f2f2}"
+				+ ".data th {background-color: rgb(238, 121, 20);color: white;}"
+				+ "</style>");
+		html.append("<body>");
+		return html;
+	}
+	
+	private Response createHTMLPageList(AppContext ctx, NavigationQuery query, NavigationResult result) {
 		String title = (query.getParent()!=null && query.getParent().length()>0)?query.getParent():"Root";
-		StringBuilder html = new StringBuilder("<html><title>List: "+title+"</title><body>");
-		html.append("<h1>"+title+"</h1>");
+		StringBuilder html = createHTMLHeader("List: "+title);
+		createHTMLtitle(html, title);
 		//
 		// form
 		html.append("<form><table>");
@@ -2634,15 +2657,16 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		return Response.ok(html.toString(),"text/html").build();
 	}
 	
-	private Response createHTMLView(Space space, ViewQuery view, Info info, ViewReply reply, URI dataLink) {
-		String title = createHTMLtitle(space);
-		StringBuilder html = new StringBuilder("<html><title>View: "+title+"</title>\r\n");
+	private Response createHTMLPageView(Space space, ViewQuery view, Info info, ViewReply reply, URI dataLink) {
+		String title = getPageTitle(space);
+		StringBuilder html = createHTMLHeader("View: "+title);
 		if (getPublicBaseUriBuilder().build().getScheme().equalsIgnoreCase("https")) {
 			html.append("<script src=\"https://d3js.org/d3.v3.min.js\" charset=\"utf-8\"></script>\r\n<script src=\"https://vega.github.io/vega/vega.js\" charset=\"utf-8\"></script>\r\n<script src=\"https://vega.github.io/vega-lite/vega-lite.js\" charset=\"utf-8\"></script>\r\n<script src=\"https://vega.github.io/vega-editor/vendor/vega-embed.js\" charset=\"utf-8\"></script>\r\n\r\n");
 		} else {
 			html.append("<script src=\"http://d3js.org/d3.v3.min.js\" charset=\"utf-8\"></script>\r\n<script src=\"http://vega.github.io/vega/vega.js\" charset=\"utf-8\"></script>\r\n<script src=\"http://vega.github.io/vega-lite/vega-lite.js\" charset=\"utf-8\"></script>\r\n<script src=\"http://vega.github.io/vega-editor/vendor/vega-embed.js\" charset=\"utf-8\"></script>\r\n\r\n");
 		}
-		html.append("<body><h1>"+title+"</h1>");
+		html.append("<body>");
+		createHTMLtitle(html, title);
 		createHTMLproblems(html, reply.getQuery().getProblems());
 		html.append("<form>");
 		createHTMLfilters(html, reply.getQuery());
@@ -2711,9 +2735,9 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			html.append("<input type='text' size=30 name='period' value='"+getFieldValue(query.getPeriod())+"'> ");
 			if (query.getTimeframe()!=null && query.getTimeframe().size()>0) {
 				if (query.getTimeframe().size()==1) {
-					html.append("on <input type='text' name='timeframe' value='"+getFieldValue(query.getTimeframe().get(0))+"'>");
+					html.append("timeframe <input type='text' name='timeframe' value='"+getFieldValue(query.getTimeframe().get(0))+"'>");
 				} else if (query.getTimeframe().size()>=1) {
-					html.append("from ");
+					html.append("timeframe: from ");
 					html.append("<input type='date' name='compareTo' value='"+getFieldValue(query.getTimeframe().get(0))+"'>");
 					html.append(" to ");
 					html.append("<input type='date' name='compareTo' value='"+getFieldValue(query.getTimeframe().get(1))+"'>");
@@ -2725,7 +2749,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 				if (query.getCompareTo().size()==1) {
 					html.append("compare to <input type='text' name='compareTo' value='"+getFieldValue(query.getCompareTo().get(0))+"'>");
 				} else if (query.getCompareTo().size()>=1) {
-					html.append("compare to range from ");
+					html.append("compare to: from ");
 					html.append("<input type='date' name='compareTo' value='"+getFieldValue(query.getCompareTo().get(0))+"'>");
 					html.append(" to ");
 					html.append("<input type='date' name='compareTo' value='"+getFieldValue(query.getCompareTo().get(1))+"'>");
@@ -2798,10 +2822,10 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	 * @param expression 
 	 * @return
 	 */
-	private Response createHTMLscopePage(Space space, ExpressionSuggestion suggestions, String BBID, String value, ObjectType[] types, ValueType[] values) {
-		String title = createHTMLtitle(space);
-		StringBuilder html = new StringBuilder("<html><title>Scope: "+title+"</title><body>");
-		html.append("<h1>"+title+"</h1>");
+	private Response createHTMLPageScope(Space space, ExpressionSuggestion suggestions, String BBID, String value, ObjectType[] types, ValueType[] values) {
+		String title = getPageTitle(space);
+		StringBuilder html = createHTMLHeader("Scope: "+title);
+		createHTMLtitle(html, title);
 		if (value!=null && value.length()>0 && suggestions.getValidateMessage()!=null && suggestions.getValidateMessage().length()>0) {
 			createHTMLproblems(html, Collections.singletonList(new Problem(Severity.WARNING, value, suggestions.getValidateMessage())));
 		}
@@ -2876,9 +2900,9 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 				builder.queryParam(parameter.getKey(), value);
 			}
 		}
-		html.append("<p>Request URL:</p><div style='display:block;'><pre style='background-color: #fcf6db;border: 1px solid #e5e0c6; width:1000px; max-height: 400px;overflow-y: auto;'>"+StringEscapeUtils.escapeHtml4(builder.build().toString())+"</pre></div>");
+		html.append("<p>Request URL: <i>this URL is not authorized</i></p><div style='display:block;'><pre style='background-color: #fcf6db;border: 1px solid #e5e0c6; width:1024px; max-height: 400px;overflow-y: auto;'>"+StringEscapeUtils.escapeHtml4(builder.build().toString())+"</pre></div>");
 		String curlURL = "\""+(StringEscapeUtils.escapeHtml4(builder.build().toString()).replace("'", "'"))+"\"";
-		html.append("<p>CURL:</p><div style='display:block;'><pre style='background-color: #fcf6db;border: 1px solid #e5e0c6; width:1000px; max-height: 400px;overflow-y: auto;'>curl -X GET --header 'Accept: application/json' --header 'Authorization: Bearer "+userContext.getToken().getOid()+"' "+curlURL+"</pre></div>");
+		html.append("<p>CURL: <i>the command is authorized with the current token</i></p><div style='display:block;'><pre style='background-color: #fcf6db;border: 1px solid #e5e0c6; width:1024px; max-height: 400px;overflow-y: auto;'>curl -X GET --header 'Accept: application/json' --header 'Authorization: Bearer "+userContext.getToken().getOid()+"' "+curlURL+"</pre></div>");
 		createHTMLswaggerLink(html, method);
 		html.append("</fieldset>");
 		html.append("powered by Open Bouquet");
