@@ -85,6 +85,7 @@ public class ServiceUtils {
 	private static final Logger loggerAPI = LoggerFactory.getLogger("API");
 
 	private static final String ISO8601 = "yyyy-MM-dd'T'HH:mm:ss.SSSZ";
+	private static final String ISO8601short = "yyyy-MM-dd";
 
 	private static final String SQUIDAPILOCALE = "squidapilocale";
 
@@ -503,8 +504,15 @@ public class ServiceUtils {
 		if (z > 0) {
 			iso8601string = iso8601string.substring(0, z) + "+0000";
 		}
-		Date date = df.parse(iso8601string);
-		return date;
+		try {
+			Date date = df.parse(iso8601string);
+			return date;
+		} catch (ParseException e) {
+			// try the short version
+			DateFormat dfshort = new SimpleDateFormat(ISO8601short);
+			dfshort.setTimeZone(TimeZone.getTimeZone("UTC"));
+			return dfshort.parse(iso8601string);
+		}
 	}
 
 	/**
