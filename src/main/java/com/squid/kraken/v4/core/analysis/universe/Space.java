@@ -407,9 +407,25 @@ public class Space {
 	}
 
 	/**
-	 * returns all the axis
+	 * returns all the axis, including not visible ones
 	 */
 	public List<Axis> A() {
+		ArrayList<Axis> axes = new ArrayList<Axis>();
+		try {
+			for (DimensionIndex index : universe.getDomainHierarchy(domain, true).getDimensionIndexes()) {
+				axes.add(index.getAxis());
+			}
+		} catch (ComputingException | InterruptedException e) {
+			// ignore
+		}
+		return axes;
+	}
+
+	/**
+	 * returns only the visible axis if the flag is true
+	 */
+	public List<Axis> A(boolean visibleOnly) {
+		if (!visibleOnly) return A();
 		ArrayList<Axis> axes = new ArrayList<Axis>();
 		try {
 			for (DimensionIndex index : universe.getDomainHierarchy(domain, true).getDimensionIndexes(universe.getContext())) {
