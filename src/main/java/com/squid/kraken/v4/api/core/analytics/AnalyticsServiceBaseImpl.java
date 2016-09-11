@@ -2471,10 +2471,10 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		//
 		if (specs.encoding.x.type==DataType.nominal && specs.encoding.y.type==DataType.quantitative) {
 			// auto sort
-			specs.encoding.x.sort = new Sort(specs.encoding.y.field, Operation.sum, Order.descending);
+			specs.encoding.x.sort = new Sort(specs.encoding.y.field, Operation.max, Order.descending);
 		} else if (specs.encoding.y.type==DataType.nominal && specs.encoding.x.type==DataType.quantitative) {
 			// auto sort
-			specs.encoding.y.sort = new Sort(specs.encoding.x.field, Operation.sum, Order.descending);
+			specs.encoding.y.sort = new Sort(specs.encoding.x.field, Operation.max, Order.descending);
 		}
 		//
 		// force using required
@@ -2725,6 +2725,38 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 				+ "color: Gainsboro ;\n" + 
 				"background-color: Gainsboro ;\n" + 
 				"height: 3px;}"
+				+ "input[type=date], input[type=text], select {\n" + 
+				"    padding: 4px 4px;\n" + 
+				"    margin: 4px 0;\n" + 
+				"    display: inline-block;\n" + 
+				"    border: 1px solid #ccc;\n" + 
+				"    border-radius: 4px;\n" + 
+				"    box-sizing: border-box;\n" + 
+				"}\n" + 
+				"input[type=submit] {\n" + 
+				"    width: 100%;\n" + 
+				"    background-color: rgb(238, 121, 20);\n" + 
+				"    color: white;\n" + 
+				"    padding: 14px 20px;\n" + 
+				"    margin: 8px 0;\n" + 
+				"    border: none;\n" + 
+				"    border-radius: 4px;\n" + 
+				"    cursor: pointer;\n" + 
+				"}\n" +
+				"input[type=text].q {\n" + 
+				"    box-sizing: border-box;\n" + 
+				"    border: 2px solid #ccc;\n" + 
+				"    border-radius: 4px;\n" + 
+				"    font-size: 16px;\n" + 
+				"    background-color: white;\n" + 
+				"    background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAMAAAC6V+0/AAAAn1BMVEUAAAC9w8e9w8e9w8e9w8e9w8e9w8e9w8e9w8e9w8e9w8e9w8e9w8e9w8e9w8e9w8e9w8e9w8e9w8e9w8e9w8e9w8e9w8e9w8e9w8e9w8e9w8e9w8e9w8e9w8e9w8e9w8e9w8e9w8e9w8e9w8e9w8e9w8e9w8e9w8e9w8e9w8e9w8e9w8e9w8e9w8e9w8e9w8e9w8e9w8e9w8e9w8e9w8d3jEAbAAAANHRSTlMAAQIDBAYHDhIaIiotLzQ1NkFLTFBRUlRZW3x/goOFlJ6itLe5vMHOz9Xc3uDi6+3z9fn9TV6j9QAAALNJREFUGBllwYlWwjAARcGXUMqubEXBBSNKCi5FuP//bTaNEQ/OKGjNXgG/zHV2VREd50puObtXNATKUSbb3wBzBeYDnFVjBcdctWvYW/3YwFK1NUyU9MGrtoOOEgsYSQfI9QvIJHnoKskAI+kBCiUj2Ko2gKqtyJYwU+Bh21ZgHXy2FPROUBXdvDPZAy9GjfGJP5xRo+eJ3u8AZxQNHsuvt/XY6AZwRhcWwJMuFYD+mfL8DZLcHdhAVd5GAAAAAElFTkSuQmCC');\n" + 
+				"    background-position: 10px 10px; \n" + 
+				"    background-repeat: no-repeat;\n" + 
+				"    padding: 12px 20px 12px 40px;" +
+				"}"+
+				"input[type=submit]:hover {\n" + 
+				"    background-color: #45a049;\n" + 
+				"}"
 				+ "</style>");
 		html.append("<body>");
 		return html;
@@ -2737,7 +2769,8 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		//
 		// form
 		html.append("<form><table>");
-		html.append("<tr><td><input type='text' name='q' placeholder='filter the list' value='"+(query.getQ()!=null?query.getQ():"")+"'></td><td><input type=\"submit\" value=\"Filter\"></td></tr>");
+		html.append("<tr><td><input size=50 class='q' type='text' name='q' placeholder='filter the list' value='"+(query.getQ()!=null?query.getQ():"")+"'></td>"
+				+ "<td><input type=\"submit\" value=\"Filter\"></td></tr>");
 		html.append("<input type='hidden' name='parent' value='"+(query.getParent()!=null?query.getParent():"")+"'>");
 		if (query.getStyle()!=null)
 			html.append("<input type='hidden' name='style' value='"+(query.getStyle()!=null?query.getStyle():"")+"'>");
