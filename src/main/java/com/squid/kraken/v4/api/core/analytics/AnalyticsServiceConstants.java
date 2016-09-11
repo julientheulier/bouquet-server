@@ -34,6 +34,7 @@ public interface AnalyticsServiceConstants {
 	
 	public final static String ACCESS_TOKEN_PARAM = "access_token";
 
+	public static final String PARENT_PARAM = "parent";
 	public static final String LAZY_PARAM = "lazy";
 	public static final String START_INDEX_PARAM = "startIndex";
 	public static final String MAX_RESULTS_PARAM = "maxResults";

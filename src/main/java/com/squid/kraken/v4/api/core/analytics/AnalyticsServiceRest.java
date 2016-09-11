@@ -103,7 +103,7 @@ public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implemen
 					+ "By default it lists ony the content directly under the parent, but you can set the hierarchy parameter to view content recursively.")
 	public Response listContent(
 			@Context HttpServletRequest request,
-			@ApiParam(value="filter the content under the parent path") @QueryParam("parent") String parent,
+			@ApiParam(value="filter the content under the parent path") @QueryParam(PARENT_PARAM) String parent,
 			@ApiParam(value="filter the content by name; q can be a multi-token search string separated by comma") 
 			@QueryParam("q") String search,
 			@ApiParam(
@@ -146,7 +146,7 @@ public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implemen
 			@ApiParam(value="the analysis query definition", required=true) AnalyticsQuery query,
 			@PathParam(BBID_PARAM_NAME) String BBID,
 			@ApiParam(value="the new bookmark name", required=true) @QueryParam("name") String name,
-			@ApiParam(value="the new bookmark folder, can be /MYBOOKMARKS, /MYBOOKMARKS/any/folders or /SHARED/any/folders") @QueryParam("parent") String parent)
+			@ApiParam(value="the new bookmark folder, can be /MYBOOKMARKS, /MYBOOKMARKS/any/folders or /SHARED/any/folders") @QueryParam(PARENT_PARAM) String parent)
 	{
 		AppContext userContext = getUserContext(request);
 		return delegate(userContext).createBookmark(userContext, query, BBID, name, parent);
