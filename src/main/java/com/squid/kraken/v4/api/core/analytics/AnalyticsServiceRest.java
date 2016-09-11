@@ -287,7 +287,7 @@ public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implemen
 			@QueryParam(TIMEOUT_PARAM) Integer timeout
 			) throws ComputingException, ScopeException, InterruptedException {
 		AppContext userContext = getUserContext(request);
-		AnalyticsQuery analysis = createAnalysisFromParams(BBID, groupBy, metrics, filterExpressions, period, timeframe, compareframe, orderExpressions, rollupExpressions, limit, offset, beyondLimit, maxResults, startIndex, lazy, style);
+		AnalyticsQuery analysis = createAnalysisFromParams(null, BBID, groupBy, metrics, filterExpressions, period, timeframe, compareframe, orderExpressions, rollupExpressions, limit, offset, beyondLimit, maxResults, startIndex, lazy, style);
 		return delegate(userContext).runAnalysis(userContext, BBID, analysis, data, envelope, timeout);
 	}
 
@@ -300,22 +300,22 @@ public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implemen
 			@PathParam(BBID_PARAM_NAME) String BBID,
 			@ApiParam(
 					value="set the x axis channel. This must be a valid expression or the special alias __PERIOD to refer to the main period.")
-			@QueryParam("x") String x,
+			@QueryParam(VIEW_X_PARAM) String x,
 			@ApiParam(
 					value="set the y axis channel. This must be a valid expression.")
-			@QueryParam("y") String y,
+			@QueryParam(VIEW_Y_PARAM) String y,
 			@ApiParam(
 					value="set a series channel, displayed using a color palette. This must be a valid expression.")
-			@QueryParam("color") String color,
+			@QueryParam(VIEW_COLOR_PARAM) String color,
 			@ApiParam(
 					value="set a series channel, displayed using the marker size. This must be a valid expression.")
-			@QueryParam("size") String size,
+			@QueryParam(VIEW_SIZE_PARAM) String size,
 			@ApiParam(
 					value="set a facetted channel, displayed as columns. This must be a valid expression.")
-			@QueryParam("column") String column,
+			@QueryParam(VIEW_COLUMN_PARAM) String column,
 			@ApiParam(
 					value="set a facetted channel, displayed as rows. This must be a valid expression.")
-			@QueryParam("row") String row,
+			@QueryParam(VIEW_ROW_PARAM) String row,
 			@ApiParam(
 					value = "Define the filters to apply to results. A filter must be a valid conditional expression. If empty, the subject default parameters will apply. You can use the * token to extend the subject default parameters.",
 					allowMultiple = true) 
@@ -349,15 +349,15 @@ public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implemen
 	) throws ScopeException, ComputingException, InterruptedException
 	{
 		AppContext userContext = getUserContext(request);
-		AnalyticsQuery query = createAnalysisFromParams(BBID, null, null, filterExpressions, period, timeframe, compareframe, orderby, null, limit, offset, null, maxResults, startIndex, null, null);
 		ViewQuery view = new ViewQuery();
+		createAnalysisFromParams(view, BBID, null, null, filterExpressions, period, timeframe, compareframe, orderby, null, limit, offset, null, maxResults, startIndex, null, null);
 		view.setX(x);
 		view.setY(y);
 		view.setColor(color);
 		view.setSize(size);
 		view.setColumn(column);
 		view.setRow(row);
-		return delegate(userContext).viewAnalysis(userContext, BBID, view, data, style, envelope, query);
+		return delegate(userContext).viewAnalysis(userContext, BBID, view, data, style, envelope);
 	}
 
 	@GET
@@ -418,7 +418,7 @@ public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implemen
 				compression = "gzip";
 			}
 		}
-		AnalyticsQuery analysis = createAnalysisFromParams(BBID, groupBy, metrics, filterExpressions, period, timeframe, compareframe, orderExpressions, rollupExpressions, limit, offset, beyondLimit, null, null, null, null);
+		AnalyticsQuery analysis = createAnalysisFromParams(null, BBID, groupBy, metrics, filterExpressions, period, timeframe, compareframe, orderExpressions, rollupExpressions, limit, offset, beyondLimit, null, null, null, null);
 		return delegate(userContext).exportAnalysis(userContext, BBID, analysis, filepart, fileext, compression);
 	}
 	
@@ -456,6 +456,7 @@ public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implemen
 	 * @throws ScopeException
 	 */
 	private AnalyticsQuery createAnalysisFromParams(
+			AnalyticsQuery query,
 			String BBID, 
 			String[] groupBy, 
 			String[] metrics, 
@@ -474,7 +475,7 @@ public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implemen
 			Style style
 		) throws ScopeException {
 		// init the analysis query using the query parameters
-		AnalyticsQuery query = new AnalyticsQueryImpl();
+		if (query==null) query = new AnalyticsQueryImpl();
 		query.setBBID(BBID);
 		int groupByLength = groupBy!=null?groupBy.length:0;
 		if (groupByLength > 0) {

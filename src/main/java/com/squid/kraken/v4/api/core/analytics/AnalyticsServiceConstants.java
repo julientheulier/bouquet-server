@@ -54,4 +54,11 @@ public interface AnalyticsServiceConstants {
 	public static final String STYLE_PARAM = "style";
 	public static final String VISIBILITY_PARAM = "visibility";
 
+	public static final String VIEW_X_PARAM = "x";
+	public static final String VIEW_Y_PARAM = "y";
+	public static final String VIEW_COLOR_PARAM = "color";
+	public static final String VIEW_SIZE_PARAM = "size";
+	public static final String VIEW_COLUMN_PARAM = "column";
+	public static final String VIEW_ROW_PARAM = "row";
+
 }
