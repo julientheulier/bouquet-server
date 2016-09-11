@@ -1215,13 +1215,6 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			URI nextLink = buildAnalyticsQueryURI(userContext, query, null, null, Style.HTML, override);
 			html.append("[<a href=\""+StringEscapeUtils.escapeHtml4(nextLink.toString())+"\">next</a>]");
 		}
-		if (lastRow<data.getTotalSize()) {
-			// go to next page
-			HashMap<String, Object> override = new HashMap<>();
-			override.put(START_INDEX_PARAM, lastRow);
-			URI nextLink = buildAnalyticsQueryURI(userContext, query, null, null, Style.HTML, override);
-			html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(nextLink.toString())+"\">next</a>]");
-		}
 		html.append("</div><div>");
 		if (data.isFromSmartCache()) {
 			html.append("data from smart-cache, last computed "+data.getExecutionDate());
@@ -1246,13 +1239,21 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		html.append("</div><br>");
 	}
 	
-	private void createHTMLpagination(StringBuilder html, Info info) {
-		long lastRow = (info.getStartingIndex()+info.getPageSize());
-		html.append("<p>rows from "+(info.getStartingIndex()+1)+" to "+lastRow+" out of "+info.getTotalSize()+" records");
+	private void createHTMLpagination(StringBuilder html, ViewQuery query, Info info) {
+		long lastRow = (info.getStartIndex()+info.getPageSize());
+		long firstRow = info.getTotalSize()>0?(info.getStartIndex()+1):0;
+		html.append("<br><div>rows from "+firstRow+" to "+lastRow+" out of "+info.getTotalSize()+" records");
 		if (info.isComplete()) {
 			html.append(" (the query is complete)");
 		} else {
 			html.append(" (the query has more data)");
+		}
+		if (lastRow<info.getTotalSize()) {
+			// go to next page
+			HashMap<String, Object> override = new HashMap<>();
+			override.put(START_INDEX_PARAM, lastRow);
+			URI nextLink = buildAnalyticsViewURI(userContext, query, null, null, Style.HTML, override);
+			html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(nextLink.toString())+"\">next</a>]");
 		}
 		html.append("</p>");
 		if (info.isFromSmartCache()) {
@@ -2182,8 +2183,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			ViewQuery view,
 			String data,
 			Style style, 
-			String envelope,
-			AnalyticsQuery query) throws ScopeException, ComputingException, InterruptedException {
+			String envelope) throws ScopeException, ComputingException, InterruptedException {
 		Space space = getSpace(userContext, BBID);
 		//
 		if (data==null) data=style==Style.HTML?"EMBEDED":"URL";
@@ -2193,7 +2193,8 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		BookmarkConfig config = BookmarkManager.INSTANCE.readConfig(bookmark);
 		//
 		// handle the limit
-		Long explicitLimit = query.getLimit();
+		Long explicitLimit = view.getLimit();
+		AnalyticsQueryImpl query = new AnalyticsQueryImpl(view);
 		// merge the bookmark config with the query
 		mergeBoomarkConfig(space, query, config);
 		//
@@ -2625,7 +2626,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		info.setFromCache(matrix.isFromCache());
 		info.setFromSmartCache(matrix.isFromSmartCache());// actually we don't know the origin, see T1851
 		info.setExecutionDate(matrix.getExecutionDate().toString());
-		info.setStartingIndex(startIndex);
+		info.setStartIndex(startIndex);
 		info.setPageSize(pageSize);
 		info.setTotalSize(matrix.getRows().size());
 		return info;
@@ -2795,7 +2796,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		html.append(writeVegalightSpecs(reply.getResult()));
 		Encoding channels = reply.getResult().encoding;
 		html.append("}\r\nvg.embed(\"#vis\", embedSpec, function(error, result) {\r\n  // Callback receiving the View instance and parsed Vega spec\r\n  // result.view is the View, which resides under the '#vis' element\r\n});\r\n</script>\r\n");
-		createHTMLpagination(html, info);
+		createHTMLpagination(html, view, info);
 		if (dataLink!=null) {
 			html.append("<p><a href=\""+StringEscapeUtils.escapeHtml4(dataLink.toASCIIString())+"\">view query data</a></p>");
 		}
@@ -3079,6 +3080,22 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		addAnalyticsQueryParams(builder, query, null, null);
 		builder.queryParam("access_token", userContext.getToken().getOid());
 		return builder.build(BBID, filename);
+	}
+	
+	private URI buildAnalyticsViewURI(AppContext userContext, ViewQuery query, String data, String envelope, Style style, HashMap<String, Object> override) {
+		UriBuilder builder = getPublicBaseUriBuilder().
+			path("/analytics/{"+BBID_PARAM_NAME+"}/view");
+		addAnalyticsQueryParams(builder, query, style, override);
+		if (query.getX()!=null) builder.queryParam(VIEW_X_PARAM, query.getX());
+		if (query.getY()!=null) builder.queryParam(VIEW_Y_PARAM, query.getY());
+		if (query.getColor()!=null) builder.queryParam(VIEW_COLOR_PARAM, query.getColor());
+		if (query.getSize()!=null) builder.queryParam(VIEW_SIZE_PARAM, query.getSize());
+		if (query.getColumn()!=null) builder.queryParam(VIEW_COLUMN_PARAM, query.getColumn());
+		if (query.getRow()!=null) builder.queryParam(VIEW_ROW_PARAM, query.getRow());
+		if (data!=null) builder.queryParam(DATA_PARAM, data);
+		if (envelope!=null) builder.queryParam(ENVELOPE_PARAM, envelope);
+		builder.queryParam("access_token", userContext.getToken().getOid());
+		return builder.build(query.getBBID());
 	}
 	
 	private URI buildAnalyticsQueryURI(AppContext userContext, AnalyticsQuery query, String data, String envelope, Style style, HashMap<String, Object> override) {
