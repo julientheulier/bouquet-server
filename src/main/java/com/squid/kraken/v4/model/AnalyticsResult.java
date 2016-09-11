@@ -37,7 +37,7 @@ public class AnalyticsResult {
 		
 		private String executionDate;
 		
-		private Integer startingIndex = null;
+		private Integer startIndex = null;
 		
 		private Integer pageSize = null;
 		
@@ -72,12 +72,12 @@ public class AnalyticsResult {
 			this.executionDate = executionDate;
 		}
 
-		public Integer getStartingIndex() {
-			return startingIndex;
+		public Integer getStartIndex() {
+			return startIndex;
 		}
 
-		public void setStartingIndex(Integer startingIndex) {
-			this.startingIndex = startingIndex;
+		public void setStartIndex(Integer startIndex) {
+			this.startIndex = startIndex;
 		}
 
 		public Integer getPageSize() {
