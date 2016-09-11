@@ -2687,7 +2687,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 				+ "table.data {border-collapse: collapse;width: 100%;}"
 				+ "th, td {text-align: left;padding: 8px; vertical-align: top;}"
 				+ ".data tr:nth-child(even) {background-color: #f2f2f2}"
-				+ ".data th {background-color: rgb(238, 121, 20);color: white;}"
+				+ ".data th {background-color: #ee7914;color: white;}"
 				+ ".vega-actions a {margin-right:10px;}"
 				+ ".tooltip {\n" + 
 				"    position: relative;\n" + 
@@ -2735,7 +2735,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 				"}\n" + 
 				"input[type=submit] {\n" + 
 				"    width: 100%;\n" + 
-				"    background-color: rgb(238, 121, 20);\n" + 
+				"    background-color: #ee7914;\n" + 
 				"    color: white;\n" + 
 				"    padding: 14px 20px;\n" + 
 				"    margin: 8px 0;\n" + 
@@ -2755,7 +2755,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 				"    padding: 12px 20px 12px 40px;" +
 				"}"+
 				"input[type=submit]:hover {\n" + 
-				"    background-color: #45a049;\n" + 
+				"    background-color: #ab570e;\n" + 
 				"}"
 				+ "</style>");
 		html.append("<body>");
