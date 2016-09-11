@@ -193,10 +193,14 @@ import com.squid.kraken.v4.persistence.dao.ProjectDAO;
 import com.squid.kraken.v4.vegalite.VegaliteConfigurator;
 import com.squid.kraken.v4.vegalite.VegaliteSpecs;
 import com.squid.kraken.v4.vegalite.VegaliteSpecs.Data;
+import com.squid.kraken.v4.vegalite.VegaliteSpecs.DataType;
 import com.squid.kraken.v4.vegalite.VegaliteSpecs.Encoding;
 import com.squid.kraken.v4.vegalite.VegaliteSpecs.Format;
 import com.squid.kraken.v4.vegalite.VegaliteSpecs.FormatType;
 import com.squid.kraken.v4.vegalite.VegaliteSpecs.Mark;
+import com.squid.kraken.v4.vegalite.VegaliteSpecs.Operation;
+import com.squid.kraken.v4.vegalite.VegaliteSpecs.Order;
+import com.squid.kraken.v4.vegalite.VegaliteSpecs.Sort;
 
 /**
  * @author sergefantino
@@ -2394,19 +2398,24 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 					if (view.getY()==null && !inputConfig.isHasMetric() && !inputConfig.isHasMetricValue()) {
 						view.setY(query.getMetrics().get(0));
 					}
-					int next = 0;
-					while (next<dims) {
+					for (String next : query.getGroupBy()) {
 						if (view.getX()==null) {
-							view.setX(query.getGroupBy().get(next++));
+							if (!next.equals(query.getPeriod())) {
+								// change the barchart orientation
+								view.setX(view.getY());
+								view.setY(next);
+							} else {
+								view.setX(next);
+							}
 						} else if (view.getColor()==null) {
 							// use it as the column
-							view.setColor(query.getGroupBy().get(next++));
+							view.setColor(next);
 						} else if (view.getColumn()==null) {
 							// use it as the column
-							view.setColumn(query.getGroupBy().get(next++));
+							view.setColumn(next);
 						} else if (view.getRow()==null) {
 							// use it as the column
-							view.setRow(query.getGroupBy().get(next++));
+							view.setRow(next);
 						} else {
 							break;// no more channel available
 						}
@@ -2458,6 +2467,14 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		specs.encoding.size = outputConfig.createChannelDef("size", view.getSize());
 		specs.encoding.column = outputConfig.createChannelDef("column", view.getColumn());
 		specs.encoding.row = outputConfig.createChannelDef("row", view.getRow());
+		//
+		if (specs.encoding.x.type==DataType.nominal && specs.encoding.y.type==DataType.quantitative) {
+			// auto sort
+			specs.encoding.x.sort = new Sort(specs.encoding.y.field, Operation.sum, Order.descending);
+		} else if (specs.encoding.y.type==DataType.nominal && specs.encoding.x.type==DataType.quantitative) {
+			// auto sort
+			specs.encoding.y.sort = new Sort(specs.encoding.x.field, Operation.sum, Order.descending);
+		}
 		//
 		// force using required
 		query.setGroupBy(outputConfig.getRequired().getGroupBy());
