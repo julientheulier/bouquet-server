@@ -29,11 +29,14 @@ import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IllegalFormatException;
@@ -66,6 +69,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.squid.core.concurrent.ExecutionManager;
+import com.squid.core.database.impl.DatabaseServiceException;
 import com.squid.core.domain.DomainNumericConstant;
 import com.squid.core.domain.IDomain;
 import com.squid.core.domain.operators.IntrinsicOperators;
@@ -96,6 +100,7 @@ import com.squid.kraken.v4.api.core.JobServiceBaseImpl.OutputFormat;
 import com.squid.kraken.v4.api.core.JobStats;
 import com.squid.kraken.v4.api.core.ObjectNotFoundAPIException;
 import com.squid.kraken.v4.api.core.PerfDB;
+import com.squid.kraken.v4.api.core.ServiceUtils;
 import com.squid.kraken.v4.api.core.bookmark.BookmarkServiceBaseImpl;
 import com.squid.kraken.v4.api.core.projectanalysisjob.AnalysisJobComputer;
 import com.squid.kraken.v4.caching.NotInCacheException;
@@ -885,6 +890,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		Space space = getSpace(userContext, BBID);
 		//
 		DomainExpressionScope scope = new DomainExpressionScope(space.getUniverse(), space.getDomain());
+		//SpaceScope scope = new SpaceScope(space);
 		//
 		ExpressionSuggestionHandler handler = new ExpressionSuggestionHandler(
 				scope);
@@ -924,13 +930,14 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			Integer timeout
 			)
 	{
+		Space space = null;// if we can initialize it, fine to report in the catch block
 		try {
 			//
 			if (envelope==null) {
 				envelope = computeEnvelope(query);
 			}
 			//
-			Space space = getSpace(userContext, BBID);
+			space = getSpace(userContext, BBID);
 			//
 			Bookmark bookmark = space.getBookmark();
 			BookmarkConfig config = BookmarkManager.INSTANCE.readConfig(bookmark);
@@ -1022,7 +1029,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			if (query.getStyle()==Style.HTML && data.equalsIgnoreCase("SQL")) {
 					return createHTMLsql(reply.getResult().toString());
 			} else if (query.getStyle()==Style.HTML && data.equalsIgnoreCase("LEGACY")) {
-					return createHTMLPageTable(space, query, (DataTable)reply.getResult());
+					return createHTMLPageTable(userContext, space, query, (DataTable)reply.getResult());
 			} else if (envelope.equalsIgnoreCase("ALL")) {
 				return Response.ok(reply).build();
 			} else if (envelope.equalsIgnoreCase("RESULT")) {
@@ -1039,8 +1046,13 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			} 
 			//else
 			return Response.ok(reply).build();
-		} catch (ComputingException | InterruptedException | ScopeException | SQLScopeException | RenderingException e) {
-			throw new APIException(e.getMessage(), true);
+		} catch (DatabaseServiceException | ComputingException | InterruptedException | ScopeException | SQLScopeException | RenderingException e) {
+			if (query.getStyle()==Style.HTML) {
+				query.add(new Problem(Severity.ERROR, "query", "unable to run the query, fatal error: " + e.getMessage(), e));
+				return createHTMLPageTable(userContext, space, query, null);
+			} else {
+				throw new APIException(e.getMessage(), true);
+			}
 		}
 	}
 	
@@ -1090,13 +1102,14 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	}
 
 	/**
+	 * @param userContext 
 	 * @param dataTable 
 	 * @return
 	 */
-	private Response createHTMLPageTable(Space space, AnalyticsQuery query, DataTable data) {
-		String title = getPageTitle(space);
+	private Response createHTMLPageTable(AppContext userContext, Space space, AnalyticsQuery query, DataTable data) {
+		String title = space!=null?getPageTitle(space):null;
 		StringBuilder html = createHTMLHeader("Query: "+title);
-		createHTMLtitle(html, title);
+		createHTMLtitle(html, title, query.getBBID(), getParentLink(space));
 		createHTMLproblems(html, query.getProblems());
 		html.append("<form>");
 		createHTMLfilters(html, query);
@@ -1155,14 +1168,14 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		html.append("<input type=\"text\" name=\"maxResults\" value=\""+getFieldValue(query.getMaxResults(),100)+"\">");
 		html.append("</td></tr>");
 		html.append("<tr><td>startIndex</td><td>");
-		html.append("<input type=\"text\" name=\"startIndex\" value=\""+getFieldValue(query.getStartIndex(),0)+"\"><i>index is zero-based, so use the #count of the last row to view the next page</i>");
+		html.append("<input type=\"text\" name=\"startIndex\" value=\""+getFieldValue(query.getStartIndex(),0)+"\"></td><td><i>index is zero-based, so use the #count of the last row to view the next page</i>");
 		html.append("</td></tr>");
 		html.append("</table>"
 				+ "<input type=\"hidden\" name=\"style\" value=\"HTML\">"
-				+ "<input type=\"hidden\" name=\"access_token\" value=\""+space.getUniverse().getContext().getToken().getOid()+"\">"
+				+ "<input type=\"hidden\" name=\"access_token\" value=\""+userContext.getToken().getOid()+"\">"
 				+ "<input type=\"submit\" value=\"Refresh\">"
 				+ "</form>");
-		createHTMLscope(html, space, query);
+		if (space!=null) createHTMLscope(html, space, query);
 		createHTMLAPIpanel(html, "runAnalysis");
 		html.append("</body></html>");
 		return Response.ok(html.toString(),"text/html").build();
@@ -1846,18 +1859,22 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 				}
 			} else if (config.getChosenDimensions() != null) {
 				for (String chosenDimension : config.getChosenDimensions()) {
-					String f = null;
-					if (chosenDimension.startsWith("@")) {
-						// need to fix the scope
-						ExpressionAST expr = globalScope.parseExpression(chosenDimension);
-						f = expr.prettyPrint(localOptions);//rewriteExpressionToLocalScope(expr, space);
-					} else {
-						// legacy support raw ID
-						// parse to validate and apply prettyPrint options
-						ExpressionAST expr = localScope.parseExpression("@'" + chosenDimension + "'");
-						f = expr.prettyPrint(localOptions);
+					try {
+						String f = null;
+						if (chosenDimension.startsWith("@")) {
+							// need to fix the scope
+							ExpressionAST expr = globalScope.parseExpression(chosenDimension);
+							f = expr.prettyPrint(localOptions);//rewriteExpressionToLocalScope(expr, space);
+						} else {
+							// legacy support raw ID
+							// parse to validate and apply prettyPrint options
+							ExpressionAST expr = localScope.parseExpression("@'" + chosenDimension + "'");
+							f = expr.prettyPrint(localOptions);
+						}
+						groupBy.add(f);
+					} catch (ScopeException e) {
+						query.add(new Problem(Severity.WARNING, chosenDimension, "failed to parse bookmark dimension: " + e.getMessage(), e));
 					}
-					groupBy.add(f);
 				}
 			}
 			if (groupbyWildcard) {
@@ -1890,8 +1907,25 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			} else if (config.getChosenMetrics() != null) {
 				for (String chosenMetric : config.getChosenMetrics()) {
 					// parse to validate and reprint
-					ExpressionAST expr = localScope.parseExpression("@'" + chosenMetric + "'");
-					metrics.add(expr.prettyPrint(localOptions));
+					try {
+						ExpressionAST expr = localScope.parseExpression("@'" + chosenMetric + "'");
+						metrics.add(expr.prettyPrint(localOptions));
+					} catch (ScopeException e) {
+						query.add(new Problem(Severity.WARNING, chosenMetric, "failed to parse bookmark metric: " + e.getMessage(), e));
+					}
+				}
+			} else if (config.getAvailableMetrics()!=null && (query.getGroupBy()==null || query.getGroupBy().isEmpty())) {
+				// no axis selected, no choosen metrics, but available metrics
+				// this is an old bookmark (analytics), that used to display the KPIs
+				// so just compute the KPIs
+				for (String availableMetric : config.getAvailableMetrics()) {
+					// parse to validate and reprint
+					try {
+						ExpressionAST expr = localScope.parseExpression("@'" + availableMetric + "'");
+						metrics.add(expr.prettyPrint(localOptions));
+					} catch (ScopeException e) {
+						query.add(new Problem(Severity.WARNING, availableMetric, "failed to parse bookmark metric: " + e.getMessage(), e));
+					}
 				}
 			}
 			if (metricWildcard) {
@@ -1946,7 +1980,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 				if (index.isVisible() && index.getDimension().getType().equals(Type.CONTINUOUS) && index.getAxis().getDefinitionSafe().getImageDomain().isInstanceOf(IDomain.TEMPORAL)) {
 					// use it as period
 					Axis axis = index.getAxis();
-					AxisExpression expr = new AxisExpression(axis);
+					ExpressionAST expr = new AxisExpression(axis);
 					query.setPeriod(expr.prettyPrint(localOptions));
 					if (query.getTimeframe()==null) {
 						if (index.getStatus()==Status.DONE) {
@@ -1962,10 +1996,10 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			if (query.getPeriod()==null) {
 				// nothing selected - double check and auto detect?
 				if (query.getTimeframe()!=null && query.getTimeframe().size()>0) {
-					throw new APIException("No period defined: you cannot set the timeframe");
+					query.add(new Problem(Severity.WARNING, "period", "No period defined: you cannot set the timeframe"));
 				}
 				if (query.getCompareTo()!=null && query.getCompareTo().size()>0) {
-					throw new APIException("No period defined: you cannot set the timeframe");
+					query.add(new Problem(Severity.WARNING, "period", "No period defined: you cannot set the compareTo"));
 				}
 			}
 		}
@@ -1979,7 +2013,8 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			boolean keepConfig = filterWildcard || filters.isEmpty();
 			String period = null;
 			if (query.getPeriod()!=null && query.getTimeframe()==null) {
-				period = query.getDomain()+"."+query.getPeriod();
+				ExpressionAST expr = localScope.parseExpression(query.getPeriod());
+				period = expr.prettyPrint(new PrettyPrintOptions(ReferenceStyle.IDENTIFIER, null));
 			}
 			// look for the selection
 			for (Facet facet : selection.getFacets()) {
@@ -2578,18 +2613,53 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		info.setTotalSize(matrix.getRows().size());
 		return info;
 	}
+	
+	private String getBookmarkNavigationPath(Bookmark bookmark) {
+		String path = bookmark.getPath();
+		if (path.startsWith("/USER/")) {
+			int pos = path.indexOf("/", 6);
+			if (pos>=0) {
+				path = path.substring(pos);
+			} else {
+				path = "";// remove all, the path is in form /USERS/id
+			}
+			path = MYBOOKMARKS_FOLDER.getSelfRef()+"/"+path;
+		}
+		if (path.endsWith("/")) path = path.substring(0, path.length()-1);
+		return path;
+	}
 
 	private String getPageTitle(Space space) {
 		if (space.hasBookmark()) {
-			return space.getBookmark().getPath()+"/"+space.getBookmark().getName();
+			String path = getBookmarkNavigationPath(space.getBookmark());
+			return path+"/"+space.getBookmark().getName();
 		} else {
 			return "/PROJECTS/"+space.getUniverse().getProject().getName()+"/"+space.getDomain().getName();
 		}
 	}
+
+	private URI getParentLink(Space space) {
+		if (space==null) return null;
+		if (space.hasBookmark()) {
+			String path = getBookmarkNavigationPath(space.getBookmark());
+			return getPublicBaseUriBuilder().path("/analytics").queryParam(PARENT_PARAM, path).queryParam(STYLE_PARAM, "HTML").queryParam("access_token", userContext.getToken().getOid()).build();
+		} else {
+			return getPublicBaseUriBuilder().path("/analytics").queryParam(PARENT_PARAM, "/PROJECTS/"+space.getUniverse().getProject().getName()).queryParam(STYLE_PARAM, "HTML").queryParam("access_token", userContext.getToken().getOid()).build();
+		}
+	}
 	
-	private void createHTMLtitle(StringBuilder html, String title) {
+	private void createHTMLtitle(StringBuilder html, String title, String BBID, URI backLink) {
 		html.append("<div class='header'><h3>Open Bouquet Analytics Rest API Viewer / STYLE=HTML</h3>");
-		html.append("<h2>"+title+"</h2><hr></div>");
+		html.append("<h2>");
+		if (title!=null) {
+			html.append(title);
+		} 
+		if (BBID!=null) {
+			html.append("[BBID="+BBID+"]");
+		}
+		html.append("</h2>");
+		if (backLink!=null) html.append("<a href=\""+backLink+"\">back</a>");
+		html.append("</div><hr>");
 	}
 	
 	private StringBuilder createHTMLHeader(String title) {
@@ -2600,6 +2670,43 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 				+ "th, td {text-align: left;padding: 8px; vertical-align: top;}"
 				+ ".data tr:nth-child(even) {background-color: #f2f2f2}"
 				+ ".data th {background-color: rgb(238, 121, 20);color: white;}"
+				+ ".vega-actions a {margin-right:10px;}"
+				+ ".tooltip {\n" + 
+				"    position: relative;\n" + 
+				"    display: inline-block;\n" + 
+				"    border-bottom: 1px dotted black;\n" + 
+				"}\n" + 
+				".tooltip .tooltiptext {\n" + 
+				"    visibility: hidden;\n" + 
+				"    width: 300px;\n" + 
+				"    background-color: black;\n" + 
+				"    color: #fff;\n" + 
+				"    text-align: center;\n" + 
+				"    border-radius: 6px;\n" + 
+				"    padding: 5px 0;\n" + 
+				"    position: absolute;\n" + 
+				"    z-index: 1;\n" + 
+				"    top: 150%;\n" + 
+				"    left: 50%;\n" + 
+				"    margin-left: -30px;\n" + 
+				"}\n" + 
+				".tooltip .tooltiptext::after {\n" + 
+				"    content: \"\";\n" + 
+				"    position: absolute;\n" + 
+				"    bottom: 100%;\n" + 
+				"    left: 50%;\n" + 
+				"    margin-left: -5px;\n" + 
+				"    border-width: 5px;\n" + 
+				"    border-style: solid;\n" + 
+				"    border-color: transparent transparent black transparent;\n" + 
+				"}\n" + 
+				".tooltip:hover .tooltiptext {\n" + 
+				"    visibility: visible;\n" + 
+				"}"
+				+ "hr {border: none; "
+				+ "color: Gainsboro ;\n" + 
+				"background-color: Gainsboro ;\n" + 
+				"height: 3px;}"
 				+ "</style>");
 		html.append("<body>");
 		return html;
@@ -2608,7 +2715,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	private Response createHTMLPageList(AppContext ctx, NavigationQuery query, NavigationResult result) {
 		String title = (query.getParent()!=null && query.getParent().length()>0)?query.getParent():"Root";
 		StringBuilder html = createHTMLHeader("List: "+title);
-		createHTMLtitle(html, title);
+		createHTMLtitle(html, title, null, result.getParent().getUpLink());
 		//
 		// form
 		html.append("<form><table>");
@@ -2622,9 +2729,6 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			html.append("<input type='hidden' name='hierarchy' value='"+query.getHiearchy()+"'>");
 		html.append("<input type='hidden' name='access_token' value='"+ctx.getToken().getOid()+"'>");
 		html.append("</table></form>");
-		if (result.getParent()!=null && result.getParent().getUpLink()!=null) {
-			html.append("<p><a href=\""+StringEscapeUtils.escapeHtml4(result.getParent().getUpLink().toString())+"\">[up]</a></p>");
-		}
 		//
 		html.append("<table style='border-collapse:collapse'>");
 		for (NavigationItem item : result.getChildren()) {
@@ -2666,7 +2770,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			html.append("<script src=\"http://d3js.org/d3.v3.min.js\" charset=\"utf-8\"></script>\r\n<script src=\"http://vega.github.io/vega/vega.js\" charset=\"utf-8\"></script>\r\n<script src=\"http://vega.github.io/vega-lite/vega-lite.js\" charset=\"utf-8\"></script>\r\n<script src=\"http://vega.github.io/vega-editor/vendor/vega-embed.js\" charset=\"utf-8\"></script>\r\n\r\n");
 		}
 		html.append("<body>");
-		createHTMLtitle(html, title);
+		createHTMLtitle(html, title, reply.getQuery().getBBID(), getParentLink(space));
 		createHTMLproblems(html, reply.getQuery().getProblems());
 		html.append("<form>");
 		createHTMLfilters(html, reply.getQuery());
@@ -2723,6 +2827,17 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			html.append("</div>");
 		}
 	}
+	
+	private SimpleDateFormat htmlDateFormat = new SimpleDateFormat("yyyy-MM-dd");
+	
+	private String formatDateForWeb(String jsonFormat) {
+		try {
+			Date date = ServiceUtils.getInstance().toDate(jsonFormat);
+			return htmlDateFormat.format(date);
+		} catch (ParseException e) {
+			return jsonFormat;
+		}
+	}
 
 	/**
 	 * create a filter HTML snippet
@@ -2731,25 +2846,27 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	 */
 	private void createHTMLfilters(StringBuilder html, AnalyticsQuery query) {
 		if (query.getPeriod()!=null) {
-			html.append("<div class='period'>Selected Period: ");
+			html.append("<div class='period'><span class='tooltip'>period: <span class='tooltiptext'>the period defines a dimension or expression of a type date that is used to filter the query or view. You can use the __PERIOD expression as a alias to it.</span></span>");
 			html.append("<input type='text' size=30 name='period' value='"+getFieldValue(query.getPeriod())+"'> ");
 			if (query.getTimeframe()!=null && query.getTimeframe().size()>0) {
 				if (query.getTimeframe().size()==1) {
-					html.append("timeframe <input type='text' name='timeframe' value='"+getFieldValue(query.getTimeframe().get(0))+"'>");
+					html.append("<span class='tooltip'>timeframe <span class='tooltiptext'>the timeframe defines the period range to filter. You can use an array of two dates for lower/upper bounds (inclusive). Or some alias like __ALL, __LAST_DAY, __LAST_7_DAYS, __CURRENT_MONTH, __PREVIOUS_MONTH, __CURRENT_YEAR, __PREVIOOUS_YEAR</span></span><input type='text' name='timeframe' value='"+getFieldValue(query.getTimeframe().get(0))+"'>");
 				} else if (query.getTimeframe().size()>=1) {
 					html.append("timeframe: from ");
-					html.append("<input type='date' name='compareTo' value='"+getFieldValue(query.getTimeframe().get(0))+"'>");
+					// format for html editing
+					html.append("<input type='date' name='timeframe' value='"+formatDateForWeb(getFieldValue(query.getTimeframe().get(0)))+"'>");
 					html.append(" to ");
-					html.append("<input type='date' name='compareTo' value='"+getFieldValue(query.getTimeframe().get(1))+"'>");
+					// format for html editing
+					html.append("<input type='date' name='timeframe' value='"+formatDateForWeb(getFieldValue(query.getTimeframe().get(1)))+"'>");
 				}
 			} else {
 				html.append("on <input type='text' name='timeframe' value=''>");
 			}
 			if (query.getCompareTo()!=null && query.getCompareTo().size()>0) {
 				if (query.getCompareTo().size()==1) {
-					html.append("compare to <input type='text' name='compareTo' value='"+getFieldValue(query.getCompareTo().get(0))+"'>");
+					html.append("compareTo <input type='text' name='compareTo' value='"+getFieldValue(query.getCompareTo().get(0))+"'>");
 				} else if (query.getCompareTo().size()>=1) {
-					html.append("compare to: from ");
+					html.append("compareTo: from ");
 					html.append("<input type='date' name='compareTo' value='"+getFieldValue(query.getCompareTo().get(0))+"'>");
 					html.append(" to ");
 					html.append("<input type='date' name='compareTo' value='"+getFieldValue(query.getCompareTo().get(1))+"'>");
@@ -2779,7 +2896,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	private void createHTMLscope(StringBuilder html, Space space, AnalyticsQuery query) {
 		html.append("<fieldset><legend>Query scope: <i>this is the list of objects you can combine to build expressions in the query</i></legend>");
 		html.append("<table><tr><td valign='top'>GroupBy:</td><td valign='top'>");
-		for (Axis axis : space.A()) {
+		for (Axis axis : space.A(true)) {// only print the visible scope
 			try {
 				DimensionIndex index = axis.getIndex();
 				html.append("<span draggable='true' style='"+axis_style+"'");
@@ -2825,7 +2942,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	private Response createHTMLPageScope(Space space, ExpressionSuggestion suggestions, String BBID, String value, ObjectType[] types, ValueType[] values) {
 		String title = getPageTitle(space);
 		StringBuilder html = createHTMLHeader("Scope: "+title);
-		createHTMLtitle(html, title);
+		createHTMLtitle(html, title, BBID, getParentLink(space));
 		if (value!=null && value.length()>0 && suggestions.getValidateMessage()!=null && suggestions.getValidateMessage().length()>0) {
 			createHTMLproblems(html, Collections.singletonList(new Problem(Severity.WARNING, value, suggestions.getValidateMessage())));
 		}
@@ -2876,7 +2993,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 				}
 			}
 			if (item.getDescription()!=null && item.getDescription().length()>0) {
-				html.append("&nbsp;<i>"+item.getDescription()+"</i>");
+				html.append("<br><i>"+item.getDescription()+"</i>");
 			}
 			html.append("</td></tr>");
 		}
@@ -2887,7 +3004,6 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	}
 
 	private void createHTMLAPIpanel(StringBuilder html, String method) {
-		html.append("<hr>");
 		html.append("<fieldset><legend>API reference</legend>");
 		// compute the raw URI
 		UriBuilder builder = getPublicBaseUriBuilder().path(uriInfo.getPath());
@@ -2905,7 +3021,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		html.append("<p>CURL: <i>the command is authorized with the current token</i></p><div style='display:block;'><pre style='background-color: #fcf6db;border: 1px solid #e5e0c6; width:1024px; max-height: 400px;overflow-y: auto;'>curl -X GET --header 'Accept: application/json' --header 'Authorization: Bearer "+userContext.getToken().getOid()+"' "+curlURL+"</pre></div>");
 		createHTMLswaggerLink(html, method);
 		html.append("</fieldset>");
-		html.append("powered by Open Bouquet");
+		html.append("<hr>powered by Open Bouquet");
 	}
 	
 	private void createHTMLswaggerLink(StringBuilder html, String method) {
