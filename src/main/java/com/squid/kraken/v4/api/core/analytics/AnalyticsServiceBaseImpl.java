@@ -2867,9 +2867,9 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 					html.append("compareTo <input type='text' name='compareTo' value='"+getFieldValue(query.getCompareTo().get(0))+"'>");
 				} else if (query.getCompareTo().size()>=1) {
 					html.append("compareTo: from ");
-					html.append("<input type='date' name='compareTo' value='"+getFieldValue(query.getCompareTo().get(0))+"'>");
+					html.append("<input type='date' name='compareTo' value='"+formatDateForWeb(getFieldValue(query.getCompareTo().get(0)))+"'>");
 					html.append(" to ");
-					html.append("<input type='date' name='compareTo' value='"+getFieldValue(query.getCompareTo().get(1))+"'>");
+					html.append("<input type='date' name='compareTo' value='"+formatDateForWeb(getFieldValue(query.getCompareTo().get(1)))+"'>");
 				}
 			} else {
 				html.append("compare to <input type='text' name='compareTo' value=''>");
