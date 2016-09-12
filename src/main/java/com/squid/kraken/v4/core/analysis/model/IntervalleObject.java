@@ -69,12 +69,21 @@ public class IntervalleObject extends IntervalleAbstract implements Comparable<I
 	public Object getLowerBound() {
 		return lower_bound;
 	}
+	
+	public void setLowerBound(Object lb){
+		this.lower_bound = lb;
+	}
+	
 
 	/* (non-Javadoc)
 	 * @see com.squid.kraken.v4.core.analysis.model.Intervalle#getUpperBound()
 	 */
 	public Object getUpperBound() {
 		return upper_bound;
+	}
+	
+	public void setUpperBound(Object ub){
+		this.upper_bound= ub;
 	}
 
     /**
