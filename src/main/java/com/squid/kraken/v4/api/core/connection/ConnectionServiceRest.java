@@ -66,7 +66,7 @@ import io.swagger.annotations.AuthorizationScope;
 /**
  * handles connections management
  */
-@Api(value = "connections", hidden = true, authorizations = { @Authorization(value = "kraken_auth", scopes = { @AuthorizationScope(scope = "access", description = "Access")}) })
+@Api(value = "connections", authorizations = { @Authorization(value = "kraken_auth", scopes = { @AuthorizationScope(scope = "access", description = "Access")}) })
 @Produces({ MediaType.APPLICATION_JSON })
 public class ConnectionServiceRest extends BaseServiceRest {
 	

@@ -70,7 +70,7 @@ import io.swagger.annotations.Authorization;
 import io.swagger.annotations.AuthorizationScope;
 
 @Produces({ MediaType.APPLICATION_JSON })
-@Api(value = "analysisjobs", hidden = true, authorizations = {
+@Api(value = "analysisjobs", authorizations = {
 		@Authorization(value = "kraken_auth", scopes = {
 				@AuthorizationScope(scope = "access", description = "Access") }) })
 public class AnalysisJobServiceRest extends BaseServiceRest {
