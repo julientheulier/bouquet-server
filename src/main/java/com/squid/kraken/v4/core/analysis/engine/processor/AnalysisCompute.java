@@ -59,6 +59,8 @@ import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionMember;
 import com.squid.kraken.v4.core.analysis.engine.query.QueryRunner;
 import com.squid.kraken.v4.core.analysis.engine.query.SimpleQuery;
+import com.squid.kraken.v4.core.analysis.engine.query.mapping.AxisMapping;
+import com.squid.kraken.v4.core.analysis.engine.query.mapping.MeasureMapping;
 import com.squid.kraken.v4.core.analysis.model.Dashboard;
 import com.squid.kraken.v4.core.analysis.model.DashboardAnalysis;
 import com.squid.kraken.v4.core.analysis.model.DashboardSelection;
@@ -341,6 +343,11 @@ public class AnalysisCompute {
 			DataMatrix debug = merger.merge(false);
 			// apply the original order by directive (T1039)
 			debug.orderBy(originalOrders);
+			// T1897 - enforce limit & offset
+			if (debug.getRows().size()>currentAnalysis.getLimit()) {
+				DataMatrixTransformTruncate truncate = new DataMatrixTransformTruncate(currentAnalysis.getLimit(), currentAnalysis.getOffset());
+				debug = truncate.apply(debug);
+			}
 			return debug;
 		} catch (ExecutionException e) {
 			if (e.getCause() != null){
@@ -492,7 +499,7 @@ public class AnalysisCompute {
 		return qw.getDataMatrix();
 	}
 	
-	protected DataMatrix computeAnalysisSimpleForGroupFromSmartCache(DashboardAnalysis analysis, AnalysisSmartCacheRequest request, PreviewWriter qw, boolean optimize) throws NotInCacheException {
+	protected DataMatrix computeAnalysisSimpleForGroupFromSmartCache(DashboardAnalysis analysis, SimpleQuery query, AnalysisSmartCacheRequest request, PreviewWriter qw, boolean optimize) throws NotInCacheException {
 		// try the smart cache
 		long start = System.currentTimeMillis();
 		AnalysisSmartCacheMatch match = AnalysisSmartCache.INSTANCE.checkMatch(universe, request);
@@ -509,6 +516,19 @@ public class AnalysisCompute {
 						match.getAnalysis(),
 						match.getMeasures(), 
 						optimize);
+				// T1913
+				for (AxisMapping ax : queryBis.getMapper().getAxisMapping()) {
+					AxisMapping mapping = query.getMapper().find(ax.getAxis());
+					if (mapping!=null && !mapping.getAxis().getName().equals(ax.getAxis().getName())) {
+						ax.getAxis().setName(mapping.getAxis().getName());
+					}
+				}
+				for (MeasureMapping mx : queryBis.getMapper().getMeasureMapping()) {
+					MeasureMapping mapping = query.getMapper().find(mx.getMapping());
+					if (mapping!=null && !mapping.getMapping().getName().equals(mx.getMapping().getName())) {
+						mx.getMapping().setName(mapping.getMapping().getName());
+					}
+				}
 				runQuery(queryBis, lazy, analysis, qw);
 				if (!lazy) {
 					// check that the DM is not too big
@@ -561,7 +581,7 @@ public class AnalysisCompute {
 			} catch (NotInCacheException e) {
 				if (smartCacheRequest!=null) {
 					try {
-						return computeAnalysisSimpleForGroupFromSmartCache(analysis, smartCacheRequest, qw, optimize);
+						return computeAnalysisSimpleForGroupFromSmartCache(analysis, query, smartCacheRequest, qw, optimize);
 					} catch (NotInCacheException ee) {
 						// ignore any error in smartCache
 					}
