@@ -69,10 +69,7 @@ public class IntervalleObject extends IntervalleAbstract implements Comparable<I
 	public Object getLowerBound() {
 		return lower_bound;
 	}
-	
-	public void setLowerBound(Object lb){
-		this.lower_bound = lb;
-	}
+
 	
 
 	/* (non-Javadoc)
@@ -82,9 +79,6 @@ public class IntervalleObject extends IntervalleAbstract implements Comparable<I
 		return upper_bound;
 	}
 	
-	public void setUpperBound(Object ub){
-		this.upper_bound= ub;
-	}
 
     /**
      * create a new interval that merges the given intervals
