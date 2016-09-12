@@ -28,7 +28,7 @@ package com.squid.kraken.v4.model;
  * @author sergefantino
  *
  */
-public class ViewQuery {
+public class ViewQuery extends AnalyticsQueryImpl {
 	
 	private String x;
 	

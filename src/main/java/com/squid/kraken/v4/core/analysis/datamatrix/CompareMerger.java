@@ -107,8 +107,8 @@ public class CompareMerger extends JoinMerger {
 		int pos = merge.getAxesSize();// start after axes
 		int size = left!=null?left.getDataSize():(right!=null?right.getDataSize():0);
 		for (int i = 0; i < size; i++) {
-			Object leftValue = left!=null?left.getDataValue(i, leftrow):null;
-			Object rightValue = right!=null?right.getDataValue(i, rightrow):null;
+			Object leftValue = left!=null&&leftrow!=null?left.getDataValue(i, leftrow):null;
+			Object rightValue = right!=null&&rightrow!=null?right.getDataValue(i, rightrow):null;
 			merged.data[pos++] = leftValue;
 			merged.data[pos++] = rightValue;
 			// compute growth ?

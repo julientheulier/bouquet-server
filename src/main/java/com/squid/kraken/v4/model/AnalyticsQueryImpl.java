@@ -49,6 +49,28 @@ public class AnalyticsQueryImpl implements AnalyticsQuery {
 	public AnalyticsQueryImpl() {
 	}
 	
+	public AnalyticsQueryImpl(AnalyticsQueryImpl copy) {
+		this.BBID = copy.BBID;
+		this.domain = copy.domain;
+		this.groupBy = copy.groupBy;
+		this.metrics = copy.metrics;
+		this.filters = copy.filters;
+		this.orderBy = copy.orderBy;
+		this.rollups = copy.rollups;
+		this.period = copy.period;
+		this.timeframe = copy.timeframe;
+		this.compareTo = copy.compareTo;
+		this.offset = copy.offset;
+		this.limit = copy.limit;
+		this.beyondLimit = copy.beyondLimit;
+		this.bookmarkId = copy.bookmarkId;
+		this.maxResults = copy.maxResults;
+		this.startIndex = copy.startIndex;
+		this.lazy = copy.lazy;
+		this.style = copy.style;
+		this.problems = copy.problems;
+	}
+
 	@Override
 	public String getBBID() {
 		return BBID;

@@ -34,6 +34,7 @@ public interface AnalyticsServiceConstants {
 	
 	public final static String ACCESS_TOKEN_PARAM = "access_token";
 
+	public static final String PARENT_PARAM = "parent";
 	public static final String LAZY_PARAM = "lazy";
 	public static final String START_INDEX_PARAM = "startIndex";
 	public static final String MAX_RESULTS_PARAM = "maxResults";
@@ -52,5 +53,12 @@ public interface AnalyticsServiceConstants {
 	public static final String FILTERS_PARAM = "filters";
 	public static final String STYLE_PARAM = "style";
 	public static final String VISIBILITY_PARAM = "visibility";
+
+	public static final String VIEW_X_PARAM = "x";
+	public static final String VIEW_Y_PARAM = "y";
+	public static final String VIEW_COLOR_PARAM = "color";
+	public static final String VIEW_SIZE_PARAM = "size";
+	public static final String VIEW_COLUMN_PARAM = "column";
+	public static final String VIEW_ROW_PARAM = "row";
 
 }

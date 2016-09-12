@@ -50,7 +50,7 @@ import io.swagger.annotations.AuthorizationScope;
  * {@link Client} management service.
  */
 @Produces({ MediaType.APPLICATION_JSON })
-@Api(value = "clients", hidden = true, authorizations = { @Authorization(value = "kraken_auth", scopes = { @AuthorizationScope(scope = "access", description = "Access")}) })
+@Api(value = "clients", authorizations = { @Authorization(value = "kraken_auth", scopes = { @AuthorizationScope(scope = "access", description = "Access")}) })
 public class ClientServiceRest extends BaseServiceRest {
 
 	private final static String PARAM_NAME = "clientId";

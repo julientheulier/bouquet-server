@@ -80,7 +80,7 @@ public class NavigationItem {
 		if (this.name==null) this.name="";
 		this.description = project.getDescription();
 		this.parentRef = parentRef;
-		if (query.getStyle()==Style.HUMAN) {
+		if (query.getStyle()==Style.HUMAN || query.getStyle()==Style.HTML) {
 			this.selfRef = parentRef+"/"+project.getName();
 		} else {
 			this.selfRef = parentRef+"/@"+project.getOid();
