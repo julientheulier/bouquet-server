@@ -1213,7 +1213,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			HashMap<String, Object> override = new HashMap<>();
 			override.put(START_INDEX_PARAM, lastRow);
 			URI nextLink = buildAnalyticsQueryURI(userContext, query, null, null, Style.HTML, override);
-			html.append("[<a href=\""+StringEscapeUtils.escapeHtml4(nextLink.toString())+"\">next</a>]");
+			html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(nextLink.toString())+"\">next</a>]");
 		}
 		html.append("</div><div>");
 		if (data.isFromSmartCache()) {
@@ -2892,7 +2892,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	
 	private String getDate(List<String> dates, int pos) {
 		if (dates!=null && !dates.isEmpty() && pos<dates.size()) {
-			return formatDateForWeb(getFieldValue(dates.get(0)));
+			return formatDateForWeb(getFieldValue(dates.get(pos)));
 		} else {
 			return "";
 		}
