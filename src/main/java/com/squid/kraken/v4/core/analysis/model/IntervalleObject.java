@@ -70,12 +70,15 @@ public class IntervalleObject extends IntervalleAbstract implements Comparable<I
 		return lower_bound;
 	}
 
+	
+
 	/* (non-Javadoc)
 	 * @see com.squid.kraken.v4.core.analysis.model.Intervalle#getUpperBound()
 	 */
 	public Object getUpperBound() {
 		return upper_bound;
 	}
+	
 
     /**
      * create a new interval that merges the given intervals
