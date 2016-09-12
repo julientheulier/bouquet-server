@@ -2815,6 +2815,20 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 				"    font-style: italic;\n" + 
 				"}" +
 				"</style>");
+		// drag & drop support
+		html.append("<script>\n" + 
+				"function allowDrop(ev) {\n" + 
+				"    ev.preventDefault();\n" + 
+				"}\n" + 
+				"function drag(ev, text) {\n" + 
+				"    ev.dataTransfer.setData(\"text\", \"'\"+text+\"'\");\n" + 
+				"}\n" + 
+				"function drop(ev) {\n" + 
+				"    ev.preventDefault();\n" + 
+				"    var data = ev.dataTransfer.getData(\"text\");\n" + 
+				"    ev.target.value = data;\n" +
+				"}\n" + 
+				"</script>");
 		html.append("<body>");
 		return html;
 	}
@@ -2975,14 +2989,13 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			html.append("</div>");
 		}
 		//
-		html.append("<div class='filters'>filters:&nbsp;");
+		html.append("<div class='filters'><span class='tooltip'>filters:<span class='tooltiptext'>Define the filters to apply to results. A filter must be a valid conditional expression. If no filter is defined, the subject default config will apply. You can use the * token to extend the subject default configuration.</span></span>&nbsp;");
 		if (query.getFilters()!=null && query.getFilters().size()>0) {
 			for (String filter : query.getFilters()) {
-				html.append("<input type='text' size=30 name='filters' value='"+getFieldValue(filter)+"'>");
+				html.append("&nbsp;<input type='text' size=50 name='filters' value='"+getFieldValue(filter)+"'>");
 			}
-		} else {
-			html.append("<input type='text' size=30 name='filters' value=''>");
 		}
+		html.append("&nbsp;<input type='text' size=50 name='filters' value='' placeholder='type formula'>");	
 		html.append("</div>");
 	}
 	
@@ -3004,7 +3017,8 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 					html.append(axis.getDescription());
 				}
 				html.append("'");
-				html.append(">&nbsp;'"+index.getDimensionName()+"'&nbsp;</span>");
+				html.append(" ondragstart='drag(event,\""+index.getDimensionName()+"\")'");
+				html.append(">&nbsp;"+index.getDimensionName()+"&nbsp;</span>");
 			} catch (Exception e) {
 				// ignore
 			}
@@ -3020,7 +3034,8 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 					html.append(m.getDescription());
 				}
 				html.append("'");
-				html.append(">&nbsp;'"+m.getName()+"'&nbsp;</span>");
+				html.append(" ondragstart='drag(event,\""+m.getName()+"\")'");
+				html.append(">&nbsp;"+m.getName()+"&nbsp;</span>");
 			}
 		}
 		html.append("</td></tr></table>");
