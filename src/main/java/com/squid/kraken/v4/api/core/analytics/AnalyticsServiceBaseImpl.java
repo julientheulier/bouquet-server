@@ -2889,6 +2889,14 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			return jsonFormat;
 		}
 	}
+	
+	private String getDate(List<String> dates, int pos) {
+		if (dates!=null && !dates.isEmpty() && pos<dates.size()) {
+			return formatDateForWeb(getFieldValue(dates.get(0)));
+		} else {
+			return "";
+		}
+	}
 
 	/**
 	 * create a filter HTML snippet
@@ -2898,33 +2906,15 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	private void createHTMLfilters(StringBuilder html, AnalyticsQuery query) {
 		if (query.getPeriod()!=null) {
 			html.append("<div class='period'><span class='tooltip'>period: <span class='tooltiptext'>the period defines a dimension or expression of a type date that is used to filter the query or view. You can use the __PERIOD expression as a alias to it.</span></span>");
-			html.append("<input type='text' size=30 name='period' value='"+getFieldValue(query.getPeriod())+"'> ");
-			if (query.getTimeframe()!=null && query.getTimeframe().size()>0) {
-				if (query.getTimeframe().size()==1) {
-					html.append("<span class='tooltip'>timeframe <span class='tooltiptext'>the timeframe defines the period range to filter. You can use an array of two dates for lower/upper bounds (inclusive). Or some alias like __ALL, __LAST_DAY, __LAST_7_DAYS, __CURRENT_MONTH, __PREVIOUS_MONTH, __CURRENT_YEAR, __PREVIOOUS_YEAR</span></span><input type='text' name='timeframe' value='"+getFieldValue(query.getTimeframe().get(0))+"'>");
-				} else if (query.getTimeframe().size()>=1) {
-					html.append("timeframe: from ");
-					// format for html editing
-					html.append("<input type='date' name='timeframe' value='"+formatDateForWeb(getFieldValue(query.getTimeframe().get(0)))+"'>");
-					html.append(" to ");
-					// format for html editing
-					html.append("<input type='date' name='timeframe' value='"+formatDateForWeb(getFieldValue(query.getTimeframe().get(1)))+"'>");
-				}
-			} else {
-				html.append("on <input type='text' name='timeframe' value=''>");
-			}
-			if (query.getCompareTo()!=null && query.getCompareTo().size()>0) {
-				if (query.getCompareTo().size()==1) {
-					html.append("compareTo <input type='text' name='compareTo' value='"+getFieldValue(query.getCompareTo().get(0))+"'>");
-				} else if (query.getCompareTo().size()>=1) {
-					html.append("compareTo: from ");
-					html.append("<input type='date' name='compareTo' value='"+formatDateForWeb(getFieldValue(query.getCompareTo().get(0)))+"'>");
-					html.append(" to ");
-					html.append("<input type='date' name='compareTo' value='"+formatDateForWeb(getFieldValue(query.getCompareTo().get(1)))+"'>");
-				}
-			} else {
-				html.append("compare to <input type='text' name='compareTo' value=''>");
-			}
+			html.append("<input type='text' size=30 name='period' value='"+getFieldValue(query.getPeriod())+"'>");
+			// timeframe
+			html.append("&nbsp;<span class='tooltip'>timeframe <span class='tooltiptext'>the timeframe defines the period range to filter. You can use an array of two dates for lower/upper bounds (inclusive). Or some alias like __ALL, __LAST_DAY, __LAST_7_DAYS, __CURRENT_MONTH, __PREVIOUS_MONTH, __CURRENT_YEAR, __PREVIOOUS_YEAR</span></span>");
+			html.append("&nbsp;from:&nbsp;<input type='text' name='timeframe' value='"+getDate(query.getTimeframe(),0)+"'>");
+			html.append("&nbsp;to:&nbsp;<input type='text' name='timeframe' value='"+getDate(query.getTimeframe(),1)+"'>");
+			// compare
+			html.append("&nbsp;<span class='tooltip'>compareTo <span class='tooltiptext'>Activate and define the compare to period. You can use an array of two dates for lower/upper bounds (inclusive). Or some alias like __ALL, __LAST_DAY, __LAST_7_DAYS, __CURRENT_MONTH, __PREVIOUS_MONTH, __CURRENT_YEAR, __PREVIOOUS_YEAR</span></span>");
+			html.append("&nbsp;from:&nbsp;<input type='text' name='compareTo' value='"+getDate(query.getCompareTo(),0)+"'>");
+			html.append("&nbsp;to:&nbsp;<input type='text' name='compareTo' value='"+getDate(query.getCompareTo(),1)+"'>");
 			html.append("</div>");
 		}
 		//
