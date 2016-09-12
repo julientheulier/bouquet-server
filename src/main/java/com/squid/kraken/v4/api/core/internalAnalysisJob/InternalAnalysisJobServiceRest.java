@@ -110,7 +110,7 @@ import io.swagger.annotations.AuthorizationScope;
  */
 
 @Produces({MediaType.APPLICATION_JSON})
-@Api(value = "internalanalysisjobs", hidden = true, authorizations = {@Authorization(value = "kraken_auth", scopes = { @AuthorizationScope(scope = "access", description = "Access")})})
+@Api(value = "internalanalysisjobs", authorizations = {@Authorization(value = "kraken_auth", scopes = { @AuthorizationScope(scope = "access", description = "Access")})})
 public class InternalAnalysisJobServiceRest extends BaseServiceRest {
     private static final Logger logger = LoggerFactory
             .getLogger(InternalAnalysisJobServiceRest.class);
