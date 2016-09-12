@@ -2673,7 +2673,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			html.append(title);
 		} 
 		if (BBID!=null) {
-			html.append("[BBID="+BBID+"]");
+			html.append("&nbsp;[ID="+BBID+"]");
 		}
 		html.append("</h2>");
 		if (backLink!=null) html.append("<a href=\""+backLink+"\">back</a>");
