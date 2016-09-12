@@ -55,11 +55,6 @@ import com.squid.core.sql.model.SQLScopeException;
 import com.squid.core.sql.render.IOrderByPiece.ORDERING;
 import com.squid.core.sql.render.ISelectPiece;
 import com.squid.core.sql.render.RenderingException;
-import com.squid.kraken.v4.KrakenConfig;
-import com.squid.kraken.v4.api.core.PerfDB;
-import com.squid.kraken.v4.api.core.SQLStats;
-import com.squid.kraken.v4.caching.NotInCacheException;
-import com.squid.kraken.v4.caching.redis.RedisCacheException;
 import com.squid.kraken.v4.core.analysis.datamatrix.AxisValues;
 import com.squid.kraken.v4.core.analysis.datamatrix.CompareMerger;
 import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
@@ -99,11 +94,13 @@ public class AnalysisCompute {
 	private boolean mandatory_link = false;
 
 	static final Logger logger = LoggerFactory.getLogger(AnalysisCompute.class);
-	
-	public static final boolean SUPPORT_SMART_CACHE = new Boolean(KrakenConfig.getProperty("feature.smartcache", "true"));
-	
+
+	public static final boolean SUPPORT_SMART_CACHE = new Boolean(
+			KrakenConfig.getProperty("feature.smartcache", "true"));
+
 	// turn to true to support soft-filter optimization
-	private static final boolean SUPPORT_SOFT_FILTERS = new Boolean(KrakenConfig.getProperty("feature.softfilters", "false"));
+	private static final boolean SUPPORT_SOFT_FILTERS = new Boolean(
+			KrakenConfig.getProperty("feature.softfilters", "false"));
 
 	public AnalysisCompute(Universe universe) {
 		this.universe = universe;
@@ -152,9 +149,10 @@ public class AnalysisCompute {
 		if (groups.isEmpty()) {
 			SimpleQuery query = this.genSimpleQuery(analysis);
 			PreviewWriter qw = new PreviewWriter();
-			QueryRunner runner = new QueryRunner(universe.getContext(), query, analysis.isLazy(), qw, analysis.getJobId());
+			QueryRunner runner = new QueryRunner(universe.getContext(), query, analysis.isLazy(), qw,
+					analysis.getJobId());
 			runner.run();
-			
+
 			DataMatrix dm = qw.getDataMatrix();
 			if (dm != null) {
 				for (DataMatrixTransform transform : query.getPostProcessing()) {
@@ -173,7 +171,8 @@ public class AnalysisCompute {
 	}
 
 	// handle compare T947
-	public DataMatrix computeAnalysisCompareTo(final DashboardAnalysis currentAnalysis) throws ScopeException, ComputingException, SQLScopeException, InterruptedException, RenderingException {
+	public DataMatrix computeAnalysisCompareTo(final DashboardAnalysis currentAnalysis)
+			throws ScopeException, ComputingException, SQLScopeException, InterruptedException, RenderingException {
 		// preparing the selection
 		DashboardSelection presentSelection = currentAnalysis.getSelection();
 		DomainSelection compare = presentSelection.getCompareToSelection();
@@ -298,14 +297,20 @@ public class AnalysisCompute {
 			pastSelection.add(filter, compare.getMembers(filter));
 			if (joinAxis != null && compareAxis(filter, joinAxis)) {
 				pastInterval = computeMinMax(compare.getMembers(filter));
+				IntervalleObject alignedPastInterval = this.alignPastInterval(presentInterval, pastInterval, joinAxis);
+				if (!alignedPastInterval.equals(pastInterval)) {
+					pastSelection.clear(filter);
+					pastSelection.add(filter, alignedPastInterval);
+				}
 			}
 			//
 			IntervalleObject isInterval = computeMinMax(compare.getMembers(filter));
-			if (!compareToWhat.equals("")) compareToWhat += " and ";
-			if (isInterval!=null) {
+			if (!compareToWhat.equals(""))
+				compareToWhat += " and ";
+			if (isInterval != null) {
 				compareToWhat += isInterval.toString();
 			} else {
-				compareToWhat += "["+(compare.getMembers(filter)).toString()+"]";
+				compareToWhat += "[" + (compare.getMembers(filter)).toString() + "]";
 			}
 		}
 		compareToAnalysis.setSelection(pastSelection);
@@ -314,15 +319,19 @@ public class AnalysisCompute {
 			// use the present selection to compute
 			compareToAnalysis.setBeyodLimitSelection(presentSelection);
 		}
-		// copy metrics (do it after in order to be able to use the pastInterval)
+		// copy metrics (do it after in order to be able to use the
+		// pastInterval)
 		for (Measure kpi : currentAnalysis.getKpis()) {
 			Measure compareToKpi = new Measure(kpi);
 			compareToKpi.setOriginType(OriginType.COMPARETO);
 			compareToKpi.setName(kpi.getName() + " [compare]");
-			compareToKpi.setDescription(kpi.getName()+" comparison on "+compareToWhat);
+			compareToKpi.setDescription(kpi.getName() + " comparison on " + compareToWhat);
 			compareToAnalysis.add(compareToKpi);
 		}
-		//
+
+		// align bounds
+		// this.alignPeriodBounds(dm, presentInterval, pastInterval, joinAxis);
+
 		// compute present & past in //
 		Future<DataMatrix> future = ExecutionManager.INSTANCE.submit(universe.getContext().getCustomerId(),
 				new Callable<DataMatrix>() {
@@ -343,79 +352,79 @@ public class AnalysisCompute {
 			final Period offset = computeOffset(present, joinAxis, presentInterval, pastInterval);
 			//
 			Object computeGrowthOption = currentAnalysis.getOption(DashboardAnalysis.COMPUTE_GROWTH_OPTION_KEY);
-			boolean computeGrowth = computeGrowthOption!=null && computeGrowthOption.equals(true);
+			boolean computeGrowth = computeGrowthOption != null && computeGrowthOption.equals(true);
 			CompareMerger merger = new CompareMerger(present, past, mergeOrder, joinAxis, offset, computeGrowth);
 			DataMatrix debug = merger.merge(false);
 			// apply the original order by directive (T1039)
 			debug.orderBy(originalOrders);
 			return debug;
 		} catch (ExecutionException e) {
-			if (e.getCause() != null){
-				if ( e.getCause() instanceof RedisCacheException) {
+			if (e.getCause() != null) {
+				if (e.getCause() instanceof RedisCacheException) {
 					throw (RedisCacheException) e.getCause();
-				}	
-				if (e.getCause() instanceof NotInCacheException){
+				}
+				if (e.getCause() instanceof NotInCacheException) {
 					throw (NotInCacheException) e.getCause();
 				}
-				if (e.getCause() instanceof ComputingException){
+				if (e.getCause() instanceof ComputingException) {
 					throw (ComputingException) e.getCause();
 				}
-			}				
+			}
 			throw new ComputingException(e.getCause());
-		}			
+		}
 	}
 
-	private void alignPeriodBounds(DataMatrix dm, IntervalleObject presentInterval, IntervalleObject pastInterval, Axis joinAxis) throws ScopeException{
-		if  ( joinAxis != null && presentInterval != null && pastInterval != null){
-		
-			AxisValues check = dm.find(joinAxis);
-			if (check != null) {
-			
-				Object lowerPresent = presentInterval.getLowerBound();
-				Object lowerPast = pastInterval.getLowerBound();
-				Object upperPresent= presentInterval.getUpperBound();
-				Object upperPast= pastInterval.getUpperBound();
-				//
-				IDomain image = check.getAxis().getDefinition().getImageDomain();
-				PeriodType type = computePeriodType(image);
-				if (lowerPresent instanceof Date && lowerPast instanceof Date) {
-					
-					DateTime lowerPresentDT= new DateTime( (Date) lowerPresent);				
-					DateTime upperPresentDT= new DateTime( (Date) upperPresent);
-					DateTime lowerPastDT= new DateTime( (Date) lowerPast);				
-					DateTime upperPastDT= new DateTime( (Date) upperPast);
-										
-					//realign 
-					if (image.isInstanceOf(IDomain.YEARLY)) {
-						lowerPresent = new DateTime(lowerPresentDT.getYear(), 1, 1, 0, 0).toDate() ;
-						upperPresent = new DateTime(upperPresentDT.getYear(), 12, 31, 59, 59).toDate(); 
-						lowerPast = new DateTime(lowerPastDT.getYear(), 1, 1, 0, 0).toDate() ;
-						upperPast = new DateTime(upperPastDT.getYear(), 12, 31, 59, 59).toDate();
-						
-					} else if (image.isInstanceOf(IDomain.QUATERLY) || image.isInstanceOf(IDomain.MONTHLY)) {
-						lowerPresent = new DateTime(lowerPresentDT.getYear(), lowerPresentDT.getMonthOfYear(), 1, 0, 0).toDate() ;
-						upperPresent = new DateTime(upperPresentDT.getYear(), upperPresentDT.getMonthOfYear(),new LocalDate((Date) upperPresent).dayOfMonth().getMaximumValue(), 59, 59).toDate(); 
-						lowerPast = new DateTime(lowerPastDT.getYear(),lowerPresentDT.getMonthOfYear(), 1, 0, 0).toDate() ;
-						upperPast = new DateTime(upperPastDT.getYear(), upperPastDT.getMonthOfYear(), new LocalDate((Date) upperPast).dayOfMonth().getMaximumValue(), 59, 59).toDate();
+	private IntervalleObject alignPastInterval(IntervalleObject presentInterval, IntervalleObject pastInterval,
+			Axis joinAxis) throws ScopeException {
 
-					} else if (image.isInstanceOf(IDomain.WEEKLY)) {
-						//fixed number of days in a week,  keep bounds as it is
-						
-					} else {
-						// daily, keep bounds as it is
+		if (joinAxis != null && presentInterval != null && pastInterval != null) {
+
+			Object lowerPresent = presentInterval.getLowerBound();
+			Object lowerPast = pastInterval.getLowerBound();
+			Object upperPresent = presentInterval.getUpperBound();
+			Object upperPast = pastInterval.getUpperBound();
+			//
+			IDomain image = joinAxis.getDefinition().getImageDomain();
+			if (lowerPresent instanceof Date && lowerPast instanceof Date) {
+
+				DateTime lowerPresentDT = new DateTime((Date) lowerPresent);
+				DateTime upperPresentDT = new DateTime((Date) upperPresent);
+				DateTime upperPastDT = new DateTime((Date) upperPast);
+
+				// realign
+				if (image.isInstanceOf(IDomain.YEARLY)) {
+					// check if present is an exact number of years
+					if (lowerPresentDT.getDayOfYear() == 1
+							&& upperPresentDT.getDayOfYear() == upperPresentDT.dayOfYear().getMaximumValue()) {
+						// check of both periods have the same number of days
+						Period presentPeriod = new Period(new LocalDate(lowerPresent), new LocalDate(upperPresent));
+						Period pastPeriod = new Period(new LocalDate(lowerPast), new LocalDate(upperPast));
+						if (presentPeriod.getDays() == pastPeriod.getDays()) {
+							// realign
+							Date newUpperPast = new DateTime(upperPastDT.getYear(), 12, 31, 23, 59).toDate();
+							return new IntervalleObject(lowerPast, newUpperPast);
+						}
 					}
-					
-					
-					presentInterval.setLowerBound(lowerPresent);
-					presentInterval.setUpperBound(upperPresent);
-					pastInterval.setLowerBound(lowerPast);
-					pastInterval.setUpperBound(upperPast);
+				} else if (image.isInstanceOf(IDomain.QUATERLY) || image.isInstanceOf(IDomain.MONTHLY)) {
+					// check if present is an exact number of month
+					if (lowerPresentDT.getDayOfMonth() == 1
+							&& upperPresentDT.getDayOfMonth() == upperPresentDT.dayOfMonth().getMaximumValue()) {
+						// check of both periods have the same number of days
+						Period presentPeriod = new Period(new LocalDate(lowerPresent), new LocalDate(upperPresent));
+						Period pastPeriod = new Period(new LocalDate(lowerPast), new LocalDate(upperPast));
+						if (presentPeriod.getDays() == pastPeriod.getDays()) {
+							// realign
+							Date newUpperPast = new DateTime(upperPastDT.getYear(), upperPastDT.getMonthOfYear(),
+									new LocalDate((Date) upperPast).dayOfMonth().getMaximumValue(), 23, 59).toDate();
+							return new IntervalleObject(lowerPast, newUpperPast);
+						}
+					}
 				}
 			}
 		}
-	} 
-	
-	
+		return pastInterval;
+	}
+
 	private boolean compareAxis(Axis x1, Axis x2) {
 		DateExpressionAssociativeTransformationExtractor checker = new DateExpressionAssociativeTransformationExtractor();
 		ExpressionAST naked1 = checker.eval(x1.getDimension() != null ? x1.getReference() : x1.getDefinitionSafe());
@@ -460,7 +469,8 @@ public class AnalysisCompute {
 		}
 	}
 
-	private Period computeOffset(IntervalleObject presentInterval, IntervalleObject pastInterval, AxisValues joinAxis) throws ScopeException {
+	private Period computeOffset(IntervalleObject presentInterval, IntervalleObject pastInterval, AxisValues joinAxis)
+			throws ScopeException {
 		// it is better to compare on the lower bound because alignment on the
 		// end of month is not accurate
 		Object present = presentInterval.getLowerBound();
@@ -470,27 +480,27 @@ public class AnalysisCompute {
 		PeriodType type = computePeriodType(image);
 		//
 		if (present instanceof Date && past instanceof Date) {
-			Date pastDate= (Date) past;
+			Date pastDate = (Date) past;
 			DateTime dt = new DateTime(pastDate);
 			if (image.isInstanceOf(IDomain.YEARLY)) {
-				DateTime newDT = new DateTime( dt.getYear(), 1, 1, 0, 0 );				
+				DateTime newDT = new DateTime(dt.getYear(), 1, 1, 0, 0);
 				pastDate = newDT.toDate();
 			} else if (image.isInstanceOf(IDomain.QUATERLY) || image.isInstanceOf(IDomain.MONTHLY)) {
-				DateTime newDT = new DateTime(dt.getYear(),dt.getMonthOfYear(), 1, 0,0 );
+				DateTime newDT = new DateTime(dt.getYear(), dt.getMonthOfYear(), 1, 0, 0);
 				pastDate = newDT.toDate();
 			} else if (image.isInstanceOf(IDomain.WEEKLY)) {
-				DateTime newDT = new DateTime(dt.getYear(), dt.getMonthOfYear(),dt.getWeekyear(), 0, 0 );
+				DateTime newDT = new DateTime(dt.getYear(), dt.getMonthOfYear(), dt.getWeekyear(), 0, 0);
 				pastDate = newDT.toDate();
 			} else {
 				// daily, keep Date as it is
 			}
 			return new Period(new LocalDate((pastDate).getTime()), new LocalDate(((Date) present).getTime()), type);
-			
+
 		} else {
 			return null;
 		}
 	}
-	
+
 	private PeriodType computePeriodType(IDomain image) {
 		if (image.isInstanceOf(IDomain.YEARLY)) {
 			return PeriodType.years();
@@ -527,8 +537,9 @@ public class AnalysisCompute {
 	}
 
 	/**
-	 * This method expect to compute a "simple" analysis, that is not requiring a compareTo operation
-	 * It supports the BeyondLimit parameter.
+	 * This method expect to compute a "simple" analysis, that is not requiring
+	 * a compareTo operation It supports the BeyondLimit parameter.
+	 * 
 	 * @param analysis
 	 * @param optimize
 	 * @return
@@ -536,16 +547,15 @@ public class AnalysisCompute {
 	 * @throws ComputingException
 	 * @throws SQLScopeException
 	 * @throws InterruptedException
-	 * @throws RenderingException 
+	 * @throws RenderingException
 	 */
-	private DataMatrix computeAnalysisSimple(DashboardAnalysis analysis,
-			boolean optimize) throws ScopeException, ComputingException,
-			SQLScopeException, InterruptedException, RenderingException {
+	private DataMatrix computeAnalysisSimple(DashboardAnalysis analysis, boolean optimize)
+			throws ScopeException, ComputingException, SQLScopeException, InterruptedException, RenderingException {
 		// select with one or several KPI groups
 		DataMatrix result = null;
 		for (MeasureGroup group : analysis.getGroups()) {
 			//
-			DataMatrix dm =  computeAnalysisSimpleForGroup(analysis, group, optimize);
+			DataMatrix dm = computeAnalysisSimpleForGroup(analysis, group, optimize);
 			if (dm != null) {
 
 				// merge if needed
@@ -555,32 +565,32 @@ public class AnalysisCompute {
 					result = result.merge(dm);
 				}
 			}
-        }
-        return result;
-    }
-	
-	private DataMatrix runQuery(SimpleQuery query, boolean lazy, DashboardAnalysis analysis, PreviewWriter qw) throws ComputingException {
+		}
+		return result;
+	}
+
+	private DataMatrix runQuery(SimpleQuery query, boolean lazy, DashboardAnalysis analysis, PreviewWriter qw)
+			throws ComputingException {
 		QueryRunner runner = new QueryRunner(universe.getContext(), query, lazy, qw, analysis.getJobId());
 		runner.run();
 		return qw.getDataMatrix();
 	}
-	
-	protected DataMatrix computeAnalysisSimpleForGroupFromSmartCache(DashboardAnalysis analysis, AnalysisSmartCacheRequest request, PreviewWriter qw, boolean optimize) throws NotInCacheException {
+
+	protected DataMatrix computeAnalysisSimpleForGroupFromSmartCache(DashboardAnalysis analysis,
+			AnalysisSmartCacheRequest request, PreviewWriter qw, boolean optimize) throws NotInCacheException {
 		// try the smart cache
 		long start = System.currentTimeMillis();
 		AnalysisSmartCacheMatch match = AnalysisSmartCache.INSTANCE.checkMatch(universe, request);
-		if (match!=null) {
+		if (match != null) {
 			boolean lazy = true;
-			if (match.getSignature().getRowCount()<0) {
+			if (match.getSignature().getRowCount() < 0) {
 				// if the DM is not yet available, run a standard query to wait
 				lazy = false;
 			}
 			// need to setup the postprocessing somewhere...
 			// restore the query for the match
 			try {
-				SimpleQuery queryBis = this.genAnalysisQueryCachable(
-						match.getAnalysis(),
-						match.getMeasures(), 
+				SimpleQuery queryBis = this.genAnalysisQueryCachable(match.getAnalysis(), match.getMeasures(),
 						optimize);
 				runQuery(queryBis, lazy, analysis, qw);
 				if (!lazy) {
@@ -594,14 +604,14 @@ public class AnalysisCompute {
 					queryBis.addPostProcessing(transform);
 				}
 				// run the postprocessing now so it can fails
-				DataMatrix dm =  qw.getDataMatrix();
+				DataMatrix dm = qw.getDataMatrix();
 				if (dm != null) {
 					for (DataMatrixTransform transform : queryBis.getPostProcessing()) {
 						dm = transform.apply(dm);
 					}
 				}
 				long end = System.currentTimeMillis();
-				logger.info("HIT! get analysis from Smart Cache in "+(end-start)+"ms");
+				logger.info("HIT! get analysis from Smart Cache in " + (end - start) + "ms");
 				// set the smart cache flag
 				dm.setFromSmartCache(true);
 				return dm;
@@ -610,29 +620,33 @@ public class AnalysisCompute {
 			}
 		} else {
 			long end = System.currentTimeMillis();
-			logger.info("Smart Cache consumed: "+(end-start)+"ms");
+			logger.info("Smart Cache consumed: " + (end - start) + "ms");
 		}
 		// else
-		throw new NotInCacheException("cannot use this cached datamatrix");// for any reason
+		throw new NotInCacheException("cannot use this cached datamatrix");// for
+																			// any
+																			// reason
 	}
-	
-	protected DataMatrix computeAnalysisSimpleForGroup(DashboardAnalysis analysis, MeasureGroup group,
-			boolean optimize) throws ScopeException, SQLScopeException, ComputingException, InterruptedException, RenderingException {
+
+	protected DataMatrix computeAnalysisSimpleForGroup(DashboardAnalysis analysis, MeasureGroup group, boolean optimize)
+			throws ScopeException, SQLScopeException, ComputingException, InterruptedException, RenderingException {
 		// generate the query
 		PreviewWriter qw = new PreviewWriter();
-		SimpleQuery query = this.genAnalysisQueryCachable(analysis,
-				group, optimize);
-		// compute the signature: do it after generating the query to take into account side-effects
+		SimpleQuery query = this.genAnalysisQueryCachable(analysis, group, optimize);
+		// compute the signature: do it after generating the query to take into
+		// account side-effects
 		boolean smartCache = SUPPORT_SMART_CACHE && !analysis.hasRollup();
-		AnalysisSmartCacheRequest smartCacheRequest = smartCache?new AnalysisSmartCacheRequest(universe, analysis, group, query):null;
+		AnalysisSmartCacheRequest smartCacheRequest = smartCache
+				? new AnalysisSmartCacheRequest(universe, analysis, group, query) : null;
 		boolean temporarySignature = false;
 		try {
-			// run the query using 1/ first the lazy, 2/ the samrt cache (if allowed) 3/ direct execution if not lazy
+			// run the query using 1/ first the lazy, 2/ the samrt cache (if
+			// allowed) 3/ direct execution if not lazy
 			try {
 				// always try lazy first
-				runQuery(query, true/*lazy*/, analysis, qw);
+				runQuery(query, true/* lazy */, analysis, qw);
 			} catch (NotInCacheException e) {
-				if (smartCacheRequest!=null) {
+				if (smartCacheRequest != null) {
 					try {
 						return computeAnalysisSimpleForGroupFromSmartCache(analysis, smartCacheRequest, qw, optimize);
 					} catch (NotInCacheException ee) {
@@ -642,8 +656,9 @@ public class AnalysisCompute {
 				// still not yet, shall we run it?
 				if (!analysis.isLazy()) {
 					// if smart-cache enabled, lets keep a forward reference
-					// so other can use the smart-cache even if it is not yet computed
-					if (smartCacheRequest!=null) {
+					// so other can use the smart-cache even if it is not yet
+					// computed
+					if (smartCacheRequest != null) {
 						temporarySignature = AnalysisSmartCache.INSTANCE.put(smartCacheRequest);
 					}
 					runQuery(query, false, analysis, qw);
@@ -652,17 +667,22 @@ public class AnalysisCompute {
 				}
 
 			}
-			// if we get here it's that we ran the query, not from the SmartCache
-			DataMatrix dm =  qw.getDataMatrix();
+			// if we get here it's that we ran the query, not from the
+			// SmartCache
+			DataMatrix dm = qw.getDataMatrix();
 			if (dm != null) {
 				for (DataMatrixTransform transform : query.getPostProcessing()) {
 					dm = transform.apply(dm);
 				}
 			}
-			// if it is a full dataset and no rollup, store the layout in the smartCache
-			if (smartCacheRequest!=null) {
+			// if it is a full dataset and no rollup, store the layout in the
+			// smartCache
+			if (smartCacheRequest != null) {
 				if (dm.isFullset() && !analysis.hasRollup()) {
-					smartCacheRequest.setRowCount(dm);// record the resultset size - so we know the resultset should be available
+					smartCacheRequest.setRowCount(dm);// record the resultset
+														// size - so we know the
+														// resultset should be
+														// available
 					if (dm.isFromCache() && !dm.isFromSmartCache()) {
 						// from cache, but is it still in the smartCache ?
 						if (!AnalysisSmartCache.INSTANCE.contains(smartCacheRequest)) {
@@ -678,70 +698,77 @@ public class AnalysisCompute {
 			}
 			return dm;
 		} finally {
-			if (smartCacheRequest!=null && temporarySignature) {
+			if (smartCacheRequest != null && temporarySignature) {
 				// make sure to remove the temporary signature from cache
-				//AnalysisSmartCache.INSTANCE.remove(smartCacheRequest);
+				// AnalysisSmartCache.INSTANCE.remove(smartCacheRequest);
 				AnalysisSmartCacheSignature sign = AnalysisSmartCache.INSTANCE.get(smartCacheRequest);
-				if (sign!=null && sign.getRowCount()<0) {
+				if (sign != null && sign.getRowCount() < 0) {
 					// this is the temporary entry
 					AnalysisSmartCache.INSTANCE.remove(smartCacheRequest);
 				}
 			}
 		}
 	}
-	
-    /**
-     * execute the analysis but does not read the result: 
-     * this method can be used to stream the result back to client, for instance to export the dataset
-     * @param analysis
-     * @return
-     * @throws ComputingException
-     * @throws InterruptedException
-     */
-    public void executeAnalysis(DashboardAnalysis analysis, QueryWriter writer, boolean lazy) throws ComputingException, InterruptedException {
-	    try {
-            long start = System.currentTimeMillis();
-    		logger.info("start of sql generation");
 
-	        List<MeasureGroup> groups = analysis.getGroups();
-            if (groups.isEmpty()) {
-                 SimpleQuery query = this.genSimpleQuery(analysis);
-                
-                long stop = System.currentTimeMillis();
-        		//logger.info("End of sql generation  in " +(stop-start)+ "ms" );
-    			logger.info("task="+this.getClass().getName()+" method=executeAnalysis.SQLGeneration"+" duration="+ (stop-start)+" error=false status=done");
-                try {
-                    String sql = query.render();
-                    SQLStats queryLog = new SQLStats(query.toString(), "executeAnalysis.SQLGeneration",sql, (stop-start), analysis.getUniverse().getProject().getId().getProjectId());
-                    queryLog.setError(false);
-                    PerfDB.INSTANCE.save(queryLog);
+	/**
+	 * execute the analysis but does not read the result: this method can be
+	 * used to stream the result back to client, for instance to export the
+	 * dataset
+	 * 
+	 * @param analysis
+	 * @return
+	 * @throws ComputingException
+	 * @throws InterruptedException
+	 */
+	public void executeAnalysis(DashboardAnalysis analysis, QueryWriter writer, boolean lazy)
+			throws ComputingException, InterruptedException {
+		try {
+			long start = System.currentTimeMillis();
+			logger.info("start of sql generation");
 
-                } catch (RenderingException e) {
-                    e.printStackTrace();
-                }
+			List<MeasureGroup> groups = analysis.getGroups();
+			if (groups.isEmpty()) {
+				SimpleQuery query = this.genSimpleQuery(analysis);
+
+				long stop = System.currentTimeMillis();
+				// logger.info("End of sql generation in " +(stop-start)+ "ms"
+				// );
+				logger.info("task=" + this.getClass().getName() + " method=executeAnalysis.SQLGeneration" + " duration="
+						+ (stop - start) + " error=false status=done");
+				try {
+					String sql = query.render();
+					SQLStats queryLog = new SQLStats(query.toString(), "executeAnalysis.SQLGeneration", sql,
+							(stop - start), analysis.getUniverse().getProject().getId().getProjectId());
+					queryLog.setError(false);
+					PerfDB.INSTANCE.save(queryLog);
+
+				} catch (RenderingException e) {
+					e.printStackTrace();
+				}
 
 				QueryRunner runner = new QueryRunner(universe.getContext(), query, lazy, writer, analysis.getJobId());
 				runner.run();
-                        	
-            } else {
-                // possible only if there is only one group
-                if (groups.size()!=1) {
-                    throw new ComputingException("the analysis cannot be exported in a single query - try removing some metrics");
-                }
-                // select with one or several KPI groups
-                //
-                MeasureGroup group = groups.get(0);
-                //
-                SimpleQuery query = genAnalysisQueryWithSoftFiltering(analysis, group, false, false);
-        		//
+
+			} else {
+				// possible only if there is only one group
+				if (groups.size() != 1) {
+					throw new ComputingException(
+							"the analysis cannot be exported in a single query - try removing some metrics");
+				}
+				// select with one or several KPI groups
+				//
+				MeasureGroup group = groups.get(0);
+				//
+				SimpleQuery query = genAnalysisQueryWithSoftFiltering(analysis, group, false, false);
+				//
 				QueryRunner runner = new QueryRunner(universe.getContext(), query, lazy, writer, analysis.getJobId());
 				runner.run();
-            }
-	    } catch (ScopeException e) {
-	        throw new ComputingException(e);
-        } catch (SQLScopeException e) {
-            throw new ComputingException(e);
-        }
+			}
+		} catch (ScopeException e) {
+			throw new ComputingException(e);
+		} catch (SQLScopeException e) {
+			throw new ComputingException(e);
+		}
 	}
 
 	/**
@@ -755,10 +782,9 @@ public class AnalysisCompute {
 	 *            BY or select column order...
 	 * @throws InterruptedException
 	 */
-	protected SimpleQuery genAnalysisQueryWithSoftFiltering(DashboardAnalysis analysis,
-			MeasureGroup group, boolean cachable,
-			boolean optimize) throws ScopeException, SQLScopeException,
-			ComputingException, InterruptedException {
+	protected SimpleQuery genAnalysisQueryWithSoftFiltering(DashboardAnalysis analysis, MeasureGroup group,
+			boolean cachable, boolean optimize)
+			throws ScopeException, SQLScopeException, ComputingException, InterruptedException {
 		//
 		DashboardSelection soft_filters = new DashboardSelection();
 		List<Axis> hidden_slice = new ArrayList<Axis>();
@@ -969,20 +995,18 @@ public class AnalysisCompute {
 	 * @throws SQLScopeException
 	 * @throws ComputingException
 	 * @throws InterruptedException
-	 * @throws RenderingException 
+	 * @throws RenderingException
 	 */
-	protected SimpleQuery genAnalysisQuery(DashboardAnalysis analysis,
-			MeasureGroup group, boolean optimize) throws ScopeException,
-			SQLScopeException, ComputingException, InterruptedException, RenderingException {
+	protected SimpleQuery genAnalysisQuery(DashboardAnalysis analysis, MeasureGroup group, boolean optimize)
+			throws ScopeException, SQLScopeException, ComputingException, InterruptedException, RenderingException {
 		return this.genAnalysisQueryCachable(analysis, group, optimize);
 	}
 
-	protected SimpleQuery genAnalysisQueryCachable(
-			DashboardAnalysis analysis, MeasureGroup group, boolean optimize)
-			throws ScopeException, SQLScopeException, ComputingException,
-			InterruptedException, RenderingException {
+	protected SimpleQuery genAnalysisQueryCachable(DashboardAnalysis analysis, MeasureGroup group, boolean optimize)
+			throws ScopeException, SQLScopeException, ComputingException, InterruptedException, RenderingException {
 		if (analysis.hasBeyondLimit() && analysis.hasLimit() && !analysis.hasRollup()) {
-			// need to take care of the beyond limit axis => compute the limit only on a subset of axes
+			// need to take care of the beyond limit axis => compute the limit
+			// only on a subset of axes
 			SimpleQuery check = genAnalysisQueryWithBeyondLimitSupport(analysis, group, true, optimize);
 			// check is null if cannot apply beyondLimit
 			if (check != null)
@@ -990,9 +1014,18 @@ public class AnalysisCompute {
 		}
 		// else...
 		// use the simple method
-		return genAnalysisQueryWithSoftFiltering(analysis, group, 
-			true, // just set the cachable flag to true -- is this really usefull?
-			optimize);
+		return genAnalysisQueryWithSoftFiltering(analysis, group, true, // just
+																		// set
+																		// the
+																		// cachable
+																		// flag
+																		// to
+																		// true
+																		// -- is
+																		// this
+																		// really
+																		// usefull?
+				optimize);
 	}
 
 	/**
@@ -1009,12 +1042,11 @@ public class AnalysisCompute {
 	 * @throws SQLScopeException
 	 * @throws ComputingException
 	 * @throws InterruptedException
-	 * @throws RenderingException 
+	 * @throws RenderingException
 	 */
-	protected SimpleQuery genAnalysisQueryWithBeyondLimitSupport(DashboardAnalysis analysis,
-			MeasureGroup group, boolean cachable,
-			boolean optimize) throws ScopeException, SQLScopeException,
-			ComputingException, InterruptedException, RenderingException {
+	protected SimpleQuery genAnalysisQueryWithBeyondLimitSupport(DashboardAnalysis analysis, MeasureGroup group,
+			boolean cachable, boolean optimize)
+			throws ScopeException, SQLScopeException, ComputingException, InterruptedException, RenderingException {
 		//
 		// prepare the sub-query that will count the limit
 		DashboardAnalysis subAnalysisWithLimit = new DashboardAnalysis(analysis.getUniverse());
@@ -1074,12 +1106,14 @@ public class AnalysisCompute {
 			if (!values.isEmpty()) {
 				Long limit = analysis.getLimit();
 				// change the analysis definition
-				// => we need to define the join condition explicitly for SmartCache to correctly pick it
+				// => we need to define the join condition explicitly for
+				// SmartCache to correctly pick it
 				analysis.noLimit();
 				analysis.getSelection().add(join, values);
 				SimpleQuery mainquery = genAnalysisQueryWithSoftFiltering(analysis, group, cachable, optimize);
-				//analysis.limit(limit);// restore the limit in case we need it again (compare for example)
-				//mainquery.where(join, values);
+				// analysis.limit(limit);// restore the limit in case we need it
+				// again (compare for example)
+				// mainquery.where(join, values);
 				return mainquery;
 			} else {
 				// failed, using original limit
