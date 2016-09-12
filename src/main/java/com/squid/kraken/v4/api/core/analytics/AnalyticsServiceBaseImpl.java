@@ -2821,7 +2821,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			html.append("<script src=\"http://d3js.org/d3.v3.min.js\" charset=\"utf-8\"></script>\r\n<script src=\"http://vega.github.io/vega/vega.js\" charset=\"utf-8\"></script>\r\n<script src=\"http://vega.github.io/vega-lite/vega-lite.js\" charset=\"utf-8\"></script>\r\n<script src=\"http://vega.github.io/vega-editor/vendor/vega-embed.js\" charset=\"utf-8\"></script>\r\n\r\n");
 		}
 		html.append("<body>");
-		createHTMLtitle(html, title, reply.getQuery().getBBID(), getParentLink(space));
+		createHTMLtitle(html, title, view.getBBID(), getParentLink(space));
 		createHTMLproblems(html, reply.getQuery().getProblems());
 		html.append("<form>");
 		createHTMLfilters(html, reply.getQuery());
