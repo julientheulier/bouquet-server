@@ -2667,7 +2667,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	}
 	
 	private void createHTMLtitle(StringBuilder html, String title, String BBID, URI backLink) {
-		html.append("<div class=\"logo\"><span>Open Bouquet Analytics Rest API Viewer / STYLE=HTML</span><hr/></div>");
+		html.append("<div class=\"logo\"><span>Open Bouquet Analytics Rest <b style='color:#ee7914;'>API</b> Viewer / STYLE=HTML</span><hr/></div>");
 		html.append("<h2>");
 		if (title!=null) {
 			html.append(title);
