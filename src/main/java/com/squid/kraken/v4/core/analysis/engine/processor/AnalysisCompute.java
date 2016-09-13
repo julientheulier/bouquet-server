@@ -98,7 +98,7 @@ public class AnalysisCompute {
 	static final Logger logger = LoggerFactory.getLogger(AnalysisCompute.class);
 
 	public static final boolean SUPPORT_SMART_CACHE = new Boolean(
-			KrakenConfig.getProperty("feature.smartcache", "true"));
+			KrakenConfig.getProperty("feature.smartcache", "false"));
 
 	// turn to true to support soft-filter optimization
 	private static final boolean SUPPORT_SOFT_FILTERS = new Boolean(
