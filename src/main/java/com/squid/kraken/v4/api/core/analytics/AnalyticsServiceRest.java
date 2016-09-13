@@ -25,6 +25,7 @@ package com.squid.kraken.v4.api.core.analytics;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map.Entry;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.GET;
@@ -35,6 +36,7 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriBuilder;
 import javax.ws.rs.core.UriInfo;
@@ -568,10 +570,26 @@ public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implemen
 			return super.getUserContext(request);
 		} catch (InvalidTokenAPIException e) {
 			// add the redirect information
-			String path = uriInfo.getRequestUri().toString();
 			UriBuilder builder = delegate(null).getPublicBaseUriBuilder();
-			UriBuilder redirect = builder.path(cleanPath(path)).queryParam(STYLE_PARAM, Style.HTML);
-			throw new InvalidTokenAPIException(e.getMessage(), redirect.build(), "admin_console", e.isNoError());
+			String path = cleanPath(uriInfo.getRequestUri().getPath());
+			builder.path(path);
+			MultivaluedMap<String, String> queryParams = uriInfo.getQueryParameters();
+			boolean style =false;
+			for (Entry<String, List<String>> entry : queryParams.entrySet()) {
+				if (!entry.getKey().equals(ACCESS_TOKEN_PARAM) && !entry.getValue().isEmpty()) {
+					if (entry.getKey().equals(STYLE_PARAM)) style=true;
+					for (String value : entry.getValue()) {
+						builder.queryParam(entry.getKey(), value);
+					}
+				}
+			}
+			if (!style) builder.queryParam(STYLE_PARAM, Style.HTML);
+			String full = uriInfo.getRequestUri().toString();
+			if (full.contains("#")) {
+				String fragment = full.substring(full.lastIndexOf("#"));
+				builder.fragment(fragment);
+			}
+			throw new InvalidTokenAPIException(e.getMessage(), builder.build(), "admin_console", e.isNoError());
 		}
 	}
 	
