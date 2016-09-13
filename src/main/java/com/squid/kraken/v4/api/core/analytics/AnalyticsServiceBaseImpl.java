@@ -263,8 +263,8 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		return uriInfo.getBaseUri();
 	}
 
-	private static final NavigationItem ROOT_FOLDER = new NavigationItem("Root", "list all your available projects", null, "/", "FOLDER");
-	private static final NavigationItem PROJECTS_FOLDER = new NavigationItem("Projects", "list all your Dictionaries", "/", "/PROJECTS", "FOLDER");
+	private static final NavigationItem ROOT_FOLDER = new NavigationItem("Root", "list all your available content, organize by Projects and Bookmarks", null, "/", "FOLDER");
+	private static final NavigationItem PROJECTS_FOLDER = new NavigationItem("Projects", "list all your Projects", "/", "/PROJECTS", "FOLDER");
 	private static final NavigationItem SHARED_FOLDER = new NavigationItem("Shared Bookmarks", "list all the bookmarks shared with you", "/", "/SHARED", "FOLDER");
 	private static final NavigationItem MYBOOKMARKS_FOLDER = new NavigationItem("My Bookmarks", "list all your bookmarks", "/", "/MYBOOKMARKS", "FOLDER");
 
@@ -2837,7 +2837,6 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		String title = (query.getParent()!=null && query.getParent().length()>0)?query.getParent():"Root";
 		StringBuilder html = createHTMLHeader("List: "+title);
 		createHTMLtitle(html, title, null, result.getParent().getUpLink());
-		//
 		// form
 		html.append("<form><table>");
 		html.append("<tr><td><input size=50 class='q' type='text' name='q' placeholder='filter the list' value='"+(query.getQ()!=null?query.getQ():"")+"'></td>"
@@ -2851,6 +2850,11 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			html.append("<input type='hidden' name='hierarchy' value='"+query.getHiearchy()+"'>");
 		html.append("<input type='hidden' name='access_token' value='"+ctx.getToken().getOid()+"'>");
 		html.append("</table></form>");
+		//
+		// parent description
+		if (result.getParent()!=null && result.getParent().getDescription()!=null && result.getParent().getDescription().length()>0) {
+			html.append("<p><i>"+result.getParent().getDescription()+"</i></p>");
+		}
 		//
 		html.append("<table style='border-collapse:collapse'>");
 		for (NavigationItem item : result.getChildren()) {
@@ -2975,28 +2979,31 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	 * @return
 	 */
 	private void createHTMLfilters(StringBuilder html, AnalyticsQuery query) {
-		if (query.getPeriod()!=null) {
-			html.append("<div class='period'><span class='tooltip'>period: <span class='tooltiptext'>the period defines a dimension or expression of a type date that is used to filter the query or view. You can use the __PERIOD expression as a alias to it.</span></span>");
-			html.append("<input type='text' size=30 name='period' value='"+getFieldValue(query.getPeriod())+"'>");
-			// timeframe
-			html.append("&nbsp;<span class='tooltip'>timeframe <span class='tooltiptext'>the timeframe defines the period range to filter. You can use an array of two dates for lower/upper bounds (inclusive). Or some alias like __ALL, __LAST_DAY, __LAST_7_DAYS, __CURRENT_MONTH, __PREVIOUS_MONTH, __CURRENT_YEAR, __PREVIOOUS_YEAR</span></span>");
-			html.append("&nbsp;from:&nbsp;<input type='text' name='timeframe' value='"+getDate(query.getTimeframe(),0)+"'>");
-			html.append("&nbsp;to:&nbsp;<input type='text' name='timeframe' value='"+getDate(query.getTimeframe(),1)+"'>");
-			// compare
-			html.append("&nbsp;<span class='tooltip'>compareTo <span class='tooltiptext'>Activate and define the compare to period. You can use an array of two dates for lower/upper bounds (inclusive). Or some alias like __ALL, __LAST_DAY, __LAST_7_DAYS, __CURRENT_MONTH, __PREVIOUS_MONTH, __CURRENT_YEAR, __PREVIOOUS_YEAR</span></span>");
-			html.append("&nbsp;from:&nbsp;<input type='text' name='compareTo' value='"+getDate(query.getCompareTo(),0)+"'>");
-			html.append("&nbsp;to:&nbsp;<input type='text' name='compareTo' value='"+getDate(query.getCompareTo(),1)+"'>");
-			html.append("</div>");
-		}
-		//
-		html.append("<div class='filters'><span class='tooltip'>filters:<span class='tooltiptext'>Define the filters to apply to results. A filter must be a valid conditional expression. If no filter is defined, the subject default config will apply. You can use the * token to extend the subject default configuration.</span></span>&nbsp;");
+		html.append("<table><tr><td>");
+		// period
+		html.append("<span class='tooltip'>period: <span class='tooltiptext'>the period defines a dimension or expression of a type date that is used to filter the query or view. You can use the __PERIOD expression as a alias to it.</span></span>");
+		html.append("</td><td>");
+		html.append("<input type='text' size=30 name='period' value='"+getFieldValue(query.getPeriod())+"'>");
+		// timeframe
+		html.append("&nbsp;<span class='tooltip'>timeframe <span class='tooltiptext'>the timeframe defines the period range to filter. You can use an array of two dates for lower/upper bounds (inclusive). Or some alias like __ALL, __LAST_DAY, __LAST_7_DAYS, __CURRENT_MONTH, __PREVIOUS_MONTH, __CURRENT_YEAR, __PREVIOOUS_YEAR</span></span>");
+		html.append("&nbsp;from:&nbsp;<input type='text' name='timeframe' value='"+getDate(query.getTimeframe(),0)+"'>");
+		html.append("&nbsp;to:&nbsp;<input type='text' name='timeframe' value='"+getDate(query.getTimeframe(),1)+"'>");
+		// compare
+		html.append("&nbsp;<span class='tooltip'>compareTo <span class='tooltiptext'>Activate and define the compare to period. You can use an array of two dates for lower/upper bounds (inclusive). Or some alias like __ALL, __LAST_DAY, __LAST_7_DAYS, __CURRENT_MONTH, __PREVIOUS_MONTH, __CURRENT_YEAR, __PREVIOOUS_YEAR</span></span>");
+		html.append("&nbsp;from:&nbsp;<input type='text' name='compareTo' value='"+getDate(query.getCompareTo(),0)+"'>");
+		html.append("&nbsp;to:&nbsp;<input type='text' name='compareTo' value='"+getDate(query.getCompareTo(),1)+"'>");
+		html.append("</td></tr>");
+		// filters
+		html.append("<tr><td>");
+		html.append("<span class='tooltip'>filters:<span class='tooltiptext'>Define the filters to apply to results. A filter must be a valid conditional expression. If no filter is defined, the subject default config will apply. You can use the * token to extend the subject default configuration.</span></span>&nbsp;");
+		html.append("</td><td>");
 		if (query.getFilters()!=null && query.getFilters().size()>0) {
 			for (String filter : query.getFilters()) {
-				html.append("&nbsp;<input type='text' size=50 name='filters' value='"+getFieldValue(filter)+"'>");
+				html.append("<input type='text' size=50 name='filters' value='"+getFieldValue(filter)+"'>&nbsp;");
 			}
 		}
-		html.append("&nbsp;<input type='text' size=50 name='filters' value='' placeholder='type formula'>");	
-		html.append("</div>");
+		html.append("<input type='text' size=50 name='filters' value='' placeholder='type formula'>");	
+		html.append("</td></tr></table>");
 	}
 	
 	private static final String axis_style = "display: inline-block;border:1px solid;border-radius:5px;background-color:LavenderBlush ;margin:1px;";
