@@ -183,7 +183,9 @@ public class EngineUtils {
      */
 	public Date convertToDate(Universe universe, DimensionIndex index, Bound bound, String value, IntervalleObject compareFromInterval)
 			throws ParseException, ScopeException, ComputingException {
-		if (value.startsWith("__")) {
+		if (value.equals("")) {
+			return null;
+		} else if (value.startsWith("__")) {
 			//
 			// support hard-coded shortcuts
 			if (value.toUpperCase().startsWith("__COMPARE_TO_")) {
@@ -369,7 +371,8 @@ public class EngineUtils {
 			ExpressionEvaluator evaluator = new ExpressionEvaluator(universe.getContext());
 			// provide sensible default for MIN & MAX -- we don't want the parser to fail is not set
 			Calendar calendar = Calendar.getInstance();
-			evaluator.setParameterValue("MAX", calendar.getTime());
+			Date current = calendar.getTime();
+			evaluator.setParameterValue("MAX", current);
 			// there is no sensible default for MIN
 			evaluator.setParameterValue("MIN", null);
 			// handle compareFrom interval values if available

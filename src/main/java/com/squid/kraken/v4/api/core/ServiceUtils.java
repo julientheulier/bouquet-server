@@ -86,6 +86,8 @@ public class ServiceUtils {
 
 	private static final String ISO8601 = "yyyy-MM-dd'T'HH:mm:ss.SSSZ";
 	private static final String ISO8601short = "yyyy-MM-dd";
+	// next one is actually the format used by the Date.toString()...
+	private static final String JavaDateToStringFormat = "EEE MMM dd HH:mm:ss zzz yyyy";
 
 	private static final String SQUIDAPILOCALE = "squidapilocale";
 
@@ -511,7 +513,13 @@ public class ServiceUtils {
 			// try the short version
 			DateFormat dfshort = new SimpleDateFormat(ISO8601short);
 			dfshort.setTimeZone(TimeZone.getTimeZone("UTC"));
-			return dfshort.parse(iso8601string);
+			try {
+				return dfshort.parse(iso8601string);
+			} catch (ParseException ee) {
+				DateFormat lastChance = new SimpleDateFormat(JavaDateToStringFormat);
+				lastChance.setTimeZone(TimeZone.getTimeZone("UTC"));
+				return lastChance.parse(iso8601string);
+			}
 		}
 	}
 
