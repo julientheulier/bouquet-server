@@ -331,9 +331,7 @@ public class AnalysisCompute {
 			compareToAnalysis.add(compareToKpi);
 		}
 
-		// align bounds
-		// this.alignPeriodBounds(dm, presentInterval, pastInterval, joinAxis);
-
+	
 		// compute present & past in //
 		Future<DataMatrix> future = ExecutionManager.INSTANCE.submit(universe.getContext().getCustomerId(),
 				new Callable<DataMatrix>() {
@@ -360,8 +358,9 @@ public class AnalysisCompute {
 			// apply the original order by directive (T1039)
 			debug.orderBy(originalOrders);
 			// T1897 - enforce limit & offset
-			if (debug.getRows().size()>currentAnalysis.getLimit()) {
-				DataMatrixTransformTruncate truncate = new DataMatrixTransformTruncate(currentAnalysis.getLimit(), currentAnalysis.getOffset());
+			if (debug.getRows().size() > currentAnalysis.getLimit()) {
+				DataMatrixTransformTruncate truncate = new DataMatrixTransformTruncate(currentAnalysis.getLimit(),
+						currentAnalysis.getOffset());
 				debug = truncate.apply(debug);
 			}
 			return debug;
@@ -408,8 +407,18 @@ public class AnalysisCompute {
 						Period pastPeriod = new Period(new LocalDate(lowerPast), new LocalDate(upperPast));
 						if (presentPeriod.getDays() == pastPeriod.getDays()) {
 							// realign
-							Date newUpperPast = new DateTime(upperPastDT.getYear(), 12, 31, 23, 59).toDate();
-							return new IntervalleObject(lowerPast, newUpperPast);
+							if (presentPeriod.getYears() > pastPeriod.getYears()) {
+								Date newUpperPast = new DateTime(upperPastDT.getYear(), 12, 31, 23, 59).toDate();
+								return new IntervalleObject(lowerPast, newUpperPast);
+							} else {
+								if (upperPastDT.getDayOfYear() != upperPastDT.dayOfYear().getMaximumValue()) {
+									Date newUpperPast = new DateTime(upperPastDT.getYear() - 1, 12, 31, 23, 59)
+											.toDate();
+									return new IntervalleObject(lowerPast, newUpperPast);
+
+								}
+
+							}
 						}
 					}
 				} else if (image.isInstanceOf(IDomain.QUATERLY) || image.isInstanceOf(IDomain.MONTHLY)) {
@@ -421,9 +430,30 @@ public class AnalysisCompute {
 						Period pastPeriod = new Period(new LocalDate(lowerPast), new LocalDate(upperPast));
 						if (presentPeriod.getDays() == pastPeriod.getDays()) {
 							// realign
-							Date newUpperPast = new DateTime(upperPastDT.getYear(), upperPastDT.getMonthOfYear(),
-									new LocalDate((Date) upperPast).dayOfMonth().getMaximumValue(), 23, 59).toDate();
-							return new IntervalleObject(lowerPast, newUpperPast);
+							if (presentPeriod.getMonths() > pastPeriod.getMonths()) {
+								Date newUpperPast = new DateTime(upperPastDT.getYear(), upperPastDT.getMonthOfYear(),
+										upperPastDT.dayOfMonth().getMaximumValue(), 23, 59).toDate();
+								return new IntervalleObject(lowerPast, newUpperPast);
+							} else {
+
+								if (upperPastDT.getDayOfMonth() != upperPastDT.dayOfMonth().getMaximumValue()) {
+									if (upperPastDT.getMonthOfYear() == 1) {
+										Date newUpperPast = new DateTime(upperPastDT.getYear() - 1, 12, 31, 23, 59)
+												.toDate();
+										return new IntervalleObject(lowerPast, newUpperPast);
+
+									} else {
+
+										upperPastDT = upperPastDT.minusMonths(1);
+										Date newUpperPast = new DateTime(upperPastDT.getYear(),
+												upperPastDT.getMonthOfYear(),
+												upperPastDT.dayOfMonth().getMaximumValue(), 23, 59).toDate();
+										return new IntervalleObject(lowerPast, newUpperPast);
+
+									}
+
+								}
+							}
 						}
 					}
 				}
@@ -483,18 +513,52 @@ public class AnalysisCompute {
 		Object present = presentInterval.getLowerBound();
 		Object past = pastInterval.getLowerBound();
 		//
+
 		IDomain image = joinAxis.getAxis().getDefinition().getImageDomain();
 		PeriodType type = computePeriodType(image);
 		//
 		if (present instanceof Date && past instanceof Date) {
+
+			Period presentPeriod = new Period(new LocalDate(((Date) presentInterval.getLowerBound()).getTime()),
+					new LocalDate(((Date) presentInterval.getUpperBound()).getTime()), type);
+			Period pastPeriod = new Period(new LocalDate(((Date) presentInterval.getLowerBound()).getTime()),
+					new LocalDate(((Date) presentInterval.getUpperBound()).getTime()), type);
+
 			Date pastDate = (Date) past;
 			DateTime dt = new DateTime(pastDate);
 			if (image.isInstanceOf(IDomain.YEARLY)) {
-				DateTime newDT = new DateTime(dt.getYear(), 1, 1, 0, 0);
-				pastDate = newDT.toDate();
+				if (presentPeriod.getYears() > pastPeriod.getYears()) {
+					// e.g. presentPeriod of 365 days ->
+					// presentPeriod.getYears=1 && past year of 366 days ->
+					// pastPeriod.getYears=0
+					DateTime newDT = new DateTime(dt.getYear(), 1, 1, 0, 0);
+					pastDate = newDT.toDate();
+				} else {
+					if (dt.getDayOfYear() != 1) {
+						// e.g present period of 366 days -> past date at dec 31
+						DateTime newDT = new DateTime(dt.getYear() + 1, 1, 1, 0, 0);
+						pastDate = newDT.toDate();
+					}
+				}
 			} else if (image.isInstanceOf(IDomain.QUATERLY) || image.isInstanceOf(IDomain.MONTHLY)) {
-				DateTime newDT = new DateTime(dt.getYear(), dt.getMonthOfYear(), 1, 0, 0);
-				pastDate = newDT.toDate();
+
+				if (presentPeriod.getMonths() > pastPeriod.getMonths()) {
+					// e.g present period of 28 days(February) ->
+					// pastPeriod.getMonths() = 0 (January has 31 days)
+					DateTime newDT = new DateTime(dt.getYear(), dt.getMonthOfYear(), 1, 0, 0);
+					pastDate = newDT.toDate();
+				} else {
+					if (dt.getDayOfMonth() != 1) {
+						// e.g. present period of 31 day(March) pastDate = Feb 6
+						if (dt.getMonthOfYear() == 12) {
+							DateTime newDT = new DateTime(dt.getYear() + 1, 1, 1, 0, 0);
+							pastDate = newDT.toDate();
+						} else {
+							DateTime newDT = new DateTime(dt.getYear(), dt.getMonthOfYear() + 1, 1, 0, 0);
+							pastDate = newDT.toDate();
+						}
+					}
+				}
 			} else if (image.isInstanceOf(IDomain.WEEKLY)) {
 				DateTime newDT = new DateTime(dt.getYear(), dt.getMonthOfYear(), dt.getWeekyear(), 0, 0);
 				pastDate = newDT.toDate();
@@ -583,8 +647,8 @@ public class AnalysisCompute {
 		return qw.getDataMatrix();
 	}
 
-	protected DataMatrix computeAnalysisSimpleForGroupFromSmartCache(DashboardAnalysis analysis, 
-			SimpleQuery query, AnalysisSmartCacheRequest request, PreviewWriter qw, boolean optimize) throws NotInCacheException {
+	protected DataMatrix computeAnalysisSimpleForGroupFromSmartCache(DashboardAnalysis analysis, SimpleQuery query,
+			AnalysisSmartCacheRequest request, PreviewWriter qw, boolean optimize) throws NotInCacheException {
 		// try the smart cache
 		long start = System.currentTimeMillis();
 		AnalysisSmartCacheMatch match = AnalysisSmartCache.INSTANCE.checkMatch(universe, request);
@@ -602,13 +666,13 @@ public class AnalysisCompute {
 				// T1913
 				for (AxisMapping ax : queryBis.getMapper().getAxisMapping()) {
 					AxisMapping mapping = query.getMapper().find(ax.getAxis());
-					if (mapping!=null && !mapping.getAxis().getName().equals(ax.getAxis().getName())) {
+					if (mapping != null && !mapping.getAxis().getName().equals(ax.getAxis().getName())) {
 						ax.getAxis().setName(mapping.getAxis().getName());
 					}
 				}
 				for (MeasureMapping mx : queryBis.getMapper().getMeasureMapping()) {
 					MeasureMapping mapping = query.getMapper().find(mx.getMapping());
-					if (mapping!=null && !mapping.getMapping().getName().equals(mx.getMapping().getName())) {
+					if (mapping != null && !mapping.getMapping().getName().equals(mx.getMapping().getName())) {
 						mx.getMapping().setName(mapping.getMapping().getName());
 					}
 				}
@@ -668,7 +732,8 @@ public class AnalysisCompute {
 			} catch (NotInCacheException e) {
 				if (smartCacheRequest != null) {
 					try {
-						return computeAnalysisSimpleForGroupFromSmartCache(analysis, query, smartCacheRequest, qw, optimize);
+						return computeAnalysisSimpleForGroupFromSmartCache(analysis, query, smartCacheRequest, qw,
+								optimize);
 					} catch (NotInCacheException ee) {
 						// ignore any error in smartCache
 					}
