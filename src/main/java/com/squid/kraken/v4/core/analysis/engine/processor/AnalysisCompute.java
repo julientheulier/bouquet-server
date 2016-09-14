@@ -393,6 +393,7 @@ public class AnalysisCompute {
 			IDomain image = joinAxis.getDefinition().getImageDomain();
 			if (lowerPresent instanceof Date && lowerPast instanceof Date) {
 
+				DateTime lowerPastDT = new DateTime((Date) lowerPast);
 				DateTime lowerPresentDT = new DateTime((Date) lowerPresent);
 				DateTime upperPresentDT = new DateTime((Date) upperPresent);
 				DateTime upperPastDT = new DateTime((Date) upperPast);
@@ -408,14 +409,31 @@ public class AnalysisCompute {
 						if (presentPeriod.getDays() == pastPeriod.getDays()) {
 							// realign
 							if (presentPeriod.getYears() > pastPeriod.getYears()) {
-								Date newUpperPast = new DateTime(upperPastDT.getYear(), 12, 31, 23, 59).toDate();
-								return new IntervalleObject(lowerPast, newUpperPast);
+								//some days are missing to align the periods
+								if (lowerPastDT.getDayOfYear() != 1 ){
+									//previous period
+									Date newLowerPast =  new DateTime(upperPastDT.getYear(), 1, 1,0, 0).toDate();
+									return new IntervalleObject(newLowerPast, upperPast);
+								}
+								if (upperPastDT.getDayOfYear() != upperPastDT.dayOfYear().getMaximumValue()){
+								// year  over year
+									Date newUpperPast = new DateTime(upperPastDT.getYear(), 12, 31, 23, 59).toDate();
+									return new IntervalleObject(lowerPast, newUpperPast);
+								}
 							} else {
+								// either already aligned,  or some days should be removed
+								
 								if (upperPastDT.getDayOfYear() != upperPastDT.dayOfYear().getMaximumValue()) {
+										// year over Year
 									Date newUpperPast = new DateTime(upperPastDT.getYear() - 1, 12, 31, 23, 59)
 											.toDate();
 									return new IntervalleObject(lowerPast, newUpperPast);
 
+								}
+								if (lowerPastDT.getDayOfYear()!= 1){
+									// previous period
+									Date newLowerPast = new DateTime( lowerPastDT.getYear()+1 , 1, 1  , 0 ,0).toDate();
+									return  new IntervalleObject(newLowerPast, upperPast);
 								}
 
 							}
@@ -426,17 +444,32 @@ public class AnalysisCompute {
 					if (lowerPresentDT.getDayOfMonth() == 1
 							&& upperPresentDT.getDayOfMonth() == upperPresentDT.dayOfMonth().getMaximumValue()) {
 						// check of both periods have the same number of days
-						Period presentPeriod = new Period(new LocalDate(lowerPresent), new LocalDate(upperPresent));
-						Period pastPeriod = new Period(new LocalDate(lowerPast), new LocalDate(upperPast));
+						Period presentPeriod = new Period(new LocalDate(lowerPresent), new LocalDate(upperPresent),PeriodType.days() );
+						Period pastPeriod = new Period(new LocalDate(lowerPast), new LocalDate(upperPast), PeriodType.days() );
+						logger.info("present " + presentPeriod.getDays()    + " " + pastPeriod.getDays() );
 						if (presentPeriod.getDays() == pastPeriod.getDays()) {
 							// realign
 							if (presentPeriod.getMonths() > pastPeriod.getMonths()) {
-								Date newUpperPast = new DateTime(upperPastDT.getYear(), upperPastDT.getMonthOfYear(),
+								// some days are missing
+								
+								if (upperPastDT.getDayOfMonth() != upperPastDT.dayOfMonth().getMaximumValue() ){
+									// month over month
+									Date newUpperPast = new DateTime(upperPastDT.getYear(), upperPastDT.getMonthOfYear(),
 										upperPastDT.dayOfMonth().getMaximumValue(), 23, 59).toDate();
-								return new IntervalleObject(lowerPast, newUpperPast);
+									return new IntervalleObject(lowerPast, newUpperPast);
+								}
+								
+								if (lowerPastDT.getDayOfMonth() != 1){
+									//previous period
+									Date newLowerPast = new DateTime(lowerPastDT.getYear(), upperPastDT.getMonthOfYear(), 1, 0,0 ).toDate();
+									return new IntervalleObject(newLowerPast, upperPast);
+									
+								}
+								
 							} else {
-
+								//either already aligned, of some days should be removed
 								if (upperPastDT.getDayOfMonth() != upperPastDT.dayOfMonth().getMaximumValue()) {
+									/// month over month
 									if (upperPastDT.getMonthOfYear() == 1) {
 										Date newUpperPast = new DateTime(upperPastDT.getYear() - 1, 12, 31, 23, 59)
 												.toDate();
@@ -449,10 +482,25 @@ public class AnalysisCompute {
 												upperPastDT.getMonthOfYear(),
 												upperPastDT.dayOfMonth().getMaximumValue(), 23, 59).toDate();
 										return new IntervalleObject(lowerPast, newUpperPast);
-
 									}
-
 								}
+								if (lowerPastDT.getDayOfMonth() != 1){
+									//previous period 
+									if (lowerPastDT.getMonthOfYear() == 12 ){
+										Date newLowerPast = new DateTime( lowerPastDT.getYear()+1, 1, 1, 0,0).toDate();
+										return new IntervalleObject(newLowerPast, upperPast);
+										
+									}else{
+										lowerPastDT = lowerPastDT.plusMonths(1);
+										Date newLowerPast= new DateTime(lowerPastDT.getYear(), lowerPastDT.getMonthOfYear(), lowerPastDT.dayOfMonth().getMaximumValue(), 23,59).toDate();
+										return new IntervalleObject(newLowerPast, upperPast);
+										
+									}
+										
+									
+									
+								}
+								
 							}
 						}
 					}
