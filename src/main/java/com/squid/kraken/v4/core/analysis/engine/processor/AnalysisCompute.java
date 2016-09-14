@@ -41,6 +41,7 @@ import com.squid.kraken.v4.caching.redis.RedisCacheException;
 
 import org.joda.time.DateTime;
 import org.joda.time.LocalDate;
+import org.joda.time.Months;
 import org.joda.time.Period;
 import org.joda.time.PeriodType;
 import org.slf4j.Logger;
@@ -404,9 +405,12 @@ public class AnalysisCompute {
 					if (lowerPresentDT.getDayOfYear() == 1
 							&& upperPresentDT.getDayOfYear() == upperPresentDT.dayOfYear().getMaximumValue()) {
 						// check of both periods have the same number of days
-						Period presentPeriod = new Period(new LocalDate(lowerPresent), new LocalDate(upperPresent));
-						Period pastPeriod = new Period(new LocalDate(lowerPast), new LocalDate(upperPast));
+						Period presentPeriod = new Period(new LocalDate(lowerPresent), (new LocalDate(upperPresent)), PeriodType.days());
+						Period pastPeriod = new Period(new LocalDate(lowerPast), (new LocalDate(upperPast)), PeriodType.days());
 						if (presentPeriod.getDays() == pastPeriod.getDays()) {
+							presentPeriod = new Period(new LocalDate(lowerPresent), (new LocalDate(upperPresent)).plusDays(1) , PeriodType.years());
+							pastPeriod = new Period(new LocalDate(lowerPast), (new LocalDate(upperPast)).plusDays(1), PeriodType.years());
+
 							// realign
 							if (presentPeriod.getYears() > pastPeriod.getYears()) {
 								//some days are missing to align the periods
@@ -449,6 +453,8 @@ public class AnalysisCompute {
 						logger.info("present " + presentPeriod.getDays()    + " " + pastPeriod.getDays() );
 						if (presentPeriod.getDays() == pastPeriod.getDays()) {
 							// realign
+							 presentPeriod = new Period(new LocalDate(lowerPresent), (new LocalDate(upperPresent)).plusDays(1),PeriodType.months() );
+							 pastPeriod = new Period(new LocalDate(lowerPast), (new LocalDate(upperPast)).plusDays(1), PeriodType.months() );
 							if (presentPeriod.getMonths() > pastPeriod.getMonths()) {
 								// some days are missing
 								
@@ -461,7 +467,7 @@ public class AnalysisCompute {
 								
 								if (lowerPastDT.getDayOfMonth() != 1){
 									//previous period
-									Date newLowerPast = new DateTime(lowerPastDT.getYear(), upperPastDT.getMonthOfYear(), 1, 0,0 ).toDate();
+									Date newLowerPast = new DateTime(lowerPastDT.getYear(), lowerPastDT.getMonthOfYear(), 1, 0,0 ).toDate();
 									return new IntervalleObject(newLowerPast, upperPast);
 									
 								}
@@ -496,8 +502,6 @@ public class AnalysisCompute {
 										return new IntervalleObject(newLowerPast, upperPast);
 										
 									}
-										
-									
 									
 								}
 								
@@ -568,9 +572,10 @@ public class AnalysisCompute {
 		if (present instanceof Date && past instanceof Date) {
 
 			Period presentPeriod = new Period(new LocalDate(((Date) presentInterval.getLowerBound()).getTime()),
-					new LocalDate(((Date) presentInterval.getUpperBound()).getTime()), type);
-			Period pastPeriod = new Period(new LocalDate(((Date) presentInterval.getLowerBound()).getTime()),
-					new LocalDate(((Date) presentInterval.getUpperBound()).getTime()), type);
+					new LocalDate(((Date) presentInterval.getUpperBound()).getTime()).plusDays(1), type);
+			
+			Period pastPeriod = new Period(new LocalDate(((Date) pastInterval.getLowerBound()).getTime()),
+					new LocalDate(((Date) pastInterval.getUpperBound()).getTime()).plusDays(1), type);
 
 			Date pastDate = (Date) past;
 			DateTime dt = new DateTime(pastDate);
