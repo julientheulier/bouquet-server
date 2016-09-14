@@ -372,6 +372,7 @@ public class EngineUtils {
 			// provide sensible default for MIN & MAX -- we don't want the parser to fail is not set
 			Calendar calendar = Calendar.getInstance();
 			Date current = calendar.getTime();
+			current = new java.sql.Date(current.getTime());// in order to serialize as iso8601
 			evaluator.setParameterValue("MAX", current);
 			// there is no sensible default for MIN
 			evaluator.setParameterValue("MIN", null);
