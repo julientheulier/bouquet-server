@@ -2084,7 +2084,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 								filters.add(filter);
 							}
 						} else {
-							filter += " IN [";
+							filter += " IN {";
 							boolean first = true;
 							for (FacetMember member : facet.getSelectedItems()) {
 								if (member instanceof FacetMemberString) {
@@ -2096,7 +2096,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 									filter += "\""+member.toString()+"\"";
 								}
 							}
-							filter += "]";
+							filter += "}";
 							if (!first) {
 								filters.add(filter);
 							}
