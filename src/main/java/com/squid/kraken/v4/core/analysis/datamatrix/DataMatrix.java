@@ -441,8 +441,9 @@ public class DataMatrix {
 							check = true;
 							break;
 						}
-						pos++;
 					}
+					pos++;
+					
 				}
 			}
 		}
