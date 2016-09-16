@@ -302,6 +302,7 @@ public class AnalysisCompute {
 				pastInterval = computeMinMax(compare.getMembers(filter));
 				IntervalleObject alignedPastInterval = this.alignPastInterval(presentInterval, pastInterval, joinAxis);
 				if (!alignedPastInterval.equals(pastInterval)) {
+					logger.info(pastInterval.toString() +" realigned to "+ alignedPastInterval.toString());
 					pastSelection.clear(filter);
 					pastSelection.add(filter, alignedPastInterval);
 				}
@@ -450,7 +451,6 @@ public class AnalysisCompute {
 						// check of both periods have the same number of days
 						Period presentPeriod = new Period(new LocalDate(lowerPresent), new LocalDate(upperPresent),PeriodType.days() );
 						Period pastPeriod = new Period(new LocalDate(lowerPast), new LocalDate(upperPast), PeriodType.days() );
-						logger.info("present " + presentPeriod.getDays()    + " " + pastPeriod.getDays() );
 						if (presentPeriod.getDays() == pastPeriod.getDays()) {
 							// realign
 							 presentPeriod = new Period(new LocalDate(lowerPresent), (new LocalDate(upperPresent)).plusDays(1),PeriodType.months() );
