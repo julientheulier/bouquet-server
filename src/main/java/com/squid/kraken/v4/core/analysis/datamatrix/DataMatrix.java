@@ -443,7 +443,7 @@ public class DataMatrix {
 						}
 					}
 					pos++;
-					
+
 				}
 			}
 		}

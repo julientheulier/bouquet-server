@@ -361,6 +361,7 @@ public class AnalysisCompute {
 			debug.orderBy(originalOrders);
 			// T1897 - enforce limit & offset
 			if (currentAnalysis.hasLimit() && debug.getRows().size() > currentAnalysis.getLimit()) {
+
 				DataMatrixTransformTruncate truncate = new DataMatrixTransformTruncate(currentAnalysis.getLimit(),
 						currentAnalysis.getOffset());
 				debug = truncate.apply(debug);
