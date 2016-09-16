@@ -359,7 +359,7 @@ public class AnalysisCompute {
 			// apply the original order by directive (T1039)
 			debug.orderBy(originalOrders);
 			// T1897 - enforce limit & offset
-			if (debug.getRows().size() > currentAnalysis.getLimit()) {
+			if (currentAnalysis.hasLimit() && debug.getRows().size() > currentAnalysis.getLimit()) {
 				DataMatrixTransformTruncate truncate = new DataMatrixTransformTruncate(currentAnalysis.getLimit(),
 						currentAnalysis.getOffset());
 				debug = truncate.apply(debug);
