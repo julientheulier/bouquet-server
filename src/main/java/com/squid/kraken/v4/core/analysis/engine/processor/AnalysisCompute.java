@@ -613,9 +613,6 @@ public class AnalysisCompute {
 						}
 					}
 				}
-			} else if (image.isInstanceOf(IDomain.WEEKLY)) {
-				DateTime newDT = new DateTime(dt.getYear(), dt.getMonthOfYear(), dt.getWeekyear(), 0, 0);
-				pastDate = newDT.toDate();
 			} else {
 				// daily, keep Date as it is
 			}
