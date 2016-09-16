@@ -246,7 +246,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			try {
 				URI check = new URI(oauthEndpoint);
 				// check that it is not using the ob.io central auth
-				if (!check.getHost().equalsIgnoreCase("auth.openbouquet.io")) {
+				if (!"auth.openbouquet.io".equalsIgnoreCase(check.getHost())) {
 					while (oauthEndpoint.endsWith("/")) {
 						oauthEndpoint = oauthEndpoint.substring(0, oauthEndpoint.length()-1);
 					}
@@ -285,7 +285,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		query.setQ(search);
 		query.setHiearchy(hierarchyMode);
 		query.setStyle(style!=null?style:Style.HUMAN);
-		query.setVisibility(visibility!=null?visibility:Visibility.VISIBLE);
+		query.setVisibility(visibility!=null?visibility:Visibility.ALL);
 		if (envelope==null) {
 			if (query.getStyle()==Style.HUMAN || query.getStyle()==Style.HTML) {
 				envelope = "RESULT";
