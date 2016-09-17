@@ -1152,6 +1152,9 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			createHTMLpagination(html, query, data);
 		} else {
 			html.append("<i>Result is not available, it's probably due to an error</i>");
+			html.append("<p>");
+			createHTMLdataLinks(html, query);
+			html.append("</p<br>");
 		}
 		html.append("<table>");
 		html.append("<tr><td valign='top'>groupBy</td><td>");
@@ -1224,6 +1227,12 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			html.append("fresh data just computed at "+data.getExecutionDate());
 		}
 		// add links
+		createHTMLdataLinks(html, query);
+		html.append("</div><br>");
+	}
+	
+	private void createHTMLdataLinks(StringBuilder html, AnalyticsQuery query) {
+		// add links
 		{ // for SQL
 			URI sqlLink = buildAnalyticsQueryURI(userContext, query, "SQL", null, Style.HTML, null);
 			html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(sqlLink.toString())+"\">view SQL</a>]");
@@ -1236,7 +1245,6 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			URI xlsExport = buildAnalyticsExportURI(userContext, query, ".xls");
 			html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(xlsExport.toString())+"\">Export XLS</a>]");
 		}
-		html.append("</div><br>");
 	}
 	
 	private void createHTMLpagination(StringBuilder html, ViewQuery query, Info info) {
