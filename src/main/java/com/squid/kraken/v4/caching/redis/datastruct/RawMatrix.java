@@ -320,7 +320,7 @@ public class RawMatrix extends RedisCacheValue {
 		String[] colNames = new String[nbColumns];
 		int i = 0;
 		while (i < nbColumns) {
-			colNames[i] = metadata.getColumnName(i + 1);
+			colNames[i] = metadata.getColumnLabel(i + 1);
 			i++;
 		}
 		// register

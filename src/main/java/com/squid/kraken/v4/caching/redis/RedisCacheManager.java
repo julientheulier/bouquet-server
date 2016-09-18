@@ -226,17 +226,25 @@ public class RedisCacheManager implements IRedisCacheManager {
 	public String addCacheReference(String sqlNoLimit, List<String> dependencies, String referencedKey) {
 		try {
 			String k = buildCacheKey(sqlNoLimit, dependencies);
-			logger.debug("Add reference key : " + k + "    " + referencedKey);
-			RedisCacheReference ref = new RedisCacheReference(referencedKey);
-			boolean ok = this.redis.put(k, ref.serialize());
-			if (ok) {
-				return k;
+			if (!k.equals(referencedKey)) {// T1948
+				if (!this.redis.inCache(k)) {
+					logger.debug("Add reference key : " + k + "    " + referencedKey);
+					RedisCacheReference ref = new RedisCacheReference(referencedKey);
+					boolean ok = this.redis.put(k, ref.serialize());
+					if (ok) {
+						return k;
+					}
+				} else {
+					logger.debug("Invalid cache reference key : " + k + ": already defined");
+				}
 			} else {
-				return null;
+				logger.debug("Invalid cache reference key : " + k + ": will cause circular reference");
 			}
 		} catch (IOException e) {
-			return null;
+			logger.error("failed to create cache reference for key=" + referencedKey, e);
 		}
+		//
+		return null;
 	}
 
 	public String buildCacheKey(String SQLQuery, List<String> dependencies) {

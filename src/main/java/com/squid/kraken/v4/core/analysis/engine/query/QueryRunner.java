@@ -123,13 +123,8 @@ public class QueryRunner {
 							String refKey = RedisCacheManager.getInstance().addCacheReference(sqlNoLimitNoOrder, deps,
 									rm.getRedisKey());
 							if (refKey != null) {
-								logger.info("Analysis " + jobId + " full result set.\nCreating  new Cache Reference "
+								logger.info("Analysis " + jobId + " full result set: Creating new Cache Reference to NO-LIMIT version: "
 										+ refKey + " to " + rm.getRedisKey());
-							} else {
-								logger.info("Analysis " + jobId
-										+ " full result set.\nFailed to create a  new Cache Reference to "
-										+ rm.getRedisKey());
-
 							}
 						}
 					}
@@ -141,7 +136,7 @@ public class QueryRunner {
 			writer.write();
 
 		} catch (InterruptedException | RenderingException | ScopeException e) {
-			throw new ComputingException("Failed to compute or retrieve the matrix for job " + jobId);
+			throw new ComputingException("Failed to compute or retrieve the matrix for job " + jobId + ": "+e.getMessage(), e);
 		}
 
 	}
