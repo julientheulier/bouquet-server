@@ -318,6 +318,17 @@ public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implemen
 			@ApiParam(
 					value="set a facetted channel, displayed as rows. This must be a valid expression.")
 			@QueryParam(VIEW_ROW_PARAM) String row,
+			// groupBy parameter
+			@ApiParam(
+					value = "Define the group-by facets to apply to results. Facet can be defined using it's ID or any valid expression. If empty, the subject default parameters will apply. You can use the * token to extend the subject default parameters.",
+					allowMultiple = true
+					) 
+			@QueryParam(GROUP_BY_PARAM) String[] groupBy, 
+			// metric parameter
+			@ApiParam(
+					value = "Define the metrics to compute. Metric can be defined using it's ID or any valid expression. If empty, the subject default parameters will apply. You can use the * token to extend the subject default parameters.",
+					allowMultiple = true) 
+			@QueryParam(METRICS_PARAM) String[] metrics, 
 			@ApiParam(
 					value = "Define the filters to apply to results. A filter must be a valid conditional expression. If empty, the subject default parameters will apply. You can use the * token to extend the subject default parameters.",
 					allowMultiple = true) 
@@ -352,7 +363,7 @@ public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implemen
 	{
 		AppContext userContext = getUserContext(request);
 		ViewQuery view = new ViewQuery();
-		createAnalysisFromParams(view, BBID, null, null, filterExpressions, period, timeframe, compareframe, orderby, null, limit, offset, null, maxResults, startIndex, null, null);
+		createAnalysisFromParams(view, BBID, groupBy, metrics, filterExpressions, period, timeframe, compareframe, orderby, null, limit, offset, null, maxResults, startIndex, null, null);
 		view.setX(x);
 		view.setY(y);
 		view.setColor(color);
