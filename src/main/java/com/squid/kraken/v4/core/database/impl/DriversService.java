@@ -88,7 +88,7 @@ public class DriversService {
 						DriverManager.registerDriver(new DriverShim(driver));
 					}
 					;
-				} catch (SQLException e) {
+				} catch (Throwable e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}

@@ -40,12 +40,20 @@ import com.squid.kraken.v4.model.Annotation;
 import com.squid.kraken.v4.model.AnnotationPK;
 import com.squid.kraken.v4.persistence.AppContext;
 
+import io.swagger.annotations.Api;
+import io.swagger.annotations.Authorization;
+import io.swagger.annotations.AuthorizationScope;
+
 /**
  * Contains WS path to manage annotations.
  * 
  * @author danhddv
  * 
  */
+@Api(
+		value = "annotations", 
+		hidden = true,
+		authorizations = { @Authorization(value = "kraken_auth", scopes = { @AuthorizationScope(scope = "access", description = "Access") }) })
 @Produces( { MediaType.APPLICATION_JSON })
 public class AnnotationServiceRest extends BaseServiceRest {
 

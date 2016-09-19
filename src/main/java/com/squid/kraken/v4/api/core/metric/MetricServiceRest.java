@@ -51,7 +51,7 @@ import io.swagger.annotations.Authorization;
 import io.swagger.annotations.AuthorizationScope;
 
 @Produces({ MediaType.APPLICATION_JSON })
-@Api(value = "metrics", authorizations = { @Authorization(value = "kraken_auth", scopes = { @AuthorizationScope(scope = "access", description = "Access")}) })
+@Api(hidden=true, value = "metrics", authorizations = { @Authorization(value = "kraken_auth", scopes = { @AuthorizationScope(scope = "access", description = "Access")}) })
 public class MetricServiceRest extends BaseServiceRest {
 
 	private final static String PARAM_NAME = "metricId";

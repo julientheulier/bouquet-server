@@ -64,6 +64,7 @@ import org.apache.cxf.jaxrs.impl.UriBuilderImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -3004,6 +3005,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	private String writeVegalightSpecs(VegaliteSpecs specs) {
 		ObjectMapper mapper = new ObjectMapper();
 		try {
+			mapper.setSerializationInclusion(Include.NON_NULL);
 			return mapper.writeValueAsString(specs);
 		} catch (JsonProcessingException e) {
 			throw new APIException("failed to write vegalite specs to JSON", e, true);
