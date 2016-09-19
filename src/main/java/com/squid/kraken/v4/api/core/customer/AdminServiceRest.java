@@ -42,7 +42,7 @@ import io.swagger.annotations.Authorization;
 import io.swagger.annotations.AuthorizationScope;
 
 @Path("/admin")
-@Api(value = "admin", authorizations = { @Authorization(value = "kraken_auth", scopes = { @AuthorizationScope(scope = "access", description = "Access")}) })
+@Api(hidden=true, value = "admin", authorizations = { @Authorization(value = "kraken_auth", scopes = { @AuthorizationScope(scope = "access", description = "Access")}) })
 @Produces({ MediaType.APPLICATION_JSON })
 public class AdminServiceRest {
 
