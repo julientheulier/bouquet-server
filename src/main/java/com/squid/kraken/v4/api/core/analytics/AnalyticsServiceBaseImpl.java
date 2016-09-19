@@ -1233,9 +1233,13 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	
 	private void createHTMLdataLinks(StringBuilder html, AnalyticsQuery query) {
 		// add links
+		{ // for View
+			URI sqlLink = buildAnalyticsViewURI(userContext, new ViewQuery(query), null, "ALL", Style.HTML, null);//(userContext, query, "SQL", null, Style.HTML, null);
+			html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(sqlLink.toString())+"\">View</a>]");
+		}
 		{ // for SQL
 			URI sqlLink = buildAnalyticsQueryURI(userContext, query, "SQL", null, Style.HTML, null);
-			html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(sqlLink.toString())+"\">view SQL</a>]");
+			html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(sqlLink.toString())+"\">SQL</a>]");
 		}
 		{ // for CSV export
 			URI csvExport = buildAnalyticsExportURI(userContext, query, ".csv");
@@ -1846,7 +1850,54 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 				query.setLimit(config.getLimit());
 			}
 		}
+		//
+		// handling the period
+		//
+		if (query.getPeriod()==null && config!=null && config.getPeriod()!=null && !config.getPeriod().isEmpty()) {
+			// look for this domain period
+			String domainID = space.getDomain().getOid();
+			String period = config.getPeriod().get(domainID);
+			if (period!=null) {
+				ExpressionAST expr = globalScope.parseExpression(period);
+				IDomain image = expr.getImageDomain();
+				if (image.isInstanceOf(IDomain.TEMPORAL)) {
+					// ok, it's a date
+					query.setPeriod(expr.prettyPrint(localOptions));
+				}
+			}
+		}
+		if (query.getPeriod()==null) {
+			DomainHierarchy hierarchy = DomainHierarchyManager.INSTANCE.getHierarchy(space.getUniverse().getProject().getId(), space.getDomain(), false);
+			for (DimensionIndex index : hierarchy.getDimensionIndexes()) {
+				if (index.isVisible() && index.getDimension().getType().equals(Type.CONTINUOUS) && index.getAxis().getDefinitionSafe().getImageDomain().isInstanceOf(IDomain.TEMPORAL)) {
+					// use it as period
+					Axis axis = index.getAxis();
+					ExpressionAST expr = new AxisExpression(axis);
+					query.setPeriod(expr.prettyPrint(localOptions));
+					if (query.getTimeframe()==null) {
+						if (index.getStatus()==Status.DONE) {
+							query.setTimeframe(Collections.singletonList("__CURRENT_MONTH"));
+						} else {
+							query.setTimeframe(Collections.singletonList("__ALL"));
+						}
+					}
+					// quit the loop!
+					break;
+				}
+			}
+			if (query.getPeriod()==null) {
+				// nothing selected - double check and auto detect?
+				if (query.getTimeframe()!=null && query.getTimeframe().size()>0) {
+					query.add(new Problem(Severity.WARNING, "period", "No period defined: you cannot set the timeframe"));
+				}
+				if (query.getCompareTo()!=null && query.getCompareTo().size()>0) {
+					query.add(new Problem(Severity.WARNING, "period", "No period defined: you cannot set the compareTo"));
+				}
+			}
+		}
+		//
 		// merging groupBy
+		//
 		boolean groupbyWildcard = isWildcard(query.getGroupBy());
 		if (query.getGroupBy() == null || groupbyWildcard) {
 			List<String> groupBy = new ArrayList<String>();
@@ -1855,6 +1906,11 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 				// only if there is nothing selected at all (groupBy & metrics)
 				// or user ask for it explicitly is wildcard
 				if (groupbyWildcard || query.getMetrics() == null) {
+					boolean periodIsSet = false;
+					if (query.getPeriod()!=null) {
+						groupBy.add(query.getPeriod());
+						periodIsSet = true;
+					}
 					// use a default pivot selection...
 					// -- just list the content of the table
 					for (Dimension dimension : space.getDimensions()) {
@@ -1863,7 +1919,11 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 							DimensionIndex index = axis.getIndex();
 							IDomain image = axis.getDefinitionSafe().getImageDomain();
 							if (index!=null && index.isVisible() && index.getStatus()!=Status.ERROR && !image.isInstanceOf(IDomain.OBJECT)) {
-								groupBy.add(axis.prettyPrint(localOptions));
+								boolean isTemporal = image.isInstanceOf(IDomain.TEMPORAL);
+								if (!isTemporal || !periodIsSet) {
+									groupBy.add(axis.prettyPrint(localOptions));
+									if (isTemporal) periodIsSet = true;
+								}
 							}
 						} catch (ComputingException | InterruptedException e) {
 							// ignore this one
@@ -1973,50 +2033,6 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		// handling selection
 		//
 		FacetSelection selection = config!=null?config.getSelection():new FacetSelection();
-		// handling the period
-		if (query.getPeriod()==null && config!=null && config.getPeriod()!=null && !config.getPeriod().isEmpty()) {
-			// look for this domain period
-			String domainID = space.getDomain().getOid();
-			String period = config.getPeriod().get(domainID);
-			if (period!=null) {
-				ExpressionAST expr = globalScope.parseExpression(period);
-				IDomain image = expr.getImageDomain();
-				if (image.isInstanceOf(IDomain.TEMPORAL)) {
-					// ok, it's a date
-					query.setPeriod(expr.prettyPrint(localOptions));
-				}
-			}
-		}
-		if (query.getPeriod()==null) {
-			DomainHierarchy hierarchy = DomainHierarchyManager.INSTANCE.getHierarchy(space.getUniverse().getProject().getId(), space.getDomain(), false);
-			for (DimensionIndex index : hierarchy.getDimensionIndexes()) {
-				if (index.isVisible() && index.getDimension().getType().equals(Type.CONTINUOUS) && index.getAxis().getDefinitionSafe().getImageDomain().isInstanceOf(IDomain.TEMPORAL)) {
-					// use it as period
-					Axis axis = index.getAxis();
-					ExpressionAST expr = new AxisExpression(axis);
-					query.setPeriod(expr.prettyPrint(localOptions));
-					if (query.getTimeframe()==null) {
-						if (index.getStatus()==Status.DONE) {
-							query.setTimeframe(Collections.singletonList("__CURRENT_MONTH"));
-						} else {
-							query.setTimeframe(Collections.singletonList("__ALL"));
-						}
-					}
-					// quit the loop!
-					break;
-				}
-			}
-			if (query.getPeriod()==null) {
-				// nothing selected - double check and auto detect?
-				if (query.getTimeframe()!=null && query.getTimeframe().size()>0) {
-					query.add(new Problem(Severity.WARNING, "period", "No period defined: you cannot set the timeframe"));
-				}
-				if (query.getCompareTo()!=null && query.getCompareTo().size()>0) {
-					query.add(new Problem(Severity.WARNING, "period", "No period defined: you cannot set the compareTo"));
-				}
-			}
-		}
-		// handling the selection
 		boolean filterWildcard = isWildcardFilters(query.getFilters());
 		List<String> filters = query.getFilters()!=null?new ArrayList<>(query.getFilters()):new ArrayList<String>();
 		if (filterWildcard) {
@@ -2246,7 +2262,30 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		if (view.getX()==null || view.getY()==null) {
 			// DOMAIN
 			if (config==null) {
-				// not a bookmark, use default if nothing provided
+				// not a bookmark, use default & specs if nothing provided
+				// T1935: if explicit groupBy, use it
+				if (view.getGroupBy()!=null && view.getGroupBy().size()>0 && query.getGroupBy()!=null && query.getGroupBy().size()>0) {
+					int next = 0;
+					while (next<dims) {
+						if (!inputConfig.getRequired().getGroupBy().contains(query.getGroupBy().get(next))) {
+							if (view.getX()==null) {
+								// use it as the x
+								view.setX(query.getGroupBy().get(next++));
+							} else if (view.getColor()==null) {
+								// use it as the color
+								view.setColor(query.getGroupBy().get(next++));
+							} else if (view.getColumn()==null) {
+								// use it as the column
+								view.setColumn(query.getGroupBy().get(next++));
+							} else if (view.getRow()==null) {
+								// use it as the column
+								view.setRow(query.getGroupBy().get(next++));
+							} else {
+								break;// no more channel available
+							}
+						}
+					}
+				}
 				if (view.getX()==null && !inputConfig.isTimeseries() && query.getPeriod()!=null) {
 					view.setX("__PERIOD");
 				}
@@ -2503,12 +2542,20 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 				(query.getLimit()==null || query.getLimit()>explicitLimit)) {
 			query.setLimit(explicitLimit);
 		}
-		final int startIndex = query.getStartIndex()!=null?query.getStartIndex():0;
-		final int maxResults = query.getMaxResults()!=null?query.getMaxResults():query.getLimit().intValue();
 		// beyond limit
 		if (outputConfig.isTimeseries()) {
 			query.setBeyondLimit(new int[]{outputConfig.getTimeseriesPosition()});
+			query.setMaxResults(null);
+		} else {
+			/*
+			// can add page size
+			if (query.getLimit()>10 && query.getMaxResults()==null) {
+				query.setMaxResults(10);
+			}
+			*/
 		}
+		final int startIndex = query.getStartIndex()!=null?query.getStartIndex():0;
+		final int maxResults = query.getMaxResults()!=null?query.getMaxResults():query.getLimit().intValue();
 		// make sure we order by something
 		if (query.getOrderBy()==null || query.getOrderBy().size()==0) {
 			if (query.getMetrics().size()>0) {
@@ -2614,8 +2661,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		}
 		//
 		if (style!=null && style==Style.HTML) {
-			URI dataLink = buildAnalyticsQueryURI(userContext, reply.getQuery(), "RECORDS", "ALL", Style.HTML, null);
-			return createHTMLPageView(space, view, info, reply, dataLink);
+			return createHTMLPageView(space, view, info, reply);
 		} else if (envelope==null || envelope.equals("") || envelope.equalsIgnoreCase("RESULT")) {
 			return Response.ok(reply.getResult(), MediaType.APPLICATION_JSON_TYPE.toString()).build();
 		} else if(envelope.equalsIgnoreCase("ALL")) {
@@ -2895,7 +2941,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		return Response.ok(html.toString(),"text/html").build();
 	}
 	
-	private Response createHTMLPageView(Space space, ViewQuery view, Info info, ViewReply reply, URI dataLink) {
+	private Response createHTMLPageView(Space space, ViewQuery view, Info info, ViewReply reply) {
 		String title = getPageTitle(space);
 		StringBuilder html = createHTMLHeader("View: "+title);
 		if (getPublicBaseUriBuilder().build().getScheme().equalsIgnoreCase("https")) {
@@ -2913,17 +2959,34 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		Encoding channels = reply.getResult().encoding;
 		html.append("}\r\nvg.embed(\"#vis\", embedSpec, function(error, result) {\r\n  // Callback receiving the View instance and parsed Vega spec\r\n  // result.view is the View, which resides under the '#vis' element\r\n});\r\n</script>\r\n");
 		createHTMLpagination(html, view, info);
-		if (dataLink!=null) {
-			html.append("<p><a href=\""+StringEscapeUtils.escapeHtml4(dataLink.toASCIIString())+"\">view query data</a></p>");
-		}
+		// data-link
+		URI dataLink = buildAnalyticsQueryURI(userContext, reply.getQuery(), "RECORDS", "ALL", Style.HTML, null);
+		html.append("<p><a href=\""+StringEscapeUtils.escapeHtml4(dataLink.toASCIIString())+"\">view query data</a></p>");
+		//
 		html.append("<table>"
-				+ "<tr><td>x</td><td>=<input type=\"text\" size=30 name=\"x\" value=\""+getFieldValue(view.getX())+"\"></td><td>"+(channels.x!=null?"as <b>"+channels.x.field+"</b>":"")+"</td></tr>"
-				+ "<tr><td>y</td><td>=<input type=\"text\" size=30 name=\"y\" value=\""+getFieldValue(view.getY())+"\"></td><td>"+(channels.y!=null?"as <b>"+channels.y.field+"</b>":"")+"</td></tr>"
-				+ "<tr><td>color</td><td>=<input type=\"text\" size=30 name=\"color\" value=\""+getFieldValue(view.getColor())+"\"></td><td>"+(channels.color!=null?"as <b>"+channels.color.field+"</b>":"")+"</td></tr>"
-				+ "<tr><td>size</td><td>=<input type=\"text\" size=30 name=\"size\" value=\""+getFieldValue(view.getSize())+"\"></td><td>"+(channels.size!=null?"as <b>"+channels.size.field+"</b>":"")+"</td></tr>"
-				+ "<tr><td>column</td><td>=<input type=\"text\" size=30 name=\"column\" value=\""+getFieldValue(view.getColumn())+"\"></td><td>"+(channels.column!=null?"as <b>"+channels.column.field+"</b>":"")+"</td></tr>"
-				+ "<tr><td>row</td><td>=<input type=\"text\" size=30 name=\"row\" value=\""+getFieldValue(view.getRow())+"\"></td><td>"+(channels.row!=null?"as <b>"+channels.row.field+"</b>":"")+"</td></tr>"
-				+ "</table>"
+				+ "<tr><td>x</td><td><input type=\"text\" size=30 name=\"x\" value=\""+getFieldValue(view.getX())+"\"></td><td>"+(channels.x!=null?"as <b>"+channels.x.field+"</b>":"")+"</td></tr>"
+				+ "<tr><td>y</td><td><input type=\"text\" size=30 name=\"y\" value=\""+getFieldValue(view.getY())+"\"></td><td>"+(channels.y!=null?"as <b>"+channels.y.field+"</b>":"")+"</td></tr>"
+				+ "<tr><td>color</td><td><input type=\"text\" size=30 name=\"color\" value=\""+getFieldValue(view.getColor())+"\"></td><td>"+(channels.color!=null?"as <b>"+channels.color.field+"</b>":"")+"</td></tr>"
+				+ "<tr><td>size</td><td><input type=\"text\" size=30 name=\"size\" value=\""+getFieldValue(view.getSize())+"\"></td><td>"+(channels.size!=null?"as <b>"+channels.size.field+"</b>":"")+"</td></tr>"
+				+ "<tr><td>column</td><td><input type=\"text\" size=30 name=\"column\" value=\""+getFieldValue(view.getColumn())+"\"></td><td>"+(channels.column!=null?"as <b>"+channels.column.field+"</b>":"")+"</td></tr>"
+				+ "<tr><td>row</td><td><input type=\"text\" size=30 name=\"row\" value=\""+getFieldValue(view.getRow())+"\"></td><td>"+(channels.row!=null?"as <b>"+channels.row.field+"</b>":"")+"</td></tr>");
+		// metrics -- display the actual metrics
+		html.append("<tr><td valign='top'>metrics</td><td>");
+		createHTMLinputArray(html, "text", "metrics", reply.getQuery().getMetrics());
+		html.append("</td></tr>");
+		// limits, maxResults, startIndex
+		html.append("<tr><td>limit</td><td>");
+		html.append("<input type=\"text\" name=\"limit\" value=\""+getFieldValue(view.getLimit(),0)+"\">");
+		html.append("</td></tr>");
+		/*
+		html.append("<tr><td>maxResults</td><td>");
+		html.append("<input type=\"text\" name=\"maxResults\" value=\""+getFieldValue(view.getMaxResults(),100)+"\">");
+		html.append("</td></tr>");
+		html.append("<tr><td>startIndex</td><td>");
+		html.append("<input type=\"text\" name=\"startIndex\" value=\""+getFieldValue(view.getStartIndex(),0)+"\"></td><td><i>index is zero-based, so use the #count of the last row to view the next page</i>");
+		html.append("</td></tr>");
+		*/
+		html.append("</table>"
 				+ "<input type=\"hidden\" name=\"style\" value=\"HTML\">"
 				+ "<input type=\"hidden\" name=\"access_token\" value=\""+space.getUniverse().getContext().getToken().getOid()+"\">"
 				+ "<input type=\"submit\" value=\"Refresh\">"
@@ -3024,16 +3087,27 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		html.append("<table><tr><td valign='top'>GroupBy:</td><td valign='top'>");
 		for (Axis axis : space.A(true)) {// only print the visible scope
 			try {
-				DimensionIndex index = axis.getIndex();
-				html.append("<span draggable='true' style='"+axis_style+"'");
-				ExpressionAST expr = axis.getDefinitionSafe();
-				html.append("title='"+getExpressionValueType(expr).toString()+": ");
-				if (axis.getDescription()!=null) {
-					html.append(axis.getDescription());
+				IDomain image = axis.getDefinitionSafe().getImageDomain();
+				if (!image.isInstanceOf(IDomain.OBJECT)) {
+					DimensionIndex index = axis.getIndex();
+					html.append("<span draggable='true' style='"+axis_style+"'");
+					ExpressionAST expr = axis.getDefinitionSafe();
+					html.append("title='"+getExpressionValueType(expr).toString()+": ");
+					if (axis.getDescription()!=null) {
+						html.append(axis.getDescription());
+					}
+					if (index.getErrorMessage()!=null) {
+						html.append("\nError:"+index.getErrorMessage());
+					}
+					html.append("'");
+					html.append(" ondragstart='drag(event,\""+index.getDimensionName()+"\")'>");
+					if (index.getErrorMessage()==null) {
+						html.append("&nbsp;"+index.getDimensionName()+"&nbsp;");
+					} else {
+						html.append("&nbsp;<del>"+index.getDimensionName()+"</del>&nbsp;");
+					}
+					html.append("</span>");
 				}
-				html.append("'");
-				html.append(" ondragstart='drag(event,\""+index.getDimensionName()+"\")'");
-				html.append(">&nbsp;"+index.getDimensionName()+"&nbsp;</span>");
 			} catch (Exception e) {
 				// ignore
 			}
