@@ -23,6 +23,9 @@
  *******************************************************************************/
 package com.squid.kraken.v4.vegalite;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
+
 /**
  * Java mapping of the Vegalite specs, cf.
  * https://vega.github.io/vega-lite/docs/spec.html
@@ -30,6 +33,7 @@ package com.squid.kraken.v4.vegalite;
  * @author sergefantino
  *
  */
+@JsonInclude(Include.NON_NULL)
 public class VegaliteSpecs {
 	
 
@@ -135,6 +139,7 @@ public class VegaliteSpecs {
 	public Mark mark;
 
 	public Encoding encoding = new Encoding();
+	
 	
 	public Config config = new Config();
 
