@@ -49,26 +49,26 @@ public class AnalyticsQueryImpl implements AnalyticsQuery {
 	public AnalyticsQueryImpl() {
 	}
 	
-	public AnalyticsQueryImpl(AnalyticsQueryImpl copy) {
-		this.BBID = copy.BBID;
-		this.domain = copy.domain;
-		this.groupBy = copy.groupBy;
-		this.metrics = copy.metrics;
-		this.filters = copy.filters;
-		this.orderBy = copy.orderBy;
-		this.rollups = copy.rollups;
-		this.period = copy.period;
-		this.timeframe = copy.timeframe;
-		this.compareTo = copy.compareTo;
-		this.offset = copy.offset;
-		this.limit = copy.limit;
-		this.beyondLimit = copy.beyondLimit;
-		this.bookmarkId = copy.bookmarkId;
-		this.maxResults = copy.maxResults;
-		this.startIndex = copy.startIndex;
-		this.lazy = copy.lazy;
-		this.style = copy.style;
-		this.problems = copy.problems;
+	public AnalyticsQueryImpl(AnalyticsQuery copy) {
+		this.BBID = copy.getBBID();
+		this.domain = copy.getDomain();
+		this.groupBy = copy.getGroupBy();
+		this.metrics = copy.getMetrics();
+		this.filters = copy.getFilters();
+		this.orderBy = copy.getOrderBy();
+		this.rollups = copy.getRollups();
+		this.period = copy.getPeriod();
+		this.timeframe = copy.getTimeframe();
+		this.compareTo = copy.getCompareTo();
+		this.offset = copy.getOffset();
+		this.limit = copy.getLimit();
+		this.beyondLimit = copy.getBeyondLimit();
+		this.bookmarkId = copy.getBookmarkId();
+		this.maxResults = copy.getMaxResults();
+		this.startIndex = copy.getStartIndex();
+		this.lazy = copy.getLazy();
+		this.style = copy.getStyle();
+		this.problems = copy.getProblems();
 	}
 
 	@Override
