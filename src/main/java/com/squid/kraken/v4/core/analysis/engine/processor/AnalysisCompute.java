@@ -499,7 +499,7 @@ public class AnalysisCompute {
 										
 									}else{
 										lowerPastDT = lowerPastDT.plusMonths(1);
-										Date newLowerPast= new DateTime(lowerPastDT.getYear(), lowerPastDT.getMonthOfYear(), lowerPastDT.dayOfMonth().getMaximumValue(), 23,59).toDate();
+										Date newLowerPast= new DateTime(lowerPastDT.getYear(), lowerPastDT.getMonthOfYear(), 1, 0,0).toDate();
 										return new IntervalleObject(newLowerPast, upperPast);
 										
 									}
