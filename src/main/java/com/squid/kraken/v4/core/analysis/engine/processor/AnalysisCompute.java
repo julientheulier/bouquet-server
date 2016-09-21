@@ -450,7 +450,6 @@ public class AnalysisCompute {
 						// check of both periods have the same number of days
 						Period presentPeriod = new Period(new LocalDate(lowerPresent), new LocalDate(upperPresent),PeriodType.days() );
 						Period pastPeriod = new Period(new LocalDate(lowerPast), new LocalDate(upperPast), PeriodType.days() );
-						logger.info("present " + presentPeriod.getDays()    + " " + pastPeriod.getDays() );
 						if (presentPeriod.getDays() == pastPeriod.getDays()) {
 							// realign
 							 presentPeriod = new Period(new LocalDate(lowerPresent), (new LocalDate(upperPresent)).plusDays(1),PeriodType.months() );
@@ -498,7 +497,7 @@ public class AnalysisCompute {
 										
 									}else{
 										lowerPastDT = lowerPastDT.plusMonths(1);
-										Date newLowerPast= new DateTime(lowerPastDT.getYear(), lowerPastDT.getMonthOfYear(), lowerPastDT.dayOfMonth().getMaximumValue(), 23,59).toDate();
+										Date newLowerPast= new DateTime(lowerPastDT.getYear(), lowerPastDT.getMonthOfYear(), 1, 0,0).toDate();
 										return new IntervalleObject(newLowerPast, upperPast);
 										
 									}
