@@ -1235,7 +1235,10 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	private void createHTMLdataLinks(StringBuilder html, AnalyticsQuery query) {
 		// add links
 		{ // for View
-			URI sqlLink = buildAnalyticsViewURI(userContext, new ViewQuery(query), null, "ALL", Style.HTML, null);//(userContext, query, "SQL", null, Style.HTML, null);
+			HashMap<String, Object> override = new HashMap<>();
+			override.put(LIMIT_PARAM, null);
+			override.put(MAX_RESULTS_PARAM, null);
+			URI sqlLink = buildAnalyticsViewURI(userContext, new ViewQuery(query), null, "ALL", Style.HTML, override);//(userContext, query, "SQL", null, Style.HTML, null);
 			html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(sqlLink.toString())+"\">View</a>]");
 		}
 		{ // for SQL
@@ -2974,19 +2977,18 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		// metrics -- display the actual metrics
 		html.append("<tr><td valign='top'>metrics</td><td>");
 		createHTMLinputArray(html, "text", "metrics", reply.getQuery().getMetrics());
+		html.append("</td><td>Use the metrics parameters if you want to view multiple metrics on the same graph. Then you can use the <b>__VALUE</b> expression in channel to reference the metrics' value, and the <b>__METRICS</b> to get the metrics' name as a series.<br>If you need only a single metrics, you can directly define it in a channel, e.g. <code>y=count()</code>.");
 		html.append("</td></tr>");
 		// limits, maxResults, startIndex
 		html.append("<tr><td>limit</td><td>");
-		html.append("<input type=\"text\" name=\"limit\" value=\""+getFieldValue(view.getLimit(),0)+"\">");
+		html.append("<input type=\"text\" name=\"limit\" value=\""+getFieldValue(view.getLimit(),-1)+"\">");
 		html.append("</td></tr>");
-		/*
 		html.append("<tr><td>maxResults</td><td>");
-		html.append("<input type=\"text\" name=\"maxResults\" value=\""+getFieldValue(view.getMaxResults(),100)+"\">");
+		html.append("<input type=\"text\" name=\"maxResults\" value=\""+getFieldValue(view.getMaxResults(),-1)+"\">");
 		html.append("</td></tr>");
 		html.append("<tr><td>startIndex</td><td>");
 		html.append("<input type=\"text\" name=\"startIndex\" value=\""+getFieldValue(view.getStartIndex(),0)+"\"></td><td><i>index is zero-based, so use the #count of the last row to view the next page</i>");
 		html.append("</td></tr>");
-		*/
 		html.append("</table>"
 				+ "<input type=\"hidden\" name=\"style\" value=\"HTML\">"
 				+ "<input type=\"hidden\" name=\"access_token\" value=\""+space.getUniverse().getContext().getToken().getOid()+"\">"
@@ -3340,7 +3342,10 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			}
 		}
 		if (query.getRollups()!=null) builder.queryParam(ROLLUP_PARAM, query.getRollups());
-		if (query.getLimit()!=null) builder.queryParam(LIMIT_PARAM, query.getLimit());
+		// limit override
+		if (override!=null && override.containsKey(LIMIT_PARAM)) {
+			if (override.get(LIMIT_PARAM)!=null) builder.queryParam(LIMIT_PARAM, override.get(LIMIT_PARAM));
+		} else if (query.getLimit()!=null) builder.queryParam(LIMIT_PARAM, query.getLimit());
 		if (query.getBeyondLimit()!=null) {
 			for (int index : query.getBeyondLimit()) {
 				builder.queryParam("beyondLimit", index);
@@ -3348,11 +3353,11 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		}
 		// maxResults override
 		if (override!=null && override.containsKey(MAX_RESULTS_PARAM)) {
-			builder.queryParam(MAX_RESULTS_PARAM, override.get(MAX_RESULTS_PARAM));
+			if (override.get(MAX_RESULTS_PARAM)!=null) builder.queryParam(MAX_RESULTS_PARAM, override.get(MAX_RESULTS_PARAM));
 		} else if (query.getMaxResults()!=null) builder.queryParam(MAX_RESULTS_PARAM, query.getMaxResults());
 		// startIndex override
 		if (override!=null && override.containsKey(START_INDEX_PARAM)) {
-			builder.queryParam(START_INDEX_PARAM, override.get(START_INDEX_PARAM));
+			if (override.get(START_INDEX_PARAM)!=null) builder.queryParam(START_INDEX_PARAM, override.get(START_INDEX_PARAM));
 		} else if (query.getStartIndex()!=null) builder.queryParam(START_INDEX_PARAM, query.getStartIndex());
 		//
 		if (query.getLazy()!=null) builder.queryParam(LAZY_PARAM, query.getLazy());

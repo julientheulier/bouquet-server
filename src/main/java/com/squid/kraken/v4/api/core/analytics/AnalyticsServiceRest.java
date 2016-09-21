@@ -565,11 +565,11 @@ public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implemen
 			}
 			query.setRollups(rollups);
 		}
-		if (limit!=null) query.setLimit(limit);
-		if (offset!=null) query.setOffset(offset);
+		if (limit!=null && limit>0) query.setLimit(limit);
+		if (offset!=null && offset>0) query.setOffset(offset);
 		if (beyondLimit!=null) query.setBeyondLimit(beyondLimit);
-		if (maxResults!=null) query.setMaxResults(maxResults);
-		if (startIndex!=null) query.setStartIndex(startIndex);
+		if (maxResults!=null && maxResults>0) query.setMaxResults(maxResults);
+		if (startIndex!=null && startIndex>0) query.setStartIndex(startIndex);
 		if (lazy!=null) query.setLazy(lazy);
 		if (style!=null) query.setStyle(style);
 		return query;
