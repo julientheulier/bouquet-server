@@ -143,7 +143,7 @@ public class CompareMerger extends JoinMerger {
 			if (computeGrowth) {
 				// add the growth definition...
 				Measure growth = new Measure(left.getKPIs().get(i).getMeasure());
-				growth.setOriginType(OriginType.COMPARETO);
+				growth.setOriginType(OriginType.GROWTH);
 				growth.setName(growth.getName() + " [growth%]");
 				growth.setFormat("%.2f");
 				merge.getKPIs().add(new MeasureValues(growth));
