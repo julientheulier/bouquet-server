@@ -260,8 +260,12 @@ public class AnalysisCompute {
 		// compute the past version
 		DashboardAnalysis compareToAnalysis = new DashboardAnalysis(universe);
 		// copy dimensions
-		ArrayList<GroupByAxis> compareBeyondLimit = currentAnalysis.hasBeyondLimit() ? new ArrayList<GroupByAxis>()
-				: null;
+		/*
+		 * ArrayList<GroupByAxis> compareBeyondLimit =
+		 * currentAnalysis.hasBeyondLimit() ? new ArrayList<GroupByAxis>() :
+		 * null;
+		 */
+		ArrayList<GroupByAxis> compareBeyondLimit = new ArrayList<GroupByAxis>();
 		for (GroupByAxis groupBy : currentAnalysis.getGrouping()) {
 			if (groupBy.getAxis().equals(joinAxis)) {
 				Axis compareToAxis = new Axis(groupBy.getAxis());
@@ -302,7 +306,7 @@ public class AnalysisCompute {
 				pastInterval = computeMinMax(compare.getMembers(filter));
 				IntervalleObject alignedPastInterval = this.alignPastInterval(presentInterval, pastInterval, joinAxis);
 				if (!alignedPastInterval.equals(pastInterval)) {
-					logger.info(pastInterval.toString() +" realigned to "+ alignedPastInterval.toString());
+					logger.info(pastInterval.toString() + " realigned to " + alignedPastInterval.toString());
 					pastSelection.clear(filter);
 					pastSelection.add(filter, alignedPastInterval);
 				}
@@ -318,11 +322,13 @@ public class AnalysisCompute {
 			}
 		}
 		compareToAnalysis.setSelection(pastSelection);
-		if (currentAnalysis.hasBeyondLimit()) {// T1042: handling beyondLimit
-			compareToAnalysis.setBeyondLimit(compareBeyondLimit);
-			// use the present selection to compute
-			compareToAnalysis.setBeyodLimitSelection(presentSelection);
-		}
+		// T1890
+		// if (currentAnalysis.hasBeyondLimit()) {// T1042: handling beyondLimit
+		compareToAnalysis.setBeyondLimit(compareBeyondLimit);
+		// use the present selection to compute
+		compareToAnalysis.setBeyondLimitSelection(presentSelection);
+		// }
+
 		// copy metrics (do it after in order to be able to use the
 		// pastInterval)
 		for (Measure kpi : currentAnalysis.getKpis()) {
@@ -333,7 +339,6 @@ public class AnalysisCompute {
 			compareToAnalysis.add(compareToKpi);
 		}
 
-	
 		// compute present & past in //
 		Future<DataMatrix> future = ExecutionManager.INSTANCE.submit(universe.getContext().getCustomerId(),
 				new Callable<DataMatrix>() {
@@ -346,10 +351,11 @@ public class AnalysisCompute {
 				});
 		try {
 			// compute past
-			DataMatrix past = computeAnalysisSimple(compareToAnalysis, false);
+			DataMatrix past = computeAnalysisSimple(compareToAnalysis, false, true);
 			past.orderBy(fixed);
 			// wait for present
 			DataMatrix present = future.get();
+
 			//
 			final Period offset = computeOffset(present, joinAxis, presentInterval, pastInterval);
 			//
@@ -407,39 +413,44 @@ public class AnalysisCompute {
 					if (lowerPresentDT.getDayOfYear() == 1
 							&& upperPresentDT.getDayOfYear() == upperPresentDT.dayOfYear().getMaximumValue()) {
 						// check of both periods have the same number of days
-						Period presentPeriod = new Period(new LocalDate(lowerPresent), (new LocalDate(upperPresent)), PeriodType.days());
-						Period pastPeriod = new Period(new LocalDate(lowerPast), (new LocalDate(upperPast)), PeriodType.days());
+						Period presentPeriod = new Period(new LocalDate(lowerPresent), (new LocalDate(upperPresent)),
+								PeriodType.days());
+						Period pastPeriod = new Period(new LocalDate(lowerPast), (new LocalDate(upperPast)),
+								PeriodType.days());
 						if (presentPeriod.getDays() == pastPeriod.getDays()) {
-							presentPeriod = new Period(new LocalDate(lowerPresent), (new LocalDate(upperPresent)).plusDays(1) , PeriodType.years());
-							pastPeriod = new Period(new LocalDate(lowerPast), (new LocalDate(upperPast)).plusDays(1), PeriodType.years());
+							presentPeriod = new Period(new LocalDate(lowerPresent),
+									(new LocalDate(upperPresent)).plusDays(1), PeriodType.years());
+							pastPeriod = new Period(new LocalDate(lowerPast), (new LocalDate(upperPast)).plusDays(1),
+									PeriodType.years());
 
 							// realign
 							if (presentPeriod.getYears() > pastPeriod.getYears()) {
-								//some days are missing to align the periods
-								if (lowerPastDT.getDayOfYear() != 1 ){
-									//previous period
-									Date newLowerPast =  new DateTime(upperPastDT.getYear(), 1, 1,0, 0).toDate();
+								// some days are missing to align the periods
+								if (lowerPastDT.getDayOfYear() != 1) {
+									// previous period
+									Date newLowerPast = new DateTime(upperPastDT.getYear(), 1, 1, 0, 0).toDate();
 									return new IntervalleObject(newLowerPast, upperPast);
 								}
-								if (upperPastDT.getDayOfYear() != upperPastDT.dayOfYear().getMaximumValue()){
-								// year  over year
+								if (upperPastDT.getDayOfYear() != upperPastDT.dayOfYear().getMaximumValue()) {
+									// year over year
 									Date newUpperPast = new DateTime(upperPastDT.getYear(), 12, 31, 23, 59).toDate();
 									return new IntervalleObject(lowerPast, newUpperPast);
 								}
 							} else {
-								// either already aligned,  or some days should be removed
-								
+								// either already aligned, or some days should
+								// be removed
+
 								if (upperPastDT.getDayOfYear() != upperPastDT.dayOfYear().getMaximumValue()) {
-										// year over Year
+									// year over Year
 									Date newUpperPast = new DateTime(upperPastDT.getYear() - 1, 12, 31, 23, 59)
 											.toDate();
 									return new IntervalleObject(lowerPast, newUpperPast);
 
 								}
-								if (lowerPastDT.getDayOfYear()!= 1){
+								if (lowerPastDT.getDayOfYear() != 1) {
 									// previous period
-									Date newLowerPast = new DateTime( lowerPastDT.getYear()+1 , 1, 1  , 0 ,0).toDate();
-									return  new IntervalleObject(newLowerPast, upperPast);
+									Date newLowerPast = new DateTime(lowerPastDT.getYear() + 1, 1, 1, 0, 0).toDate();
+									return new IntervalleObject(newLowerPast, upperPast);
 								}
 
 							}
@@ -450,31 +461,38 @@ public class AnalysisCompute {
 					if (lowerPresentDT.getDayOfMonth() == 1
 							&& upperPresentDT.getDayOfMonth() == upperPresentDT.dayOfMonth().getMaximumValue()) {
 						// check of both periods have the same number of days
-						Period presentPeriod = new Period(new LocalDate(lowerPresent), new LocalDate(upperPresent),PeriodType.days() );
-						Period pastPeriod = new Period(new LocalDate(lowerPast), new LocalDate(upperPast), PeriodType.days() );
+						Period presentPeriod = new Period(new LocalDate(lowerPresent), new LocalDate(upperPresent),
+								PeriodType.days());
+						Period pastPeriod = new Period(new LocalDate(lowerPast), new LocalDate(upperPast),
+								PeriodType.days());
 						if (presentPeriod.getDays() == pastPeriod.getDays()) {
 							// realign
-							 presentPeriod = new Period(new LocalDate(lowerPresent), (new LocalDate(upperPresent)).plusDays(1),PeriodType.months() );
-							 pastPeriod = new Period(new LocalDate(lowerPast), (new LocalDate(upperPast)).plusDays(1), PeriodType.months() );
+							presentPeriod = new Period(new LocalDate(lowerPresent),
+									(new LocalDate(upperPresent)).plusDays(1), PeriodType.months());
+							pastPeriod = new Period(new LocalDate(lowerPast), (new LocalDate(upperPast)).plusDays(1),
+									PeriodType.months());
 							if (presentPeriod.getMonths() > pastPeriod.getMonths()) {
 								// some days are missing
-								
-								if (upperPastDT.getDayOfMonth() != upperPastDT.dayOfMonth().getMaximumValue() ){
+
+								if (upperPastDT.getDayOfMonth() != upperPastDT.dayOfMonth().getMaximumValue()) {
 									// month over month
-									Date newUpperPast = new DateTime(upperPastDT.getYear(), upperPastDT.getMonthOfYear(),
-										upperPastDT.dayOfMonth().getMaximumValue(), 23, 59).toDate();
+									Date newUpperPast = new DateTime(upperPastDT.getYear(),
+											upperPastDT.getMonthOfYear(), upperPastDT.dayOfMonth().getMaximumValue(),
+											23, 59).toDate();
 									return new IntervalleObject(lowerPast, newUpperPast);
 								}
-								
-								if (lowerPastDT.getDayOfMonth() != 1){
-									//previous period
-									Date newLowerPast = new DateTime(lowerPastDT.getYear(), lowerPastDT.getMonthOfYear(), 1, 0,0 ).toDate();
+
+								if (lowerPastDT.getDayOfMonth() != 1) {
+									// previous period
+									Date newLowerPast = new DateTime(lowerPastDT.getYear(),
+											lowerPastDT.getMonthOfYear(), 1, 0, 0).toDate();
 									return new IntervalleObject(newLowerPast, upperPast);
-									
+
 								}
-								
+
 							} else {
-								//either already aligned, of some days should be removed
+								// either already aligned, of some days should
+								// be removed
 								if (upperPastDT.getDayOfMonth() != upperPastDT.dayOfMonth().getMaximumValue()) {
 									/// month over month
 									if (upperPastDT.getMonthOfYear() == 1) {
@@ -491,21 +509,24 @@ public class AnalysisCompute {
 										return new IntervalleObject(lowerPast, newUpperPast);
 									}
 								}
-								if (lowerPastDT.getDayOfMonth() != 1){
-									//previous period 
-									if (lowerPastDT.getMonthOfYear() == 12 ){
-										Date newLowerPast = new DateTime( lowerPastDT.getYear()+1, 1, 1, 0,0).toDate();
+								if (lowerPastDT.getDayOfMonth() != 1) {
+									// previous period
+									if (lowerPastDT.getMonthOfYear() == 12) {
+										Date newLowerPast = new DateTime(lowerPastDT.getYear() + 1, 1, 1, 0, 0)
+												.toDate();
 										return new IntervalleObject(newLowerPast, upperPast);
-										
-									}else{
+
+									} else {
 										lowerPastDT = lowerPastDT.plusMonths(1);
-										Date newLowerPast= new DateTime(lowerPastDT.getYear(), lowerPastDT.getMonthOfYear(), lowerPastDT.dayOfMonth().getMaximumValue(), 23,59).toDate();
+										Date newLowerPast = new DateTime(lowerPastDT.getYear(),
+												lowerPastDT.getMonthOfYear(),
+												lowerPastDT.dayOfMonth().getMaximumValue(), 23, 59).toDate();
 										return new IntervalleObject(newLowerPast, upperPast);
-										
+
 									}
-									
+
 								}
-								
+
 							}
 						}
 					}
@@ -574,7 +595,7 @@ public class AnalysisCompute {
 
 			Period presentPeriod = new Period(new LocalDate(((Date) presentInterval.getLowerBound()).getTime()),
 					new LocalDate(((Date) presentInterval.getUpperBound()).getTime()).plusDays(1), type);
-			
+
 			Period pastPeriod = new Period(new LocalDate(((Date) pastInterval.getLowerBound()).getTime()),
 					new LocalDate(((Date) pastInterval.getUpperBound()).getTime()).plusDays(1), type);
 
@@ -671,13 +692,13 @@ public class AnalysisCompute {
 	 * @throws InterruptedException
 	 * @throws RenderingException
 	 */
-	private DataMatrix computeAnalysisSimple(DashboardAnalysis analysis, boolean optimize)
+	private DataMatrix computeAnalysisSimple(DashboardAnalysis analysis, boolean optimize, boolean forceBeyondLimit)
 			throws ScopeException, ComputingException, SQLScopeException, InterruptedException, RenderingException {
 		// select with one or several KPI groups
 		DataMatrix result = null;
 		for (MeasureGroup group : analysis.getGroups()) {
 			//
-			DataMatrix dm = computeAnalysisSimpleForGroup(analysis, group, optimize);
+			DataMatrix dm = computeAnalysisSimpleForGroup(analysis, group, optimize, forceBeyondLimit);
 			if (dm != null) {
 
 				// merge if needed
@@ -689,6 +710,11 @@ public class AnalysisCompute {
 			}
 		}
 		return result;
+	}
+
+	private DataMatrix computeAnalysisSimple(DashboardAnalysis analysis, boolean optimize)
+			throws ScopeException, ComputingException, SQLScopeException, InterruptedException, RenderingException {
+		return computeAnalysisSimple(analysis, optimize, false);
 	}
 
 	private DataMatrix runQuery(SimpleQuery query, boolean lazy, DashboardAnalysis analysis, PreviewWriter qw)
@@ -712,8 +738,8 @@ public class AnalysisCompute {
 			// need to setup the postprocessing somewhere...
 			// restore the query for the match
 			try {
-				SimpleQuery queryBis = this.genAnalysisQueryCachable(match.getAnalysis(), match.getMeasures(),
-						optimize);
+				SimpleQuery queryBis = this.genAnalysisQueryCachable(match.getAnalysis(), match.getMeasures(), optimize,
+						false);
 				// T1913
 				for (AxisMapping ax : queryBis.getMapper().getAxisMapping()) {
 					AxisMapping mapping = query.getMapper().find(ax.getAxis());
@@ -763,11 +789,12 @@ public class AnalysisCompute {
 																			// reason
 	}
 
-	protected DataMatrix computeAnalysisSimpleForGroup(DashboardAnalysis analysis, MeasureGroup group, boolean optimize)
+	protected DataMatrix computeAnalysisSimpleForGroup(DashboardAnalysis analysis, MeasureGroup group, boolean optimize,
+			boolean forceBeyondLimit)
 			throws ScopeException, SQLScopeException, ComputingException, InterruptedException, RenderingException {
 		// generate the query
 		PreviewWriter qw = new PreviewWriter();
-		SimpleQuery query = this.genAnalysisQueryCachable(analysis, group, optimize);
+		SimpleQuery query = this.genAnalysisQueryCachable(analysis, group, optimize, forceBeyondLimit);
 		// compute the signature: do it after generating the query to take into
 		// account side-effects
 		boolean smartCache = SUPPORT_SMART_CACHE && !analysis.hasRollup();
@@ -1133,14 +1160,21 @@ public class AnalysisCompute {
 	 * @throws InterruptedException
 	 * @throws RenderingException
 	 */
-	protected SimpleQuery genAnalysisQuery(DashboardAnalysis analysis, MeasureGroup group, boolean optimize)
+	protected SimpleQuery genAnalysisQuery(DashboardAnalysis analysis, MeasureGroup group, boolean optimize,
+			boolean forceBeyondLimit)
 			throws ScopeException, SQLScopeException, ComputingException, InterruptedException, RenderingException {
-		return this.genAnalysisQueryCachable(analysis, group, optimize);
+		return this.genAnalysisQueryCachable(analysis, group, optimize, forceBeyondLimit);
 	}
 
-	protected SimpleQuery genAnalysisQueryCachable(DashboardAnalysis analysis, MeasureGroup group, boolean optimize)
+	protected SimpleQuery genAnalysisQuery(DashboardAnalysis analysis, MeasureGroup group, boolean optimize)
 			throws ScopeException, SQLScopeException, ComputingException, InterruptedException, RenderingException {
-		if (analysis.hasBeyondLimit() && analysis.hasLimit() && !analysis.hasRollup()) {
+		return this.genAnalysisQueryCachable(analysis, group, optimize, false);
+	}
+
+	protected SimpleQuery genAnalysisQueryCachable(DashboardAnalysis analysis, MeasureGroup group, boolean optimize,
+			boolean forceBeyondLimit)
+			throws ScopeException, SQLScopeException, ComputingException, InterruptedException, RenderingException {
+		if (forceBeyondLimit || (analysis.hasBeyondLimit() && analysis.hasLimit() && !analysis.hasRollup())) {
 			// need to take care of the beyond limit axis => compute the limit
 			// only on a subset of axes
 			SimpleQuery check = genAnalysisQueryWithBeyondLimitSupport(analysis, group, true, optimize);
@@ -1227,8 +1261,8 @@ public class AnalysisCompute {
 		if (analysis.hasRollup())
 			subAnalysisWithLimit.setRollup(analysis.getRollup());
 		// copy selection
-		if (analysis.getBeyodLimitSelection() != null) {
-			subAnalysisWithLimit.setSelection(new DashboardSelection(analysis.getBeyodLimitSelection()));
+		if (analysis.getBeyondLimitSelection() != null) {
+			subAnalysisWithLimit.setSelection(new DashboardSelection(analysis.getBeyondLimitSelection()));
 		} else {
 			subAnalysisWithLimit.setSelection(new DashboardSelection(analysis.getSelection()));
 		}

@@ -54,7 +54,7 @@ public class DashboardAnalysis extends Dashboard {
 
 	private List<GroupByAxis> beyondLimit = new ArrayList<>();
 	// T0126 & T1042: in case of beyondLimit + compareTo we need to use a different selection for computing the limit subquery
-	private DashboardSelection beyodLimitSelection = null;
+	private DashboardSelection beyondLimitSelection = null;
 	
 	private Map<String, Object> optionKeys = null;
 	public static final String COMPUTE_GROWTH_OPTION_KEY = "computeGrowth";// true|false flag to enable computing the growth percentage when performing a compareTo analysis
@@ -162,15 +162,15 @@ public class DashboardAnalysis extends Dashboard {
      * 
      * @return
      */
-    public DashboardSelection getBeyodLimitSelection() {
-		return beyodLimitSelection;
+    public DashboardSelection getBeyondLimitSelection() {
+		return beyondLimitSelection;
 	}
     
 	/**
 	 * @param beyodLimitSelection
 	 */
-    public void setBeyodLimitSelection(DashboardSelection beyodLimitSelection) {
-		this.beyodLimitSelection = beyodLimitSelection;
+    public void setBeyondLimitSelection(DashboardSelection beyondLimitSelection) {
+		this.beyondLimitSelection = beyondLimitSelection;
 	}
     
     public void offset(long offset) {
