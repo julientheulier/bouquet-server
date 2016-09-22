@@ -83,6 +83,7 @@ import io.swagger.annotations.ApiParam;
 import io.swagger.annotations.Authorization;
 import io.swagger.annotations.AuthorizationScope;
 
+@Path("/projects")
 @Api(value = "projects", authorizations = { @Authorization(value = "kraken_auth", scopes = { @AuthorizationScope(scope = "access", description = "Access")}) })
 @Produces({ MediaType.APPLICATION_JSON })
 public class ProjectServiceRest extends BaseServiceRest {
@@ -130,7 +131,7 @@ public class ProjectServiceRest extends BaseServiceRest {
 	
 	@GET
     @Path("{"+PARAM_NAME+"}"+"/validate")
-	@ApiOperation(value = "Validate the Project connection")
+	@ApiOperation(hidden=true, value = "Validate the Project connection")
 	public boolean validate(@PathParam(PARAM_NAME) String objectId) {
 		ProjectPK projectPK = new ProjectPK(userContext.getCustomerId(),
 				objectId);
@@ -232,12 +233,13 @@ public class ProjectServiceRest extends BaseServiceRest {
 	 */
 	@Path("{"+PARAM_NAME+"}"+"/refreshDatabase")
 	@GET
-	@ApiOperation(value = "Refresh database operation")
+	@ApiOperation(hidden=true, value = "Refresh database operation")
 	public boolean refreshDatabase(@PathParam(PARAM_NAME) String projectId) {
 		return delegate.refreshDatabase(userContext, projectId);
 	}
 
 	@Path("{"+PARAM_NAME+"}"+"/cache")
+	@ApiOperation(value="Display cache information for this project")
 	@GET
 	public Object readCacheInfo(
 			@PathParam(PARAM_NAME) String objectId) {
@@ -246,6 +248,7 @@ public class ProjectServiceRest extends BaseServiceRest {
 	}
 
 	@Path("{"+PARAM_NAME+"}"+"/cache")
+	@ApiOperation(value="Refresh cache information for this project, including the database mapping")
 	@DELETE
 	public Object deleteCache(
 			@PathParam(PARAM_NAME) String objectId) {
@@ -254,6 +257,7 @@ public class ProjectServiceRest extends BaseServiceRest {
 	}
 
 	@Path("{"+PARAM_NAME+"}"+"/cache/refresh")
+	@ApiOperation(value="Refresh cache information for this project, including the database mapping")
 	@GET
 	public Object refreshCache(
 			@PathParam(PARAM_NAME) String objectId) {
@@ -263,7 +267,7 @@ public class ProjectServiceRest extends BaseServiceRest {
 
 	@Path("{"+PARAM_NAME+"}"+"/access")
 	@GET
-	@ApiOperation(value = "Gets a Project's access rights")
+	@ApiOperation(hidden=true, value = "Gets a Project's access rights")
 	public Set<AccessRight> readAccessRights(
 			@PathParam(PARAM_NAME) String objectId) {
 		return delegate.readAccessRights(userContext,
@@ -272,7 +276,7 @@ public class ProjectServiceRest extends BaseServiceRest {
 
 	@Path("{"+PARAM_NAME+"}"+"/access")
 	@POST
-	@ApiOperation(value = "Sets a Project's access rights")
+	@ApiOperation(hidden=true, value = "Sets a Project's access rights")
 	public Set<AccessRight> storeAccessRights(
 			@PathParam(PARAM_NAME) String objectId,
 			@ApiParam(required = true) Set<AccessRight> accessRights) {
@@ -289,7 +293,7 @@ public class ProjectServiceRest extends BaseServiceRest {
 
 	@GET
 	@Path("{" + PARAM_NAME + "}" + "/move")
-	@ApiOperation(value = "Gets an domain and save it to an other domain/db")
+	@ApiOperation(hidden=true, value = "Gets an domain and save it to an other domain/db")
 	public Response linkDomain(
 			@PathParam(PARAM_NAME) String sourceProjectId,
 			@ApiParam(value = "domain name for the source") @QueryParam("sourceDomainId") String sourceDomainId,
@@ -381,7 +385,7 @@ public class ProjectServiceRest extends BaseServiceRest {
 
 	@Path("{"+PARAM_NAME+"}"+"/domains-suggestion")
 	@GET
-	@ApiOperation(value = "Gets suggestions for Domain")
+	@ApiOperation(hidden=true, value = "Gets suggestions for Domain")
 	public ExpressionSuggestion getDomainSuggestion(
 			@PathParam("projectId") String projectId,
 			@QueryParam("expression") String expression,
@@ -393,7 +397,7 @@ public class ProjectServiceRest extends BaseServiceRest {
 
 	@Path("{"+PARAM_NAME+"}"+"/schemas-suggestion")
 	@GET
-	@ApiOperation(value = "DEPRECATED: Gets suggestions for DB Schemas")
+	@ApiOperation(hidden=true, value = "DEPRECATED: Gets suggestions for DB Schemas")
 	public ExpressionSuggestion getSchemaSuggestion(
 			@PathParam("projectId") String projectId) {
 		return delegate.getSchemaSuggestion(userContext, projectId);
@@ -422,7 +426,7 @@ public class ProjectServiceRest extends BaseServiceRest {
 
 	@Path("{"+PARAM_NAME+"}"+"/relations-suggestion")
 	@GET
-	@ApiOperation(value = "Gets suggestions for Relations")
+	@ApiOperation(hidden=true, value = "Gets suggestions for Relations")
 	public ExpressionSuggestion getRelationSuggestion(
             @PathParam("projectId") String projectId,
             @QueryParam("leftDomainId") String leftDomainId,
@@ -442,6 +446,7 @@ public class ProjectServiceRest extends BaseServiceRest {
 	 * @return AnnotationServiceRest
 	 */
 	@Path("{"+PARAM_NAME+"}"+"/annotations/{annotationId}")
+	@ApiOperation(hidden=true, value="Annotation API")
 	public AnnotationServiceRest getAnnotationService() {
 		return new AnnotationServiceRest(userContext);
 	}
@@ -459,6 +464,7 @@ public class ProjectServiceRest extends BaseServiceRest {
 	 * @return annotation list
 	 */
 	@Path("{"+PARAM_NAME+"}"+"/annotations")
+	@ApiOperation(hidden=true, value="Annotation API")
 	@GET
 	public AnnotationList readAnnotations(
 			@PathParam(PARAM_NAME) String projectId,
@@ -477,6 +483,7 @@ public class ProjectServiceRest extends BaseServiceRest {
 	 * @return created object
 	 */
 	@Path("{"+PARAM_NAME+"}"+"/annotations")
+	@ApiOperation(hidden=true, value="Annotation API")
 	@POST
 	public AnnotationPK addAnnotation(@PathParam(PARAM_NAME) String projectId,
 			Annotation annotation) {

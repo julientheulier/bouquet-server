@@ -64,6 +64,7 @@ import org.apache.cxf.jaxrs.impl.UriBuilderImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -2941,6 +2942,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	private String writeVegalightSpecs(VegaliteSpecs specs) {
 		ObjectMapper mapper = new ObjectMapper();
 		try {
+			mapper.setSerializationInclusion(Include.NON_NULL);
 			return mapper.writeValueAsString(specs);
 		} catch (JsonProcessingException e) {
 			throw new APIException("failed to write vegalite specs to JSON", e, true);
@@ -3024,16 +3026,27 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		html.append("<table><tr><td valign='top'>GroupBy:</td><td valign='top'>");
 		for (Axis axis : space.A(true)) {// only print the visible scope
 			try {
-				DimensionIndex index = axis.getIndex();
-				html.append("<span draggable='true' style='"+axis_style+"'");
-				ExpressionAST expr = axis.getDefinitionSafe();
-				html.append("title='"+getExpressionValueType(expr).toString()+": ");
-				if (axis.getDescription()!=null) {
-					html.append(axis.getDescription());
+				IDomain image = axis.getDefinitionSafe().getImageDomain();
+				if (!image.isInstanceOf(IDomain.OBJECT)) {
+					DimensionIndex index = axis.getIndex();
+					html.append("<span draggable='true' style='"+axis_style+"'");
+					ExpressionAST expr = axis.getDefinitionSafe();
+					html.append("title='"+getExpressionValueType(expr).toString()+": ");
+					if (axis.getDescription()!=null) {
+						html.append(axis.getDescription());
+					}
+					if (index.getErrorMessage()!=null) {
+						html.append("\nError:"+index.getErrorMessage());
+					}
+					html.append("'");
+					html.append(" ondragstart='drag(event,\""+index.getDimensionName()+"\")'>");
+					if (index.getErrorMessage()==null) {
+						html.append("&nbsp;"+index.getDimensionName()+"&nbsp;");
+					} else {
+						html.append("&nbsp;<del>"+index.getDimensionName()+"</del>&nbsp;");
+					}
+					html.append("</span>");
 				}
-				html.append("'");
-				html.append(" ondragstart='drag(event,\""+index.getDimensionName()+"\")'");
-				html.append(">&nbsp;"+index.getDimensionName()+"&nbsp;</span>");
 			} catch (Exception e) {
 				// ignore
 			}
