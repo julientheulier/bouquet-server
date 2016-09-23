@@ -85,9 +85,9 @@ public interface AnalyticsQuery {
 	
 	// temporary support for beyondLimit
 	
-	int[] getBeyondLimit();
+	List<String> getBeyondLimit();
 	
-	void setBeyondLimit(int[] cols);
+	void setBeyondLimit(List<String> cols);
 
 	/**
 	 * return an unique identifier based on the query value, i.e. two identical queries will have the same ID.

@@ -32,7 +32,7 @@ public class AnalyticsQueryImpl implements AnalyticsQuery {
 
 	private Long limit;
 	
-	private int[] beyondLimit;
+	private List<String> beyondLimit;
 	
 	private String bookmarkId;
 	
@@ -211,11 +211,11 @@ public class AnalyticsQueryImpl implements AnalyticsQuery {
 		this.limit = limit;
 	}
 	
-	public int[] getBeyondLimit() {
+	public List<String> getBeyondLimit() {
 		return beyondLimit;
 	}
 
-	public void setBeyondLimit(int[] beyondLimit) {
+	public void setBeyondLimit(List<String> beyondLimit) {
 		this.beyondLimit = beyondLimit;
 	}
 

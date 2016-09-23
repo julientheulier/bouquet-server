@@ -1730,20 +1730,30 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		}
 		
 		// beyond limit
-		if (query.getBeyondLimit()!=null && query.getBeyondLimit().length>0) {
-			if (query.getBeyondLimit().length==1) {
-				Index index = new Index(query.getBeyondLimit()[0]);
-				analysisJob.setBeyondLimit(Collections.singletonList(index));
-			} else {
-				ArrayList<Index> indexes = new ArrayList<>();
-				for (int i=0;i<query.getBeyondLimit().length;i++) {
-					Index index = new Index(query.getBeyondLimit()[i]);
-					indexes.add(index);
+		if (query.getBeyondLimit()!=null && !query.getBeyondLimit().isEmpty()) {
+			ArrayList<Index> indexes = new ArrayList<>(query.getBeyondLimit().size());
+			for (String value : query.getBeyondLimit()) {
+				// check if it is a number
+				Integer x = getIntegerValue(value);
+				if (x==null || x<0 && x>=query.getGroupBy().size()) {
+					x = query.getGroupBy().indexOf(value);
 				}
-				analysisJob.setBeyondLimit(indexes);
+				if (x==null || x<0) {
+					throw new ScopeException("invalid beyondLimit parameter: "+value+": must be an valid integer position or a groupBy expression");
+				}
+				indexes.add(new Index(x));
 			}
+			analysisJob.setBeyondLimit(indexes);
 		}
 		return analysisJob;
+	}
+	
+	private Integer getIntegerValue(String value) {
+		try {
+			return Integer.parseInt(value);
+		} catch (NumberFormatException e) {
+			return null;
+		}
 	}
 
 	private Domain getDomain(Universe universe, String definiiton) throws ScopeException {
@@ -2548,7 +2558,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		}
 		// beyond limit
 		if (outputConfig.isTimeseries()) {
-			query.setBeyondLimit(new int[]{outputConfig.getTimeseriesPosition()});
+			query.setBeyondLimit(Collections.singletonList(Integer.toString(outputConfig.getTimeseriesPosition())));
 			query.setMaxResults(null);
 		} else {
 			/*
@@ -3347,8 +3357,8 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			if (override.get(LIMIT_PARAM)!=null) builder.queryParam(LIMIT_PARAM, override.get(LIMIT_PARAM));
 		} else if (query.getLimit()!=null) builder.queryParam(LIMIT_PARAM, query.getLimit());
 		if (query.getBeyondLimit()!=null) {
-			for (int index : query.getBeyondLimit()) {
-				builder.queryParam("beyondLimit", index);
+			for (String value : query.getBeyondLimit()) {
+				builder.queryParam("beyondLimit", value);
 			}
 		}
 		// maxResults override

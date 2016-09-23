@@ -268,7 +268,7 @@ public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implemen
 					value="exclude some dimensions from the limit",
 					allowMultiple=true
 					)
-			@QueryParam("beyondLimit") int[] beyondLimit,
+			@QueryParam(BEYOND_LIMIT_PARAM) String[] beyondLimit,
 			@ApiParam(value = "paging size") @QueryParam(MAX_RESULTS_PARAM) Integer maxResults,
 			@ApiParam(value = "paging start index") @QueryParam(START_INDEX_PARAM) Integer startIndex,
 			@ApiParam(value = "if true, get the analysis only if already in cache, else throw a NotInCacheException; if noError returns a null result if the analysis is not in cache ; else regular analysis", defaultValue = "false") 
@@ -412,7 +412,7 @@ public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implemen
 					value="exclude some dimensions from the limit",
 					allowMultiple=true
 					)
-			@QueryParam("beyondLimit") int[] beyondLimit
+			@QueryParam(BEYOND_LIMIT_PARAM) String[] beyondLimit
 			) throws ComputingException, ScopeException, InterruptedException {
 		AppContext userContext = getUserContext(request);
 		String[] split = filename.split("\\.");
@@ -481,7 +481,7 @@ public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implemen
 			String[] rollupExpressions, 
 			Long limit,
 			Long offset, 
-			int[] beyondLimit,
+			String[] beyondLimit,
 			Integer maxResults, 
 			Integer startIndex, 
 			String lazy, 
@@ -567,7 +567,13 @@ public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implemen
 		}
 		if (limit!=null && limit>0) query.setLimit(limit);
 		if (offset!=null && offset>0) query.setOffset(offset);
-		if (beyondLimit!=null) query.setBeyondLimit(beyondLimit);
+		if (beyondLimit!=null && beyondLimit.length > 0) {
+			query.setBeyondLimit(new ArrayList<String>());
+			for (String value : beyondLimit) {
+				// skip empty strings
+				if (value!=null && value.length()>0) query.getBeyondLimit().add(value);
+			}
+		}
 		if (maxResults!=null && maxResults>0) query.setMaxResults(maxResults);
 		if (startIndex!=null && startIndex>0) query.setStartIndex(startIndex);
 		if (lazy!=null) query.setLazy(lazy);
