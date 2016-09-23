@@ -25,6 +25,7 @@ package com.squid.kraken.v4.core.analysis.engine.processor;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -41,7 +42,6 @@ import com.squid.kraken.v4.caching.redis.RedisCacheException;
 
 import org.joda.time.DateTime;
 import org.joda.time.LocalDate;
-import org.joda.time.Months;
 import org.joda.time.Period;
 import org.joda.time.PeriodType;
 import org.slf4j.Logger;
@@ -205,11 +205,11 @@ public class AnalysisCompute {
 		for (GroupByAxis group : currentAnalysis.getGrouping()) {
 			dimensions.add(group.getAxis().getReference());
 		}
-		int[] mergeOrder = new int[dimensions.size()];// will hold in which
-														// order to merge
+		// will hold in which order to merge
+		int[] mergeOrder = new int[dimensions.size()];
 		// rebuild the full order specs
 		List<OrderBy> originalOrders = currentAnalysis.getOrders();
-		for (OrderBy order : currentAnalysis.getOrders()) {
+		for (OrderBy order : originalOrders) {
 			if (i == 0 && joinAxis != null) {
 				if (order.getExpression().equals(joinAxis.getReference())) {
 					// ok, it's first
@@ -217,10 +217,8 @@ public class AnalysisCompute {
 					mergeOrder[i++] = dimensions.indexOf(order.getExpression());
 					continue;// done for this order
 				} else {
-					// add it first
-					fixed.add(new OrderBy(i, joinAxis.getReference(), ORDERING.DESCENT));// default
-																							// to
-																							// DESC
+					// add it first, default to DESC because it is the join (date)
+					fixed.add(new OrderBy(i, joinAxis.getReference(), ORDERING.DESCENT));
 					mergeOrder[i++] = dimensions.indexOf(joinAxis.getReference());
 					// now we need to take care of the order
 				}
@@ -243,9 +241,9 @@ public class AnalysisCompute {
 		if (!dimensions.isEmpty()) {
 			for (ExpressionAST dim : dimensions) {
 				if (joinAxis == null || !joinAxis.getReference().equals(dim)) {
-					fixed.add(new OrderBy(i, dim, ORDERING.DESCENT));// default
-																		// to
-																		// DESC
+					// check the best order
+					IDomain image = dim.getImageDomain();
+					fixed.add(new OrderBy(i, dim, image.isInstanceOf(IDomain.TEMPORAL)?ORDERING.DESCENT:ORDERING.ASCENT));
 					mergeOrder[i++] = dimensions.indexOf(dim);
 				}
 			}
@@ -254,6 +252,16 @@ public class AnalysisCompute {
 		if (!remaining.isEmpty()) {
 			for (OrderBy order : remaining) {
 				fixed.add(new OrderBy(i++, order.getExpression(), order.getOrdering()));
+			}
+		}
+		// T1890 - need to be careful if there is a limit
+		// in that case we should always have an explicit orderBy
+		if (currentAnalysis.hasLimit()) {
+			if (originalOrders.isEmpty()) {
+				// no orderBy specified, but there is a limit.
+				// In order to keep results consistent between each call we need to add an orderBy
+				// so we can apply the fixed list which is never empty
+				currentAnalysis.setOrders(fixed);
 			}
 		}
 		//
@@ -302,6 +310,7 @@ public class AnalysisCompute {
 				pastInterval = computeMinMax(compare.getMembers(filter));
 				IntervalleObject alignedPastInterval = this.alignPastInterval(presentInterval, pastInterval, joinAxis);
 				if (!alignedPastInterval.equals(pastInterval)) {
+					logger.info(pastInterval.toString() + " realigned to " + alignedPastInterval.toString());
 					pastSelection.clear(filter);
 					pastSelection.add(filter, alignedPastInterval);
 				}
@@ -317,11 +326,13 @@ public class AnalysisCompute {
 			}
 		}
 		compareToAnalysis.setSelection(pastSelection);
-		if (currentAnalysis.hasBeyondLimit()) {// T1042: handling beyondLimit
-			compareToAnalysis.setBeyondLimit(compareBeyondLimit);
-			// use the present selection to compute
-			compareToAnalysis.setBeyodLimitSelection(presentSelection);
-		}
+		// T1890
+		// if (currentAnalysis.hasBeyondLimit()) {// T1042: handling beyondLimit
+		compareToAnalysis.setBeyondLimit(compareBeyondLimit);
+		// use the present selection to compute
+		compareToAnalysis.setBeyondLimitSelection(presentSelection);
+		// }
+
 		// copy metrics (do it after in order to be able to use the
 		// pastInterval)
 		for (Measure kpi : currentAnalysis.getKpis()) {
@@ -332,7 +343,6 @@ public class AnalysisCompute {
 			compareToAnalysis.add(compareToKpi);
 		}
 
-	
 		// compute present & past in //
 		Future<DataMatrix> future = ExecutionManager.INSTANCE.submit(universe.getContext().getCustomerId(),
 				new Callable<DataMatrix>() {
@@ -345,7 +355,7 @@ public class AnalysisCompute {
 				});
 		try {
 			// compute past
-			DataMatrix past = computeAnalysisSimple(compareToAnalysis, false);
+			DataMatrix past = computeAnalysisSimple(compareToAnalysis, false, true);
 			past.orderBy(fixed);
 			// wait for present
 			DataMatrix present = future.get();
@@ -359,7 +369,7 @@ public class AnalysisCompute {
 			// apply the original order by directive (T1039)
 			debug.orderBy(originalOrders);
 			// T1897 - enforce limit & offset
-			if  ( currentAnalysis.hasLimit() && debug.getRows().size() > currentAnalysis.getLimit()) {
+			if (currentAnalysis.hasLimit() && debug.getRows().size() > currentAnalysis.getLimit()) {
 				DataMatrixTransformTruncate truncate = new DataMatrixTransformTruncate(currentAnalysis.getLimit(),
 						currentAnalysis.getOffset());
 				debug = truncate.apply(debug);
@@ -669,13 +679,13 @@ public class AnalysisCompute {
 	 * @throws InterruptedException
 	 * @throws RenderingException
 	 */
-	private DataMatrix computeAnalysisSimple(DashboardAnalysis analysis, boolean optimize)
+	private DataMatrix computeAnalysisSimple(DashboardAnalysis analysis, boolean optimize, boolean forceBeyondLimit)
 			throws ScopeException, ComputingException, SQLScopeException, InterruptedException, RenderingException {
 		// select with one or several KPI groups
 		DataMatrix result = null;
 		for (MeasureGroup group : analysis.getGroups()) {
 			//
-			DataMatrix dm = computeAnalysisSimpleForGroup(analysis, group, optimize);
+			DataMatrix dm = computeAnalysisSimpleForGroup(analysis, group, optimize, forceBeyondLimit);
 			if (dm != null) {
 
 				// merge if needed
@@ -687,6 +697,11 @@ public class AnalysisCompute {
 			}
 		}
 		return result;
+	}
+
+	private DataMatrix computeAnalysisSimple(DashboardAnalysis analysis, boolean optimize)
+			throws ScopeException, ComputingException, SQLScopeException, InterruptedException, RenderingException {
+		return computeAnalysisSimple(analysis, optimize, false);
 	}
 
 	private DataMatrix runQuery(SimpleQuery query, boolean lazy, DashboardAnalysis analysis, PreviewWriter qw)
@@ -710,8 +725,8 @@ public class AnalysisCompute {
 			// need to setup the postprocessing somewhere...
 			// restore the query for the match
 			try {
-				SimpleQuery queryBis = this.genAnalysisQueryCachable(match.getAnalysis(), match.getMeasures(),
-						optimize);
+				SimpleQuery queryBis = this.genAnalysisQueryCachable(match.getAnalysis(), match.getMeasures(), optimize,
+						false);
 				// T1913
 				for (AxisMapping ax : queryBis.getMapper().getAxisMapping()) {
 					AxisMapping mapping = query.getMapper().find(ax.getAxis());
@@ -761,11 +776,12 @@ public class AnalysisCompute {
 																			// reason
 	}
 
-	protected DataMatrix computeAnalysisSimpleForGroup(DashboardAnalysis analysis, MeasureGroup group, boolean optimize)
+	protected DataMatrix computeAnalysisSimpleForGroup(DashboardAnalysis analysis, MeasureGroup group, boolean optimize,
+			boolean forceBeyondLimit)
 			throws ScopeException, SQLScopeException, ComputingException, InterruptedException, RenderingException {
 		// generate the query
 		PreviewWriter qw = new PreviewWriter();
-		SimpleQuery query = this.genAnalysisQueryCachable(analysis, group, optimize);
+		SimpleQuery query = this.genAnalysisQueryCachable(analysis, group, optimize, forceBeyondLimit);
 		// compute the signature: do it after generating the query to take into
 		// account side-effects
 		boolean smartCache = SUPPORT_SMART_CACHE && !analysis.hasRollup();
@@ -1131,14 +1147,21 @@ public class AnalysisCompute {
 	 * @throws InterruptedException
 	 * @throws RenderingException
 	 */
-	protected SimpleQuery genAnalysisQuery(DashboardAnalysis analysis, MeasureGroup group, boolean optimize)
+	protected SimpleQuery genAnalysisQuery(DashboardAnalysis analysis, MeasureGroup group, boolean optimize,
+			boolean forceBeyondLimit)
 			throws ScopeException, SQLScopeException, ComputingException, InterruptedException, RenderingException {
-		return this.genAnalysisQueryCachable(analysis, group, optimize);
+		return this.genAnalysisQueryCachable(analysis, group, optimize, forceBeyondLimit);
 	}
 
-	protected SimpleQuery genAnalysisQueryCachable(DashboardAnalysis analysis, MeasureGroup group, boolean optimize)
+	protected SimpleQuery genAnalysisQuery(DashboardAnalysis analysis, MeasureGroup group, boolean optimize)
 			throws ScopeException, SQLScopeException, ComputingException, InterruptedException, RenderingException {
-		if (analysis.hasBeyondLimit() && analysis.hasLimit() && !analysis.hasRollup()) {
+		return this.genAnalysisQueryCachable(analysis, group, optimize, false);
+	}
+
+	protected SimpleQuery genAnalysisQueryCachable(DashboardAnalysis analysis, MeasureGroup group, boolean optimize,
+			boolean forceBeyondLimit)
+			throws ScopeException, SQLScopeException, ComputingException, InterruptedException, RenderingException {
+		if (forceBeyondLimit || (analysis.hasBeyondLimit() && analysis.hasLimit() && !analysis.hasRollup())) {
 			// need to take care of the beyond limit axis => compute the limit
 			// only on a subset of axes
 			SimpleQuery check = genAnalysisQueryWithBeyondLimitSupport(analysis, group, true, optimize);
@@ -1182,12 +1205,14 @@ public class AnalysisCompute {
 			boolean cachable, boolean optimize)
 			throws ScopeException, SQLScopeException, ComputingException, InterruptedException, RenderingException {
 		//
+		// T1890: it is ok to have null beyondLimit => apply to all pivot
+		List<GroupByAxis> beyondLimitGroup = analysis.getBeyondLimit()!=null?analysis.getBeyondLimit():Collections.<GroupByAxis>emptyList();
 		// prepare the sub-query that will count the limit
 		DashboardAnalysis subAnalysisWithLimit = new DashboardAnalysis(analysis.getUniverse());
 		// copy dimensions
 		ArrayList<Axis> joins = new ArrayList<>();
 		for (GroupByAxis groupBy : analysis.getGrouping()) {
-			if (!analysis.getBeyondLimit().contains(groupBy)) {
+			if (!beyondLimitGroup.contains(groupBy)) {
 				subAnalysisWithLimit.add(groupBy);
 				joins.add(groupBy.getAxis());
 			} else {
@@ -1206,7 +1231,7 @@ public class AnalysisCompute {
 		// copy orders
 		ArrayList<ExpressionAST> exclude = new ArrayList<>();
 		DateExpressionAssociativeTransformationExtractor extractor = new DateExpressionAssociativeTransformationExtractor();
-		for (GroupByAxis slice : analysis.getBeyondLimit()) {
+		for (GroupByAxis slice : beyondLimitGroup) {
 			exclude.add(extractor.eval(slice.getAxis().getDefinitionSafe()));
 		}
 		for (OrderBy order : analysis.getOrders()) {
@@ -1225,15 +1250,15 @@ public class AnalysisCompute {
 		if (analysis.hasRollup())
 			subAnalysisWithLimit.setRollup(analysis.getRollup());
 		// copy selection
-		if (analysis.getBeyodLimitSelection() != null) {
-			subAnalysisWithLimit.setSelection(new DashboardSelection(analysis.getBeyodLimitSelection()));
+		if (analysis.getBeyondLimitSelection() != null) {
+			subAnalysisWithLimit.setSelection(new DashboardSelection(analysis.getBeyondLimitSelection()));
 		} else {
 			subAnalysisWithLimit.setSelection(new DashboardSelection(analysis.getSelection()));
 		}
 		// use the best strategy
 		if (joins.size() == 1 && subAnalysisWithLimit.getLimit() < 50) {
-			// run sub-analysis and add filters by hand (cache hit on the
-			// subquery)
+			// run sub-analysis and add filters by hand 
+			// potential cache hit on the subquery
 			DataMatrix selection = computeAnalysisSimple(subAnalysisWithLimit, false);
 			Axis join = joins.get(0);
 			Collection<DimensionMember> values = selection.getAxisValues(join);
