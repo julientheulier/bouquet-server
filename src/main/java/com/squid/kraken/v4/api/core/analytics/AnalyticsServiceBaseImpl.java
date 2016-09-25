@@ -1116,8 +1116,6 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		StringBuilder html = createHTMLHeader("Query: "+title);
 		createHTMLtitle(html, title, query.getBBID(), getParentLink(space));
 		createHTMLproblems(html, query.getProblems());
-		html.append("<form>");
-		createHTMLfilters(html, query);
 		if (data!=null) {
 			html.append("<table class='data'><tr>");
 			html.append("<th></th>");
@@ -1157,6 +1155,8 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			createHTMLdataLinks(html, query);
 			html.append("</p<br>");
 		}
+		html.append("<form>");
+		createHTMLfilters(html, query);
 		html.append("<table>");
 		html.append("<tr><td valign='top'>groupBy</td><td>");
 		createHTMLinputArray(html, "text", "groupBy", query.getGroupBy());
@@ -1559,6 +1559,15 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		// now we are going to use the domain Space scope
 		// -- note that it won't limit the actual expression scope to the bookmark scope - but let's keep that for latter
 		SpaceScope scope = new SpaceScope(universe.S(domain));
+		// add the period parameter if available
+		if (query.getPeriod()!=null && !query.getPeriod().equals("")) {
+			try {
+				ExpressionAST period = scope.parseExpression(query.getPeriod());
+				scope.addParam("__PERIOD", period);
+			} catch (ScopeException e) {
+				// ignore
+			}
+		}
 		// quick fix to support the old facet mechanism
 		ArrayList<String> analysisFacets = new ArrayList<>();
 		if (query.getGroupBy()!=null) analysisFacets.addAll(query.getGroupBy());
@@ -2966,8 +2975,6 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		html.append("<body>");
 		createHTMLtitle(html, title, view.getBBID(), getParentLink(space));
 		createHTMLproblems(html, reply.getQuery().getProblems());
-		html.append("<form>");
-		createHTMLfilters(html, reply.getQuery());
 		html.append("<div id=\"vis\"></div>\r\n\r\n<script>\r\nvar embedSpec = {\r\n  mode: \"vega-lite\", renderer:\"svg\",  spec:");
 		html.append(writeVegalightSpecs(reply.getResult()));
 		Encoding channels = reply.getResult().encoding;
@@ -2977,6 +2984,8 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		URI dataLink = buildAnalyticsQueryURI(userContext, reply.getQuery(), "RECORDS", "ALL", Style.HTML, null);
 		html.append("<p><a href=\""+StringEscapeUtils.escapeHtml4(dataLink.toASCIIString())+"\">view query data</a></p>");
 		//
+		html.append("<form>");
+		createHTMLfilters(html, reply.getQuery());
 		html.append("<table>"
 				+ "<tr><td>x</td><td><input type=\"text\" size=30 name=\"x\" value=\""+getFieldValue(view.getX())+"\"></td><td>"+(channels.x!=null?"as <b>"+channels.x.field+"</b>":"")+"</td></tr>"
 				+ "<tr><td>y</td><td><input type=\"text\" size=30 name=\"y\" value=\""+getFieldValue(view.getY())+"\"></td><td>"+(channels.y!=null?"as <b>"+channels.y.field+"</b>":"")+"</td></tr>"
@@ -3098,7 +3107,9 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	
 	private void createHTMLscope(StringBuilder html, Space space, AnalyticsQuery query) {
 		html.append("<fieldset><legend>Query scope: <i>this is the list of objects you can combine to build expressions in the query</i></legend>");
-		html.append("<table><tr><td valign='top'>GroupBy:</td><td valign='top'>");
+		html.append("<table>");
+		html.append("<tr><td></td><td>You can Drag & Drop expression into input fields</td></tr>");
+		html.append("<tr><td>GroupBy:</td><td>");
 		for (Axis axis : space.A(true)) {// only print the visible scope
 			try {
 				IDomain image = axis.getDefinitionSafe().getImageDomain();
@@ -3127,7 +3138,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			}
 		}
 		html.append("</td></tr>");
-		html.append("<tr><td valign='top'>Metrics:</td><td valign='top'>");
+		html.append("<tr><td>Metrics:</td><td>");
 		for (Measure m : space.M()) {
 			if (m.getMetric()!=null && !m.getMetric().isDynamic()) {
 				html.append("<span draggable='true'  style='"+metric_style+"'");
