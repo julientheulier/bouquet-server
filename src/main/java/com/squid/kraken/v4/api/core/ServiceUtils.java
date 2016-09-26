@@ -76,7 +76,12 @@ import com.squid.kraken.v4.persistence.DAOFactory;
 import com.squid.kraken.v4.persistence.DataStoreEventBus;
 import com.squid.kraken.v4.persistence.dao.CustomerDAO;
 
+import io.openbouquet.api.OBioApiHelper;
+import io.openbouquet.api.model.Membership;
+
 public class ServiceUtils {
+	
+	final static Logger logger = LoggerFactory.getLogger(ServiceUtils.class);
 
 	private static final String NULL = "null";
 
@@ -208,17 +213,27 @@ public class ServiceUtils {
 	public AccessToken getToken(String tokenId) throws TokenExpiredException {
 		AccessToken token = null;
 		if ((tokenId != null) && (!tokenId.equals(NULL))){
-			Optional<AccessToken> tokenOpt = DAOFactory.getDAOFactory()
-					.getDAO(AccessToken.class)
-					.read(null, new AccessTokenPK(tokenId));
-			if (tokenOpt.isPresent()) {
-				token = tokenOpt.get();
-				long now = System.currentTimeMillis();
-				long validity = token.getExpirationDateMillis();
-				if ((validity - now) > 0) {
-					return token;
-				} else {
-					throw new TokenExpiredException(tokenId);
+			if (KrakenConfig.getAuthMode() == AUTH_MODE.OBIO) {
+				// Perform Auth with OB.io
+				OBioApiHelper.setAuthServerEndpoint(KrakenConfig.getAuthServerEndpoint());
+				Membership membership = OBioApiHelper.getInstance().getMembershipService().get(tokenId);
+				token = createToken(membership.getTeam().getId(), null, membership.getUser().getId(),
+						System.currentTimeMillis(), ServiceUtils
+						.getInstance().getTokenExpirationPeriodMillis(), AccessToken.Type.NORMAL,
+						null);
+			} else {
+				Optional<AccessToken> tokenOpt = DAOFactory.getDAOFactory()
+						.getDAO(AccessToken.class)
+						.read(null, new AccessTokenPK(tokenId));
+				if (tokenOpt.isPresent()) {
+					token = tokenOpt.get();
+					long now = System.currentTimeMillis();
+					long validity = token.getExpirationDateMillis();
+					if ((validity - now) > 0) {
+						return token;
+					} else {
+						throw new TokenExpiredException(tokenId);
+					}
 				}
 			}
 		}

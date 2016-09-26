@@ -48,7 +48,7 @@ import io.swagger.annotations.ApiModelProperty;
 @SuppressWarnings("serial")
 public class Customer extends PersistentBaseImpl<CustomerPK> implements HasChildren {
 	
-	static public enum AUTH_MODE { BYPASS, OAUTH, NONE };
+	static public enum AUTH_MODE { BYPASS, OAUTH, NONE, OBIO };
 	
 	private static String[] CHILDREN = { "users", "userGroups", "clients",
 			"projects", "shortcuts" };
