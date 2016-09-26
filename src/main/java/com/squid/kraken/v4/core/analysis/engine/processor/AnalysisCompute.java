@@ -371,6 +371,8 @@ public class AnalysisCompute {
 			//
 			Object computeGrowthOption = currentAnalysis.getOption(DashboardAnalysis.COMPUTE_GROWTH_OPTION_KEY);
 			boolean computeGrowth = computeGrowthOption != null && computeGrowthOption.equals(true);
+			// T1890: the present & past matrices are sorted in post-processing according to the [fixed] order
+			// the CompareMerger only works if the matrices are fully sorted
 			CompareMerger merger = new CompareMerger(present, past, mergeOrder, joinAxis, offset, computeGrowth);
 			DataMatrix debug = merger.merge(false);
 			// apply the original order by directive (T1039)
