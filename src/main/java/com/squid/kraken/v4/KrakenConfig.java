@@ -237,5 +237,9 @@ public class KrakenConfig implements KrakenConfigConstants {
 	public static AUTH_MODE getAuthMode() {
 		return AUTH_MODE.valueOf(KrakenConfig.getProperty("authMode", AUTH_MODE.BYPASS.toString()));
 	}
+	
+	public static String getAuthServerEndpoint() {
+		return KrakenConfig.getProperty("authServerEndpoint", "https://auth.openbouquet.io");
+	}
 
 }

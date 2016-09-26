@@ -55,6 +55,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.base.Optional;
 import com.squid.kraken.v4.KrakenConfig;
 import com.squid.kraken.v4.api.core.customer.AuthServiceImpl;
+import com.squid.kraken.v4.api.core.customer.CustomerServiceBaseImpl;
 import com.squid.kraken.v4.api.core.customer.StateServiceBaseImpl;
 import com.squid.kraken.v4.api.core.customer.TokenExpiredException;
 import com.squid.kraken.v4.api.core.projectanalysisjob.AnalysisJobServiceBaseImpl;
@@ -76,7 +77,11 @@ import com.squid.kraken.v4.persistence.DAOFactory;
 import com.squid.kraken.v4.persistence.DataStoreEventBus;
 import com.squid.kraken.v4.persistence.dao.CustomerDAO;
 
+import io.openbouquet.api.model.Membership;
+
 public class ServiceUtils {
+	
+	final static Logger logger = LoggerFactory.getLogger(ServiceUtils.class);
 
 	private static final String NULL = "null";
 
@@ -207,10 +212,10 @@ public class ServiceUtils {
 	 */
 	public AccessToken getToken(String tokenId) throws TokenExpiredException {
 		AccessToken token = null;
-		if ((tokenId != null) && (!tokenId.equals(NULL))){
-			Optional<AccessToken> tokenOpt = DAOFactory.getDAOFactory()
-					.getDAO(AccessToken.class)
-					.read(null, new AccessTokenPK(tokenId));
+		if ((tokenId != null) && (!tokenId.equals(NULL))) {
+			// check for a token in local db
+			Optional<AccessToken> tokenOpt = DAOFactory.getDAOFactory().getDAO(AccessToken.class).read(null,
+					new AccessTokenPK(tokenId));
 			if (tokenOpt.isPresent()) {
 				token = tokenOpt.get();
 				long now = System.currentTimeMillis();
@@ -223,24 +228,58 @@ public class ServiceUtils {
 			}
 		}
 		if (token == null) {
-			if (KrakenConfig.getAuthMode() == AUTH_MODE.BYPASS) {
+			if ((KrakenConfig.getAuthMode() == AUTH_MODE.BYPASS) || (KrakenConfig.getAuthMode() == AUTH_MODE.OBIO)) {
 				// look for a Customer that has a a bypass auth mode
-				Customer singleCustomer = null;
-				AppContext ctx = new AppContext.Builder().build();
-				List<Customer> all = ((CustomerDAO) DAOFactory.getDAOFactory()
-						.getDAO(Customer.class)).findAll(ctx);
-				for (Customer customer : all) {
-					if (customer.getAuthMode() == AUTH_MODE.BYPASS) {
-						singleCustomer = customer;
-					}
-				}
+				Customer singleCustomer = getSingleCustomer();
 				if (singleCustomer != null) {
-					// generate a new token
-					token = createSuperUserToken(singleCustomer);
+					if (singleCustomer.getAuthMode() == AUTH_MODE.BYPASS) {
+						// generate a new token
+						token = createSuperUserToken(singleCustomer);
+					} else {
+						// Perform Auth with OB.io
+						OBioApiHelper.setAuthServerEndpoint(KrakenConfig.getAuthServerEndpoint());
+						Membership membership = null;
+						try {
+							membership = OBioApiHelper.getInstance().getMembershipService().get(tokenId);
+						} catch (Exception e) {
+							logger.info("Auth with OB.io failed", e);
+						}
+						if (membership != null) {
+							if ((singleCustomer.getTeamId() == null) || (singleCustomer.getAuthMode() != AUTH_MODE.OBIO)) {
+								// register the customer
+								logger.info("Registering Customer with Team : " + membership.getTeam().getId());
+								singleCustomer.setTeamId(membership.getTeam().getId());
+								singleCustomer.setPublicUrl(membership.getTeam().getServerUrl());
+								singleCustomer.setAuthMode(AUTH_MODE.OBIO);
+								AppContext ctx = new AppContext.Builder().build();
+								CustomerServiceBaseImpl.getInstance().store(ctx, singleCustomer);
+							} else if (!singleCustomer.getTeamId().equals(membership.getTeam().getId())) {
+								// this membership does not allow to access
+								logger.info("User membership does not allow to access this customer");
+								return null;
+							}
+							// generate a new token
+							token = createToken(singleCustomer.getTeamId(), null, membership.getUser().getId(),
+									System.currentTimeMillis(),
+									ServiceUtils.getInstance().getTokenExpirationPeriodMillis(),
+									AccessToken.Type.NORMAL, null);
+						}
+					}
 				}
 			}
 		}
 		return token;
+	}
+	
+	private Customer getSingleCustomer() {
+		Customer singleCustomer = null;
+		AppContext ctx = new AppContext.Builder().build();
+		List<Customer> all = ((CustomerDAO) DAOFactory.getDAOFactory()
+				.getDAO(Customer.class)).findAll(ctx);
+		if (all.size() == 1) {
+			singleCustomer = all.get(0);
+		}
+		return singleCustomer;
 	}
 
 	/**

@@ -48,7 +48,7 @@ import io.swagger.annotations.ApiModelProperty;
 @SuppressWarnings("serial")
 public class Customer extends PersistentBaseImpl<CustomerPK> implements HasChildren {
 	
-	static public enum AUTH_MODE { BYPASS, OAUTH, NONE };
+	static public enum AUTH_MODE { BYPASS, OAUTH, NONE, OBIO };
 	
 	private static String[] CHILDREN = { "users", "userGroups", "clients",
 			"projects", "shortcuts" };
@@ -62,6 +62,10 @@ public class Customer extends PersistentBaseImpl<CustomerPK> implements HasChild
     private String AWSClientId;
     
     private AUTH_MODE authMode = AUTH_MODE.OAUTH;
+    
+    private String teamId;
+    
+    private String publicUrl;
 
 	
     @Transient
@@ -249,4 +253,20 @@ public class Customer extends PersistentBaseImpl<CustomerPK> implements HasChild
 		this.authMode = authMode;
 	}
 
+	public String getTeamId() {
+		return teamId;
+	}
+
+	public void setTeamId(String teamId) {
+		this.teamId = teamId;
+	}
+
+	public String getPublicUrl() {
+		return publicUrl;
+	}
+
+	public void setPublicUrl(String publicUrl) {
+		this.publicUrl = publicUrl;
+	}
+	
 }
