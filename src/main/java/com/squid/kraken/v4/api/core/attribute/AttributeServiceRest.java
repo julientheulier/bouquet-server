@@ -48,7 +48,7 @@ import io.swagger.annotations.Authorization;
 import io.swagger.annotations.AuthorizationScope;
 
 @Produces({ MediaType.APPLICATION_JSON })
-@Api(hidden=true, value = "attributes", authorizations = { @Authorization(value = "kraken_auth", scopes = { @AuthorizationScope(scope = "access", description = "Access")}) })
+@Api(hidden=false, value = "attributes", authorizations = { @Authorization(value = "kraken_auth", scopes = { @AuthorizationScope(scope = "access", description = "Access")}) })
 public class AttributeServiceRest extends BaseServiceRest {
 
 	private final static String PARAM_NAME = "attributeId";
