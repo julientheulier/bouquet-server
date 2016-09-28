@@ -67,5 +67,39 @@ public class GroupByAxis {
 	public String toString() {
 		return axis.toString()+(rollup?"!":"");
 	}
+
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + ((axis == null) ? 0 : axis.hashCode());
+		result = prime * result + (rollup ? 1231 : 1237);
+		result = prime * result + ((rollupPosition == null) ? 0 : rollupPosition.hashCode());
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		GroupByAxis other = (GroupByAxis) obj;
+		if (axis == null) {
+			if (other.axis != null)
+				return false;
+		} else if (!axis.equals(other.axis))
+			return false;
+		if (rollup != other.rollup)
+			return false;
+		if (rollupPosition != other.rollupPosition)
+			return false;
+		return true;
+	}
+	
+	
+	
 	
 }
