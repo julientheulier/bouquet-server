@@ -275,7 +275,8 @@ public class AnalysisCompute {
 		 * currentAnalysis.hasBeyondLimit() ? new ArrayList<GroupByAxis>() :
 		 * null;
 		 */
-		ArrayList<GroupByAxis> compareBeyondLimit = new ArrayList<GroupByAxis>();
+		ArrayList<GroupByAxis> compareBeyondLimit = currentAnalysis.hasBeyondLimit() ? new ArrayList<GroupByAxis>()
+				: null;
 		for (GroupByAxis groupBy : currentAnalysis.getGrouping()) {
 			if (groupBy.getAxis().equals(joinAxis)) {
 				Axis compareToAxis = new Axis(groupBy.getAxis());
