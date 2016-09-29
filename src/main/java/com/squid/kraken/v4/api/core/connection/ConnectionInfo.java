@@ -23,6 +23,7 @@
  *******************************************************************************/
 package com.squid.kraken.v4.api.core.connection;
 
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -37,11 +38,21 @@ public class ConnectionInfo {
 	
 	private List<String> schemas;
 	
+	private String errorMessage = null;
+	
 	public ConnectionInfo(String dbVendorId, String dbUrl, List<String> schemas) {
 		super();
 		this.dbVendorId = dbVendorId;
 		this.dbUrl = dbUrl;
 		this.schemas = schemas;
+	}
+	
+	public ConnectionInfo(String dbVendorId, String dbUrl, Throwable error) {
+		super();
+		this.dbVendorId = dbVendorId;
+		this.dbUrl = dbUrl;
+		this.schemas = Collections.emptyList();
+		this.errorMessage = error.getMessage();
 	}
 
 	/**
@@ -63,6 +74,13 @@ public class ConnectionInfo {
 	 */
 	public List<String> getSchemas() {
 		return schemas;
+	}
+	
+	/**
+	 * @return the errorMessage
+	 */
+	public String getErrorMessage() {
+		return errorMessage;
 	}
 	
 }
