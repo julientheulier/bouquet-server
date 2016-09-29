@@ -1157,6 +1157,14 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		}
 		html.append("<form>");
 		createHTMLfilters(html, query);
+		{
+			UriBuilder builder = getPublicBaseUriBuilder().
+					path("/analytics/{"+BBID_PARAM_NAME+"}/query");
+			builder.queryParam(STYLE_PARAM, Style.HTML);
+			builder.queryParam("access_token", userContext.getToken().getOid());
+			URI uri = builder.build(space.getBBID(Style.ROBOT));
+			html.append("<a href=\""+StringEscapeUtils.escapeHtml4(uri.toString())+"\">"+StringEscapeUtils.escapeHtml4(space.getBBID(Style.HUMAN))+"</a>");
+		}
 		html.append("<table>");
 		html.append("<tr><td valign='top'>groupBy</td><td>");
 		createHTMLinputArray(html, "text", "groupBy", query.getGroupBy());
