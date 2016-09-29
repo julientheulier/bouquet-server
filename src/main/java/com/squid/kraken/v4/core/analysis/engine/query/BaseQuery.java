@@ -264,7 +264,7 @@ public class BaseQuery implements IQuery {
 				&& select.getSkin().getFeatureSupport(QualifySupport.ID) == ISkinFeatureSupport.IS_NOT_SUPPORTED) {
 			return generateQualifyScript();
 		} else {
-			return new SQLScript(select);
+			return new SQLScript(select, getMapper());
 		}
 	}
 

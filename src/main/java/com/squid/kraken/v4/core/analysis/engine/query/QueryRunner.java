@@ -30,6 +30,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.squid.core.expression.scope.ScopeException;
+import com.squid.core.sql.model.SQLScopeException;
 import com.squid.core.sql.render.RenderingException;
 import com.squid.kraken.v4.caching.NotInCacheException;
 import com.squid.kraken.v4.caching.redis.RedisCacheManager;
@@ -39,6 +40,7 @@ import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValuesList;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.core.analysis.engine.processor.DataMatrixTransformOrderBy;
 import com.squid.kraken.v4.core.analysis.engine.processor.DataMatrixTransformTruncate;
+import com.squid.kraken.v4.core.sql.script.SQLScript;
 import com.squid.kraken.v4.model.Project;
 import com.squid.kraken.v4.model.ProjectPK;
 import com.squid.kraken.v4.persistence.AppContext;
@@ -73,7 +75,8 @@ public class QueryRunner {
 			String user = project.getDbUser();
 			String pwd = project.getDbPassword();
 			//
-			String sql = query.render();
+			SQLScript script = query.generateScript();
+			String sql = script.render();
 			String sqlNoLimitNoOrder = null;// Optionally the "full" version
 			boolean checkFullVersion = query.getSelect().getStatement().hasLimitValue()
 					|| query.getSelect().getStatement().hasOffsetValue()
@@ -131,11 +134,11 @@ public class QueryRunner {
 				}
 			}
 			writer.setSource(result);
-			writer.setMapper(query.getMapper());
+			writer.setMapper(script.getMapper());
 			writer.setDatabase(query.getDatasource().getDBManager().getDatabase());
 			writer.write();
 
-		} catch (InterruptedException | RenderingException | ScopeException e) {
+		} catch (InterruptedException | RenderingException | ScopeException | SQLScopeException e) {
 			throw new ComputingException("Failed to compute or retrieve the matrix for job " + jobId + ": "+e.getMessage(), e);
 		}
 
