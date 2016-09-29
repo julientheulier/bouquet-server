@@ -84,7 +84,8 @@ public class HikariDataSourceReliable extends HikariDataSource implements DataSo
             throw new DatabaseServiceException("Unable to Acquire the lock for connection");
         }
 		if (//super.getJdbcUrl().contains("drill") || 
-				super.getJdbcUrl().contains("hive") ) {
+				//super.getJdbcUrl().contains("hive") 
+				false) {
 			try {
 				semaphore.get("Resource Limit").acquire(1);
 				Connection conn = super.getConnection();
