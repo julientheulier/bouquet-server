@@ -256,11 +256,13 @@ public class AnalysisCompute {
 		}
 		// T1890 - need to be careful if there is a limit
 		// in that case we should always have an explicit orderBy
-		if (currentAnalysis.hasLimit()) {
-			if (originalOrders.isEmpty()) {
-				// no orderBy specified, but there is a limit.
-				// In order to keep results consistent between each call we need to add an orderBy
-				// so we can apply the fixed list which is never empty
+		if (originalOrders.isEmpty() && currentAnalysis.getGrouping().size()>=1) {
+			// no orderBy specified, but there is a limit.
+			// In order to keep results consistent between each call we need to add an orderBy
+			// so we can apply the fixed list which is never empty
+			if (fixed.isEmpty()) {
+				throw new ScopeException("invalid compareTo specification, unable to define ordering");
+			} else {
 				currentAnalysis.setOrders(fixed);
 			}
 		}
@@ -273,7 +275,8 @@ public class AnalysisCompute {
 		 * currentAnalysis.hasBeyondLimit() ? new ArrayList<GroupByAxis>() :
 		 * null;
 		 */
-		ArrayList<GroupByAxis> compareBeyondLimit = new ArrayList<GroupByAxis>();
+		ArrayList<GroupByAxis> compareBeyondLimit = currentAnalysis.hasBeyondLimit() ? new ArrayList<GroupByAxis>()
+				: null;
 		for (GroupByAxis groupBy : currentAnalysis.getGrouping()) {
 			if (groupBy.getAxis().equals(joinAxis)) {
 				Axis compareToAxis = new Axis(groupBy.getAxis());
@@ -303,7 +306,7 @@ public class AnalysisCompute {
 			compareToAnalysis.setRollupGrandTotal(true);
 		if (currentAnalysis.hasRollup())
 			compareToAnalysis.setRollup(currentAnalysis.getRollup());
-		compareToAnalysis.setOrders(currentAnalysis.getOrders());
+		compareToAnalysis.setOrders(currentAnalysis.getOrders());// copy the modified one
 		// copy the selection and replace with compare filters
 		DashboardSelection pastSelection = new DashboardSelection(presentSelection);
 		String compareToWhat = "";
@@ -334,7 +337,14 @@ public class AnalysisCompute {
 		// if (currentAnalysis.hasBeyondLimit()) {// T1042: handling beyondLimit
 		compareToAnalysis.setBeyondLimit(compareBeyondLimit);
 		// use the present selection to compute
+		
+		if (compareBeyondLimit  == null && joinAxis !=null){
+			compareBeyondLimit = new ArrayList<>();
+			compareBeyondLimit.add(new GroupByAxis(joinAxis));
+			compareToAnalysis.setBeyondLimit(compareBeyondLimit);
+		}
 		compareToAnalysis.setBeyondLimitSelection(presentSelection);
+		
 		// }
 
 		// copy metrics (do it after in order to be able to use the
@@ -369,10 +379,14 @@ public class AnalysisCompute {
 			//
 			Object computeGrowthOption = currentAnalysis.getOption(DashboardAnalysis.COMPUTE_GROWTH_OPTION_KEY);
 			boolean computeGrowth = computeGrowthOption != null && computeGrowthOption.equals(true);
+			// T1890: the present & past matrices are sorted in post-processing according to the [fixed] order
+			// the CompareMerger only works if the matrices are fully sorted
 			CompareMerger merger = new CompareMerger(present, past, mergeOrder, joinAxis, offset, computeGrowth);
 			DataMatrix debug = merger.merge(false);
 			// apply the original order by directive (T1039)
-			debug.orderBy(originalOrders);
+			if (!originalOrders.isEmpty()) {
+				debug.orderBy(originalOrders);
+			}
 			// T1897 - enforce limit & offset
 			if (currentAnalysis.hasLimit() && debug.getRows().size() > currentAnalysis.getLimit()) {
 				DataMatrixTransformTruncate truncate = new DataMatrixTransformTruncate(currentAnalysis.getLimit(),
@@ -807,7 +821,7 @@ public class AnalysisCompute {
 				? new AnalysisSmartCacheRequest(universe, analysis, group, query) : null;
 		boolean temporarySignature = false;
 		try {
-			// run the query using 1/ first the lazy, 2/ the samrt cache (if
+			// run the query using 1/ first the lazy, 2/ the smart cache (if
 			// allowed) 3/ direct execution if not lazy
 			try {
 				// always try lazy first

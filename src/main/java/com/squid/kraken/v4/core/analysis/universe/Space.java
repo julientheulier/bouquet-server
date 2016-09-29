@@ -300,6 +300,15 @@ public class Space {
 		}
 	}
 	
+	public Relation findRelation(String relationName) {
+		try {
+			return universe.getRelation(domain, relationName);
+		} catch (ScopeException e) {
+			// exception may comes from something else, but here we don't care
+			return null;
+		}
+	}
+	
 	public Space S(Space subspace) throws ScopeException {
 		if (!subspace.getRoot().equals(getDomain())) {
 			throw new ScopeException("the SubSpace '"+subspace.getPath()+"' is incompatible with that Space '"+this.getPath()+"'");

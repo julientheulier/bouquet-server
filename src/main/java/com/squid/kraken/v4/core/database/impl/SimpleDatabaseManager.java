@@ -98,7 +98,7 @@ public class SimpleDatabaseManager extends DatabaseManager {
 	}
 
 	protected void chooseDriver(HikariDataSource ds) throws DatabaseServiceException { // T117
-		ds.setCustomClassloader(new DriverLoader());
+		ds.setCustomClassloader(DriverLoader.DRIVER_LOADER);
 		if (ds.getJdbcUrl().contains("jdbc:postgresql")) {
 			ds.setDriverClassName("org.postgresql.Driver"); // So for redshift
 															// we are also using
@@ -109,13 +109,9 @@ public class SimpleDatabaseManager extends DatabaseManager {
 		} else if (ds.getJdbcUrl().contains("jdbc:redshift")) {
 			ds.setDriverClassName("com.amazon.redshift.jdbc41.Driver");
 		} else if (ds.getJdbcUrl().contains("jdbc:drill")) {
-			try {
-				Class.forName("org.apache.drill.jdbc.Driver");
-			} catch (ClassNotFoundException e) {
-				e.printStackTrace();
-				throw new DatabaseServiceException("Could not load driver for drill");
-			}
 			ds.setDriverClassName("org.apache.drill.jdbc.Driver");
+			// Connection.isValid() method is not supported
+			ds.setConnectionTestQuery("show databases");
 		} else if (ds.getJdbcUrl().contains("jdbc:hive2")) {
 			ds.setDriverClassName("org.apache.hive.jdbc.HiveDriver");
 			ds.setAutoCommit(true);

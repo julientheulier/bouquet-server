@@ -52,7 +52,7 @@ public class HikariDataSourceReliable extends HikariDataSource implements DataSo
         super.setMinimumIdle(0);// limit the number of idle connection to the minimum, this is not a bottleneck for Bouquet use-case
     }
 
-    public HikariDataSourceReliable(String driversPath) {
+    public HikariDataSourceReliable() {
     	this(3);
     }
     
@@ -83,7 +83,8 @@ public class HikariDataSourceReliable extends HikariDataSource implements DataSo
         if(!rateLimiter.tryAcquire(1, TimeUnit.SECONDS)){
             throw new DatabaseServiceException("Unable to Acquire the lock for connection");
         }
-		if (super.getJdbcUrl().contains("drill") || super.getJdbcUrl().contains("hive") ) {
+		if (//super.getJdbcUrl().contains("drill") || 
+				super.getJdbcUrl().contains("hive") ) {
 			try {
 				semaphore.get("Resource Limit").acquire(1);
 				Connection conn = super.getConnection();

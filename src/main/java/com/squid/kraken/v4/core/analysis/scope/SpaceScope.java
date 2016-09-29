@@ -85,7 +85,7 @@ public class SpaceScope extends AnalysisScope {
     public Object lookupObject(IdentifierType identifierType, String name) throws ScopeException {
         // lookup a subdoain
         if (identifierType == IdentifierType.DEFAULT || identifierType == DOMAIN) {
-            Relation relation = space.getUniverse().getRelation(space.getDomain(), name);
+            Relation relation = space.findRelation(name);
             if (relation != null) {
                 return new Space(space, relation);
             }

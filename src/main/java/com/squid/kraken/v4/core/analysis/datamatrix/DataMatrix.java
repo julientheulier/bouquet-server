@@ -415,6 +415,8 @@ public class DataMatrix {
 				if ((!(item instanceof OrderByGrowth)) && axis.getAxis().getReference().equals(itemExpr)) {
 					ordering.add(pos);
 					direction.add(item.getOrdering());
+					// T1890: update the axis too
+					axis.setOrdering(item.getOrdering());
 					check = true;
 					pos++;
 					break;

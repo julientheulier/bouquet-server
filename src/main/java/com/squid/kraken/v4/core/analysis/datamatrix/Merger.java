@@ -100,10 +100,10 @@ public class Merger {
 	
 	protected int compareValueOrdering(int pos, Object leftValue, Object rightValue) {
 		int cc = compareValue(pos, leftValue, rightValue);
-		if (ordering[pos]==ORDERING.ASCENT) {
-			return cc;
-		} else {
+		if (ordering[pos]==ORDERING.DESCENT) {// T1890: make sure we are applying exactly the same rules as for the DataMatrix.orderBy
 			return -cc;
+		} else {
+			return cc;
 		}
 	}
 	
