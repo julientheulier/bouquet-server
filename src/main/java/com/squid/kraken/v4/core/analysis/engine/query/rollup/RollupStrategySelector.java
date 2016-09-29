@@ -41,19 +41,21 @@ public class RollupStrategySelector {
 	public static IRollupStrategy selectStrategy(SimpleQuery query, SelectUniversal select,
 			List<GroupByAxis> rollup, boolean grandTotal, QueryMapper mapper) {
 		//
+		// T2033 - make a mapper copy to avoid side effects
+    	QueryMapper copy = new QueryMapper(mapper);// T2033
 		SQLSkin skin = SkinFactory.INSTANCE.createSkin(select.getDatabase());
 		if (false && skin.getFeatureSupport(IRollUpSupport.ID)==ISkinFeatureSupport.IS_SUPPORTED) {
 			// we still need to add the grouping ID
-			return new NativeRollupStrategy(query, skin, select, rollup, grandTotal, mapper);
+			return new NativeRollupStrategy(query, skin, select, rollup, grandTotal, copy);
 		} else {
 			if (query.isAssociative()) {
 				if (skin.getPreferences(DataSourceReliable.FeatureSupport.ROLLUP) == ISkinPref.TEMP) {
-					return new AssociativeTemporaryRollupStrategy(query, skin, select, rollup, grandTotal, mapper);
+					return new AssociativeTemporaryRollupStrategy(query, skin, select, rollup, grandTotal, copy);
 				} else {
-					return new AssociativeRollupStrategy(query, skin, select, rollup, grandTotal, mapper);
+					return new AssociativeRollupStrategy(query, skin, select, rollup, grandTotal, copy);
 				}
 			} else {
-				return new NonAssociativeRollupStrategy(query, skin, select, rollup, grandTotal, mapper);
+				return new NonAssociativeRollupStrategy(query, skin, select, rollup, grandTotal, copy);
 			}
 		}
 	}
