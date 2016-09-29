@@ -1952,16 +1952,19 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			if (config!=null && config.getOrderBy()!=null) {
 				query.setOrderBy(new ArrayList<String>());
 				for (OrderBy orderBy : config.getOrderBy()) {
-					ExpressionAST expr = globalScope.parseExpression(orderBy.getExpression().getValue());
-					IDomain image = expr.getImageDomain();
-					if (!image.isInstanceOf(DomainSort.DOMAIN)) {
-						if (orderBy.getDirection()==Direction.ASC) {
-							expr = ExpressionMaker.ASC(expr);
-						} else {
-							expr = ExpressionMaker.DESC(expr);
+					// legacy issue? in some case the bookmark contains invalid orderBy expressions
+					if (orderBy.getExpression()!=null) {
+						ExpressionAST expr = globalScope.parseExpression(orderBy.getExpression().getValue());
+						IDomain image = expr.getImageDomain();
+						if (!image.isInstanceOf(DomainSort.DOMAIN)) {
+							if (orderBy.getDirection()==Direction.ASC) {
+								expr = ExpressionMaker.ASC(expr);
+							} else {
+								expr = ExpressionMaker.DESC(expr);
+							}
 						}
+						query.getOrderBy().add(expr.prettyPrint(localOptions));
 					}
-					query.getOrderBy().add(expr.prettyPrint(localOptions));
 				}
 			}
 		}
