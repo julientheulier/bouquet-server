@@ -45,6 +45,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.squid.core.expression.scope.ScopeException;
+import com.squid.kraken.v4.KrakenConfig;
 import com.squid.kraken.v4.api.core.InvalidTokenAPIException;
 import com.squid.kraken.v4.api.core.customer.CoreAuthenticatedServiceRest;
 import com.squid.kraken.v4.caching.redis.queryworkerserver.QueryWorkerJobStatus;
@@ -589,7 +590,7 @@ public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implemen
 				String fragment = full.substring(full.lastIndexOf("#"));
 				builder.fragment(fragment);
 			}
-			throw new InvalidTokenAPIException(e.getMessage(), builder.build(), "admin_console", e.isNoError());
+			throw new InvalidTokenAPIException(e.getMessage(), builder.build(), "admin_console", e.isNoError(), KrakenConfig.getAuthServerEndpoint());
 		}
 	}
 	

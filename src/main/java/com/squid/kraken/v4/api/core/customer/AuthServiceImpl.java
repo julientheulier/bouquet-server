@@ -58,6 +58,7 @@ import com.squid.kraken.v4.api.core.APIException;
 import com.squid.kraken.v4.api.core.EmailHelper;
 import com.squid.kraken.v4.api.core.GenericServiceImpl;
 import com.squid.kraken.v4.api.core.InvalidCredentialsAPIException;
+import com.squid.kraken.v4.api.core.InvalidTokenAPIException;
 import com.squid.kraken.v4.api.core.ModelGC;
 import com.squid.kraken.v4.api.core.ObjectNotFoundAPIException;
 import com.squid.kraken.v4.api.core.ServiceUtils;
@@ -301,17 +302,11 @@ public class AuthServiceImpl extends
 		AccessToken codeToken;
 		try {
 			codeToken = ServiceUtils.getInstance().getToken(authorizationCode);
-		} catch (TokenExpiredException e) {
-			throw new InvalidCredentialsAPIException("Access Code has expired",
-					ctx.isNoError());
-		}
-
-		// check code token
-		// TODO check redirect URL
-		if (codeToken == null) {
+		} catch (InvalidTokenAPIException e) {
 			throw new InvalidCredentialsAPIException("Invalid Access Code",
 					ctx.isNoError());
 		}
+
 		if (!codeToken.getClientId().equals(clientId.getClientId())) {
 			throw new InvalidCredentialsAPIException("Invalid Access Code (ERR0)",
 					ctx.isNoError());

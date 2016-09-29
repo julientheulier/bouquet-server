@@ -8,6 +8,10 @@ import org.slf4j.LoggerFactory;
 import io.openbouquet.api.service.MembershipService;
 import io.openbouquet.api.service.UserProfileService;
 
+/**
+ * OB io API Helper class
+ * @author obalbous
+ */
 @SuppressWarnings("serial")
 public class OBioApiHelper implements Serializable {
 
@@ -22,10 +26,10 @@ public class OBioApiHelper implements Serializable {
 		return instance;
 	}
 
-	private static String authServerEndpoint;
+	private static String apiEndpoint;
 
-	public static void setAuthServerEndpoint(String endpoint) {
-		authServerEndpoint = endpoint;
+	public static void setApiEndpoint(String endpoint) {
+		apiEndpoint = endpoint;
 	}
 
 	private MembershipService membershipService;
@@ -37,7 +41,7 @@ public class OBioApiHelper implements Serializable {
 	public MembershipService getMembershipService() {
 		if (membershipService == null) {
 			membershipService = new RestServiceProxy<MembershipService>().newInstance(MembershipService.class,
-					authServerEndpoint);
+					apiEndpoint);
 		}
 		return membershipService;
 	}
@@ -45,7 +49,7 @@ public class OBioApiHelper implements Serializable {
 	public UserProfileService getUserProfileService() {
 		if (userProfileService == null) {
 			userProfileService = new RestServiceProxy<UserProfileService>().newInstance(UserProfileService.class,
-					authServerEndpoint);
+					apiEndpoint);
 		}
 		return userProfileService;
 	}

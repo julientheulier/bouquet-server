@@ -23,20 +23,20 @@
  *******************************************************************************/
 package com.squid.kraken.v4.api.core.customer;
 
+import com.squid.kraken.v4.model.AccessToken;
+
 @SuppressWarnings("serial")
 public class TokenExpiredException extends Exception {
     
-    private final String tokenId;
+    private final AccessToken token;
 
-    public TokenExpiredException(String tokenId) {
+    public TokenExpiredException(AccessToken token) {
         super();
-        this.tokenId = tokenId;
+        this.token = token;
     }
 
-    public String getTokenId() {
-        return tokenId;
+    public AccessToken getToken() {
+        return token;
     }
-    
-    
 
 }

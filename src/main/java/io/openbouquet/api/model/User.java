@@ -5,51 +5,20 @@ import java.io.Serializable;
 /**
  * Class that holds the information of a user's profile in Auth0
  */
-@SuppressWarnings("serial")
-public class User implements Serializable {
-	private String id;
-	private String name;
-	private String nickname;
-	private String pictureURL;
-
-	private String email;
-	private String givenName;
-	private String familyName;
+public interface User extends Serializable {
 	
-	public User() {
-	}
-	
-	public String getId() {
-		return id;
-	}
+	public String getId() ;
 
-	public String getName() {
-		return name;
-	}
+	public String getName();
 
-	public String getNickname() {
-		return nickname;
-	}
+	public String getNickname();
 
-	public String getEmail() {
-		return email;
-	}
+	public String getEmail();
 
-	public String getPictureURL() {
-		return pictureURL;
-	}
+	public String getPictureURL();
 
-	public String getGivenName() {
-		return givenName;
-	}
+	public String getGivenName();
 
-	public String getFamilyName() {
-		return familyName;
-	}
-
-	@Override
-	public String toString() {
-		return "User [id=" + id + ", name=" + name + "]";
-	}
+	public String getFamilyName();
 	
 }

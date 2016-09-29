@@ -2,42 +2,12 @@ package io.openbouquet.api.model;
 
 import java.io.Serializable;
 
-@SuppressWarnings("serial")
-public class Membership implements Serializable {
-	private User user;
-	private Team team;
-	private String role;
+public interface Membership extends Serializable {
+	
+	public User getUser();
 
-	public Membership() {
-	}
+	public Team getTeam();
 
-	public User getUser() {
-		return user;
-	}
-
-	public void setUser(User user) {
-		this.user = user;
-	}
-
-	public Team getTeam() {
-		return team;
-	}
-
-	public void setTeam(Team team) {
-		this.team = team;
-	}
-
-	public String getRole() {
-		return role;
-	}
-
-	public void setRole(String role) {
-		this.role = role;
-	}
-
-	@Override
-	public String toString() {
-		return "Membership [user=" + user + ", team=" + team + "]";
-	}
+	public String getRole();
 
 }

@@ -239,7 +239,7 @@ public class KrakenConfig implements KrakenConfigConstants {
 	}
 	
 	public static String getAuthServerEndpoint() {
-		return KrakenConfig.getProperty("authServerEndpoint", "https://auth.openbouquet.io");
+		return KrakenConfig.getProperty("kraken.oauth.endpoint", "https://auth.openbouquet.io");
 	}
 
 }
