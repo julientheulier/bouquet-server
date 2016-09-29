@@ -55,6 +55,7 @@ import com.squid.kraken.v4.model.DomainOption;
 import com.squid.kraken.v4.model.ExpressionObject;
 import com.squid.kraken.v4.model.Metric;
 import com.squid.kraken.v4.model.Relation;
+import com.squid.kraken.v4.model.NavigationQuery.Style;
 
 /**
  * A Space identifies a Domain
@@ -190,6 +191,14 @@ public class Space {
 	
 	public String getID() {
 		return ID;
+	}
+	
+	public String getBBID(Style style) {
+		if (style==Style.HUMAN) {
+			return "'"+getUniverse().getProject().getName()+"'.'"+domain.getName()+"'";
+		} else {
+			return "@'"+getUniverse().getProject().getOid()+"'.@'"+domain.getOid()+"'";
+		}
 	}
 
 	public Universe getUniverse() {
