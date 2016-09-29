@@ -275,7 +275,8 @@ public class AnalysisCompute {
 		 * currentAnalysis.hasBeyondLimit() ? new ArrayList<GroupByAxis>() :
 		 * null;
 		 */
-		ArrayList<GroupByAxis> compareBeyondLimit = new ArrayList<GroupByAxis>();
+		ArrayList<GroupByAxis> compareBeyondLimit = currentAnalysis.hasBeyondLimit() ? new ArrayList<GroupByAxis>()
+				: null;
 		for (GroupByAxis groupBy : currentAnalysis.getGrouping()) {
 			if (groupBy.getAxis().equals(joinAxis)) {
 				Axis compareToAxis = new Axis(groupBy.getAxis());
@@ -336,7 +337,14 @@ public class AnalysisCompute {
 		// if (currentAnalysis.hasBeyondLimit()) {// T1042: handling beyondLimit
 		compareToAnalysis.setBeyondLimit(compareBeyondLimit);
 		// use the present selection to compute
+		
+		if (compareBeyondLimit  == null && joinAxis !=null){
+			compareBeyondLimit = new ArrayList<>();
+			compareBeyondLimit.add(new GroupByAxis(joinAxis));
+			compareToAnalysis.setBeyondLimit(compareBeyondLimit);
+		}
 		compareToAnalysis.setBeyondLimitSelection(presentSelection);
+		
 		// }
 
 		// copy metrics (do it after in order to be able to use the
