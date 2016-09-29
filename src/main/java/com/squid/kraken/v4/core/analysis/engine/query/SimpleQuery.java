@@ -437,7 +437,7 @@ public class SimpleQuery extends BaseQuery {
 					}
 				}
 			}
-			return new SQLScript(main);
+			return new SQLScript(main, getMapper());
 		} catch (SQLScopeException e) {
 			throw new SQLScopeException("Failed to generate the QUALIFY clause, caused by:\n"+e.getLocalizedMessage(),e);
 		}
