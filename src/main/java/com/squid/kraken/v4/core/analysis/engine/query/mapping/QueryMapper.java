@@ -50,6 +50,12 @@ public class QueryMapper {
 	public QueryMapper() {
 		// TODO Auto-generated constructor stub
 	}
+
+	public QueryMapper(QueryMapper copy) {
+		this.kx_map = new ArrayList<>(copy.kx_map);
+		this.ax_map = new ArrayList<>(copy.ax_map);
+		this.reverse_map = new HashMap<>(copy.reverse_map);
+	}
 	
 	public void add(AxisMapping axis) {
 	    ax_map.add(axis);
