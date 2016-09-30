@@ -1443,13 +1443,13 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		SpaceScope scope = new SpaceScope(space);
 		Domain domain = space.getDomain();
 		// handle period & timeframe
-		if (query.getPeriod()!=null && query.getTimeframe()!=null && query.getTimeframe().size()>0) {
+		if (query.getPeriod()!=null && !query.getPeriod().equals("") && query.getTimeframe()!=null && query.getTimeframe().size()>0) {
 			ExpressionAST expr = scope.parseExpression(query.getPeriod());
 			Facet facet = createFacetInterval(space, expr, query.getTimeframe());
 			selection.getFacets().add(facet);
 		}
 		// handle compareframe
-		if (query.getPeriod()!=null && query.getCompareTo()!=null && query.getCompareTo().size()>0) {
+		if (query.getPeriod()!=null && !query.getPeriod().equals("") && query.getCompareTo()!=null && query.getCompareTo().size()>0) {
 			ExpressionAST expr = scope.parseExpression(query.getPeriod());
 			Facet compareFacet = createFacetInterval(space, expr, query.getCompareTo());
 			selection.setCompareTo(Collections.singletonList(compareFacet));
@@ -3254,7 +3254,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 				builder.queryParam(parameter.getKey(), value);
 			}
 		}
-		html.append("<p>Request URL: <i>this URL is not authorized</i></p><div style='display:block;'><pre style='background-color: #fcf6db;border: 1px solid #e5e0c6; width:1024px; max-height: 400px;overflow-y: auto;'>"+StringEscapeUtils.escapeHtml4(builder.build().toString())+"</pre></div>");
+		html.append("<p>Request URL: <i>this URL will require authentication</i></p><div style='display:block;'><pre style='background-color: #fcf6db;border: 1px solid #e5e0c6; width:1024px; max-height: 400px;overflow-y: auto;'>"+StringEscapeUtils.escapeHtml4(builder.build().toString())+"</pre></div>");
 		String curlURL = "\""+(StringEscapeUtils.escapeHtml4(builder.build().toString()).replace("'", "'"))+"\"";
 		html.append("<p>CURL: <i>the command is authorized with the current token</i></p><div style='display:block;'><pre style='background-color: #fcf6db;border: 1px solid #e5e0c6; width:1024px; max-height: 400px;overflow-y: auto;'>curl -X GET --header 'Accept: application/json' --header 'Authorization: Bearer "+userContext.getToken().getOid()+"' "+curlURL+"</pre></div>");
 		createHTMLswaggerLink(html, method);
