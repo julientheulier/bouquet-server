@@ -75,11 +75,18 @@ public class HikariDataSourceReliable extends HikariDataSource implements DataSo
 			return super.getConnection();
 		} catch (InterruptedException e) {
 			throw new SQLException("Interrupted while getting connection resources");
+		} catch (PoolInitializationException e) {
+			// cannot open the connection ? 
+			close();
+			throw e;
 		}
     }
 
-
 	public Connection getConnectionBlocking() throws SQLException {
+		return getConnection();
+	}
+
+	public Connection getConnectionBlockingHIDE() throws SQLException {
         if(!rateLimiter.tryAcquire(1, TimeUnit.SECONDS)){
             throw new DatabaseServiceException("Unable to Acquire the lock for connection");
         }

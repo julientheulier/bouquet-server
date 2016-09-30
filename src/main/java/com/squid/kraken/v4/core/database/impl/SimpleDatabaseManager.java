@@ -47,6 +47,7 @@ import com.squid.core.sql.render.ISkinFeatureSupport;
 import com.squid.kraken.v4.api.core.PerfDB;
 import com.squid.kraken.v4.api.core.SQLStats;
 import com.zaxxer.hikari.HikariDataSource;
+import com.zaxxer.hikari.pool.HikariPool.PoolInitializationException;
 
 public class SimpleDatabaseManager extends DatabaseManager {
 
@@ -79,7 +80,7 @@ public class SimpleDatabaseManager extends DatabaseManager {
 		ds.setUsername(config.getUsername());
 		ds.setPassword(config.getPassword());
 		//
-		ds.setValidationTimeout(1001);
+		ds.setValidationTimeout(2001);
 		ds.setIdleTimeout(60000); // in ms
 		ds.setMaxLifetime(120000);
 		//
@@ -88,9 +89,9 @@ public class SimpleDatabaseManager extends DatabaseManager {
 		// ... but since now we are only trying to acquire a connection when we
 		// already know one is available,
 		// ... it is safe to use a smaller value
-		ds.setConnectionTimeout(4001);
+		ds.setConnectionTimeout(8001);
 		try {
-			ds.setLoginTimeout(1001);
+			ds.setLoginTimeout(4001);
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
@@ -150,6 +151,11 @@ public class SimpleDatabaseManager extends DatabaseManager {
 				ds.releaseSemaphore();
 			}
 		} catch (SQLException e) {
+			ds.close();
+			throw new DatabaseServiceException(
+					"unable to connect to " + config.getJdbcUrl() + ": \n" + e.getLocalizedMessage(), e);
+		} catch (PoolInitializationException e) {
+			ds.close();
 			throw new DatabaseServiceException(
 					"unable to connect to " + config.getJdbcUrl() + ": \n" + e.getLocalizedMessage(), e);
 		}
