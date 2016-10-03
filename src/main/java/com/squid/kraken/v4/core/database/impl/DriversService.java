@@ -40,8 +40,6 @@ import com.squid.core.database.impl.DriverShim;
 public class DriversService {
 
 	static final Logger logger = LoggerFactory.getLogger(DriversService.class);
-
-	
 	
 	// Drivers NON JDBC 4 Compliant (aka does not contains a MANIFEST for
 	// java.sql.Driver)
@@ -55,7 +53,7 @@ public class DriversService {
 		// copy class loader to rollback
 		ClassLoader rollback = Thread.currentThread().getContextClassLoader();
 
-		DriverLoader dd = DriverLoader.DRIVER_LOADER;
+		DriverLoader dd = DriverLoader.getDriverLoader();
 		Thread.currentThread().setContextClassLoader(dd);
 		// Will detect automatically JDBC 4 Compliant;
 		// Drill and Spark JDBC plugins are not.
