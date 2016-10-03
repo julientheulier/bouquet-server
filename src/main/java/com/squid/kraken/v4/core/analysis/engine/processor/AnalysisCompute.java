@@ -205,6 +205,8 @@ public class AnalysisCompute {
 		for (GroupByAxis group : currentAnalysis.getGrouping()) {
 			dimensions.add(group.getAxis().getReference());
 		}
+		// use this list to compute the dimensioni index
+		ArrayList<ExpressionAST> dimensionIndexes = new ArrayList<>(dimensions);
 		// will hold in which order to merge
 		int[] mergeOrder = new int[dimensions.size()];
 		// rebuild the full order specs
@@ -214,12 +216,12 @@ public class AnalysisCompute {
 				if (order.getExpression().equals(joinAxis.getReference())) {
 					// ok, it's first
 					fixed.add(new OrderBy(i, order.getExpression(), order.getOrdering()));
-					mergeOrder[i++] = dimensions.indexOf(order.getExpression());
+					mergeOrder[i++] = dimensionIndexes.indexOf(order.getExpression());
 					continue;// done for this order
 				} else {
 					// add it first, default to DESC because it is the join (date)
 					fixed.add(new OrderBy(i, joinAxis.getReference(), ORDERING.DESCENT));
-					mergeOrder[i++] = dimensions.indexOf(joinAxis.getReference());
+					mergeOrder[i++] = dimensionIndexes.indexOf(joinAxis.getReference());
 					// now we need to take care of the order
 				}
 			}
@@ -228,7 +230,7 @@ public class AnalysisCompute {
 			if (dimensions.contains(order.getExpression())) {
 				// ok, just add it
 				fixed.add(new OrderBy(i, order.getExpression(), order.getOrdering()));
-				mergeOrder[i++] = dimensions.indexOf(order.getExpression());
+				mergeOrder[i++] = dimensionIndexes.indexOf(order.getExpression());
 				// and remove the dimension from the list
 				dimensions.remove(order.getExpression());
 			} else {
@@ -244,7 +246,7 @@ public class AnalysisCompute {
 					// check the best order
 					IDomain image = dim.getImageDomain();
 					fixed.add(new OrderBy(i, dim, image.isInstanceOf(IDomain.TEMPORAL)?ORDERING.DESCENT:ORDERING.ASCENT));
-					mergeOrder[i++] = dimensions.indexOf(dim);
+					mergeOrder[i++] = dimensionIndexes.indexOf(dim);
 				}
 			}
 		}
