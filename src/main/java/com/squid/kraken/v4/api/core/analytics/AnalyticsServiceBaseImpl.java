@@ -2943,7 +2943,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		if (result.getParent()!=null && result.getParent().getDescription()!=null && result.getParent().getDescription().length()>0) {
 			html.append("<p><i>"+result.getParent().getDescription()+"</i></p>");
 		}
-		//
+		// coontent
 		html.append("<table style='border-collapse:collapse'>");
 		for (NavigationItem item : result.getChildren()) {
 			html.append("<tr>");
@@ -3094,7 +3094,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		html.append("&nbsp;from:&nbsp;<input type='text' name='timeframe' value='"+getDate(query.getTimeframe(),0)+"'>");
 		html.append("&nbsp;to:&nbsp;<input type='text' name='timeframe' value='"+getDate(query.getTimeframe(),1)+"'>");
 		// compare
-		html.append("&nbsp;<span class='tooltip'>compareTo <span class='tooltiptext'>Activate and define the compare to period. You can use an array of two dates for lower/upper bounds (inclusive). Or some alias like __ALL, __LAST_DAY, __LAST_7_DAYS, __CURRENT_MONTH, __PREVIOUS_MONTH, __CURRENT_YEAR, __PREVIOOUS_YEAR</span></span>");
+		html.append("&nbsp;<span class='tooltip'>compareTo <span class='tooltiptext'>Activate and define the compare to period. You can use an array of two dates for lower/upper bounds (inclusive). Or some alias like __COMPARE_TO_PREVIOUS_PERIOD, __COMPARE_TO_PREVIOUS_MONTH, __COMPARE_TO_PREVIOOUS_YEAR</span></span>");
 		html.append("&nbsp;from:&nbsp;<input type='text' name='compareTo' value='"+getDate(query.getCompareTo(),0)+"'>");
 		html.append("&nbsp;to:&nbsp;<input type='text' name='compareTo' value='"+getDate(query.getCompareTo(),1)+"'>");
 		html.append("</td></tr>");
