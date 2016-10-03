@@ -44,16 +44,14 @@ public class HikariDataSourceReliable extends HikariDataSource implements DataSo
 
     private final RateLimiter rateLimiter = RateLimiter.create(20.0);
 	private final Striped<Semaphore> semaphore;
+	
+	protected int maximumPoolSize = 10;
 
-	public HikariDataSourceReliable(int maxPoolSize) {
+	public HikariDataSourceReliable() {
         super();
-        this.semaphore = Striped.semaphore(1, maxPoolSize); //same than the number of connection in the pool
-        super.setMaximumPoolSize(maxPoolSize);
+        this.semaphore = Striped.semaphore(1, maximumPoolSize); //same than the number of connection in the pool
+        super.setMaximumPoolSize(maximumPoolSize);
         super.setMinimumIdle(0);// limit the number of idle connection to the minimum, this is not a bottleneck for Bouquet use-case
-    }
-
-    public HikariDataSourceReliable() {
-    	this(3);
     }
     
     @Override
