@@ -56,7 +56,6 @@ public class SimpleDatabaseManager extends DatabaseManager {
 	public static final AtomicInteger queryCnt = new AtomicInteger();
 
 	protected String databaseName = "noname";
-	protected int maximumPoolSize = 10;
 
 	public SimpleDatabaseManager() {
 		super();
@@ -75,7 +74,8 @@ public class SimpleDatabaseManager extends DatabaseManager {
 
 	protected HikariDataSourceReliable createDatasourceWithConfig(JDBCConfig config) {
 		logger.info("Creating a new datasource for " + config.getJdbcUrl() + " " + config.getUsername());
-		HikariDataSourceReliable ds = new HikariDataSourceReliable(maximumPoolSize);
+		HikariDataSourceReliable ds = new HikariDataSourceReliable();
+		ds.setCustomClassloader(DriverLoader.getDriverLoader());
 		ds.setJdbcUrl(config.getJdbcUrl());
 		ds.setUsername(config.getUsername());
 		ds.setPassword(config.getPassword());
@@ -99,7 +99,6 @@ public class SimpleDatabaseManager extends DatabaseManager {
 	}
 
 	protected void chooseDriver(HikariDataSource ds) throws DatabaseServiceException { // T117
-		ds.setCustomClassloader(DriverLoader.DRIVER_LOADER);
 		if (ds.getJdbcUrl().contains("jdbc:postgresql")) {
 			ds.setDriverClassName("org.postgresql.Driver"); // So for redshift
 															// we are also using
