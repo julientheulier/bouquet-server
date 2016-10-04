@@ -37,6 +37,7 @@ import com.squid.kraken.v4.caching.redis.CacheInitPoint;
 import com.squid.kraken.v4.caching.redis.RedisCacheConfig;
 import com.squid.kraken.v4.caching.redis.RedisCacheManager;
 import com.squid.kraken.v4.core.analysis.engine.index.DimensionStoreManagerFactory;
+import com.squid.kraken.v4.core.database.impl.DriversService;
 
 /**
  * RuntimeService provides static methods to start/stop kraken
@@ -88,6 +89,7 @@ public class RuntimeService {
         }
         CacheInitPoint cache = CacheInitPoint.INSTANCE;
         cache.start(conf, facets);
+		DriversService.initDriver();
 
         // DimensionStoreManagerFactory initialization
         try {
