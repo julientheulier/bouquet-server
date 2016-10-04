@@ -53,7 +53,9 @@ import com.squid.kraken.v4.persistence.DAOFactory;
 		@Index(fields = { @Field(value = "id.customerId"),
 				@Field(value = "login") }),
 		@Index(fields = { @Field(value = "id.customerId"),
-				@Field(value = "email") }, options = @IndexOptions(unique = true))})
+				@Field(value = "email") }, options = @IndexOptions(unique = true)),
+		@Index(fields = { @Field(value = "id.authId"),
+				@Field(value = "authId") }, options = @IndexOptions(unique = true))})
 public class User extends PersistentBaseImpl<UserPK> {
 
 	private String login;
@@ -63,6 +65,8 @@ public class User extends PersistentBaseImpl<UserPK> {
 	private String password;
 
 	private List<String> groups;
+	
+	private String authId;
 
 	@XmlTransient
 	@JsonIgnore
@@ -158,6 +162,14 @@ public class User extends PersistentBaseImpl<UserPK> {
 
 	public void setEmail(String email) {
 		this.email = email;
+	}
+
+	public String getAuthId() {
+		return authId;
+	}
+
+	public void setAuthId(String authId) {
+		this.authId = authId;
 	}
 
 	@JsonInclude(JsonInclude.Include.NON_DEFAULT)

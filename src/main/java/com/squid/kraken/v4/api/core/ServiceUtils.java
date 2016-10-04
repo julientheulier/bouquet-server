@@ -77,8 +77,8 @@ import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DAOFactory;
 import com.squid.kraken.v4.persistence.DataStoreEventBus;
 import com.squid.kraken.v4.persistence.dao.CustomerDAO;
+import com.squid.kraken.v4.persistence.dao.UserDAO;
 
-import io.openbouquet.api.impl.MembershipImpl;
 import io.openbouquet.api.model.Membership;
 
 public class ServiceUtils {
@@ -208,7 +208,7 @@ public class ServiceUtils {
 		return DAOFactory.getDAOFactory().getDAO(Customer.class)
 				.readNotNull(root, new CustomerPK(ctx.getCustomerId()));
 	}
-
+	
 	/**
 	 * Retrieve a {@link AccessToken}.
 	 * 
@@ -219,6 +219,20 @@ public class ServiceUtils {
 	 *             if the token has expired.
 	 */
 	public AccessToken getToken(String tokenId) {
+		return getToken(tokenId, null);
+	}
+
+	/**
+	 * Retrieve a {@link AccessToken}.
+	 * 
+	 * @param tokenId
+	 * @param clientId the client to generate the token for
+	 * @return the AccessToken associated to this token or a super-user token if authMode is BYPASS or
+	 *         <tt>null</null>d.
+	 * @throws TokenExpiredException
+	 *             if the token has expired.
+	 */
+	public AccessToken getToken(String tokenId, String clientId) {
 		AccessToken token = null;
 		if ((tokenId != null) && (!tokenId.equals(NULL))) {
 			// check for a token in local db
@@ -249,18 +263,19 @@ public class ServiceUtils {
 						OBioApiHelper.setApiEndpoint(KrakenConfig.getProperty("ob-io-api.endpoint"));
 						Membership membership = null;
 						try {
-							membership = OBioApiHelper.getInstance().getMembershipService().get(tokenId);
+							membership = OBioApiHelper.getInstance().getMembershipService().get(null, tokenId);
 						} catch (Exception e) {
 							logger.info("Auth with OB.io failed", e);
 						}
 						if (membership != null) {
+							String userId = null;
+							AppContext root = getRootUserContext(singleCustomer.getCustomerId());
 							if ((singleCustomer.getTeamId() == null) || (singleCustomer.getAuthMode() != AUTH_MODE.OBIO)) {
 								// register the customer
 								logger.info("Registering Customer with Team : " + membership.getTeam().getId());
 								singleCustomer.setTeamId(membership.getTeam().getId());
 								singleCustomer.setPublicUrl(membership.getTeam().getServerUrl());
 								singleCustomer.setAuthMode(AUTH_MODE.OBIO);
-								AppContext root = new AppContext.Builder().build();
 								CustomerServiceBaseImpl.getInstance().store(root, singleCustomer);
 							} else if (!singleCustomer.getTeamId().equals(membership.getTeam().getId())) {
 								// this membership does not allow to access
@@ -268,8 +283,49 @@ public class ServiceUtils {
 								throw new InvalidTokenAPIException("Auth failed : invalid membership"
 										+ TOKEN_PARAM, false, KrakenConfig.getAuthServerEndpoint());
 							}
+							// User registration
+							io.openbouquet.api.model.User userOBio = membership.getUser();
+							UserDAO userDAO = ((UserDAO) DAOFactory.getDAOFactory().getDAO(User.class));
+							// authId holds the obio userId
+							Optional<User> userOpt;
+							userOpt = userDAO.findByAuthId(root, userOBio.getId());
+							if (userOpt.isPresent()) {
+								// user already registered
+								userId = userOpt.get().getOid();
+							} else if (userOBio.getEmail() != null) {
+								userOpt = userDAO.findByEmail(root, userOBio.getEmail());
+								if (userOpt.isPresent()) {
+									// we have a user with matching email
+									User user = userOpt.get();
+									user.setLogin(userOBio.getName());
+									user.setAuthId(userOBio.getId());
+									userDAO.update(root, user);
+									userId = user.getOid();
+								}
+							}
+							if (userId == null) {
+								List<User> findByCustomer = userDAO.findByCustomer(root, singleCustomer.getId());
+								if (findByCustomer.size() == 1) {
+									// we only have one non registered user
+									User user = findByCustomer.get(0);
+									user.setLogin(userOBio.getName());
+									user.setAuthId(userOBio.getId());
+									user.setEmail(userOBio.getEmail());
+									userDAO.update(root, user);
+									userId = user.getOid();
+								} else {
+									// register a brand new user
+									User user = new User();
+									user.setLogin(userOBio.getName());
+									user.setAuthId(userOBio.getId());
+									user.setEmail(userOBio.getEmail());
+									user = userDAO.create(root, user);
+									userId = user.getOid();
+								}
+							}
 							// generate a new token
-							token = createToken(singleCustomer.getTeamId(), null, membership.getUser().getId(),
+							ClientPK client = new ClientPK(singleCustomer.getCustomerId(), clientId);
+							token = createToken(singleCustomer.getCustomerId(), client, userId,
 									System.currentTimeMillis(),
 									ServiceUtils.getInstance().getTokenExpirationPeriodMillis(),
 									AccessToken.Type.NORMAL, null);

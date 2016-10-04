@@ -93,6 +93,17 @@ public class UserDAO extends AccessRightsPersistentDAO<User, UserPK> {
 			return Optional.of(find.get(0));
 		}
 	}
+	
+	public Optional<User> findByAuthId(AppContext app, String authId) {
+		List<DataStoreQueryField> queryFields = new LinkedList<DataStoreQueryField>();
+		queryFields.add(new DataStoreQueryField("authId", authId));
+		List<User> find = ds.find(app, type, queryFields, null);
+		if (find.isEmpty()) {
+			return Optional.absent();
+		} else {
+			return Optional.of(find.get(0));
+		}
+	}
 
 	public List<User> findByCustomer(AppContext app, CustomerPK customerId) {
 		return super.find(app, customerId, null, findByCustomerCache);

@@ -301,7 +301,7 @@ public class AuthServiceImpl extends
 
 		AccessToken codeToken;
 		try {
-			codeToken = ServiceUtils.getInstance().getToken(authorizationCode);
+			codeToken = ServiceUtils.getInstance().getToken(authorizationCode, clientId.getClientId());
 		} catch (InvalidTokenAPIException e) {
 			throw new InvalidCredentialsAPIException("Invalid Access Code",
 					ctx.isNoError());
