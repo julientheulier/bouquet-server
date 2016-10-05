@@ -263,7 +263,7 @@ public class ServiceUtils {
 						OBioApiHelper.setApiEndpoint(KrakenConfig.getProperty("ob-io-api.endpoint"));
 						Membership membership = null;
 						try {
-							membership = OBioApiHelper.getInstance().getMembershipService().get(null, tokenId);
+							membership = OBioApiHelper.getInstance().getMembershipService().get("Bearer "+tokenId, null);
 						} catch (Exception e) {
 							logger.info("Auth with OB.io failed", e);
 						}
