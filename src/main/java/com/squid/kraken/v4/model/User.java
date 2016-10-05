@@ -54,7 +54,7 @@ import com.squid.kraken.v4.persistence.DAOFactory;
 				@Field(value = "login") }),
 		@Index(fields = { @Field(value = "id.customerId"),
 				@Field(value = "email") }, options = @IndexOptions(unique = true)),
-		@Index(fields = { @Field(value = "id.authId"),
+		@Index(fields = { @Field(value = "authId"),
 				@Field(value = "authId") }, options = @IndexOptions(unique = true))})
 public class User extends PersistentBaseImpl<UserPK> {
 
