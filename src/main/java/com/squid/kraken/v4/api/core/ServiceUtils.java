@@ -279,7 +279,7 @@ public class ServiceUtils {
 								CustomerServiceBaseImpl.getInstance().store(root, singleCustomer);
 							} else if (!singleCustomer.getTeamId().equals(membership.getTeam().getId())) {
 								// this membership does not allow to access
-								logger.info("User membership does not allow to access this customer");
+								logger.info("User's Team ("+membership.getTeam().getId()+") does not allow to access this Customer's Team ("+singleCustomer.getTeamId()+")");
 								throw new InvalidTokenAPIException("Auth failed : invalid membership"
 										+ TOKEN_PARAM, false, KrakenConfig.getAuthServerEndpoint());
 							}

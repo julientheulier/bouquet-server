@@ -300,16 +300,10 @@ public class AuthServiceImpl extends
 			String redirectUrl, String authorizationCode) {
 
 		AccessToken codeToken;
-		try {
-			codeToken = ServiceUtils.getInstance().getToken(authorizationCode, clientId.getClientId());
-		} catch (InvalidTokenAPIException e) {
-			throw new InvalidCredentialsAPIException("Invalid Access Code",
-					ctx.isNoError());
-		}
+		codeToken = ServiceUtils.getInstance().getToken(authorizationCode, clientId.getClientId());
 
 		if (!codeToken.getClientId().equals(clientId.getClientId())) {
-			throw new InvalidCredentialsAPIException("Invalid Access Code (ERR0)",
-					ctx.isNoError());
+			throw new InvalidTokenAPIException("Invalid Client", null, false, KrakenConfig.getAuthServerEndpoint());
 		}
 
 		// create a new access token
