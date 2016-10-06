@@ -243,6 +243,10 @@ public class ServiceUtils {
 				long now = System.currentTimeMillis();
 				long validity = token.getExpirationDateMillis();
 				if ((validity - now) > 0) {
+					// check client id
+					if ((clientId!=null) && (!clientId.equals(token.getClientId()))) {
+						throw new InvalidTokenAPIException("Invalid Client", null, false, KrakenConfig.getAuthServerEndpoint());
+					}
 					return token;
 				} else {
 					throw new InvalidTokenAPIException("Auth failed : expired "
@@ -255,7 +259,7 @@ public class ServiceUtils {
 				// look for a Customer that has a a bypass auth mode
 				Customer singleCustomer = getSingleCustomer();
 				if (singleCustomer != null) {
-					if (singleCustomer.getAuthMode() == AUTH_MODE.BYPASS) {
+					if ((singleCustomer.getAuthMode() == AUTH_MODE.BYPASS) && ((tokenId != null) && tokenId.length() < 37)) {
 						// generate a new token
 						token = createSuperUserToken(singleCustomer);
 					} else {

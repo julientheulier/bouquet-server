@@ -302,10 +302,6 @@ public class AuthServiceImpl extends
 		AccessToken codeToken;
 		codeToken = ServiceUtils.getInstance().getToken(authorizationCode, clientId.getClientId());
 
-		if (!codeToken.getClientId().equals(clientId.getClientId())) {
-			throw new InvalidTokenAPIException("Invalid Client", null, false, KrakenConfig.getAuthServerEndpoint());
-		}
-
 		// create a new access token
 		AccessToken token = ServiceUtils.getInstance().createToken(codeToken.getCustomerId(), clientId,
 				codeToken.getUserId(), System.currentTimeMillis(), ServiceUtils
