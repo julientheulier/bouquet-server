@@ -8,18 +8,18 @@ auth0:API
 obs:API
 
 user:redirection to obio=ob1.register To OBe
-user:display team page=obio.redirectURI=http://ob1/registerOBe
+user:display team page=obio.register
 obio:jwt=auth0.login
 obio:obioapi.POST /users?token=jwt
 obioapi:getUserprofile(jwt)
 obioapi:createUser(userprofile)
-user:redirection to redirectURI=obio.createTeam(name, serverUrl)
+user:redirection to ob1=obio.createTeam(name, serverUrl)
 obio:obioapi.POST /teams?token=jwt
 obioapi:getUserprofile(jwt)
 obioapi:createTeam(name, serverUrl)
 obioapi:createMembership(team, user)
 obioapi:createToken(membership, jwt)
-user:ob1 home=ob1.registerOBe?token=jwt
+user:ob1 home=ob1.auth?token=jwt
 ob1:membership=obioapi.GET /memberships?token=jwt
 ob1:getOBSPublicUrl(membership)
 ob1:access_token=obs.registerOBe?token=jwt
