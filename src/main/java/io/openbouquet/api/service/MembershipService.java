@@ -9,10 +9,17 @@ import javax.ws.rs.core.MediaType;
 
 import io.openbouquet.api.model.Membership;
 
-@Path("/membership")
+@Path("/")
 @Produces(MediaType.APPLICATION_JSON)
 public interface MembershipService {
 
 	@GET
-	public Membership get(@HeaderParam("Authorization") String authorization, @QueryParam("access_token") String token);
+	@Path("membership")
+	public Membership get(@HeaderParam("Authorization") String authorization);
+
+	@GET
+	@Path("teamMembership")
+	public Membership getMembershipByTeam(@HeaderParam("Authorization") String authorization,
+			@QueryParam("teamId") String teamId);
+
 }

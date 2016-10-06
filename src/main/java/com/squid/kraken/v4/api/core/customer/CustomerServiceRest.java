@@ -211,7 +211,7 @@ public class CustomerServiceRest extends CoreAuthenticatedServiceRest {
 	 */
 	@Path("/token")
 	@POST
-	@ApiOperation(value = "Retrieve an AccessToken given an AuthCode or a Refresh Token or a JWT")
+	@ApiOperation(value = "Retrieve an AccessToken given an AuthCode or a Refresh Token or a JWT or an OBIO Auth Code")
 	public AccessToken token(
 			@Context HttpServletRequest request,
 			@ApiParam(required = true) @FormParam("grant_type") String grantType,
@@ -220,15 +220,22 @@ public class CustomerServiceRest extends CoreAuthenticatedServiceRest {
 			@ApiParam(required = true) @FormParam("client_id") String clientId,
 			@ApiParam @FormParam("client_secret") String clientSecret,
 			@ApiParam(required = true) @FormParam("redirect_uri") String redirectUri,
-			@ApiParam @FormParam("assertion") String assertion) {
+			@ApiParam @FormParam("assertion") String assertion,
+			@ApiParam @FormParam("teamId") String teamId) {
 		AppContext userContext = getAnonymousUserContext(request, null,
 				clientId);
 		// process
 		ClientPK clientPk = new ClientPK(userContext.getCustomerId(), clientId);
 		if (code != null) {
-			// auth code
-			return authService.getTokenFromAuthCode(userContext, clientPk,
-					redirectUri, code);
+			if (teamId == null) {
+				// auth code
+				return authService.getTokenFromAuthCode(userContext, clientPk,
+						redirectUri, code);
+			} else {
+				// OBIO auth code
+				return authService.getTokenFromOBioAuthCode(userContext, clientPk,
+						redirectUri, code, teamId);
+			}
 		} else if (refreshToken != null) {
 			// refresh token
 			return authService.getTokenFromRefreshToken(userContext, clientPk, clientSecret,
