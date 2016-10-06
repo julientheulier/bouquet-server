@@ -56,7 +56,6 @@ import org.slf4j.LoggerFactory;
 import com.google.common.base.Optional;
 import com.squid.kraken.v4.KrakenConfig;
 import com.squid.kraken.v4.api.core.customer.AuthServiceImpl;
-import com.squid.kraken.v4.api.core.customer.CustomerServiceBaseImpl;
 import com.squid.kraken.v4.api.core.customer.StateServiceBaseImpl;
 import com.squid.kraken.v4.api.core.customer.TokenExpiredException;
 import com.squid.kraken.v4.api.core.projectanalysisjob.AnalysisJobServiceBaseImpl;
@@ -77,9 +76,6 @@ import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DAOFactory;
 import com.squid.kraken.v4.persistence.DataStoreEventBus;
 import com.squid.kraken.v4.persistence.dao.CustomerDAO;
-import com.squid.kraken.v4.persistence.dao.UserDAO;
-
-import io.openbouquet.api.model.Membership;
 
 public class ServiceUtils {
 	
@@ -90,8 +86,6 @@ public class ServiceUtils {
 	static private final String PARAM_DEEP_READ = "deepread";
 
 	static private final String PARAM_OPTION = "option";
-
-	private static final String NULL = "null";
 
 	private static final String AUTHORIZATION = "Authorization";
 
@@ -150,6 +144,8 @@ public class ServiceUtils {
 	private final long tokenExpirationPeriodMillis = 24 * 60 * 60 * 1000;
 	
 	private final long codeExpirationPeriodMillis = 10 * 60 * 1000;
+	
+	public static final int UUID_LENGTH = 36;
 
 	public boolean isValidId(String id) {
 		boolean match = true;
@@ -234,7 +230,7 @@ public class ServiceUtils {
 	 */
 	public AccessToken getToken(String tokenId, String clientId) {
 		AccessToken token = null;
-		if ((tokenId != null) && (!tokenId.equals(NULL))) {
+		if ((tokenId != null) && (tokenId.length() == UUID_LENGTH)) {
 			// check for a token in local db
 			Optional<AccessToken> tokenOpt = DAOFactory.getDAOFactory().getDAO(AccessToken.class).read(null,
 					new AccessTokenPK(tokenId));
@@ -255,86 +251,12 @@ public class ServiceUtils {
 			}
 		}
 		if (token == null) {
-			if ((KrakenConfig.getAuthMode() == AUTH_MODE.BYPASS) || (KrakenConfig.getAuthMode() == AUTH_MODE.OBIO)) {
+			if (KrakenConfig.getAuthMode() == AUTH_MODE.BYPASS) {
 				// look for a Customer that has a a bypass auth mode
 				Customer singleCustomer = getSingleCustomer();
-				if (singleCustomer != null) {
-					if ((singleCustomer.getAuthMode() == AUTH_MODE.BYPASS) && ((tokenId != null) && tokenId.length() < 37)) {
-						// generate a new token
-						token = createSuperUserToken(singleCustomer);
-					} else {
-						// Perform Auth with OB.io
-						OBioApiHelper.setApiEndpoint(KrakenConfig.getProperty("ob-io-api.endpoint"));
-						Membership membership = null;
-						try {
-							membership = OBioApiHelper.getInstance().getMembershipService().get("Bearer "+tokenId, null);
-						} catch (Exception e) {
-							logger.info("Auth with OB.io failed", e);
-						}
-						if (membership != null) {
-							String userId = null;
-							AppContext root = getRootUserContext(singleCustomer.getCustomerId());
-							if ((singleCustomer.getTeamId() == null) || (singleCustomer.getAuthMode() != AUTH_MODE.OBIO)) {
-								// register the customer
-								logger.info("Registering Customer with Team : " + membership.getTeam().getId());
-								singleCustomer.setTeamId(membership.getTeam().getId());
-								singleCustomer.setPublicUrl(membership.getTeam().getServerUrl());
-								singleCustomer.setAuthMode(AUTH_MODE.OBIO);
-								CustomerServiceBaseImpl.getInstance().store(root, singleCustomer);
-							} else if (!singleCustomer.getTeamId().equals(membership.getTeam().getId())) {
-								// this membership does not allow to access
-								logger.info("User's Team ("+membership.getTeam().getId()+") does not allow to access this Customer's Team ("+singleCustomer.getTeamId()+")");
-								throw new InvalidTokenAPIException("Auth failed : invalid membership"
-										+ TOKEN_PARAM, false, KrakenConfig.getAuthServerEndpoint());
-							}
-							// User registration
-							io.openbouquet.api.model.User userOBio = membership.getUser();
-							UserDAO userDAO = ((UserDAO) DAOFactory.getDAOFactory().getDAO(User.class));
-							// authId holds the obio userId
-							Optional<User> userOpt;
-							userOpt = userDAO.findByAuthId(root, userOBio.getId());
-							if (userOpt.isPresent()) {
-								// user already registered
-								userId = userOpt.get().getOid();
-							} else if (userOBio.getEmail() != null) {
-								userOpt = userDAO.findByEmail(root, userOBio.getEmail());
-								if (userOpt.isPresent()) {
-									// we have a user with matching email
-									User user = userOpt.get();
-									user.setLogin(userOBio.getName());
-									user.setAuthId(userOBio.getId());
-									userDAO.update(root, user);
-									userId = user.getOid();
-								}
-							}
-							if (userId == null) {
-								List<User> findByCustomer = userDAO.findByCustomer(root, singleCustomer.getId());
-								if (findByCustomer.size() == 1) {
-									// we only have one non registered user
-									User user = findByCustomer.get(0);
-									user.setLogin(userOBio.getName());
-									user.setAuthId(userOBio.getId());
-									user.setEmail(userOBio.getEmail());
-									userDAO.update(root, user);
-									userId = user.getOid();
-								} else {
-									// register a brand new user
-									User user = new User();
-									user.setLogin(userOBio.getName());
-									user.setAuthId(userOBio.getId());
-									user.setEmail(userOBio.getEmail());
-									user = userDAO.create(root, user);
-									userId = user.getOid();
-								}
-							}
-							// generate a new token
-							ClientPK client = new ClientPK(singleCustomer.getCustomerId(), clientId);
-							token = createToken(singleCustomer.getCustomerId(), client, userId,
-									System.currentTimeMillis(),
-									ServiceUtils.getInstance().getTokenExpirationPeriodMillis(),
-									AccessToken.Type.NORMAL, null);
-						}
-					}
+				if ((singleCustomer != null) && (singleCustomer.getAuthMode() == AUTH_MODE.BYPASS)) {
+					// generate a new token
+					token = createSuperUserToken(singleCustomer);
 				}
 			}
 		}
@@ -342,11 +264,11 @@ public class ServiceUtils {
 			return token;
 		} else {
 			throw new InvalidTokenAPIException("Auth failed"
-					+ TOKEN_PARAM, false, KrakenConfig.getAuthServerEndpoint());
+					, false, KrakenConfig.getAuthServerEndpoint());
 		}
 	}
 	
-	private Customer getSingleCustomer() {
+	public Customer getSingleCustomer() {
 		Customer singleCustomer = null;
 		AppContext ctx = new AppContext.Builder().build();
 		List<Customer> all = ((CustomerDAO) DAOFactory.getDAOFactory()

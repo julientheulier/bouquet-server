@@ -60,10 +60,12 @@ import com.squid.kraken.v4.api.core.GenericServiceImpl;
 import com.squid.kraken.v4.api.core.InvalidCredentialsAPIException;
 import com.squid.kraken.v4.api.core.InvalidTokenAPIException;
 import com.squid.kraken.v4.api.core.ModelGC;
+import com.squid.kraken.v4.api.core.OBioApiHelper;
 import com.squid.kraken.v4.api.core.ObjectNotFoundAPIException;
 import com.squid.kraken.v4.api.core.ServiceUtils;
 import com.squid.kraken.v4.model.AccessToken;
 import com.squid.kraken.v4.model.AccessToken.Type;
+import com.squid.kraken.v4.model.Customer.AUTH_MODE;
 import com.squid.kraken.v4.model.AccessTokenPK;
 import com.squid.kraken.v4.model.AuthCode;
 import com.squid.kraken.v4.model.Client;
@@ -78,6 +80,8 @@ import com.squid.kraken.v4.persistence.DataStoreQueryField;
 import com.squid.kraken.v4.persistence.dao.AccessTokenDAO;
 import com.squid.kraken.v4.persistence.dao.ClientDAO;
 import com.squid.kraken.v4.persistence.dao.UserDAO;
+
+import io.openbouquet.api.model.Membership;
 
 public class AuthServiceImpl extends
 		GenericServiceImpl<AccessToken, AccessTokenPK> {
@@ -298,23 +302,107 @@ public class AuthServiceImpl extends
 	 */
 	public AccessToken getTokenFromAuthCode(AppContext ctx, ClientPK clientId,
 			String redirectUrl, String authorizationCode) {
-
 		AccessToken codeToken;
-		codeToken = ServiceUtils.getInstance().getToken(authorizationCode, clientId.getClientId());
-
-		// create a new access token
-		AccessToken token = ServiceUtils.getInstance().createToken(codeToken.getCustomerId(), clientId,
-				codeToken.getUserId(), System.currentTimeMillis(), ServiceUtils
-						.getInstance().getTokenExpirationPeriodMillis(), null, null);
-		
-		// set refresh token
-		if (codeToken.getRefreshToken() != null) {
-			token.setRefreshToken(codeToken.getRefreshToken());
+		AccessToken token = null;
+		if ((KrakenConfig.getAuthMode() == AUTH_MODE.BYPASS) || (KrakenConfig.getAuthMode() == AUTH_MODE.OBIO)) {
+			// look for a Customer that has a a bypass auth mode
+			Customer singleCustomer = ServiceUtils.getInstance().getSingleCustomer();
+			if (singleCustomer != null) {
+				if ((authorizationCode != null) && authorizationCode.length() > ServiceUtils.UUID_LENGTH) {
+					// Perform Auth with OB.io
+					OBioApiHelper.setApiEndpoint(KrakenConfig.getProperty("ob-io-api.endpoint"));
+					Membership membership = null;
+					try {
+						membership = OBioApiHelper.getInstance().getMembershipService().get("Bearer "+authorizationCode, null);
+					} catch (Exception e) {
+						logger.info("Auth with OB.io failed", e);
+						throw new InvalidTokenAPIException("Auth failed", false, KrakenConfig.getAuthServerEndpoint());
+					}
+					if (membership != null) {
+						String userId = null;
+						AppContext root = ServiceUtils.getInstance().getRootUserContext(singleCustomer.getCustomerId());
+						if ((singleCustomer.getTeamId() == null) || (singleCustomer.getAuthMode() != AUTH_MODE.OBIO)) {
+							// register the customer
+							logger.info("Registering Customer with Team : " + membership.getTeam().getId());
+							singleCustomer.setTeamId(membership.getTeam().getId());
+							singleCustomer.setPublicUrl(membership.getTeam().getServerUrl());
+							singleCustomer.setAuthMode(AUTH_MODE.OBIO);
+							CustomerServiceBaseImpl.getInstance().store(root, singleCustomer);
+						} else if (!singleCustomer.getTeamId().equals(membership.getTeam().getId())) {
+							// this membership does not allow to access
+							logger.info("User's Team (" + membership.getTeam().getId()
+									+ ") does not allow to access this Customer's Team (" + singleCustomer.getTeamId()
+									+ ")");
+							throw new InvalidTokenAPIException("Auth failed : invalid membership", false,
+									KrakenConfig.getAuthServerEndpoint());
+						}
+						// User registration
+						io.openbouquet.api.model.User userOBio = membership.getUser();
+						UserDAO userDAO = ((UserDAO) DAOFactory.getDAOFactory().getDAO(User.class));
+						// authId holds the obio userId
+						Optional<User> userOpt;
+						userOpt = userDAO.findByAuthId(root, userOBio.getId());
+						if (userOpt.isPresent()) {
+							// user already registered
+							userId = userOpt.get().getOid();
+						} else if (userOBio.getEmail() != null) {
+							userOpt = userDAO.findByEmail(root, userOBio.getEmail());
+							if (userOpt.isPresent()) {
+								// we have a user with matching email
+								User user = userOpt.get();
+								user.setLogin(userOBio.getName());
+								user.setAuthId(userOBio.getId());
+								userDAO.update(root, user);
+								userId = user.getOid();
+							}
+						}
+						if (userId == null) {
+							List<User> findByCustomer = userDAO.findByCustomer(root, singleCustomer.getId());
+							if (findByCustomer.size() == 1) {
+								// we only have one non registered user
+								User user = findByCustomer.get(0);
+								user.setLogin(userOBio.getName());
+								user.setAuthId(userOBio.getId());
+								user.setEmail(userOBio.getEmail());
+								userDAO.update(root, user);
+								userId = user.getOid();
+							} else {
+								// register a brand new user
+								User user = new User();
+								user.setLogin(userOBio.getName());
+								user.setAuthId(userOBio.getId());
+								user.setEmail(userOBio.getEmail());
+								user = userDAO.create(root, user);
+								userId = user.getOid();
+							}
+						}
+						// generate a new token
+						ClientPK client = new ClientPK(singleCustomer.getCustomerId(), clientId.getClientId());
+						token = ServiceUtils.getInstance().createToken(singleCustomer.getCustomerId(), client, userId,
+								System.currentTimeMillis(), ServiceUtils.getInstance().getTokenExpirationPeriodMillis(),
+								AccessToken.Type.NORMAL, null);
+					}
+				}
+			}
 		}
-
-		// delete the codeToken
-		DAOFactory.getDAOFactory().getDAO(AccessToken.class)
-				.delete(ctx, codeToken.getId());
+		
+		if (token == null) {
+			// get code token
+			codeToken = ServiceUtils.getInstance().getToken(authorizationCode, clientId.getClientId());
+			// create a new access token
+			token = ServiceUtils.getInstance().createToken(codeToken.getCustomerId(), clientId,
+					codeToken.getUserId(), System.currentTimeMillis(), ServiceUtils
+							.getInstance().getTokenExpirationPeriodMillis(), null, null);
+			
+			// set refresh token
+			if (codeToken.getRefreshToken() != null) {
+				token.setRefreshToken(codeToken.getRefreshToken());
+			}
+	
+			// delete the codeToken
+			DAOFactory.getDAOFactory().getDAO(AccessToken.class)
+					.delete(ctx, codeToken.getId());
+		}
 
 		return token;
 	}
