@@ -1,25 +1,25 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <diagram>
-<source><![CDATA[#![OBe registration from OB1]
-
-user:User
+<source><![CDATA[user:User
 ob1:App
+obs:API
 obio:App
 obioapi:API
 auth0:API
 
-user:teamCreationPage=ob1.open
-ob1:obio.doRegister?redirectURI=
-user:jwt=auth0.login
-auth0:obio.callback
+
+user:redirection to auth=ob1.inviteLink
+ob1:user not logged=obs.auth?teamId=<teamId>
+user:callback?code=jwt=obio.sign-up
+obio:jwt=auth0.login
 obio:obioapi.POST /users?token=jwt
-obioapi:auth0.GET /userprofile?token=jwt
-obioapi:obioapi.createUser(userprofile)
-user:redirection=obio.doCreateTeam(name, serverUrl)
-obio:obioapi.POST /teams?token=jwt
-obioapi:auth0.GET /userprofile?token=jwt
-obioapi:obioapi.createTeamAndMembership
-user:ob1.viewHome?token=jwt
+obioapi:getUserprofile(jwt)
+obioapi:updateUser(userprofile)
+user:display bookmark=ob1.callback?code=jwt
+ob1:access_token=obs.auth?code=jwt&teamId=<teamId>
+obs:membership=obioapi.GET /teamMembership?teamId=<teamId>&token=jwt
+
+
 
 
 
