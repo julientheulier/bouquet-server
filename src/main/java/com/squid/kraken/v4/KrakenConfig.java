@@ -181,7 +181,9 @@ public class KrakenConfig implements KrakenConfigConstants {
 					}
 					if (confV2.getKrakenWSVersion() != null) {
 						props.setProperty("kraken.ws.version", confV2.getKrakenWSVersion());
-
+					}
+					if (confV2.getObIoApiEndpoint() != null) {
+						props.setProperty("ob-io-api.endpoint", confV2.getObIoApiEndpoint());
 					}
 
 					props.setProperty("elastic.local", Boolean.toString(confV2.getElasticLocal()));

@@ -43,5 +43,6 @@
   },
   "wsHost": "localhost:8080",
   "krakenWSAPI": "release",
-  "krakenOAuthEndpoint": "http://localhost:8080/admin/auth/oauth"
+  "krakenOAuthEndpoint": "http://localhost:8080/admin/auth/oauth",
+  "obIoApiEndpoint": "http://localhost:8081/"
 }
