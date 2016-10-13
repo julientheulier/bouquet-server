@@ -8,7 +8,7 @@ import com.squid.kraken.v4.model.NavigationQuery.Style;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.RollUp;
 
 @JsonDeserialize(as = AnalyticsQueryImpl.class)
-public interface AnalyticsQuery {
+public interface AnalyticsQuery extends AnalyticsSelection {
 	
 	public String getBBID();
 	
@@ -25,27 +25,6 @@ public interface AnalyticsQuery {
 	public List<String> getMetrics();
 
 	public void setMetrics(List<String> facets);
-	
-	/**
-	 * get the period expression, used to filter the timeframe.
-	 * This must be a valid date or timestamp expression.
-	 * @return
-	 */
-	public String getPeriod();
-	
-	public void setPeriod(String expression);
-	
-	public List<String> getTimeframe();
-	
-	public void setTimeframe(List<String> timeframe);
-	
-	public List<String> getCompareTo();
-	
-	public void setCompareTo(List<String> compareframe);
-
-	public List<String> getFilters();
-
-	public void setFilters(List<String> filters);
 
 	public List<String> getOrderBy();
 

@@ -29,94 +29,17 @@ package com.squid.kraken.v4.model;
  */
 public class AnalyticsResult {
 
-	public static final class Info {
-		
-		private boolean fromCache = false;
-		
-		private boolean fromSmartCache = false;
-		
-		private String executionDate;
-		
-		private Integer startIndex = null;
-		
-		private Integer pageSize = null;
-		
-		private int totalSize = 0;
-		
-		private boolean complete = false;
-		
-		public Info() {
-		}
-
-		public boolean isFromCache() {
-			return fromCache;
-		}
-
-		public void setFromCache(boolean fromCache) {
-			this.fromCache = fromCache;
-		}
-
-		public boolean isFromSmartCache() {
-			return fromSmartCache;
-		}
-
-		public void setFromSmartCache(boolean fromSmartCache) {
-			this.fromSmartCache = fromSmartCache;
-		}
-
-		public String getExecutionDate() {
-			return executionDate;
-		}
-
-		public void setExecutionDate(String executionDate) {
-			this.executionDate = executionDate;
-		}
-
-		public Integer getStartIndex() {
-			return startIndex;
-		}
-
-		public void setStartIndex(Integer startIndex) {
-			this.startIndex = startIndex;
-		}
-
-		public Integer getPageSize() {
-			return pageSize;
-		}
-
-		public void setPageSize(Integer pageSize) {
-			this.pageSize = pageSize;
-		}
-
-		public int getTotalSize() {
-			return totalSize;
-		}
-
-		public void setTotalSize(int totalSize) {
-			this.totalSize = totalSize;
-		}
-
-		public boolean isComplete() {
-			return complete;
-		}
-
-		public void setComplete(boolean complete) {
-			this.complete = complete;
-		}
-
-	}
-	
-	private Object header = null;
+	private DataHeader header = null;
 	
 	private Object data = null;
 	
-	private Info info = null;
+	private ResultInfo info = null;
 
-	public Object getHeader() {
+	public DataHeader getHeader() {
 		return header;
 	}
 
-	public void setHeader(Object header) {
+	public void setHeader(DataHeader header) {
 		this.header = header;
 	}
 
@@ -128,11 +51,11 @@ public class AnalyticsResult {
 		this.data = data;
 	}
 
-	public Info getInfo() {
+	public ResultInfo getInfo() {
 		return info;
 	}
 
-	public void setInfo(Info info) {
+	public void setInfo(ResultInfo info) {
 		this.info = info;
 	}
 

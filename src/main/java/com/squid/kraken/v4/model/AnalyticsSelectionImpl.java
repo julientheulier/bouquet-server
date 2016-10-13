@@ -23,54 +23,77 @@
  *******************************************************************************/
 package com.squid.kraken.v4.model;
 
-import io.swagger.annotations.ApiModelProperty;
+import java.util.List;
 
 /**
- * This is the result of an analysis
  * @author sergefantino
  *
  */
-public class AnalyticsReply {
+public class AnalyticsSelectionImpl implements AnalyticsSelection {
 	
-	// this is the query that generated this analysis
-	private AnalyticsQuery query;
+	private String period;
 	
-	// the analysis selection
-	private AnalyticsSelection selection;
+	private List<String> timeframe;
 	
-	// the resulting dataTable
-	private Object result;// this may depend on the output format
+	private List<String> compareTo;
+	
+	private List<String> filters;
 	
 	/**
 	 * 
 	 */
-	public AnalyticsReply() {
+	public AnalyticsSelectionImpl() {
 		// TODO Auto-generated constructor stub
 	}
-
-	public AnalyticsQuery getQuery() {
-		return query;
+	
+	/**
+	 * @param copy
+	 */
+	public AnalyticsSelectionImpl(AnalyticsQuery copy) {
+		this.period = copy.getPeriod();
+		this.timeframe = copy.getTimeframe();
+		this.compareTo = copy.getCompareTo();
+		this.filters = copy.getFilters();
 	}
 
-	public void setQuery(AnalyticsQuery query) {
-		this.query = query;
+	public String getPeriod() {
+		return period;
 	}
 
-	@ApiModelProperty(hidden=true)// only used for LEGACY mode, so don't mess user with it
-	public AnalyticsSelection getSelection() {
-		return selection;
+	public void setPeriod(String period) {
+		this.period = period;
+	}
+	
+	public List<String> getTimeframe() {
+		return timeframe;
 	}
 
-	public void setSelection(AnalyticsSelection selection) {
-		this.selection = selection;
+	public void setTimeframe(List<String> timeframe) {
+		this.timeframe = timeframe;
 	}
 
-	public Object getResult() {
-		return result;
+	public List<String> getCompareTo() {
+		return compareTo;
 	}
 
-	public void setResult(Object result) {
-		this.result = result;
+	public void setCompareTo(List<String> compareTo) {
+		this.compareTo = compareTo;
+	}
+
+	/* (non-Javadoc)
+	 * @see com.squid.kraken.v4.model.Analysis#getFilters()
+	 */
+	@Override
+	public List<String> getFilters() {
+		return filters;
+	}
+
+	/* (non-Javadoc)
+	 * @see com.squid.kraken.v4.model.Analysis#setFilters(java.util.List)
+	 */
+	@Override
+	public void setFilters(List<String> filters) {
+		this.filters = filters;
 	}
 
 }
