@@ -40,6 +40,7 @@ public interface AnalyticsServiceConstants {
 	public static final String MAX_RESULTS_PARAM = "maxResults";
 	public static final String DATA_PARAM = "data";
 	public static final String LIMIT_PARAM = "limit";
+	public static final String BEYOND_LIMIT_PARAM = "beyondLimit";
 	public static final String OFFSET_PARAM = "offset";
 	public static final String ENVELOPE_PARAM = "envelope";
 	public static final String ROLLUP_PARAM = "rollup";

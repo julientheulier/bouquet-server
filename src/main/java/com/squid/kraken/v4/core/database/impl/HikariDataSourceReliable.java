@@ -44,16 +44,14 @@ public class HikariDataSourceReliable extends HikariDataSource implements DataSo
 
     private final RateLimiter rateLimiter = RateLimiter.create(20.0);
 	private final Striped<Semaphore> semaphore;
+	
+	protected int maximumPoolSize = 10;
 
-	public HikariDataSourceReliable(int maxPoolSize) {
+	public HikariDataSourceReliable() {
         super();
-        this.semaphore = Striped.semaphore(1, maxPoolSize); //same than the number of connection in the pool
-        super.setMaximumPoolSize(maxPoolSize);
+        this.semaphore = Striped.semaphore(1, maximumPoolSize); //same than the number of connection in the pool
+        super.setMaximumPoolSize(maximumPoolSize);
         super.setMinimumIdle(0);// limit the number of idle connection to the minimum, this is not a bottleneck for Bouquet use-case
-    }
-
-    public HikariDataSourceReliable(String driversPath) {
-    	this(3);
     }
     
     @Override
@@ -75,15 +73,24 @@ public class HikariDataSourceReliable extends HikariDataSource implements DataSo
 			return super.getConnection();
 		} catch (InterruptedException e) {
 			throw new SQLException("Interrupted while getting connection resources");
+		} catch (PoolInitializationException e) {
+			// cannot open the connection ? 
+			close();
+			throw e;
 		}
     }
 
-
 	public Connection getConnectionBlocking() throws SQLException {
+		return getConnection();
+	}
+
+	public Connection getConnectionBlockingHIDE() throws SQLException {
         if(!rateLimiter.tryAcquire(1, TimeUnit.SECONDS)){
             throw new DatabaseServiceException("Unable to Acquire the lock for connection");
         }
-		if (super.getJdbcUrl().contains("drill") || super.getJdbcUrl().contains("hive") ) {
+		if (//super.getJdbcUrl().contains("drill") || 
+				//super.getJdbcUrl().contains("hive") 
+				false) {
 			try {
 				semaphore.get("Resource Limit").acquire(1);
 				Connection conn = super.getConnection();

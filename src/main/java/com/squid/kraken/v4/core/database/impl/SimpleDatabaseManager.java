@@ -47,6 +47,7 @@ import com.squid.core.sql.render.ISkinFeatureSupport;
 import com.squid.kraken.v4.api.core.PerfDB;
 import com.squid.kraken.v4.api.core.SQLStats;
 import com.zaxxer.hikari.HikariDataSource;
+import com.zaxxer.hikari.pool.HikariPool.PoolInitializationException;
 
 public class SimpleDatabaseManager extends DatabaseManager {
 
@@ -55,7 +56,6 @@ public class SimpleDatabaseManager extends DatabaseManager {
 	public static final AtomicInteger queryCnt = new AtomicInteger();
 
 	protected String databaseName = "noname";
-	protected int maximumPoolSize = 10;
 
 	public SimpleDatabaseManager() {
 		super();
@@ -74,12 +74,13 @@ public class SimpleDatabaseManager extends DatabaseManager {
 
 	protected HikariDataSourceReliable createDatasourceWithConfig(JDBCConfig config) {
 		logger.info("Creating a new datasource for " + config.getJdbcUrl() + " " + config.getUsername());
-		HikariDataSourceReliable ds = new HikariDataSourceReliable(maximumPoolSize);
+		HikariDataSourceReliable ds = new HikariDataSourceReliable();
+		ds.setCustomClassloader(DriverLoader.getDriverLoader());
 		ds.setJdbcUrl(config.getJdbcUrl());
 		ds.setUsername(config.getUsername());
 		ds.setPassword(config.getPassword());
 		//
-		ds.setValidationTimeout(1001);
+		ds.setValidationTimeout(2001);
 		ds.setIdleTimeout(60000); // in ms
 		ds.setMaxLifetime(120000);
 		//
@@ -88,9 +89,9 @@ public class SimpleDatabaseManager extends DatabaseManager {
 		// ... but since now we are only trying to acquire a connection when we
 		// already know one is available,
 		// ... it is safe to use a smaller value
-		ds.setConnectionTimeout(4001);
+		ds.setConnectionTimeout(8001);
 		try {
-			ds.setLoginTimeout(1001);
+			ds.setLoginTimeout(4001);
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
@@ -98,7 +99,6 @@ public class SimpleDatabaseManager extends DatabaseManager {
 	}
 
 	protected void chooseDriver(HikariDataSource ds) throws DatabaseServiceException { // T117
-		ds.setCustomClassloader(new DriverLoader());
 		if (ds.getJdbcUrl().contains("jdbc:postgresql")) {
 			ds.setDriverClassName("org.postgresql.Driver"); // So for redshift
 															// we are also using
@@ -109,13 +109,9 @@ public class SimpleDatabaseManager extends DatabaseManager {
 		} else if (ds.getJdbcUrl().contains("jdbc:redshift")) {
 			ds.setDriverClassName("com.amazon.redshift.jdbc41.Driver");
 		} else if (ds.getJdbcUrl().contains("jdbc:drill")) {
-			try {
-				Class.forName("org.apache.drill.jdbc.Driver");
-			} catch (ClassNotFoundException e) {
-				e.printStackTrace();
-				throw new DatabaseServiceException("Could not load driver for drill");
-			}
 			ds.setDriverClassName("org.apache.drill.jdbc.Driver");
+			// Connection.isValid() method is not supported
+			ds.setConnectionTestQuery("show databases");
 		} else if (ds.getJdbcUrl().contains("jdbc:hive2")) {
 			ds.setDriverClassName("org.apache.hive.jdbc.HiveDriver");
 			ds.setAutoCommit(true);
@@ -154,6 +150,11 @@ public class SimpleDatabaseManager extends DatabaseManager {
 				ds.releaseSemaphore();
 			}
 		} catch (SQLException e) {
+			ds.close();
+			throw new DatabaseServiceException(
+					"unable to connect to " + config.getJdbcUrl() + ": \n" + e.getLocalizedMessage(), e);
+		} catch (PoolInitializationException e) {
+			ds.close();
 			throw new DatabaseServiceException(
 					"unable to connect to " + config.getJdbcUrl() + ": \n" + e.getLocalizedMessage(), e);
 		}

@@ -55,6 +55,7 @@ import com.squid.kraken.v4.model.DomainOption;
 import com.squid.kraken.v4.model.ExpressionObject;
 import com.squid.kraken.v4.model.Metric;
 import com.squid.kraken.v4.model.Relation;
+import com.squid.kraken.v4.model.NavigationQuery.Style;
 
 /**
  * A Space identifies a Domain
@@ -191,6 +192,14 @@ public class Space {
 	public String getID() {
 		return ID;
 	}
+	
+	public String getBBID(Style style) {
+		if (style==Style.HUMAN) {
+			return "'"+getUniverse().getProject().getName()+"'.'"+domain.getName()+"'";
+		} else {
+			return "@'"+getUniverse().getProject().getOid()+"'.@'"+domain.getOid()+"'";
+		}
+	}
 
 	public Universe getUniverse() {
 		return universe;
@@ -297,6 +306,15 @@ public class Space {
 			return new Space(this, relation);
 		} else {
 			throw new ScopeException("relation '"+relationName+"' not found/applicable for source domain '"+domain.getName()+"'");
+		}
+	}
+	
+	public Relation findRelation(String relationName) {
+		try {
+			return universe.getRelation(domain, relationName);
+		} catch (ScopeException e) {
+			// exception may comes from something else, but here we don't care
+			return null;
 		}
 	}
 	

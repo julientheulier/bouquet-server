@@ -41,6 +41,7 @@ import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionMember;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainHierarchy;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
+import com.squid.kraken.v4.core.analysis.scope.AnalysisScope;
 import com.squid.kraken.v4.core.analysis.scope.AxisExpression;
 import com.squid.kraken.v4.core.database.impl.DatabaseServiceImpl;
 import com.squid.kraken.v4.model.Attribute;
@@ -49,6 +50,7 @@ import com.squid.kraken.v4.model.Dimension.Type;
 import com.squid.kraken.v4.model.ExpressionObject;
 import com.squid.kraken.v4.model.GenericPK;
 import com.squid.kraken.v4.model.LzPersistentBaseImpl;
+import com.squid.kraken.v4.model.Relation;
 
 // AXIS
 public class Axis implements Property {
@@ -384,12 +386,22 @@ public class Axis implements Property {
 	 */
 	public String prettyPrint(PrettyPrintOptions options) {
 	    if (dimension!=null && dimension.getId().getDimensionId()!=null) {
+			// check if we must take extra care with naming
+			String name = prettyPrintObject(getDimension(), options);
+			if (options!=null && options.getStyle()==ReferenceStyle.NAME && !options.isExplicitType()) {
+				// check if a relation with the same name exists
+				Relation check = parent.findRelation(getDimension().getName());
+				if (check!=null) {
+					// must prefix the name to avoid clash
+					name = prettyPrintObject(getDimension(), new PrettyPrintOptions(options).setExplicitType(true));
+				}
+			}
     		String pp = getParent().prettyPrint(options);
     		if (pp!="") {
     			pp += ".";
     		}
     		// krkn-84 use ID reference
-			return pp+prettyPrintObject(getDimension(), options);
+			return pp+name;
 	    } else if (dimension!=null && dimension.getId().getDimensionId()==null && def_cache!=null) {
 	    	// krkn-93
     		String pp = getParent().prettyPrint(options);
@@ -412,9 +424,15 @@ public class Axis implements Property {
 	 */
 	private static String prettyPrintObject(LzPersistentBaseImpl<? extends GenericPK> object, PrettyPrintOptions options) {
 		if (options!=null && options.getStyle()==ReferenceStyle.NAME) {
-			return PrettyPrintConstant.OPEN_IDENT
-	    			+object.getName()
-	    			+PrettyPrintConstant.CLOSE_IDENT;
+			if (options.isExplicitType()) {
+				return PrettyPrintConstant.IDENTIFIER_TAG+AnalysisScope.AXIS+":"+PrettyPrintConstant.OPEN_IDENT
+						+object.getName()
+						+PrettyPrintConstant.CLOSE_IDENT;
+			} else {
+				return PrettyPrintConstant.OPEN_IDENT
+						+object.getName()
+						+PrettyPrintConstant.CLOSE_IDENT;
+			}
 		} else {// krkn-84: default is ID
 			return PrettyPrintConstant.IDENTIFIER_TAG
 	    			+PrettyPrintConstant.OPEN_IDENT

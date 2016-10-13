@@ -38,7 +38,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.zip.GZIPOutputStream;
 
-import org.apache.kafka.common.errors.ApiException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -295,7 +294,7 @@ public abstract class JobServiceBaseImpl<T extends ComputationJob<PK, R>, PK ext
 					results = store(ctx, job, timeoutMs).getResults();
 				} else {
 					// job computation failed
-					throw new ApiException(error.getMessage());
+					throw new APIException(error.getMessage());
 				}
 			}
 			// JSON

@@ -121,6 +121,9 @@ extends DefaultScope
 			AxisExpression expr = new AxisExpression((Axis)object);
 			return expr;
 		}
+		if (object instanceof ExpressionAST) {
+			return ((ExpressionAST)object);
+		}
 		// else
 		throw new ScopeException("unknown object type");
 	}

@@ -154,7 +154,8 @@ public class ConnectionServiceRest extends BaseServiceRest {
 	@Path("/validate")
 	@ApiOperation(value = "Validate connection definition and return a list of available schemas as a suggestion")
 	public ConnectionInfo validatePost(
-			@ApiParam(value = "the project connection information") Project project
+			@ApiParam(value = "the project connection information") Project project,
+			@ApiParam(value = "if noError is true, do not raise an error but return an error status as part of the reply", defaultValue = "false") @QueryParam("noError") boolean noError
 			) {
 		//
 		// check user role
@@ -218,8 +219,14 @@ public class ConnectionServiceRest extends BaseServiceRest {
 	        	}
 	        }
 	        return new ConnectionInfo(vendorId, url, schemaNames);
-		} catch (ExecutionException | ScopeException e) {
-			throw new APIException(e.getMessage(), e, false);
+		} catch (Throwable e) {
+			if (noError) {
+				String vendorId = project.getDbVendorId();
+				String url = project.getDbUrl();
+				return new ConnectionInfo(vendorId, url, e);
+			} else {
+				throw new APIException(e.getMessage(), e, false);
+			}
 		} finally {
 			if (manager!=null) {
 				manager.close();

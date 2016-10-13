@@ -4,7 +4,7 @@
     <parent>
         <groupId>io.openbouquet</groupId>
         <artifactId>bouquet-parent</artifactId>
-        <version>4.2.27</version>
+        <version>4.2.28-SNAPSHOT</version>
         <relativePath>../bouquet-parent/pom.xml</relativePath>
     </parent>
 
@@ -64,7 +64,7 @@
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
-            <version>14.0</version>
+            <version>18.0</version>
         </dependency>
         <dependency>
             <groupId>org.bitbucket.b_c</groupId>
@@ -189,7 +189,7 @@
         <dependency>
             <groupId>io.openbouquet</groupId>
             <artifactId>HikariCP</artifactId>
-            <version>2.4.2-RC2+SquidSolutions</version>
+            <version>2.5.1-RC1+SquidSolutions</version>
         </dependency>
         <dependency>
             <groupId>io.openbouquet</groupId>
@@ -203,6 +203,7 @@
             </exclusions>
         </dependency>
 
+        <!-- 
         <dependency>
             <groupId>org.apache.avro</groupId>
             <artifactId>avro</artifactId>
@@ -221,9 +222,10 @@
         <dependency>
             <groupId>org.apache.kafka</groupId>
             <artifactId>kafka_2.10</artifactId>
-            <!-- For CP 2.0.0 -->
+            // For CP 2.0.0
             <version>0.9.0.0-cp1</version>
         </dependency>
+        -->
 
         <dependency>
             <groupId>org.apache.commons</groupId>

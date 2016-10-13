@@ -40,93 +40,21 @@ import com.squid.core.database.impl.DriverShim;
 public class DriversService {
 
 	static final Logger logger = LoggerFactory.getLogger(DriversService.class);
-
-	
 	
 	// Drivers NON JDBC 4 Compliant (aka does not contains a MANIFEST for
 	// java.sql.Driver)
-	public static final String[] drivers = new String[] { "org.apache.drill.jdbc.Driver",
+	public static final String[] drivers = new String[] //{};
+			{ "org.apache.drill.jdbc.Driver",
 			"org.apache.hive.jdbc.HiveDriver" };
 
-	public static final String PLUGIN_DIR = new String(System.getProperty("kraken.plugin.dir", "/home/squid/drivers"));
-	
-	
-	// Need to have the servlet directory or configs
-	// Accessed by QueryWorkers too;
-	public synchronized static void initDriver() {
-
-		ClassLoader classloader = Thread.currentThread().getContextClassLoader();
-
-		String PathToPlugins = PLUGIN_DIR;
-		if (PathToPlugins != null) {
-			DriverLoader dd = new DriverLoader(PathToPlugins);
-
-			// Will detect automatically JDBC 4 Compliant;
-			// Drill and Spark JDBC plugins are not.
-			ServiceLoader<java.sql.Driver> loader = ServiceLoader.load(java.sql.Driver.class, dd);
-			Iterator<Driver> driverIt = loader.iterator();
-			// LoggerFactory.getLogger(this.getClass()).debug("List of
-			// vendorSupport Providers");
-			while (driverIt.hasNext()) {
-				try {
-					Driver driver = driverIt.next();
-					Enumeration<Driver> availableDrivers = DriverManager.getDrivers();
-					Boolean duplicate = false;
-					while (availableDrivers.hasMoreElements()) {
-						Driver already = availableDrivers.nextElement();
-						if (already instanceof DriverShim) {
-							if (((DriverShim) already).getName() == driver.getClass().getName()) {
-								duplicate = true;
-							}
-						}
-					}
-					if (logger.isDebugEnabled()) {
-						logger.debug("driver available " + driver.getClass());
-					}
-					;
-					if (!duplicate) {
-						DriverManager.registerDriver(new DriverShim(driver));
-					}
-					;
-				} catch (Throwable e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-			}
-
-			// load registered drivers
-			for (String driverName : drivers) {
-				try {
-					Driver driver = (Driver) Class.forName(driverName, true, dd).newInstance();
-					Enumeration<Driver> availableDrivers = DriverManager.getDrivers();
-					Boolean duplicate = false;
-					while (availableDrivers.hasMoreElements()) {
-						Driver already = availableDrivers.nextElement();
-						if (already instanceof DriverShim) {
-							if (((DriverShim) already).getName() == driver.getClass().getName()) {
-								duplicate = true;
-							}
-						}
-					}
-					logger.info("driver available " + driver.getClass());
-					if (!duplicate) {
-						DriverManager.registerDriver(new DriverShim(driver));
-					}
-					;
-				} catch (Throwable e) {
-					logger.warn("Cannot find the jdbc driver for " + driverName);
-				}
-			}
-		}
-		Thread.currentThread().setContextClassLoader(classloader);
-	}
-
 	// Without servlet directory or configs
-	public synchronized static void initDriver(String path) {
+	public synchronized static void initDriver() {
+		
+		// copy class loader to rollback
+		ClassLoader rollback = Thread.currentThread().getContextClassLoader();
 
-		String PathToPlugins = path;
-		DriverLoader dd = new DriverLoader(PathToPlugins);
-
+		DriverLoader dd = DriverLoader.getDriverLoader();
+		Thread.currentThread().setContextClassLoader(dd);
 		// Will detect automatically JDBC 4 Compliant;
 		// Drill and Spark JDBC plugins are not.
 		ServiceLoader<java.sql.Driver> loader = ServiceLoader.load(java.sql.Driver.class, dd);
@@ -151,7 +79,8 @@ public class DriversService {
 				}
 				;
 				if (!duplicate) {
-					DriverManager.registerDriver(new DriverShim(driver));
+					DriverShim shim = new DriverShim(driver);
+					DriverManager.registerDriver(shim);
 				}
 				;
 			} catch (SQLException e) {
@@ -178,7 +107,8 @@ public class DriversService {
 				}
 				;
 				if (!duplicate) {
-					DriverManager.registerDriver(new DriverShim(driver));
+					DriverShim shim = new DriverShim(driver);
+					DriverManager.registerDriver(shim);
 				}
 				;
 			}
@@ -188,7 +118,7 @@ public class DriversService {
 			e.printStackTrace();
 		}
 
-		Thread.currentThread().setContextClassLoader(dd);
+		Thread.currentThread().setContextClassLoader(rollback);
 	}
 
 }

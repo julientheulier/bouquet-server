@@ -46,7 +46,10 @@ public class ViewQuery extends AnalyticsQueryImpl {
 	 * 
 	 */
 	public ViewQuery() {
-		// TODO Auto-generated constructor stub
+	}
+	
+	public ViewQuery(AnalyticsQuery query) {
+		super(query);
 	}
 
 	public String getX() {
