@@ -1290,7 +1290,7 @@ public class AnalysisCompute {
 			subAnalysisWithLimit.setSelection(new DashboardSelection(analysis.getSelection()));
 		}
 		// use the best strategy
-		if (joins.size() == 1 && subAnalysisWithLimit.getLimit() < 50) {
+		if (joins.size() == 1 && subAnalysisWithLimit.hasLimit() && subAnalysisWithLimit.getLimit() < 50) {
 			// run sub-analysis and add filters by hand 
 			// potential cache hit on the subquery
 			DataMatrix selection = computeAnalysisSimple(subAnalysisWithLimit, false);
