@@ -25,6 +25,7 @@ package com.squid.kraken.v4.core.analysis.engine.project;
 
 import java.util.concurrent.locks.ReentrantLock;
 
+import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainContent;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.LockableMap;
 import com.squid.kraken.v4.core.analysis.universe.Space;
@@ -44,7 +45,7 @@ public class DomainContentManager {
 	public DomainContentManager() {
 	}
 	
-	public DomainContent getDomainContent(Space space) {
+	public DomainContent getDomainContent(Space space) throws ScopeException {
 		// check if already available
 		Domain domain = space.getDomain();
 		DomainContent content = contents.get(domain.getId());
