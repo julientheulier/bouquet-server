@@ -41,6 +41,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.squid.core.velocity.VelocityTemplateManager;
+import com.squid.enterprise.api.EnterpriseServiceRest;
 import com.squid.kraken.v4.KrakenConfig;
 import com.squid.kraken.v4.ESIndexFacade.ESIndexFacadeConfiguration;
 import com.squid.kraken.v4.api.core.EmailHelperImpl;
@@ -99,8 +100,12 @@ public class CXFServletService extends CXFNonSpringJaxrsServlet {
 		if (facets.contains("front")) {
 			// init the API
 			logger.info("Facet: Front");
-			servletConf.setJaxrsServiceClassesParam(AnalyticsServiceRest.class.getName() + "," + CustomerServiceRest.class.getName() + ","
-					+ AdminServiceRest.class.getName() + "," + ApiListingResource.class.getName());
+			servletConf.setJaxrsServiceClassesParam(
+					AnalyticsServiceRest.class.getName() + "," + 
+					CustomerServiceRest.class.getName() + "," + 
+					AdminServiceRest.class.getName() + "," + 
+					ApiListingResource.class.getName()
+					 + "," +  EnterpriseServiceRest.class.getName());
 		} else {
 			servletConf.setJaxrsServiceClassesParam(CacheInitPoint.class.getName());
 		}
