@@ -24,49 +24,56 @@
 package com.squid.enterprise.api;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
+import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Optional;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.scope.ScopeException;
+import com.squid.enterprise.model.UserAcessLevel;
+import com.squid.enterprise.model.UserAcessLevel.AccessLevel;
 import com.squid.enterprise.model.Invitation;
 import com.squid.enterprise.model.ObjectReference;
+import com.squid.enterprise.model.ObjectReference.Binding;
 import com.squid.enterprise.model.ShareQuery;
 import com.squid.enterprise.model.ShareReply;
+import com.squid.enterprise.model.Snippet;
 import com.squid.enterprise.model.Status;
-import com.squid.enterprise.model.Invitation.Role;
 import com.squid.kraken.v4.api.core.APIException;
+import com.squid.kraken.v4.api.core.AccessRightsUtils;
+import com.squid.kraken.v4.api.core.OBioApiHelper;
+import com.squid.kraken.v4.api.core.ObjectNotFoundAPIException;
 import com.squid.kraken.v4.api.core.ServiceUtils;
-import com.squid.kraken.v4.api.core.bookmark.BookmarkServiceBaseImpl;
 import com.squid.kraken.v4.api.core.customer.CoreAuthenticatedServiceRest;
-import com.squid.kraken.v4.api.core.project.ProjectServiceBaseImpl;
+import com.squid.kraken.v4.api.core.customer.CustomerServiceBaseImpl;
 import com.squid.kraken.v4.api.core.user.UserServiceBaseImpl;
 import com.squid.kraken.v4.core.analysis.scope.GlobalExpressionScope;
 import com.squid.kraken.v4.core.analysis.scope.ProjectExpressionRef;
 import com.squid.kraken.v4.core.analysis.scope.SpaceExpression;
-import com.squid.kraken.v4.core.analysis.scope.UniverseScope;
 import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.model.AccessRight;
-import com.squid.kraken.v4.model.Bookmark;
-import com.squid.kraken.v4.model.BookmarkPK;
-import com.squid.kraken.v4.model.ExpressionObject;
+import com.squid.kraken.v4.model.AccessRight.Role;
+import com.squid.kraken.v4.model.Customer.AUTH_MODE;
+import com.squid.kraken.v4.model.Customer;
 import com.squid.kraken.v4.model.GenericPK;
+import com.squid.kraken.v4.model.LzPersistentBaseImpl;
 import com.squid.kraken.v4.model.PersistentBaseImpl;
-import com.squid.kraken.v4.model.Project;
-import com.squid.kraken.v4.model.ProjectPK;
-import com.squid.kraken.v4.model.ReferencePK;
 import com.squid.kraken.v4.model.User;
+import com.squid.kraken.v4.model.UserPK;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DAOFactory;
 import com.squid.kraken.v4.persistence.dao.UserDAO;
@@ -78,7 +85,7 @@ import io.swagger.annotations.AuthorizationScope;
 
 /**
  * This is the API for OB enterprise features
- * @author sergefantino
+ * @author serge.fantino
  *
  */
 @Path("/enterprise")
@@ -86,6 +93,12 @@ import io.swagger.annotations.AuthorizationScope;
 @Produces({ MediaType.APPLICATION_JSON })
 public class EnterpriseServiceRest extends CoreAuthenticatedServiceRest {
 
+	static final Logger logger = LoggerFactory
+			.getLogger(EnterpriseServiceRest.class);
+
+	public final static String BBID_PARAM_NAME = "REFERENCE";
+
+	private UserDAO userDAO = ((UserDAO) DAOFactory.getDAOFactory().getDAO(User.class));
 	
 	@GET
 	@Path("/status")
@@ -98,14 +111,55 @@ public class EnterpriseServiceRest extends CoreAuthenticatedServiceRest {
 		return new Status();
 	}
 	
-	@POST
-	@Path("/test")
+	@GET
+	@Path("/share/{" + BBID_PARAM_NAME + "}")
 	@ApiOperation(
-			value = "Share some resources with some users",
+			value = "Get information regarding who is sharing this resource",
 			notes = "")
-	public ShareQuery test() 
+	public ShareQuery getShare(
+			@Context HttpServletRequest request,
+			@PathParam(BBID_PARAM_NAME) String reference) 
 	{
-		return new ShareQuery();
+		AppContext ctx = getUserContext(request);
+		// lookup the resource
+		PersistentBaseImpl<? extends GenericPK> resource = parseReference(ctx, reference);
+		if (resource==null) {
+			throw new ObjectNotFoundAPIException("cannot find resource with reference="+reference, true);
+		}
+		HashSet<AccessRight> rights = new HashSet<>(resource.getAccessRights());
+		ObjectReference ref = new ObjectReference(reference);
+		ArrayList<UserAcessLevel> invitations = new ArrayList<>();
+		for (AccessRight right : rights) {
+			UserAcessLevel invitation = createInvitation(ctx, right);
+			if (invitation!=null) {
+				invitations.add(invitation);
+			}
+		}
+		ShareQuery query = new ShareQuery();
+		query.setResources(Collections.singletonList(ref));
+		query.setSharing(invitations);
+		return query;
+	}
+	
+	private UserAcessLevel createInvitation(AppContext ctx, AccessRight right) {
+		AccessLevel role = convertRole(right.getRole());
+		if (role!=null) {
+			// lookup the user
+			String userId = right.getUserId();
+			UserPK pk = new UserPK(ctx.getCustomerId(), userId);
+			Optional<User> optional = userDAO.read(ctx, pk);
+			if (optional.isPresent()) {
+				User user = optional.get();
+				if (user.getEmail()!=null) {// we are using the email as the identifier for external
+					UserAcessLevel invitation = new UserAcessLevel();
+					invitation.setUserID(user.getEmail());
+					invitation.setAccessLevel(role);
+					return invitation;
+				}
+			}
+		}
+		// else
+		return null;
 	}
 	
 	/**
@@ -138,19 +192,26 @@ public class EnterpriseServiceRest extends CoreAuthenticatedServiceRest {
 			HttpServletRequest request,
 			ShareQuery query) {
 		AppContext ctx = getUserContext(request);
+		// check that the customer is valid for using OB.io
+		Customer customer = CustomerServiceBaseImpl.getInstance().read(ctx, ctx.getCustomerPk());
+		if (customer==null || customer.getAuthMode()!=AUTH_MODE.OBIO || customer.getTeamId()==null || customer.getTeamId().equals("")) {
+			throw new APIException("this API is not available for this customer");
+		}
+		if (ctx.getToken().getAuthorizationCode()==null) {
+			throw new APIException("this API is not available for this session");
+		}
 		// check the resources
-		ArrayList<PersistentBaseImpl<? extends GenericPK>> resources = new ArrayList<>();
+		ArrayList<ObjectReference.Binding<LzPersistentBaseImpl<? extends GenericPK>>> resources = new ArrayList<>();
 		if (query.getResources()!=null) {
 			for (ObjectReference ref : query.getResources()) {
-				if (ref.getLegacyPK()!=null) {
-					PersistentBaseImpl<? extends GenericPK> value = findReference(ctx, ref.getLegacyPK().getReference());
-					if (value!=null) {
-						resources.add(value);
-					}
-				} else if (ref.getObjectID()!=null) {
-					PersistentBaseImpl<? extends GenericPK> value = parseReference(ctx, ref.getObjectID());
-					if (value!=null) {
-						resources.add(value);
+				if (ref.getReference()!=null) {
+					LzPersistentBaseImpl<? extends GenericPK> value = parseReference(ctx, ref.getReference());
+					if (value!=null 
+						// check if the ctx can modify the resource
+						&& AccessRightsUtils.getInstance().hasRole(ctx, value, Role.WRITE)) 
+					{
+						ObjectReference.Binding<LzPersistentBaseImpl<? extends GenericPK>> binding = ref.<LzPersistentBaseImpl<? extends GenericPK>>bind(value);
+						resources.add(binding);
 					}
 				} else {
 					// invalid but ignore
@@ -160,25 +221,30 @@ public class EnterpriseServiceRest extends CoreAuthenticatedServiceRest {
 		if (resources.isEmpty()) {
 			throw new APIException("Nothing to share");
 		}
+		//boolean multiple = resources.size()>1;
 		AppContext root = ServiceUtils.getInstance().getRootUserContext(ctx);
-		if (query.getInvitations()!=null) {
-			for (Invitation invitation : query.getInvitations()) {
-				User user = findUserByEmail(root, invitation.getUserID());
+		if (query.getSharing()!=null) {
+			for (UserAcessLevel sharing : query.getSharing()) {
+				User user = findUserByEmail(root, sharing.getUserID());
 				if (user==null) {
 					// provision a new user with the same email
-					UserDAO userDAO = ((UserDAO) DAOFactory.getDAOFactory().getDAO(User.class));
-					// register a brand new user
 					user = new User();
-					user.setEmail(invitation.getUserID());
+					user.setEmail(sharing.getUserID());
 					user = userDAO.create(ctx, user);
 				}
 				if (user!=null) {
 					// give access right for the user
-					for (PersistentBaseImpl<? extends GenericPK> resource : resources) {
-						addAccessRole(ctx, resource, user, invitation.getRole());
+					ArrayList<Snippet> snippets = new ArrayList<>();
+					for (ObjectReference.Binding<LzPersistentBaseImpl<? extends GenericPK>> resource : resources) {
+						if (setAccessRole(ctx, resource.getObject(), user, sharing.getAccessLevel())) {
+							snippets.add(createSnippet(resource));
+						}
 					}
-					// send invitation
-					
+					// send invitation if required
+					if (!snippets.isEmpty()) {
+						Invitation invitation = new Invitation(sharing, snippets);
+						sendInvitation(ctx, customer, user, invitation);
+					}
 				} else {
 					// some error while creating the user?
 				}
@@ -189,7 +255,46 @@ public class EnterpriseServiceRest extends CoreAuthenticatedServiceRest {
 		return new ShareReply();
 	}
 	
-	private PersistentBaseImpl<? extends GenericPK> parseReference(AppContext ctx, String BBID) {
+	/**
+	 * send the invitation to the user through OB.io
+	 * @param customer 
+	 * @param user 
+	 * @param invitation
+	 * @param snippets
+	 */
+	private boolean sendInvitation(AppContext ctx, Customer customer, User user, Invitation invitation) {
+		try {
+			long teamId = Long.parseLong(customer.getTeamId());
+			String authorization = ctx.getToken().getAuthorizationCode();
+			ObjectMapper json = new ObjectMapper();
+			String data = json.writeValueAsString(invitation);
+			if (user.getAuthId()!=null) {
+				// we already know the guy
+				OBioApiHelper.getInstance().getMembershipService().inviteMember(authorization, teamId, user.getAuthId(), data);
+			} else {
+				// we don't know him
+				OBioApiHelper.getInstance().getMembershipService().inviteMember(authorization, teamId, user.getEmail(), data);
+			}
+			return true;
+		} catch (Exception e) {
+			logger.error("/share failed to send invite to user "+user.getEmail()+" due to:"+e.getMessage(), e);
+			return false;
+		}
+	}
+
+	/**
+	 * @param resources
+	 * @return
+	 */
+	private Snippet createSnippet(Binding<LzPersistentBaseImpl<? extends GenericPK>> binding) {
+		Snippet snippet = new Snippet(binding.getObjectReference());
+		snippet.setName(binding.getObject().getName());
+		snippet.setDescription(binding.getObject().getDescription());
+		snippet.setType(binding.getObject().getClass().getName());
+		return snippet;
+	}
+
+	private LzPersistentBaseImpl<? extends GenericPK> parseReference(AppContext ctx, String BBID) {
 		try {
 			GlobalExpressionScope scope = new GlobalExpressionScope(ctx);
 			ExpressionAST expr = scope.parseExpression(BBID);
@@ -212,39 +317,54 @@ public class EnterpriseServiceRest extends CoreAuthenticatedServiceRest {
 		return null;
 	}
 	
-	private PersistentBaseImpl<? extends GenericPK> findReference(AppContext ctx, Object reference) {
-		if (reference instanceof ReferencePK<?>) {
-			ReferencePK<?> unwrap = (ReferencePK<?>) reference;
-			GenericPK ref = unwrap.getReference();
-			if (ref instanceof ProjectPK) {
-				// this is a project
-				ProjectPK projectPK = (ProjectPK)ref;
-				return ProjectServiceBaseImpl.getInstance().read(ctx, projectPK);
-			} else if (ref instanceof BookmarkPK) {
-				// this is a bookmark
-				BookmarkPK bookmarkPK = (BookmarkPK)ref;
-				return BookmarkServiceBaseImpl.getInstance().read(ctx, bookmarkPK);
+	/**
+	 * update the accessRole, return false if not modified
+	 * @param ctx
+	 * @param resource
+	 * @param user
+	 * @param role
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	private boolean setAccessRole(AppContext ctx, PersistentBaseImpl<? extends GenericPK> resource, User user, AccessLevel role) {
+		com.squid.kraken.v4.model.AccessRight.Role acl = convertRole(role);
+		HashSet<AccessRight> rights = new HashSet<>(resource.getAccessRights());
+		AccessRight right = new AccessRight(acl, user.getId().getUserId(), null);
+		if (!AccessRightsUtils.getInstance().hasRole(user, rights, acl)) {
+			rights.add(right);
+			resource.setAccessRights(rights);
+			DAOFactory.getDAOFactory().getDAO(resource.getClass()).update(ctx, resource);
+			return true;
+		} else {
+			// already has it or better, what to do?
+			Role current = AccessRightsUtils.getInstance().getRole(user, resource);
+			if (current==Role.WRITE && acl==Role.READ) {
+				// someone is asking for downgrade
+				return true;
 			}
 		}
 		// else
-		return null;
+		return false;
 	}
 	
-	private void addAccessRole(AppContext ctx, PersistentBaseImpl<? extends GenericPK> resource, User user, Role role) {
-		AccessRight right = new AccessRight(convertRole(role), user.getId().getUserId(), null);
-		HashSet<AccessRight> rights = new HashSet<>(resource.getAccessRights());
-		rights.add(right);
-		resource.setAccessRights(rights);
-		DAOFactory.getDAOFactory().getDAO(resource.getClass()).update(ctx, resource);
-	}
-	
-	private com.squid.kraken.v4.model.AccessRight.Role convertRole(Role role) {
+	private Role convertRole(AccessLevel role) {
 		switch (role) {
 		case EDITOR:
-			return com.squid.kraken.v4.model.AccessRight.Role.WRITE;
+			return Role.WRITE;
 		case VIEW:
 		default:
-			return com.squid.kraken.v4.model.AccessRight.Role.READ;
+			return Role.READ;
+		}
+	}
+	
+	private AccessLevel convertRole(Role role) {
+		switch (role) {
+		case WRITE: return AccessLevel.EDITOR;
+		case READ: return AccessLevel.VIEW;
+		case OWNER:// ignore, we never change OWNER role
+		case NONE:
+		default:
+			return null;
 		}
 	}
 	
