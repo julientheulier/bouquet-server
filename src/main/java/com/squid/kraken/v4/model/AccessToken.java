@@ -96,6 +96,8 @@ public class AccessToken implements Persistent<AccessTokenPK> {
 	protected String clientId;
 
 	protected String refreshToken;
+	
+	private String authorizationCode;
 
 	/**
 	 * Default constructor (required for jaxb).
@@ -181,6 +183,14 @@ public class AccessToken implements Persistent<AccessTokenPK> {
 
 	public void setRefreshToken(String refreshToken) {
 		this.refreshToken = refreshToken;
+	}
+	
+	public String getAuthorizationCode() {
+		return authorizationCode;
+	}
+	
+	public void setAuthorizationCode(String authorizationCode) {
+		this.authorizationCode = authorizationCode;
 	}
 
 	@XmlElement
