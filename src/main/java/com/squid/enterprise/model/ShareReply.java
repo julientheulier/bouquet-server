@@ -24,7 +24,7 @@
 package com.squid.enterprise.model;
 
 /**
- * @author sergefantino
+ * @author serge.fantino
  *
  */
 public class ShareReply {

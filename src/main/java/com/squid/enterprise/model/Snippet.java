@@ -23,40 +23,73 @@
  *******************************************************************************/
 package com.squid.enterprise.model;
 
-import java.util.List;
-
 /**
- * define what/who to share
+ * A snippet describe how to access a resource on the server and its content, so that remote OB.io can "show" it users
  * @author serge.fantino
  *
  */
-public class ShareQuery {
+public class Snippet extends ObjectReference {
 	
-	private List<ObjectReference> resources = null;
+	// this is the resource type
+	private String type = null;
 	
-	private List<UserAcessLevel> sharing = null;
+	// this is a resource name
+	private String name = null;
+	
+	// this is the resource path relative to the /analytics API
+	private String path = null;
+	
+	// this is the resource description if provided
+	private String description = null;
 	
 	/**
 	 * 
 	 */
-	public ShareQuery() {
+	public Snippet() {
 		// TODO Auto-generated constructor stub
 	}
-
-	public List<ObjectReference> getResources() {
-		return resources;
+	
+	public Snippet(ObjectReference reference) {
+		super(reference.getReference());
+		setApplicationURL(reference.getApplicationURL());
 	}
 
-	public void setResources(List<ObjectReference> resources) {
-		this.resources = resources;
+	public String getType() {
+		return type;
 	}
 
-	public List<UserAcessLevel> getSharing() {
-		return sharing;
+	public void setType(String type) {
+		this.type = type;
 	}
 
-	public void setSharing(List<UserAcessLevel> sharing) {
-		this.sharing = sharing;
+	public String getName() {
+		return name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
+	}
+
+	public String getPath() {
+		return path;
+	}
+
+	public void setPath(String path) {
+		this.path = path;
+	}
+
+	public String getDescription() {
+		return description;
+	}
+
+	public void setDescription(String description) {
+		this.description = description;
+	}
+
+	@Override
+	public String toString() {
+		return "Snippet [type=" + type + ", name=" + name + ", path=" + path + ", description=" + description
+				+ ", " + super.toString() + "]";
 	}
 
 }

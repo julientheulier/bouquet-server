@@ -23,40 +23,44 @@
  *******************************************************************************/
 package com.squid.enterprise.model;
 
-import java.util.List;
-
 /**
- * define what/who to share
+ * just aggregate User identification and requested Access Level
  * @author serge.fantino
  *
  */
-public class ShareQuery {
+public class UserAcessLevel {
 	
-	private List<ObjectReference> resources = null;
+	public enum AccessLevel { 
+		EDITOR, // allow to edit
+		VIEW,   // allow to view
+		NONE    // no access - use it to revoke access
+	};
 	
-	private List<UserAcessLevel> sharing = null;
+	private String userID = null;
+	
+	private AccessLevel level = null;
 	
 	/**
 	 * 
 	 */
-	public ShareQuery() {
+	public UserAcessLevel() {
 		// TODO Auto-generated constructor stub
 	}
 
-	public List<ObjectReference> getResources() {
-		return resources;
+	public String getUserID() {
+		return userID;
 	}
 
-	public void setResources(List<ObjectReference> resources) {
-		this.resources = resources;
+	public void setUserID(String userID) {
+		this.userID = userID;
 	}
 
-	public List<UserAcessLevel> getSharing() {
-		return sharing;
+	public AccessLevel getAccessLevel() {
+		return level;
 	}
 
-	public void setSharing(List<UserAcessLevel> sharing) {
-		this.sharing = sharing;
+	public void setAccessLevel(AccessLevel level) {
+		this.level = level;
 	}
 
 }

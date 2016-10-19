@@ -25,7 +25,7 @@ package com.squid.enterprise.model;
 
 /**
  * Enterprise API status
- * @author sergefantino
+ * @author serge.fantino
  *
  */
 public class Status {

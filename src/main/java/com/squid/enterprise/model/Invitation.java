@@ -23,17 +23,19 @@
  *******************************************************************************/
 package com.squid.enterprise.model;
 
+import java.util.List;
+
 /**
- * @author sergefantino
+ * 
+ * An invitation is targettd as one user for one or many resources, described by Snippets
+ * @author serge.fantino
  *
  */
 public class Invitation {
 	
-	public enum Role { EDITOR, VIEW};
+	private UserAcessLevel recipient;
 	
-	private String userID = null;
-	
-	private Role role = null;
+	private List<Snippet> snippets;
 	
 	/**
 	 * 
@@ -42,20 +44,26 @@ public class Invitation {
 		// TODO Auto-generated constructor stub
 	}
 
-	public String getUserID() {
-		return userID;
+	public Invitation(UserAcessLevel recipient, List<Snippet> snippets) {
+		super();
+		this.recipient = recipient;
+		this.snippets = snippets;
 	}
 
-	public void setUserID(String userID) {
-		this.userID = userID;
+	public UserAcessLevel getRecipient() {
+		return recipient;
 	}
 
-	public Role getRole() {
-		return role;
+	public void setRecipient(UserAcessLevel recipient) {
+		this.recipient = recipient;
 	}
 
-	public void setRole(Role role) {
-		this.role = role;
+	public List<Snippet> getSnippets() {
+		return snippets;
+	}
+
+	public void setSnippets(List<Snippet> snippets) {
+		this.snippets = snippets;
 	}
 
 }

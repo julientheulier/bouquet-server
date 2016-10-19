@@ -25,19 +25,37 @@ package com.squid.enterprise.model;
 
 import java.net.URL;
 
-import com.squid.kraken.v4.model.ReferencePK;
-
 /**
- * @author sergefantino
+ * @author serge.fantino
  *
  */
 public class ObjectReference {
 	
-	private ReferencePK<?> legacyPK = null;
-	
-	private String objectID = null;
-	
-	private URL appReference = null;
+	public class Binding <T> {
+		
+		private T object;
+		
+		public Binding(T object) {
+			this.object = object;
+		}
+		
+		/**
+		 * @return the object
+		 */
+		public T getObject() {
+			return object;
+		}
+		
+		public ObjectReference getObjectReference() {
+			return ObjectReference.this;
+		}
+	}
+
+	// this the the new resource identifier, based on /analytics API
+	private String reference = null;
+
+	// this is a link to open the resource in the app that created the snippet
+	private URL applicationURL = null;
 	
 	/**
 	 * 
@@ -45,29 +63,34 @@ public class ObjectReference {
 	public ObjectReference() {
 		// TODO Auto-generated constructor stub
 	}
-
-	public ReferencePK<?> getLegacyPK() {
-		return legacyPK;
+	
+	public ObjectReference(String reference) {
+		this.reference = reference;
 	}
 
-	public void setLegacyPK(ReferencePK<?> legacyPK) {
-		this.legacyPK = legacyPK;
+	public String getReference() {
+		return reference;
 	}
 
-	public String getObjectID() {
-		return objectID;
+	public void setReference(String reference) {
+		this.reference = reference;
 	}
 
-	public void setObjectID(String objectID) {
-		this.objectID = objectID;
+	public URL getApplicationURL() {
+		return applicationURL;
 	}
 
-	public URL getAppReference() {
-		return appReference;
+	public void setApplicationURL(URL applicationURL) {
+		this.applicationURL = applicationURL;
+	}
+	
+	public <T> Binding<T> bind(T object) {
+		return new Binding<T>(object);
 	}
 
-	public void setAppReference(URL appReference) {
-		this.appReference = appReference;
+	@Override
+	public String toString() {
+		return "ObjectReference [reference=" + reference + ", applicationURL=" + applicationURL + "]";
 	}
 
 }
