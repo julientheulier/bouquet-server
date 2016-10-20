@@ -23,13 +23,18 @@
  *******************************************************************************/
 package com.squid.enterprise.model;
 
+import java.util.Collection;
+
 /**
+ * Return the list of invitations sent
  * @author serge.fantino
  *
  */
 public class ShareReply {
 	
-	private boolean status;
+	private Collection<Invitation> invitations;
+	
+	private Collection<String> errors;
 	
 	/**
 	 * 
@@ -38,12 +43,36 @@ public class ShareReply {
 		// TODO Auto-generated constructor stub
 	}
 
-	public boolean isStatus() {
-		return status;
+	public ShareReply(Collection<Invitation> invitations) {
+		this.invitations = invitations;
 	}
-
-	public void setStatus(boolean status) {
-		this.status = status;
+	
+	/**
+	 * @return the invitations
+	 */
+	public Collection<Invitation> getInvitations() {
+		return invitations;
+	}
+	
+	/**
+	 * @param invitations the invitations to set
+	 */
+	public void setInvitations(Collection<Invitation> invitations) {
+		this.invitations = invitations;
+	}
+	
+	/**
+	 * @return the errors
+	 */
+	public Collection<String> getErrors() {
+		return errors;
+	}
+	
+	/**
+	 * @param errors the errors to set
+	 */
+	public void setErrors(Collection<String> errors) {
+		this.errors = errors;
 	}
 
 }
