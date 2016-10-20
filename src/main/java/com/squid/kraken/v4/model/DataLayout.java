@@ -23,50 +23,6 @@
  *******************************************************************************/
 package com.squid.kraken.v4.model;
 
-/**
- * @author sergefantino
- *
- */
-public class AnalyticsResult {
-
-	private DataHeader header = null;
-	
-	private Object data = null;
-	
-	private ResultInfo info = null;
-	
-	private DataLayout dataLayout = null;
-
-	public DataHeader getHeader() {
-		return header;
-	}
-
-	public void setHeader(DataHeader header) {
-		this.header = header;
-	}
-
-	public Object getData() {
-		return data;
-	}
-
-	public void setData(Object data) {
-		this.data = data;
-	}
-
-	public ResultInfo getInfo() {
-		return info;
-	}
-
-	public void setInfo(ResultInfo info) {
-		this.info = info;
-	}
-	
-	public DataLayout getDataLayout() {
-		return dataLayout;
-	}
-	
-	public void setDataLayout(DataLayout dataLayout) {
-		this.dataLayout = dataLayout;
-	}
-
+public enum DataLayout {
+	LEGACY,SQL,RECORDS,TABLE,TRANSPOSE
 }
