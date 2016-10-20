@@ -74,6 +74,7 @@ import com.squid.kraken.v4.model.Customer;
 import com.squid.kraken.v4.model.CustomerInfo;
 import com.squid.kraken.v4.model.CustomerPK;
 import com.squid.kraken.v4.model.User;
+import com.squid.kraken.v4.model.UserPK;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DAOFactory;
 import com.squid.kraken.v4.persistence.DataStoreQueryField;
@@ -344,9 +345,7 @@ public class AuthServiceImpl extends
 				OBioApiHelper.setApiEndpoint(KrakenConfig.getProperty("ob-io-api.endpoint"));
 				Membership membership = null;
 				try {
-					// convert teamId to long...
-					long teamIdLong = Long.parseLong(teamId);
-					membership = OBioApiHelper.getInstance().getMembershipService().get("Bearer "+authorizationCode, teamIdLong);
+					membership = OBioApiHelper.getInstance().getMembershipService().get("Bearer "+authorizationCode, teamId);
 				} catch (Exception e) {
 					logger.info("Auth with OB.io failed", e);
 					throw new InvalidTokenAPIException("Auth failed", false, KrakenConfig.getAuthServerEndpoint());
@@ -402,6 +401,7 @@ public class AuthServiceImpl extends
 						} else {
 							// register a brand new user
 							User user = new User();
+							user.setId(new UserPK(singleCustomer.getCustomerId()));
 							user.setLogin(userOBio.getName());
 							user.setAuthId(userOBio.getId());
 							user.setEmail(userOBio.getEmail());
