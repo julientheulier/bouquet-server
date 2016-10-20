@@ -46,6 +46,7 @@ import org.slf4j.LoggerFactory;
 
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.api.core.APIException;
+import com.squid.kraken.v4.api.core.InvalidIdAPIException;
 import com.squid.kraken.v4.api.core.InvalidTokenAPIException;
 import com.squid.kraken.v4.api.core.customer.CoreAuthenticatedServiceRest;
 import com.squid.kraken.v4.caching.redis.queryworkerserver.QueryWorkerJobStatus;
@@ -53,6 +54,7 @@ import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.model.AnalyticsQuery;
 import com.squid.kraken.v4.model.AnalyticsQueryImpl;
 import com.squid.kraken.v4.model.Bookmark;
+import com.squid.kraken.v4.model.DataLayout;
 import com.squid.kraken.v4.model.Facet;
 import com.squid.kraken.v4.model.NavigationQuery.HierarchyMode;
 import com.squid.kraken.v4.model.NavigationQuery.Style;
@@ -225,7 +227,7 @@ public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implemen
 			@PathParam(BBID_PARAM_NAME) String BBID,
 			@ApiParam(
 					value="define the analysis data format.",
-					allowableValues="LEGACY,SQL,RECORDS")
+					allowableValues="LEGACY,SQL,RECORDS,TABLE")
 			@QueryParam(DATA_PARAM) String data,
 			// apply formatting
 			@ApiParam(
@@ -237,10 +239,12 @@ public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implemen
 					allowableValues="ALL,RESULT,DATA")
 			@QueryParam(ENVELOPE_PARAM) String envelope,
 			@ApiParam(value = "response timeout in milliseconds. If no timeout set, the method will return according to current job status.") 
-			@QueryParam(TIMEOUT_PARAM) Integer timeout
+			@QueryParam(TIMEOUT_PARAM) Integer timeout,
+			// state
+			@QueryParam("state") String state
 			) throws ComputingException, ScopeException, InterruptedException {
 		AppContext userContext = getUserContext(request);
-		return delegate(userContext).runAnalysis(userContext, BBID, query, data, applyFormatting, envelope, timeout);
+		return delegate(userContext).runAnalysis(userContext, BBID, state, query, getDataLayout(data), applyFormatting, envelope, timeout);
 	}
 
 	@GET
@@ -320,13 +324,14 @@ public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implemen
 			@QueryParam(ENVELOPE_PARAM) String envelope,
 			// timeout
 			@ApiParam(value = "response timeout in milliseconds. If no timeout set, the method will return according to current job status.") 
-			@QueryParam(TIMEOUT_PARAM) Integer timeout
+			@QueryParam(TIMEOUT_PARAM) Integer timeout,
+			// state
+			@QueryParam("state") String state
 			) throws ComputingException, ScopeException, InterruptedException {
 		AppContext userContext = getUserContext(request);
 		AnalyticsQuery analysis = createAnalysisFromParams(null, BBID, groupBy, metrics, filterExpressions, period, timeframe, compareframe, orderExpressions, rollupExpressions, limit, offset, beyondLimit, maxResults, startIndex, lazy, computeStyle(style));
-		return delegate(userContext).runAnalysis(userContext, BBID, analysis, data, applyFormatting, envelope, timeout);
+		return delegate(userContext).runAnalysis(userContext, BBID, state, analysis, getDataLayout(data), applyFormatting, envelope, timeout);
 	}
-
 
 	@GET
 	@Path("/analytics/{" + BBID_PARAM_NAME + "}/view")
@@ -675,6 +680,23 @@ public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implemen
 			}
 		}
 		return path;
+	}
+
+
+	/**
+	 * @param data
+	 * @return
+	 */
+	private DataLayout getDataLayout(String data) {
+		if (data==null || data.equals("")) {
+			return null;
+		} else {
+			try {
+				return DataLayout.valueOf(data);
+			} catch (IllegalArgumentException e) {
+				throw new InvalidIdAPIException("invalid value for parameter "+DATA_PARAM+", must be: "+DATA_PARAM_VALUES, true);
+			}
+		}
 	}
 
 }
