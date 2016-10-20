@@ -19,8 +19,8 @@ import io.openbouquet.api.model.User;
 public interface MembershipService {
 
     @GET
-    @Path("/teamMembership")
-    public Membership get(@HeaderParam("Authorization") String authorization, @QueryParam("teamId") Long teamId);
+    @Path("/teamMembership/{teamid}")
+    public Membership get(@HeaderParam("Authorization") String authorization, @PathParam("teamid") String teamid);
 
     @GET
     @Path("/users/memberships")
@@ -29,21 +29,21 @@ public interface MembershipService {
     @GET
     @Path("/team/{teamid}/members")
     public List<User> getTeamMembers(@HeaderParam("Authorization") String authorization,
-            @PathParam("teamId") Long teamId);
+            @PathParam("teamid") Long teamid);
 
     @POST
     @Path("/team/{teamid}/invite")
-    public Membership inviteMember(@HeaderParam("Authorization") String authorization, @PathParam("teamId") Long teamId,
+    public String inviteMember(@HeaderParam("Authorization") String authorization, @PathParam("teamid") String teamid,
             @QueryParam("email") String email, String data);
 
     @POST
     @Path("/team/{teamid}/invite/{userid}")
-    public Membership inviteMember(@HeaderParam("Authorization") String authorization, @PathParam("teamId") Long teamId,
-            @PathParam("userId") Long userId, String data);
+    public String inviteMember(@HeaderParam("Authorization") String authorization, @PathParam("teamid") String teamid,
+            @PathParam("userid") Long userId, String data);
 
     @DELETE
-    @Path("/memberships/{teamid}/member/{userId}")
-    public String deleteMembership(@HeaderParam("Authorization") String authorization, @PathParam("teamId") Long teamid,
-            @PathParam("userId") Long userId);
+    @Path("/memberships/{teamid}/member/{userid}")
+    public String deleteMembership(@HeaderParam("Authorization") String authorization,
+            @PathParam("teamid") String teamid, @PathParam("userid") Long userid);
 
 }
