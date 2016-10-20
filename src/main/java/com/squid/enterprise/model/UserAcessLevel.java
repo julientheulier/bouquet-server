@@ -32,13 +32,13 @@ public class UserAcessLevel {
 	
 	public enum AccessLevel { 
 		EDITOR, // allow to edit
-		VIEW,   // allow to view
+		VIEWER,   // allow to view
 		NONE    // no access - use it to revoke access
 	};
 	
 	private String userID = null;
 	
-	private AccessLevel level = null;
+	private AccessLevel accessLevel = null;
 	
 	/**
 	 * 
@@ -56,11 +56,11 @@ public class UserAcessLevel {
 	}
 
 	public AccessLevel getAccessLevel() {
-		return level;
+		return accessLevel;
 	}
 
-	public void setAccessLevel(AccessLevel level) {
-		this.level = level;
+	public void setAccessLevel(AccessLevel accessLevel) {
+		this.accessLevel = accessLevel;
 	}
 
 }
