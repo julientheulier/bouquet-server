@@ -74,6 +74,7 @@ import com.squid.kraken.v4.model.Customer;
 import com.squid.kraken.v4.model.CustomerInfo;
 import com.squid.kraken.v4.model.CustomerPK;
 import com.squid.kraken.v4.model.User;
+import com.squid.kraken.v4.model.UserPK;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DAOFactory;
 import com.squid.kraken.v4.persistence.DataStoreQueryField;
@@ -400,6 +401,7 @@ public class AuthServiceImpl extends
 						} else {
 							// register a brand new user
 							User user = new User();
+							user.setId(new UserPK(singleCustomer.getCustomerId()));
 							user.setLogin(userOBio.getName());
 							user.setAuthId(userOBio.getId());
 							user.setEmail(userOBio.getEmail());
@@ -770,4 +772,3 @@ public class AuthServiceImpl extends
 	}
 
 }
->>>>>>> branch 'develop' of ssh://git@admin.squidsolutions.com/obs
