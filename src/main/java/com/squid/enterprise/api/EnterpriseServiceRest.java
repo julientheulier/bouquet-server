@@ -24,8 +24,10 @@
 package com.squid.enterprise.api;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 
 import javax.servlet.http.HttpServletRequest;
@@ -61,18 +63,24 @@ import com.squid.kraken.v4.api.core.ServiceUtils;
 import com.squid.kraken.v4.api.core.customer.CoreAuthenticatedServiceRest;
 import com.squid.kraken.v4.api.core.customer.CustomerServiceBaseImpl;
 import com.squid.kraken.v4.api.core.user.UserServiceBaseImpl;
+import com.squid.kraken.v4.api.core.usergroup.UserGroupServiceBaseImpl;
 import com.squid.kraken.v4.core.analysis.scope.GlobalExpressionScope;
 import com.squid.kraken.v4.core.analysis.scope.ProjectExpressionRef;
 import com.squid.kraken.v4.core.analysis.scope.SpaceExpression;
 import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.model.AccessRight;
 import com.squid.kraken.v4.model.AccessRight.Role;
+import com.squid.kraken.v4.model.Bookmark;
 import com.squid.kraken.v4.model.Customer.AUTH_MODE;
 import com.squid.kraken.v4.model.Customer;
 import com.squid.kraken.v4.model.GenericPK;
 import com.squid.kraken.v4.model.LzPersistentBaseImpl;
 import com.squid.kraken.v4.model.PersistentBaseImpl;
+import com.squid.kraken.v4.model.Project;
+import com.squid.kraken.v4.model.ProjectPK;
 import com.squid.kraken.v4.model.User;
+import com.squid.kraken.v4.model.UserGroup;
+import com.squid.kraken.v4.model.UserGroupPK;
 import com.squid.kraken.v4.model.UserPK;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DAOFactory;
@@ -121,6 +129,8 @@ public class EnterpriseServiceRest extends CoreAuthenticatedServiceRest {
 			@PathParam(BBID_PARAM_NAME) String reference) 
 	{
 		AppContext ctx = getUserContext(request);
+		// escalate to root when needing to deal with Customer or updating User's rights
+		AppContext root = ServiceUtils.getInstance().getRootUserContext(ctx);
 		// lookup the resource
 		PersistentBaseImpl<? extends GenericPK> resource = parseReference(ctx, reference);
 		if (resource==null) {
@@ -129,10 +139,37 @@ public class EnterpriseServiceRest extends CoreAuthenticatedServiceRest {
 		HashSet<AccessRight> rights = new HashSet<>(resource.getAccessRights());
 		ObjectReference ref = new ObjectReference(reference);
 		ArrayList<UserAcessLevel> invitations = new ArrayList<>();
+		logger.info("ACL for object: "+resource.getId().toString());
+		String objectID = "";
+		if (resource.getId() instanceof ProjectPK) {
+			// get it by inheritance
+			objectID = ((ProjectPK)resource.getId()).getProjectId();
+		}
 		for (AccessRight right : rights) {
-			UserAcessLevel invitation = createInvitation(ctx, right);
-			if (invitation!=null) {
-				invitations.add(invitation);
+			if (right.getUserId()!=null) {
+				UserAcessLevel ual = getUserAccessLevel(ctx, right);
+				if (ual!=null) {
+					invitations.add(ual);
+				}
+			} else if (right.getGroupId()!=null) {
+				try {
+					// escalate to root to deal with groups
+					UserGroupPK pk = new UserGroupPK(ctx.getCustomerId(), right.getGroupId());
+					UserGroup group = UserGroupServiceBaseImpl.getInstance().read(root, pk, true);
+					logger.info(group.toString());
+					if (right.getGroupId().equals("admin_"+objectID) || right.getGroupId().equals("guest_"+objectID)) {
+						Collection<User> users = findUsersWithGroup(root, right.getGroupId());
+						for (User user : users) {
+							logger.info(user.toString()+" as part of "+group.toString());
+							UserAcessLevel invitation = getUserAccessLevel(ctx, right, user);
+							if (invitation!=null) {
+								invitations.add(invitation);
+							}
+						}
+					}
+				} catch (ObjectNotFoundAPIException e) {
+					// ignore
+				}
 			}
 		}
 		ShareQuery query = new ShareQuery();
@@ -141,7 +178,18 @@ public class EnterpriseServiceRest extends CoreAuthenticatedServiceRest {
 		return query;
 	}
 	
-	private UserAcessLevel createInvitation(AppContext ctx, AccessRight right) {
+	private Collection<User> findUsersWithGroup(AppContext ctx, String groupID) {
+		List<User> users = UserServiceBaseImpl.getInstance().readAll(ctx);
+		ArrayList<User> filter = new ArrayList<>();
+		for (User user: users) {
+			if (user.getGroups().contains(groupID)) {
+				filter.add(user);
+			}
+		}
+		return filter;
+	}
+	
+	private UserAcessLevel getUserAccessLevel(AppContext ctx, AccessRight right) {
 		AccessLevel role = convertRole(right.getRole());
 		if (role!=null) {
 			// lookup the user
@@ -151,11 +199,25 @@ public class EnterpriseServiceRest extends CoreAuthenticatedServiceRest {
 			if (optional.isPresent()) {
 				User user = optional.get();
 				if (user.getEmail()!=null) {// we are using the email as the identifier for external
-					UserAcessLevel invitation = new UserAcessLevel();
-					invitation.setUserID(user.getEmail());
-					invitation.setAccessLevel(role);
-					return invitation;
+					UserAcessLevel ual = new UserAcessLevel();
+					ual.setUserID(user.getEmail());
+					ual.setAccessLevel(role);
+					return ual;
 				}
+			}
+		}
+		// else
+		return null;
+	}
+	
+	private UserAcessLevel getUserAccessLevel(AppContext ctx, AccessRight right, User user) {
+		AccessLevel role = convertRole(right.getRole());
+		if (role!=null) {
+			if (user.getEmail()!=null) {// we are using the email as the identifier for external
+				UserAcessLevel ual = new UserAcessLevel();
+				ual.setUserID(user.getEmail());
+				ual.setAccessLevel(role);
+				return ual;
 			}
 		}
 		// else
@@ -191,17 +253,24 @@ public class EnterpriseServiceRest extends CoreAuthenticatedServiceRest {
 	private ShareReply doShare(
 			HttpServletRequest request,
 			ShareQuery query) {
+		Collection<String> errors = new ArrayList<>();
 		AppContext ctx = getUserContext(request);
+		// escalate to root when needing to deal with Customer or updating User's rights
+		AppContext root = ServiceUtils.getInstance().getRootUserContext(ctx);
 		// check that the customer is valid for using OB.io
-		Customer customer = CustomerServiceBaseImpl.getInstance().read(ctx, ctx.getCustomerPk());
+		Customer customer = CustomerServiceBaseImpl.getInstance().read(root, ctx.getCustomerPk());
 		if (customer==null || customer.getAuthMode()!=AUTH_MODE.OBIO || customer.getTeamId()==null || customer.getTeamId().equals("")) {
-			throw new APIException("this API is not available for this customer");
+			if (System.getProperty("enterprise.debug")==null) {
+				throw new APIException("this API is not available for this customer");
+			}
 		}
 		if (ctx.getToken().getAuthorizationCode()==null) {
-			throw new APIException("this API is not available for this session");
+			if (System.getProperty("enterprise.debug")==null) {
+				throw new APIException("this API is not available for this session");
+			}
 		}
 		// check the resources
-		ArrayList<ObjectReference.Binding<LzPersistentBaseImpl<? extends GenericPK>>> resources = new ArrayList<>();
+		ArrayList<ObjectReference.Binding<LzPersistentBaseImpl<? extends GenericPK>>> bindings = new ArrayList<>();
 		if (query.getResources()!=null) {
 			for (ObjectReference ref : query.getResources()) {
 				if (ref.getReference()!=null) {
@@ -211,50 +280,67 @@ public class EnterpriseServiceRest extends CoreAuthenticatedServiceRest {
 						&& AccessRightsUtils.getInstance().hasRole(ctx, value, Role.WRITE)) 
 					{
 						ObjectReference.Binding<LzPersistentBaseImpl<? extends GenericPK>> binding = ref.<LzPersistentBaseImpl<? extends GenericPK>>bind(value);
-						resources.add(binding);
+						bindings.add(binding);
+					} else {
+						if (value==null) {
+							errors.add("unable to lookup reference "+ref.getReference()+": user may not have access");
+						} else {
+							errors.add("unable to share reference "+ref.getReference()+": user doesn't have EDITOR access");
+						}
 					}
 				} else {
 					// invalid but ignore
 				}
 			}
 		}
-		if (resources.isEmpty()) {
-			throw new APIException("Nothing to share");
+		if (bindings.isEmpty()) {
+			ShareReply reply = new ShareReply();
+			reply.setErrors(errors);
+			return reply;
 		}
 		//boolean multiple = resources.size()>1;
-		AppContext root = ServiceUtils.getInstance().getRootUserContext(ctx);
 		if (query.getSharing()!=null) {
+			Collection<Invitation> invitations = new ArrayList<>();
 			for (UserAcessLevel sharing : query.getSharing()) {
 				User user = findUserByEmail(root, sharing.getUserID());
 				if (user==null) {
 					// provision a new user with the same email
 					user = new User();
+					user.setId(new UserPK(ctx.getCustomerId()));
+					user.setLogin(sharing.getUserID());// using the email for login...
 					user.setEmail(sharing.getUserID());
-					user = userDAO.create(ctx, user);
+					// need to escalate in order to be able to create the user
+					user = userDAO.create(root, user);
 				}
 				if (user!=null) {
 					// give access right for the user
 					ArrayList<Snippet> snippets = new ArrayList<>();
-					for (ObjectReference.Binding<LzPersistentBaseImpl<? extends GenericPK>> resource : resources) {
-						if (setAccessRole(ctx, resource.getObject(), user, sharing.getAccessLevel())) {
-							snippets.add(createSnippet(resource));
+					for (ObjectReference.Binding<LzPersistentBaseImpl<? extends GenericPK>> binding : bindings) {
+						// here we escalate to root so we can actually update the rights
+						if (updateAccessRole(root, binding.getObject(), user, sharing.getAccessLevel())) {
+							snippets.add(createSnippet(binding));
 						}
 					}
 					// send invitation if required
 					if (!snippets.isEmpty()) {
 						Invitation invitation = new Invitation(sharing, snippets);
-						sendInvitation(ctx, customer, user, invitation);
+						invitations.add(invitation);
+						if (System.getProperty("enterprise.debug")==null) {
+							sendInvitation(ctx, customer, user, invitation);
+						}
 					}
 				} else {
 					// some error while creating the user?
 				}
 			}
+			ShareReply reply = new ShareReply(invitations);
+			if (!errors.isEmpty()) reply.setErrors(errors);
+			return reply;
 		} else {
 			throw new APIException("No-one to share with");
 		}
-		return new ShareReply();
 	}
-	
+
 	/**
 	 * send the invitation to the user through OB.io
 	 * @param customer 
@@ -290,7 +376,7 @@ public class EnterpriseServiceRest extends CoreAuthenticatedServiceRest {
 		Snippet snippet = new Snippet(binding.getObjectReference());
 		snippet.setName(binding.getObject().getName());
 		snippet.setDescription(binding.getObject().getDescription());
-		snippet.setType(binding.getObject().getClass().getName());
+		snippet.setType(binding.getObject().getClass().getSimpleName());
 		return snippet;
 	}
 
@@ -318,6 +404,24 @@ public class EnterpriseServiceRest extends CoreAuthenticatedServiceRest {
 	}
 	
 	/**
+	 * @param ctx
+	 * @param object
+	 * @param user
+	 * @param accessLevel
+	 * @return
+	 */
+	private boolean updateAccessRole(AppContext ctx, LzPersistentBaseImpl<? extends GenericPK> object, User user,
+			AccessLevel accessLevel) {
+		if (object instanceof Bookmark) {
+			return updateAccessRole(ctx, (Bookmark)object, user, accessLevel);
+		} else if (object instanceof Project) {
+			return updateAccessRole(ctx, (Project)object, user, accessLevel);
+		} else {
+			throw new APIException("not supported object type");
+		}
+	}
+	
+	/**
 	 * update the accessRole, return false if not modified
 	 * @param ctx
 	 * @param resource
@@ -325,22 +429,78 @@ public class EnterpriseServiceRest extends CoreAuthenticatedServiceRest {
 	 * @param role
 	 * @return
 	 */
-	@SuppressWarnings("unchecked")
-	private boolean setAccessRole(AppContext ctx, PersistentBaseImpl<? extends GenericPK> resource, User user, AccessLevel role) {
-		com.squid.kraken.v4.model.AccessRight.Role acl = convertRole(role);
+	private boolean updateAccessRole(AppContext ctx, Project resource, User user, AccessLevel role) {
+		// in order to give full access to the project, the user must be added to one of the special groups (admin_$ID or guet_$ID)
+		Role acl = convertRole(role);
 		HashSet<AccessRight> rights = new HashSet<>(resource.getAccessRights());
 		AccessRight right = new AccessRight(acl, user.getId().getUserId(), null);
-		if (!AccessRightsUtils.getInstance().hasRole(user, rights, acl)) {
-			rights.add(right);
-			resource.setAccessRights(rights);
-			DAOFactory.getDAOFactory().getDAO(resource.getClass()).update(ctx, resource);
+		Role currentRole = AccessRightsUtils.getInstance().getRole(user, resource);
+		if (currentRole==null || !currentRole.equals(right.getRole())) {
+			UserGroup group = getUserGroupForRole(ctx, resource, role);
+			// if group is null that means revoking access!!!
+			ArrayList<String> copy = new ArrayList<>(user.getGroups());
+			Iterator<String> iter = copy.iterator();
+			while (iter.hasNext()) {
+				String check = iter.next();
+				if (check!=null && check.endsWith("_"+resource.getId().getProjectId())) {
+					if (check.equals("guest_"+resource.getId().getProjectId())
+					||	check.equals("admin_"+resource.getId().getProjectId())) 
+					{
+						// remove any other group here
+						iter.remove();
+					}
+				}
+			}
+			if (group!=null) copy.add(group.getId().getUserGroupId());
+			user.setGroups(copy);
+			userDAO.update(ctx, user);
 			return true;
 		} else {
-			// already has it or better, what to do?
-			Role current = AccessRightsUtils.getInstance().getRole(user, resource);
-			if (current==Role.WRITE && acl==Role.READ) {
-				// someone is asking for downgrade
+			return false;
+		}
+	}
+	
+	private UserGroup getUserGroupForRole(AppContext ctx, Project resource, AccessLevel role) {
+		String prefix = "";
+		if (role==AccessLevel.EDITOR) prefix="admin_";
+		else if (role==AccessLevel.VIEWER) prefix="guest_";
+		else return null;// nothing to do
+		String groupId = prefix+resource.getId().getProjectId();
+		UserGroupPK PK = new UserGroupPK(ctx.getCustomerId(), groupId);
+		try {
+			return UserGroupServiceBaseImpl.getInstance().read(ctx, PK);
+		} catch (ObjectNotFoundAPIException e) {
+			return null;
+		}
+	}
+	
+	/**
+	 * update the accessRole, return false if not modified
+	 * @param ctx
+	 * @param resource
+	 * @param user
+	 * @param role
+	 * @return
+	 */
+	private boolean updateAccessRole(AppContext ctx, Bookmark resource, User user, AccessLevel role) {
+		if (role==AccessLevel.NONE) {
+			// asking for removing access to the resource
+		} else {
+			Role acl = convertRole(role);
+			HashSet<AccessRight> rights = new HashSet<>(resource.getAccessRights());
+			AccessRight right = new AccessRight(acl, user.getId().getUserId(), null);
+			if (!AccessRightsUtils.getInstance().hasRole(user, rights, acl)) {
+				rights.add(right);
+				resource.setAccessRights(rights);
+				DAOFactory.getDAOFactory().getDAO(Bookmark.class).update(ctx, resource);
 				return true;
+			} else {
+				// already has it or better, what to do?
+				Role current = AccessRightsUtils.getInstance().getRole(user, resource);
+				if (current==Role.WRITE && acl==Role.READ) {
+					// someone is asking for downgrade
+					return true;
+				}
 			}
 		}
 		// else
@@ -349,18 +509,21 @@ public class EnterpriseServiceRest extends CoreAuthenticatedServiceRest {
 	
 	private Role convertRole(AccessLevel role) {
 		switch (role) {
+		case NONE:
+			return null;
 		case EDITOR:
 			return Role.WRITE;
-		case VIEW:
-		default:
+		case VIEWER:
 			return Role.READ;
+		default:
+			return null;
 		}
 	}
 	
 	private AccessLevel convertRole(Role role) {
 		switch (role) {
 		case WRITE: return AccessLevel.EDITOR;
-		case READ: return AccessLevel.VIEW;
+		case READ: return AccessLevel.VIEWER;
 		case OWNER:// ignore, we never change OWNER role
 		case NONE:
 		default:
