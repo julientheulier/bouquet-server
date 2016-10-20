@@ -344,9 +344,7 @@ public class AuthServiceImpl extends
 				OBioApiHelper.setApiEndpoint(KrakenConfig.getProperty("ob-io-api.endpoint"));
 				Membership membership = null;
 				try {
-					// convert teamId to long...
-					long teamIdLong = Long.parseLong(teamId);
-					membership = OBioApiHelper.getInstance().getMembershipService().get("Bearer "+authorizationCode, teamIdLong);
+					membership = OBioApiHelper.getInstance().getMembershipService().get("Bearer "+authorizationCode, teamId);
 				} catch (Exception e) {
 					logger.info("Auth with OB.io failed", e);
 					throw new InvalidTokenAPIException("Auth failed", false, KrakenConfig.getAuthServerEndpoint());
