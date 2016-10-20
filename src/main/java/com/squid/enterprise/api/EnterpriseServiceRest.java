@@ -350,7 +350,7 @@ public class EnterpriseServiceRest extends CoreAuthenticatedServiceRest {
 	 */
 	private boolean sendInvitation(AppContext ctx, Customer customer, User user, Invitation invitation) {
 		try {
-			long teamId = Long.parseLong(customer.getTeamId());
+			String teamId = customer.getTeamId();
 			String authorization = ctx.getToken().getAuthorizationCode();
 			ObjectMapper json = new ObjectMapper();
 			String data = json.writeValueAsString(invitation);
