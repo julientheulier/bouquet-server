@@ -93,6 +93,7 @@ import com.squid.kraken.v4.api.core.JobStats;
 import com.squid.kraken.v4.api.core.ObjectNotFoundAPIException;
 import com.squid.kraken.v4.api.core.PerfDB;
 import com.squid.kraken.v4.api.core.bookmark.BookmarkServiceBaseImpl;
+import com.squid.kraken.v4.api.core.customer.StateServiceBaseImpl;
 import com.squid.kraken.v4.api.core.projectanalysisjob.AnalysisJobComputer;
 import com.squid.kraken.v4.caching.NotInCacheException;
 import com.squid.kraken.v4.caching.redis.RedisCacheManager;
@@ -146,6 +147,7 @@ import com.squid.kraken.v4.model.BookmarkFolderPK;
 import com.squid.kraken.v4.model.BookmarkPK;
 import com.squid.kraken.v4.model.DataHeader;
 import com.squid.kraken.v4.model.DataHeader.Column;
+import com.squid.kraken.v4.model.DataLayout;
 import com.squid.kraken.v4.model.DataTable;
 import com.squid.kraken.v4.model.Dimension;
 import com.squid.kraken.v4.model.Dimension.Type;
@@ -179,6 +181,8 @@ import com.squid.kraken.v4.model.ProjectAnalysisJobPK;
 import com.squid.kraken.v4.model.ProjectFacetJob;
 import com.squid.kraken.v4.model.ProjectPK;
 import com.squid.kraken.v4.model.ResultInfo;
+import com.squid.kraken.v4.model.State;
+import com.squid.kraken.v4.model.StatePK;
 import com.squid.kraken.v4.model.ValueType;
 import com.squid.kraken.v4.model.ViewQuery;
 import com.squid.kraken.v4.model.ViewReply;
@@ -936,8 +940,9 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	public Response runAnalysis(
 			final AppContext userContext,
 			String BBID,
+			String stateId, 
 			final AnalyticsQuery query, 
-			String data,
+			DataLayout data,
 			boolean applyFormatting,
 			String envelope,
 			Integer timeout
@@ -954,9 +959,21 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			//
 			Bookmark bookmark = space.getBookmark();
 			BookmarkConfig config = BookmarkManager.INSTANCE.readConfig(bookmark);
+			// check the state
+			if (stateId!=null && !stateId.equals("")) {
+				// read the state
+				StatePK pk = new StatePK(userContext.getCustomerId(), stateId);
+				State state = StateServiceBaseImpl.getInstance().read(userContext, pk);
+				BookmarkConfig stateConfig = BookmarkManager.INSTANCE.readConfig(state);
+				if (stateConfig!=null) {
+					config = stateConfig;
+				}
+			}
 			//
 			// merge the bookmark config with the query
 			mergeBoomarkConfig(space, query, config);
+			//
+			// set limit of not defined
 			if (query.getLimit()==null) {
 				query.setLimit((long) 100);
 			}
@@ -982,8 +999,8 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			//
 			reply.setQuery(query);
 			//
-			if (data==null || data.equals("")) data="LEGACY";
-			if (data.equalsIgnoreCase("SQL")) {
+			if (data==null) data=DataLayout.TABLE;
+			if (data==DataLayout.SQL) {
 				// bypassing the ComputingService
 				AnalysisJobComputer computer = new AnalysisJobComputer();
 				String sql = computer.viewSQL(userContext, job);
@@ -991,7 +1008,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			} else {
 				if (query.getStyle()==Style.HTML) {
 					// change data format to legacy
-					data="LEGACY";
+					data=DataLayout.LEGACY;
 					if (query.getLimit()>100 && query.getMaxResults()==null) {
 						// try to apply maxResults
 						query.setMaxResults(100);
@@ -1012,7 +1029,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 					} else {
 						matrix = futur.get(timeout>1000?timeout:1000, java.util.concurrent.TimeUnit.MILLISECONDS);
 					}
-					if (data==null || data.equals("") || data.equalsIgnoreCase("LEGACY")) {
+					if (data==DataLayout.LEGACY) {
 						DataTable legacy = matrix.toDataTable(userContext, query.getMaxResults(), query.getStartIndex(), false, null);
 						reply.setResult(legacy);
 					} else {
@@ -1021,6 +1038,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 						AnalyticsResult result = new AnalyticsResult();
 						Object[] output = converter.convert(query, matrix);
 						result.setHeader(header);
+						result.setDataLayout(data);
 						result.setData(output);
 						result.setInfo(getAnalyticsResultInfo(output.length, query.getStartIndex(), matrix));
 						reply.setResult(result);
@@ -1049,9 +1067,9 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 					}
 				}
 			}
-			if (query.getStyle()==Style.HTML && data.equalsIgnoreCase("SQL")) {
+			if (query.getStyle()==Style.HTML && data==DataLayout.SQL) {
 				return generator.createHTMLsql(reply.getResult().toString());
-			} else if (query.getStyle()==Style.HTML && data.equalsIgnoreCase("LEGACY")) {
+			} else if (query.getStyle()==Style.HTML && data==DataLayout.LEGACY) {
 				return generator.createHTMLPageTable(userContext, space, query, (DataTable)reply.getResult());
 			} else if (envelope.equalsIgnoreCase("ALL")) {
 				return Response.ok(reply).build();
@@ -2179,13 +2197,13 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		if (filterWildcard) {
 			filters.remove(0); // remove the *
 		}
+		String period = null;
+		if (query.getPeriod()!=null && query.getTimeframe()==null) {
+			ExpressionAST expr = localScope.parseExpression(query.getPeriod());
+			period = expr.prettyPrint(new PrettyPrintOptions(ReferenceStyle.IDENTIFIER, null));
+		}
 		if (!selection.getFacets().isEmpty()) {// always iterate over selection at least to capture the period
 			boolean keepConfig = filterWildcard || filters.isEmpty();
-			String period = null;
-			if (query.getPeriod()!=null && query.getTimeframe()==null) {
-				ExpressionAST expr = localScope.parseExpression(query.getPeriod());
-				period = expr.prettyPrint(new PrettyPrintOptions(ReferenceStyle.IDENTIFIER, null));
-			}
 			// look for the selection
 			for (Facet facet : selection.getFacets()) {
 				if (!facet.getSelectedItems().isEmpty()) {
@@ -2271,6 +2289,34 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			}
 		}
 		query.setFilters(filters);
+		//
+		// check compareTo
+		if (!selection.getCompareTo().isEmpty()) {
+			for (Facet facet : selection.getCompareTo()) {
+				if (!facet.getSelectedItems().isEmpty()) {
+					if (facet.getId().equals(period)) {
+						// it's the period
+						List<FacetMember> items = facet.getSelectedItems();
+						if (items.size()==1) {
+							FacetMember timeframe = items.get(0);
+							if (timeframe instanceof FacetMemberInterval) {
+								String upperBound = ((FacetMemberInterval) timeframe).getUpperBound();
+								if (upperBound.startsWith("__")) {
+									// it's a shortcut
+									query.setCompareTo(Collections.singletonList(upperBound));
+								} else {
+									// it's a date
+									String lowerBound = ((FacetMemberInterval) timeframe).getLowerBound();
+									query.setCompareTo(new ArrayList<String>(2));
+									query.getCompareTo().add(lowerBound);
+									query.getCompareTo().add(upperBound);
+								}
+							}
+						}
+					}
+				}
+			}
+		}
 		//
 		// check timeframe again
 		if (query.getPeriod()!=null && (query.getTimeframe()==null || query.getTimeframe().size()==0)) {
@@ -2741,9 +2787,9 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		if (data.equals("EMBEDED")) {
 			DataMatrix matrix = compute(userContext, job, query.getMaxResults(), query.getStartIndex(), false);
 			if (!outputConfig.isHasMetricSeries()) {
-				specs.data = transformToVegaData(query, matrix, "RECORDS");
+				specs.data = transformToVegaData(query, matrix, DataLayout.RECORDS);
 			} else {
-				specs.data = transformToVegaData(query, matrix, "TRANSPOSE");
+				specs.data = transformToVegaData(query, matrix, DataLayout.TRANSPOSE);
 			}
 			int end = startIndex+maxResults;
 			if (end>matrix.getRows().size()) end=matrix.getRows().size();
@@ -2940,19 +2986,19 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		} else if (query.getStyle()!=null) builder.queryParam(STYLE_PARAM, query.getStyle());
 	}
 	
-	private Data transformToVegaData(AnalyticsQuery query, DataMatrix matrix, String format) {
+	private Data transformToVegaData(AnalyticsQuery query, DataMatrix matrix, DataLayout format) {
 		IDataMatrixConverter<Object[]> converter = getConverter(format);
 		Data data = new Data();
 		data.values = converter.convert(query, matrix);
 		return data;
 	}
 	
-	private IDataMatrixConverter<Object[]> getConverter(String format) {
-		if (format.equalsIgnoreCase("TABLE")) {
+	private IDataMatrixConverter<Object[]> getConverter(DataLayout format) {
+		if (format==DataLayout.TABLE) {
 			return new TableConverter();
-		} else if (format.equalsIgnoreCase("RECORDS")) {
+		} else if (format==DataLayout.RECORDS) {
 			return new RecordConverter();
-		} else if (format.equalsIgnoreCase("TRANSPOSE")) {
+		} else if (format==DataLayout.TRANSPOSE) {
 			return new TransposeConverter();
 		} else {
 			throw new InvalidIdAPIException("invalid format="+format, true);
