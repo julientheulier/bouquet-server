@@ -6,7 +6,7 @@ import java.util.List;
 import com.squid.kraken.v4.model.NavigationQuery.Style;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.RollUp;
 
-public class AnalyticsQueryImpl implements AnalyticsQuery {
+public class AnalyticsQueryImpl extends AnalyticsSelectionImpl implements AnalyticsQuery {
 	
 	private String BBID;
 
@@ -16,23 +16,15 @@ public class AnalyticsQueryImpl implements AnalyticsQuery {
 	
 	private List<String> metrics;
 	
-	private List<String> filters;
-	
 	private List<String> orderBy;
 	
 	private List<RollUp> rollups;
-	
-	private String period;
-	
-	private List<String> timeframe;
-	
-	private List<String> compareTo;
 
 	private Long offset;
 
 	private Long limit;
 	
-	private int[] beyondLimit;
+	private List<String> beyondLimit;
 	
 	private String bookmarkId;
 	
@@ -49,26 +41,23 @@ public class AnalyticsQueryImpl implements AnalyticsQuery {
 	public AnalyticsQueryImpl() {
 	}
 	
-	public AnalyticsQueryImpl(AnalyticsQueryImpl copy) {
-		this.BBID = copy.BBID;
-		this.domain = copy.domain;
-		this.groupBy = copy.groupBy;
-		this.metrics = copy.metrics;
-		this.filters = copy.filters;
-		this.orderBy = copy.orderBy;
-		this.rollups = copy.rollups;
-		this.period = copy.period;
-		this.timeframe = copy.timeframe;
-		this.compareTo = copy.compareTo;
-		this.offset = copy.offset;
-		this.limit = copy.limit;
-		this.beyondLimit = copy.beyondLimit;
-		this.bookmarkId = copy.bookmarkId;
-		this.maxResults = copy.maxResults;
-		this.startIndex = copy.startIndex;
-		this.lazy = copy.lazy;
-		this.style = copy.style;
-		this.problems = copy.problems;
+	public AnalyticsQueryImpl(AnalyticsQuery copy) {
+		super(copy);
+		this.BBID = copy.getBBID();
+		this.domain = copy.getDomain();
+		this.groupBy = copy.getGroupBy();
+		this.metrics = copy.getMetrics();
+		this.orderBy = copy.getOrderBy();
+		this.rollups = copy.getRollups();
+		this.offset = copy.getOffset();
+		this.limit = copy.getLimit();
+		this.beyondLimit = copy.getBeyondLimit();
+		this.bookmarkId = copy.getBookmarkId();
+		this.maxResults = copy.getMaxResults();
+		this.startIndex = copy.getStartIndex();
+		this.lazy = copy.getLazy();
+		this.style = copy.getStyle();
+		this.problems = copy.getProblems();
 	}
 
 	@Override
@@ -108,22 +97,6 @@ public class AnalyticsQueryImpl implements AnalyticsQuery {
 	}
 
 	/* (non-Javadoc)
-	 * @see com.squid.kraken.v4.model.Analysis#getFilters()
-	 */
-	@Override
-	public List<String> getFilters() {
-		return filters;
-	}
-
-	/* (non-Javadoc)
-	 * @see com.squid.kraken.v4.model.Analysis#setFilters(java.util.List)
-	 */
-	@Override
-	public void setFilters(List<String> filters) {
-		this.filters = filters;
-	}
-
-	/* (non-Javadoc)
 	 * @see com.squid.kraken.v4.model.Analysis#getOrderBy()
 	 */
 	@Override
@@ -153,30 +126,6 @@ public class AnalyticsQueryImpl implements AnalyticsQuery {
 	@Override
 	public void setRollups(List<RollUp> rollups) {
 		this.rollups = rollups;
-	}
-	
-	public String getPeriod() {
-		return period;
-	}
-
-	public void setPeriod(String period) {
-		this.period = period;
-	}
-	
-	public List<String> getTimeframe() {
-		return timeframe;
-	}
-
-	public void setTimeframe(List<String> timeframe) {
-		this.timeframe = timeframe;
-	}
-
-	public List<String> getCompareTo() {
-		return compareTo;
-	}
-
-	public void setCompareTo(List<String> compareTo) {
-		this.compareTo = compareTo;
 	}
 
 	/* (non-Javadoc)
@@ -211,11 +160,11 @@ public class AnalyticsQueryImpl implements AnalyticsQuery {
 		this.limit = limit;
 	}
 	
-	public int[] getBeyondLimit() {
+	public List<String> getBeyondLimit() {
 		return beyondLimit;
 	}
 
-	public void setBeyondLimit(int[] beyondLimit) {
+	public void setBeyondLimit(List<String> beyondLimit) {
 		this.beyondLimit = beyondLimit;
 	}
 
@@ -293,9 +242,9 @@ public class AnalyticsQueryImpl implements AnalyticsQuery {
 	@Override
 	public String toString() {
 		return "AnalysisQueryImpl [BBID=" + BBID + ", domain=" + domain + ", groupBy=" + groupBy + ", metrics="
-				+ metrics + ", filters=" + filters + ", orderBy=" + orderBy + ", rollups=" + rollups + ", period="
-				+ period + ", timeframe=" + timeframe + ", compareTo="
-				+ compareTo + ", offset=" + offset + ", limit=" + limit + ", bookmarkId="
+				+ metrics + ", filters=" + getFilters() + ", orderBy=" + orderBy + ", rollups=" + rollups + ", period="
+				+ getPeriod() + ", timeframe=" + getTimeframe() + ", compareTo="
+				+ getCompareTo() + ", offset=" + offset + ", limit=" + limit + ", bookmarkId="
 				+ bookmarkId + ", maxResults=" + maxResults + ", startIndex=" + startIndex
 				+ ", lazy=" + lazy + ", style=" + style + "]";
 	}

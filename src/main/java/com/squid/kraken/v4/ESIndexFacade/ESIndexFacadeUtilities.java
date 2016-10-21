@@ -58,6 +58,8 @@ public class ESIndexFacadeUtilities {
 	public static final String not_analyzedSuffix = "." + not_analyzed;
 
 	public static final String sortKey = "sortKey";
+	
+	public static final String rawSuffix = "_raw";
 
 	// private static final String[] specialChar = {"+", "-", "=", "&&", "||",
 	// ">", "<", "!",
@@ -287,6 +289,10 @@ public class ESIndexFacadeUtilities {
 
 	public static String getSortingFieldName(String resultType, HashMap<String, ESMapping> mappings,
 			boolean isCorrelation) {
+		
+		if ((mappings != null)  && (mappings.containsKey(resultType +rawSuffix))){
+			return resultType +rawSuffix;
+		}
 		if ((mappings != null) && (mappings.containsKey(resultType))) {
 			ESMapping map = mappings.get(resultType);
 			if (map.index.equals(ESIndexMapping.BOTH) && map.type.equals(ESTypeMapping.STRING)) {
@@ -296,7 +302,7 @@ public class ESIndexFacadeUtilities {
 					return ESIndexFacadeUtilities.sortKey;
 
 			} else {
-				return resultType;
+					return resultType;
 			}
 		} else {
 			return resultType;

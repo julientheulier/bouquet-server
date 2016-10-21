@@ -36,7 +36,7 @@ public class AnalyticsReply {
 	private AnalyticsQuery query;
 	
 	// the analysis selection
-	private FacetSelection selection;
+	private AnalyticsSelection selection;
 	
 	// the resulting dataTable
 	private Object result;// this may depend on the output format
@@ -57,11 +57,11 @@ public class AnalyticsReply {
 	}
 
 	@ApiModelProperty(hidden=true)// only used for LEGACY mode, so don't mess user with it
-	public FacetSelection getSelection() {
+	public AnalyticsSelection getSelection() {
 		return selection;
 	}
 
-	public void setSelection(FacetSelection selection) {
+	public void setSelection(AnalyticsSelection selection) {
 		this.selection = selection;
 	}
 

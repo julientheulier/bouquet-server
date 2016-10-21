@@ -21,66 +21,79 @@
  * you and Squid Solutions (above licenses and LICENSE.txt included).
  * See http://www.squidsolutions.com/EnterpriseBouquet/
  *******************************************************************************/
-package com.squid.kraken.v4.api.core.connection;
+package com.squid.kraken.v4.model;
 
-import java.util.Collections;
 import java.util.List;
 
 /**
  * @author sergefantino
  *
  */
-public class ConnectionInfo {
+public class AnalyticsSelectionImpl implements AnalyticsSelection {
+	
+	private String period;
+	
+	private List<String> timeframe;
+	
+	private List<String> compareTo;
+	
+	private List<String> filters;
+	
+	/**
+	 * 
+	 */
+	public AnalyticsSelectionImpl() {
+		// TODO Auto-generated constructor stub
+	}
+	
+	/**
+	 * @param copy
+	 */
+	public AnalyticsSelectionImpl(AnalyticsQuery copy) {
+		this.period = copy.getPeriod();
+		this.timeframe = copy.getTimeframe();
+		this.compareTo = copy.getCompareTo();
+		this.filters = copy.getFilters();
+	}
 
-	private String dbVendorId;
-	
-	private String dbUrl;
-	
-	private List<String> schemas;
-	
-	private String errorMessage = null;
-	
-	public ConnectionInfo(String dbVendorId, String dbUrl, List<String> schemas) {
-		super();
-		this.dbVendorId = dbVendorId;
-		this.dbUrl = dbUrl;
-		this.schemas = schemas;
-	}
-	
-	public ConnectionInfo(String dbVendorId, String dbUrl, Throwable error) {
-		super();
-		this.dbVendorId = dbVendorId;
-		this.dbUrl = dbUrl;
-		this.schemas = Collections.emptyList();
-		this.errorMessage = error.getMessage();
+	public String getPeriod() {
+		return period;
 	}
 
-	/**
-	 * @return the dbVendorId
-	 */
-	public String getDbVendorId() {
-		return dbVendorId;
+	public void setPeriod(String period) {
+		this.period = period;
 	}
 	
-	/**
-	 * @return the dbUrl
-	 */
-	public String getDbUrl() {
-		return dbUrl;
+	public List<String> getTimeframe() {
+		return timeframe;
 	}
-	
-	/**
-	 * @return the schemas
-	 */
-	public List<String> getSchemas() {
-		return schemas;
+
+	public void setTimeframe(List<String> timeframe) {
+		this.timeframe = timeframe;
 	}
-	
-	/**
-	 * @return the errorMessage
-	 */
-	public String getErrorMessage() {
-		return errorMessage;
+
+	public List<String> getCompareTo() {
+		return compareTo;
 	}
-	
+
+	public void setCompareTo(List<String> compareTo) {
+		this.compareTo = compareTo;
+	}
+
+	/* (non-Javadoc)
+	 * @see com.squid.kraken.v4.model.Analysis#getFilters()
+	 */
+	@Override
+	public List<String> getFilters() {
+		return filters;
+	}
+
+	/* (non-Javadoc)
+	 * @see com.squid.kraken.v4.model.Analysis#setFilters(java.util.List)
+	 */
+	@Override
+	public void setFilters(List<String> filters) {
+		this.filters = filters;
+	}
+
 }

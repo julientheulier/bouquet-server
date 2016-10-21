@@ -262,7 +262,7 @@ public class InternalAnalysisJobServiceRest extends BaseServiceRest {
                 }
                 SelectUniversal select = script.getSelect();
                 InsertSelectUniversal insertInto = new InsertSelectUniversal(universe, newTable, select.getStatement());
-                SQLScript insertScript = new SQLScript(insertInto);
+                SQLScript insertScript = new SQLScript(insertInto, script.getMapper());
                 // Create the new domain.
                 String domainName = newTable.getName();
                 String tableRef = newTable.getSchema().isNullSchema() ? newTable.getName() : (newTable.getSchema().getName() + ":" + newTable.getName());

@@ -23,6 +23,10 @@
  *******************************************************************************/
 package com.squid.kraken.v4.api.core.analytics;
 
+import java.util.Arrays;
+
+import com.squid.kraken.v4.model.DataLayout;
+
 /**
  * @author sergefantino
  *
@@ -39,7 +43,10 @@ public interface AnalyticsServiceConstants {
 	public static final String START_INDEX_PARAM = "startIndex";
 	public static final String MAX_RESULTS_PARAM = "maxResults";
 	public static final String DATA_PARAM = "data";
+	public static final String DATA_PARAM_VALUES = Arrays.toString(DataLayout.values());
+	public static final String APPLY_FORMATTING_PARAM = "applyFormatting";
 	public static final String LIMIT_PARAM = "limit";
+	public static final String BEYOND_LIMIT_PARAM = "beyondLimit";
 	public static final String OFFSET_PARAM = "offset";
 	public static final String ENVELOPE_PARAM = "envelope";
 	public static final String ROLLUP_PARAM = "rollup";

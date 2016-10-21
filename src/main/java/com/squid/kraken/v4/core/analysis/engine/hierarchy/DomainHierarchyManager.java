@@ -66,7 +66,7 @@ public class DomainHierarchyManager {
 		//
 	}
 
-	public void invalidate(DomainPK domainID) throws InterruptedException {
+	public void invalidate(DomainPK domainID) throws ScopeException, InterruptedException {
 		// cancel any running execution
 		DomainHierarchy hierarchy = hierarchies.get(domainID);
 		if (hierarchy != null) {
@@ -268,8 +268,9 @@ public class DomainHierarchyManager {
 	 * @param hierarchy
 	 * @return null if the hierarchy has been invalidated or the valid hierarchy
 	 *         otherwise
+	 * @throws ScopeException 
 	 */
-	private DomainHierarchy invalidate(DomainHierarchy hierarchy, boolean force) {
+	private DomainHierarchy invalidate(DomainHierarchy hierarchy, boolean force) throws ScopeException {
 		if (hierarchy != null) {
 			// locking first
 			ReentrantLock lock = hierarchies.lock(hierarchy.getRoot().getDomain().getId());

@@ -293,7 +293,7 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 				ESIndexMapping.BOTH, idType));// ESTypeMapping.STRING));
 		}else{
 			//we store a version with the original type and an indexable version
-			mapping.put(idName_mapping+"_raw", new ESMapping(idName_mapping+"_raw",
+			mapping.put(idName_mapping+ESIndexFacadeUtilities.rawSuffix, new ESMapping(idName_mapping+ESIndexFacadeUtilities.rawSuffix,
 					ESIndexMapping.NOT_ANALYZED, idType ));
 			mapping.put(idName_mapping, new ESMapping(idName_mapping,
 					ESIndexMapping.BOTH, ESTypeMapping.STRING ));
@@ -398,8 +398,8 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 					attributes.put(idName_mapping, ID.toString());
 					attributes.put(ESIndexFacadeUtilities.sortKey, ID.toString().toLowerCase());
 					
-					if (mapping.containsKey(idName_mapping+"_raw")){
-						attributes.put(idName_mapping+"_raw", ID);
+					if (mapping.containsKey(idName_mapping+ESIndexFacadeUtilities.rawSuffix)){
+						attributes.put(idName_mapping+ESIndexFacadeUtilities.rawSuffix, ID);
 					}
 				}
 				for (int k = 0; k < getAttributeCount(); k++) {
@@ -432,8 +432,8 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 			attributes.put(idName_mapping, raw[0]);
 		} else {
 			attributes.put(idName_mapping, raw[0].toString());
-			if (mapping.containsKey(idName_mapping+"_raw")){
-				attributes.put(idName_mapping+"_raw", raw[0]);
+			if (mapping.containsKey(idName_mapping+ESIndexFacadeUtilities.rawSuffix)){
+				attributes.put(idName_mapping+ESIndexFacadeUtilities.rawSuffix, raw[0]);
 			}
 		}
 		for (int k = 1; k < raw.length; k++) {
@@ -523,8 +523,8 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 		} else {
 			for (Map<String, Object> element : elements) {
 				Object ID;
-				if(mapping.containsKey(idName_mapping+"_raw")){
-					ID = element.get(idName_mapping+"_raw");
+				if(mapping.containsKey(idName_mapping+ESIndexFacadeUtilities.rawSuffix)){
+					ID = element.get(idName_mapping+ESIndexFacadeUtilities.rawSuffix);
 				}else{
 					ID = element.get(idName_mapping);					
 				}
@@ -815,7 +815,7 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 		for (DimensionIndex child : hierarchy) {
 			dependencies.add(getFieldName(child.getDimension()));
 		}
-		logger.info("init correlation mapping ");
+		logger.debug("init correlation mapping ");
 		this.refreshHierarchyTypeName();
 
 		logger.info("init correlation mapping " + this.hierarchyTypeName);

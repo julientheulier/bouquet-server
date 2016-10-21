@@ -71,6 +71,15 @@ public class VegaliteConfigurator {
 		//
 		this.space = space;
 		scope = new SpaceScope(this.space);
+		// add the period parameter if available
+		if (query.getPeriod()!=null && !query.getPeriod().equals("")) {
+			try {
+				ExpressionAST period = scope.parseExpression(query.getPeriod());
+				scope.addParam("__PERIOD", period);
+			} catch (ScopeException e) {
+				// ignore
+			}
+		}
 		options = new PrettyPrintOptions(ReferenceStyle.NAME, this.space.getImageDomain());
 	}
 
@@ -144,10 +153,6 @@ public class VegaliteConfigurator {
 	
 	public ChannelDef createChannelDef(String channelName, String expr) throws ScopeException {
 		if (expr!=null && !expr.equals("")) {
-			if (expr.equals("__PERIOD")) {
-				expr = query.getPeriod();
-				if (expr==null) throw new ScopeException("no period defined, you cannot use __PERIOD alias for channel "+channelName);
-			}
 			ChannelDef channel = null;
 			if (expr.equals(TransposeConverter.METRIC_SERIES_COLUMN)) {
 				if (hasMetric) {

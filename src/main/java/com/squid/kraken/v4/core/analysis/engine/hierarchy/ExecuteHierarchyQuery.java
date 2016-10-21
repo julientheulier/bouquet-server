@@ -187,7 +187,8 @@ public class ExecuteHierarchyQuery implements CancellableCallable<ExecuteHierarc
 			ResultSet result = item.getResultSet();
 			this.state = State.ONGOING_INDEXING;
 
-			int bufferCommitSize = result.getFetchSize();
+			int bufferCommitSize = result.getFetchSize();			
+			logger.debug("bufferCommit Size " +bufferCommitSize);
 			//
 			ResultSetMetaData metadata = result.getMetaData();
 			IJDBCDataFormatter formatter = item.getDataFormatter();
@@ -226,9 +227,13 @@ public class ExecuteHierarchyQuery implements CancellableCallable<ExecuteHierarc
 			@SuppressWarnings("unchecked")
 			ArrayList<DimensionMember>[] indexBuffer = new ArrayList[dx_map.size()];
 
+			long timeSpentInLoopWithES = 0;
+			long timeSpentInLoopWithBD = 0;
+			
 			// to detected proper end of indexation;
 
 			boolean wait = true;
+			
 			while ((result.next()) && (count++ < maxRecords || maxRecords < 0)) {
 				if (abort || executeQueryTask.isInterrupted() || Thread.interrupted()) {
 					logger.info("cancelled reading SQLQuery#" + item.getID() + " method=executeQuery" + " duration= "
@@ -244,13 +249,18 @@ public class ExecuteHierarchyQuery implements CancellableCallable<ExecuteHierarc
 					// count + "items, still running at "+speed+ "row/s");
 					logger.info("reading SQLQuery#" + item.getID() + " proceeded " + count + "items, still running at "
 							+ speed + "row/s" + " method=executeQuery" + " duration= " + " speed=" + speed
+							+ "ES Time =" + timeSpentInLoopWithES 
+							+"ms, DB Time ="+timeSpentInLoopWithBD
+							+ "ms, time ratio ES/DB =" +( ((double)timeSpentInLoopWithES)/((double) timeSpentInLoopWithBD)  )
 							+ " error=false status=reading queryid=" + item.getID() + " task="
 							+ this.getClass().getName());
 
 				}
 				DimensionMember[] row_axis = new DimensionMember[dx_map.size()];
 				int i = 0;
+				long startDB =new Date().getTime()  ;
 				for (DimensionMapping m : dx_map) {
+
 					Object unbox = m.readData(formatter, result);
 					// String label = formatter.formatJDBCObject(value,
 					// m.getType());
@@ -283,17 +293,22 @@ public class ExecuteHierarchyQuery implements CancellableCallable<ExecuteHierarc
 					}
 					i++;// dumb
 				}
+				
+				long endDB =new Date().getTime()  ;
+				timeSpentInLoopWithBD+= (endDB-startDB);
+
 				rowBuffer.add(row_axis);
-				//
+				
 				// flush buffer ?
 				if (rowBuffer.size() == bufferCommitSize) {
-
+					long startES = new Date().getTime();
 					// commit the index buffers
 					this.flushDimensionBuffer(dx_map, indexBuffer, lastIndexedDimension, wait);
 					// map the correlation
+
 					this.flushCorrelationBuffer(dx_map, hierarchies_pos, hierarchies_type, rowBuffer, indexBuffer,
 							lastIndexedCorrelation, wait);
-
+					
 					// only check ES state for the first batch
 					if (wait) {
 						wait = false;
@@ -301,6 +316,8 @@ public class ExecuteHierarchyQuery implements CancellableCallable<ExecuteHierarc
 					// clear buffers
 					rowBuffer.clear();
 					indexBuffer = new ArrayList[dx_map.size()];
+					long endES = new Date().getTime();					
+					timeSpentInLoopWithES += (endES -startES);
 				}
 				// end of while loop
 			}
@@ -331,7 +348,11 @@ public class ExecuteHierarchyQuery implements CancellableCallable<ExecuteHierarc
 			// in "+(metter_finish-metter_start)+" ms.");
 			logger.info("complete SQLQuery#" + item.getID() + " reads " + count + " row(s) in "
 					+ (metter_finish - metter_start) + " ms." + " method=executeQuery" + " duration="
-					+ (metter_finish - metter_start) + " error=false status=complete queryid=" + item.getID() + "task="
+					+ (metter_finish - metter_start) 
+					+ "ES Time=" + timeSpentInLoopWithES 
+					+"ms, DB Time ="+timeSpentInLoopWithBD
+					+ "ms, time ratio ES/DB =" +( ((double)timeSpentInLoopWithES)/((double) timeSpentInLoopWithBD)  )
+					+ " error=false status=complete queryid=" + item.getID() + "task="
 					+ this.getClass().getName());
 
 			//

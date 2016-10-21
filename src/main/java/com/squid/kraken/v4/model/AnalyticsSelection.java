@@ -21,66 +21,39 @@
  * you and Squid Solutions (above licenses and LICENSE.txt included).
  * See http://www.squidsolutions.com/EnterpriseBouquet/
  *******************************************************************************/
-package com.squid.kraken.v4.api.core.connection;
+package com.squid.kraken.v4.model;
 
-import java.util.Collections;
 import java.util.List;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+
 /**
+ * This is the analysis selection
  * @author sergefantino
  *
  */
-public class ConnectionInfo {
+@JsonDeserialize(as = AnalyticsSelectionImpl.class)
+public interface AnalyticsSelection {
+	
+	/**
+	 * get the period expression, used to filter the timeframe.
+	 * This must be a valid date or timestamp expression.
+	 * @return
+	 */
+	public String getPeriod();
+	
+	public void setPeriod(String expression);
+	
+	public List<String> getTimeframe();
+	
+	public void setTimeframe(List<String> timeframe);
+	
+	public List<String> getCompareTo();
+	
+	public void setCompareTo(List<String> compareframe);
 
-	private String dbVendorId;
-	
-	private String dbUrl;
-	
-	private List<String> schemas;
-	
-	private String errorMessage = null;
-	
-	public ConnectionInfo(String dbVendorId, String dbUrl, List<String> schemas) {
-		super();
-		this.dbVendorId = dbVendorId;
-		this.dbUrl = dbUrl;
-		this.schemas = schemas;
-	}
-	
-	public ConnectionInfo(String dbVendorId, String dbUrl, Throwable error) {
-		super();
-		this.dbVendorId = dbVendorId;
-		this.dbUrl = dbUrl;
-		this.schemas = Collections.emptyList();
-		this.errorMessage = error.getMessage();
-	}
+	public List<String> getFilters();
 
-	/**
-	 * @return the dbVendorId
-	 */
-	public String getDbVendorId() {
-		return dbVendorId;
-	}
-	
-	/**
-	 * @return the dbUrl
-	 */
-	public String getDbUrl() {
-		return dbUrl;
-	}
-	
-	/**
-	 * @return the schemas
-	 */
-	public List<String> getSchemas() {
-		return schemas;
-	}
-	
-	/**
-	 * @return the errorMessage
-	 */
-	public String getErrorMessage() {
-		return errorMessage;
-	}
-	
+	public void setFilters(List<String> filters);
+
 }

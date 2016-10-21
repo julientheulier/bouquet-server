@@ -24,80 +24,83 @@
 package com.squid.kraken.v4.model;
 
 /**
- * Simple pojo to hold the analytics /view query parameters
+ * pojo that describes an analysis result dataset
  * @author sergefantino
  *
  */
-public class ViewQuery extends AnalyticsQueryImpl {
+public final class ResultInfo {
 	
-	private String x;
+	private boolean fromCache = false;
 	
-	private String y;
+	private boolean fromSmartCache = false;
 	
-	private String color;
+	private String executionDate;
 	
-	private String size;
+	private Integer startIndex = null;
 	
-	private String column;
+	private Integer pageSize = null;
 	
-	private String row;
+	private int totalSize = 0;
 	
-	/**
-	 * 
-	 */
-	public ViewQuery() {
-	}
+	private boolean complete = false;
 	
-	public ViewQuery(AnalyticsQuery query) {
-		super(query);
+	public ResultInfo() {
 	}
 
-	public String getX() {
-		return x;
+	public boolean isFromCache() {
+		return fromCache;
 	}
 
-	public void setX(String x) {
-		this.x = x;
+	public void setFromCache(boolean fromCache) {
+		this.fromCache = fromCache;
 	}
 
-	public String getY() {
-		return y;
+	public boolean isFromSmartCache() {
+		return fromSmartCache;
 	}
 
-	public void setY(String y) {
-		this.y = y;
+	public void setFromSmartCache(boolean fromSmartCache) {
+		this.fromSmartCache = fromSmartCache;
 	}
 
-	public String getColor() {
-		return color;
+	public String getExecutionDate() {
+		return executionDate;
 	}
 
-	public void setColor(String color) {
-		this.color = color;
+	public void setExecutionDate(String executionDate) {
+		this.executionDate = executionDate;
 	}
 
-	public String getSize() {
-		return size;
+	public Integer getStartIndex() {
+		return startIndex;
 	}
 
-	public void setSize(String size) {
-		this.size = size;
+	public void setStartIndex(Integer startIndex) {
+		this.startIndex = startIndex;
 	}
 
-	public String getColumn() {
-		return column;
+	public Integer getPageSize() {
+		return pageSize;
 	}
 
-	public void setColumn(String column) {
-		this.column = column;
+	public void setPageSize(Integer pageSize) {
+		this.pageSize = pageSize;
 	}
 
-	public String getRow() {
-		return row;
+	public int getTotalSize() {
+		return totalSize;
 	}
 
-	public void setRow(String row) {
-		this.row = row;
+	public void setTotalSize(int totalSize) {
+		this.totalSize = totalSize;
+	}
+
+	public boolean isComplete() {
+		return complete;
+	}
+
+	public void setComplete(boolean complete) {
+		this.complete = complete;
 	}
 
 }

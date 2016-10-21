@@ -125,7 +125,7 @@ public class NonAssociativeRollupStrategy extends BaseRollupStrategy {
             addLevelMapping(levelIDPiece);
             // closing
             sql.append("\n");
-            return new SQLScript(sql.toString());
+            return new SQLScript(sql.toString(), getMapper());
         } catch (Exception e) {
             throw new SQLScopeException("cannot create a rollup statement", e);
         }

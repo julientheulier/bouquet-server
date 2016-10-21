@@ -23,6 +23,7 @@
  *******************************************************************************/
 package com.squid.kraken.v4.core.analysis.scope;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 
@@ -50,6 +51,17 @@ public class SpaceScope extends AnalysisScope {
         super();
         this.space = space;
     }
+
+	private HashMap<String, ExpressionAST> params = new HashMap<>();
+	
+	/**
+	 * allow this param to be use in the expression (note that some params are always available)
+	 * @param param
+	 * @param type == the param type
+	 */
+	public void addParam(String param, ExpressionAST definition) {
+		params.put(param, definition);
+	}
     
     /**
 	 * @return the space
@@ -73,7 +85,7 @@ public class SpaceScope extends AnalysisScope {
     public Object lookupObject(IdentifierType identifierType, String name) throws ScopeException {
         // lookup a subdoain
         if (identifierType == IdentifierType.DEFAULT || identifierType == DOMAIN) {
-            Relation relation = space.getUniverse().getRelation(space.getDomain(), name);
+            Relation relation = space.findRelation(name);
             if (relation != null) {
                 return new Space(space, relation);
             }
@@ -171,6 +183,12 @@ public class SpaceScope extends AnalysisScope {
             	// ignore
             }
         }
+		// parameters ?
+		if (identifierType==IdentifierType.PARAMETER) {
+			if (params.containsKey(name)) {
+				return params.get(name);
+			}
+		}
         // else
         throw new ScopeException("identifier not found in '"+space.getDomain().getName()+"': " + name);
     }

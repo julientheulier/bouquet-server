@@ -152,7 +152,7 @@ public class AssociativeRollupStrategy extends BaseRollupStrategy {
 			//
             // add rollup metadata mapping (at the end to avoid side-effect)
             addLevelMapping(levelIDPiece);
-			return new SQLScript(sql.toString());
+			return new SQLScript(sql.toString(), getMapper());
 		} catch (Exception e) {
             throw new SQLScopeException("cannot create a rollup statement", e);
 		}

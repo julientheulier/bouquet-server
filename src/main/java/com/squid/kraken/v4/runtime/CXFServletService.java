@@ -171,6 +171,10 @@ public class CXFServletService extends CXFNonSpringJaxrsServlet {
 			} else {
 				if (krakenConfigV2file != null) {
 					KrakenConfigV2 krakenConf = KrakenConfigV2.loadFromjson(krakenConfigV2file);
+					if (krakenConf==null) {
+						logger.error("Failed to load bouquet.config.file json file: " + krakenConfigV2file);
+						throw new IOException("Failed to load bouquet.config.file json file: " + krakenConfigV2file);
+					}
 					if (krakenConf.getCache() != null) {
 						conf = krakenConf.getCache();
 					} else {
@@ -213,9 +217,10 @@ public class CXFServletService extends CXFNonSpringJaxrsServlet {
 		}
 
 		// Check if default customer has to be created
-		if (System.getProperty("kraken.autocreate") != null) {
+		String autocreate = KrakenConfig.getProperty("kraken.autocreate", true);
+		if (autocreate != null) {
 			// Extra safety for prod
-			if (System.getProperty("kraken.autocreate").contains("true")) {
+			if (autocreate.contains("true")) {
 				AppContext ctx = new AppContext.Builder().build();
 				List<Customer> customers = ((CustomerDAO) DAOFactory.getDAOFactory().getDAO(Customer.class))
 						.findAll(ctx);
