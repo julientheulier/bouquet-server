@@ -158,7 +158,7 @@ public class Universe extends Physics {
 	 */
 	public Space S(Domain domain) throws ScopeException {
 		// check compatibility?
-		if (getDomains().contains(domain)) {
+		if (domain.getId().getProjectId().equals(getProject().getId().getProjectId())) {
 			return new Space(this, domain);
 		} else {
 			throw new ScopeException("Domain '"+domain+"' does not belong to that Universe");
@@ -166,13 +166,28 @@ public class Universe extends Physics {
 	}
 
 	public Space S(String domainName) throws ScopeException {
-		for (Domain domain : getDomains()) {
-			if (domain.getName().equals(domainName)) {
-				return new Space(this, domain);
-			}
+		//T2121
+		Domain domain = ProjectManager.INSTANCE.findDomainByName(getContext(), getProject().getId(), domainName);
+		return new Space(this, domain);
+	}
+	
+	public Domain lookupDomainByID(String ID) {
+		try {
+			DomainPK domainPk = new DomainPK(getProject().getId(), ID);
+			Domain domain = ProjectManager.INSTANCE.getDomain(getContext(), domainPk);
+			return domain;
+		} catch (ScopeException e) {
+			return null;
 		}
-		// else
-		throw new ScopeException("domain not found: "+domainName);
+	}
+	
+	public Domain lookupDomainByName(String name) {
+		try {
+			Domain domain = ProjectManager.INSTANCE.findDomainByName(getContext(), getProject().getId(), name);
+			return domain;
+		} catch (ScopeException e) {
+			return null;
+		}
 	}
 	
 	/**
