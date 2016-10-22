@@ -96,7 +96,7 @@ import io.swagger.annotations.AuthorizationScope;
  * @author serge.fantino
  *
  */
-@Path("/enterprise")
+@Path("/rs/enterprise")
 @Api(hidden = true, value = "enterprise", authorizations = { @Authorization(value = "kraken_auth", scopes = { @AuthorizationScope(scope = "access", description = "Access")}) })
 @Produces({ MediaType.APPLICATION_JSON })
 public class EnterpriseServiceRest extends CoreAuthenticatedServiceRest {
