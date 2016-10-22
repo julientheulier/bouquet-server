@@ -36,6 +36,7 @@ import com.squid.kraken.v4.model.BookmarkConfig;
 import com.squid.kraken.v4.model.BookmarkPK;
 import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.DomainPK;
+import com.squid.kraken.v4.model.State;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DAOFactory;
 import com.squid.kraken.v4.persistence.dao.BookmarkDAO;
@@ -65,6 +66,18 @@ public class BookmarkManager {
 			return config;
 		} catch (Exception e) {
 			throw new ScopeException("unable to read the bookmark '"+bookmark.getBBID()+"' definition"+e.getMessage(), e);
+		}
+	}
+	
+	public BookmarkConfig readConfig(State state) {
+		if (state==null) return null;
+		ObjectMapper mapper = new ObjectMapper();
+		mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+		try {
+			BookmarkConfig config = mapper.readValue(state.getConfig(), BookmarkConfig.class);
+			return config;
+		} catch (Exception e) {
+			throw new APIException(e);
 		}
 	}
 	

@@ -78,6 +78,9 @@ import com.squid.kraken.v4.persistence.AppContext;
  */
 public class DataMatrix {
 	static final Logger logger = LoggerFactory.getLogger(DataMatrix.class);
+	
+	public static final String APPLY_FORMAT_OPTION = "applyFormat";
+	
 	// private int size = 0;
 	private boolean fullset = false;// only true if we read all the data
 	private boolean isSorted = false;// true when sorted
@@ -921,7 +924,7 @@ public class DataMatrix {
 	private boolean checkApplyFormat(Map<String, Object> options) {
 		if (options == null)
 			return false;
-		Object option = options.get("applyFormat");
+		Object option = options.get(APPLY_FORMAT_OPTION);
 		return option != null ? option.equals(true) : false;
 	}
 
@@ -929,33 +932,20 @@ public class DataMatrix {
 			throws ComputingException {
 		return toDataTable(ctx, maxResults, startIndex, replaceNullValues, null);
 	}
-
+	
 	/**
-	 * convert the DataMatrix in a DataTable format that we can exchange through
-	 * the API
-	 * 
-	 * @param ctx
-	 * 
+	 * compute the table header definition
 	 * @return
-	 * @throws ComputingException
 	 */
-	public DataTable toDataTable(AppContext ctx, Integer maxResults, Integer startIndex, boolean replaceNullValues,
-			Map<String, Object> options) throws ComputingException {
-		DataTable table = new DataTable();
-
-		List<AxisValues> axes = this.getAxes();
-
-		List<RawRow> rows = this.getRows();
-		List<MeasureValues> kpis = this.getKPIs();
-
+	public List<Col> getTableHeader() {
 		// export header
-		List<Col> header = table.getCols();
-		int visible_count = 0;
+		List<Col> header = new ArrayList<>();
+		List<AxisValues> axes = this.getAxes();
+		List<MeasureValues> kpis = this.getKPIs();
 		int pos = 0;
 		for (int i = 0; i < axes.size(); i++) {
 			AxisValues m = axes.get(i);
 			if (m.isVisible()) {
-				visible_count++;
 				Dimension dim = m.getAxis().getDimension();
 				DataType colType;
 				ExtendedType colExtType;
@@ -998,8 +988,31 @@ public class DataMatrix {
 				col.setFormat(computeFormat(m, type));
 				header.add(col);
 			}
-
 		}
+		return header;
+	}
+
+	/**
+	 * convert the DataMatrix in a DataTable format that we can exchange through
+	 * the API
+	 * 
+	 * @param ctx
+	 * 
+	 * @return
+	 * @throws ComputingException
+	 */
+	public DataTable toDataTable(AppContext ctx, Integer maxResults, Integer startIndex, boolean replaceNullValues,
+			Map<String, Object> options) throws ComputingException {
+		DataTable table = new DataTable();
+
+		List<AxisValues> axes = this.getAxes();
+
+		List<RawRow> rows = this.getRows();
+		List<MeasureValues> kpis = this.getKPIs();
+
+		// export header
+		List<Col> header = getTableHeader();
+		table.setCols(header);
 		// export data
 		boolean applyFormat = checkApplyFormat(options);
 
@@ -1018,7 +1031,7 @@ public class DataMatrix {
 		if (startIndex < endIndex) {
 			for (int rowIndex = startIndex; rowIndex < endIndex; rowIndex++) {
 				RawRow row = rows.get(rowIndex);
-				Object[] values = new Object[visible_count + getDataSize()];
+				Object[] values = new Object[header.size()];
 				int colIdx = 0;
 				int nbAxesVisibles = -1;
 				for (int i = 0; i < axes_count; i++) {
