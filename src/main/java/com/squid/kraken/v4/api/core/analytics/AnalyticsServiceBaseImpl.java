@@ -94,6 +94,7 @@ import com.squid.kraken.v4.api.core.ObjectNotFoundAPIException;
 import com.squid.kraken.v4.api.core.PerfDB;
 import com.squid.kraken.v4.api.core.bookmark.BookmarkServiceBaseImpl;
 import com.squid.kraken.v4.api.core.customer.StateServiceBaseImpl;
+import com.squid.kraken.v4.api.core.project.ProjectServiceBaseImpl;
 import com.squid.kraken.v4.api.core.projectanalysisjob.AnalysisJobComputer;
 import com.squid.kraken.v4.caching.NotInCacheException;
 import com.squid.kraken.v4.caching.redis.RedisCacheManager;
@@ -405,8 +406,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		// list project related resources
 		if (parent==null || parent.equals("") || parent.equals("/") || parent.equals(PROJECTS_FOLDER.getSelfRef())) {
 			// return available project
-			List<Project> projects = ((ProjectDAO) DAOFactory.getDAOFactory().getDAO(Project.class))
-					.findByCustomer(userContext, userContext.getCustomerPk());
+			List<Project> projects = ProjectServiceBaseImpl.getInstance().readAll(userContext);
 			for (Project project : projects) {
 				if (filters==null || filter(project, filters)) {
 					NavigationItem folder = new NavigationItem(query, project, parent);
@@ -546,14 +546,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			return ProjectManager.INSTANCE.getProject(userContext, projectPk);
 		} else {
 			// using name
-			List<Project> projects = ((ProjectDAO) DAOFactory.getDAOFactory().getDAO(Project.class))
-					.findByCustomer(userContext, userContext.getCustomerPk());
-			for (Project project : projects) {
-				if (project.getName()!=null && project.getName().equals(projectRef)) {
-					return project;
-				}
-			}
-			throw new ScopeException("cannot find project with name='"+projectRef+"'");
+			return ProjectManager.INSTANCE.findProjectByName(userContext, projectRef);
 		}
 	}
 
