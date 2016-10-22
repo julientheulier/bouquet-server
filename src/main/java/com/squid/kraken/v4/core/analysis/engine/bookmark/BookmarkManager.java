@@ -65,11 +65,11 @@ public class BookmarkManager {
 			BookmarkConfig config = mapper.readValue(bookmark.getConfig(), BookmarkConfig.class);
 			return config;
 		} catch (Exception e) {
-			throw new ScopeException("unable to read the bookmark '"+bookmark.getBBID()+"' definition"+e.getMessage(), e);
+			throw new ScopeException("unable to read the bookmark '"+bookmark.getBBID()+"' config: "+e.getMessage(), e);
 		}
 	}
 	
-	public BookmarkConfig readConfig(State state) {
+	public BookmarkConfig readConfig(State state) throws ScopeException {
 		if (state==null) return null;
 		ObjectMapper mapper = new ObjectMapper();
 		mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
@@ -77,7 +77,7 @@ public class BookmarkManager {
 			BookmarkConfig config = mapper.readValue(state.getConfig(), BookmarkConfig.class);
 			return config;
 		} catch (Exception e) {
-			throw new APIException(e);
+			throw new ScopeException("unable to read the state '"+state.getOid()+"' config: "+e.getMessage(), e);
 		}
 	}
 	
