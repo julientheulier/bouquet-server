@@ -72,7 +72,7 @@ public abstract class JobDAO<T extends Persistent<PK>, PK extends GenericPK> ext
         ComputationJob<?,?> job = (ComputationJob<?,?>) newInstance;
         if (job.getTemporary()) {
             // temporary jobs can be created/updated with read access on parent
-            AccessRightsUtils.getInstance().checkRole(ctx, parent, Role.READ);
+            AccessRightsUtils.getInstance().checkRole(ctx, parent, Role.EXECUTE);// T2121
         } else {
             // non temporary jobs need write role on parent
             AccessRightsUtils.getInstance().checkRole(ctx, parent, Role.WRITE);
