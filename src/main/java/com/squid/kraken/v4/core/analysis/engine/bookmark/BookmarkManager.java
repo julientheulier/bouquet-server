@@ -29,7 +29,6 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Optional;
 import com.squid.core.expression.scope.ScopeException;
-import com.squid.kraken.v4.api.core.APIException;
 import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.kraken.v4.model.Bookmark;
@@ -58,7 +57,7 @@ public class BookmarkManager {
 	
 	public BookmarkDAO getDAO() { return delegate; }
 	
-	public BookmarkConfig readConfig(Bookmark bookmark) {
+	public BookmarkConfig readConfig(Bookmark bookmark) throws ScopeException {
 		if (bookmark==null) return null;
 		ObjectMapper mapper = new ObjectMapper();
 		mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
@@ -66,7 +65,7 @@ public class BookmarkManager {
 			BookmarkConfig config = mapper.readValue(bookmark.getConfig(), BookmarkConfig.class);
 			return config;
 		} catch (Exception e) {
-			throw new APIException(e);
+			throw new ScopeException("unable to read the bookmark '"+bookmark.getBBID()+"' definition"+e.getMessage(), e);
 		}
 	}
 	
