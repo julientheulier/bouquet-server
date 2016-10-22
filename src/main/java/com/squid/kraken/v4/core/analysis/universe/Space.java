@@ -41,6 +41,7 @@ import com.squid.core.expression.UndefinedExpression;
 import com.squid.core.expression.reference.RelationDirection;
 import com.squid.core.expression.scope.ExpressionMaker;
 import com.squid.core.expression.scope.ScopeException;
+import com.squid.kraken.v4.core.analysis.engine.bookmark.BookmarkManager;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainHierarchy;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainHierarchyManager;
@@ -49,6 +50,7 @@ import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
 import com.squid.kraken.v4.core.expression.reference.RelationReference;
 import com.squid.kraken.v4.core.model.domain.ProxyDomainDomain;
 import com.squid.kraken.v4.model.Bookmark;
+import com.squid.kraken.v4.model.BookmarkConfig;
 import com.squid.kraken.v4.model.Dimension;
 import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.DomainOption;
@@ -85,10 +87,14 @@ public class Space {
 	}
 	
 	public Space(Space parent, Relation relation) throws ScopeException {
+		this(parent, relation, relation.getDirection(parent.getDomain().getId()));
+	}
+	
+	public Space(Space parent, Relation relation, RelationDirection direction) throws ScopeException {
 		this.universe = parent.getUniverse();
 		this.rootDomain = parent.rootDomain;
 		this.parent = parent;
-		this.direction = relation.getDirection(parent.getDomain().getId());
+		this.direction = direction;
 		if (direction==RelationDirection.LEFT_TO_RIGHT) {
 			this.domain = universe.getDomain(relation.getRightId());
 		} else if (direction==RelationDirection.RIGHT_TO_LEFT) {
@@ -98,19 +104,16 @@ public class Space {
 		}
 		this.relation = relation;
 		this.ID = (parent!=null?parent.ID+"/":"")+relation.getId().toUUID();
-	}
-	
-	public Space(Space parent, Relation relation, RelationDirection direction) throws ScopeException {
-		this.universe = parent.getUniverse();
-		this.rootDomain = parent.rootDomain;
-		this.parent = parent;
-		this.direction = direction;
-		this.relation = relation;
-		this.ID = (parent!=null?parent.ID+"/":"")+relation.getId().toUUID();
+		// propagate the bookmark definition
+		if (parent.bookmark!=null) {
+			this.bookmark = parent.bookmark;
+		}
 	}
 	
 	/**
-	 * Provide integrated support for bookmarks
+	 * This constructor allows to associate a bookmark to the Space definition.
+	 * The bookmark will be propagated to any sub-space.
+	 * The bookmark is used to restrict the scope to the available scope it defines.
 	 * @param universe
 	 * @param bookmark
 	 */
@@ -119,12 +122,36 @@ public class Space {
 		this.bookmark = bookmark;
 	}
 	
+	/**
+	 * check if the space or any parent has a bookmark associated with its definition
+	 * @return
+	 */
 	public boolean hasBookmark() {
 		return bookmark!=null;
 	}
 	
 	public Bookmark getBookmark() {
 		return bookmark;
+	}
+	
+	// local cache the config
+	private BookmarkConfig bookmarkConfig = null;
+	private boolean bookmarkConfigError = false;
+	
+	/**
+	 * get the bookmark config or null if cannot evaluate
+	 * @return
+	 */
+	public BookmarkConfig getBookmarkConfig() {
+		if (bookmarkConfig == null && !bookmarkConfigError && bookmark!=null) {
+			try {
+				return bookmarkConfig = BookmarkManager.INSTANCE.readConfig(bookmark);
+			} catch (ScopeException e) {
+				bookmarkConfigError = true;// avoid retrying
+			}
+		}
+		// else
+		return bookmarkConfig;
 	}
 
 	/**
@@ -447,7 +474,29 @@ public class Space {
 		ArrayList<Axis> axes = new ArrayList<Axis>();
 		try {
 			for (DimensionIndex index : universe.getDomainHierarchy(domain, true).getDimensionIndexes(universe.getContext())) {
-				axes.add(index.getAxis());
+				if (hasBookmark()) {
+					// also check if the index is available for the bookmark
+					BookmarkConfig config = getBookmarkConfig();
+					if (config!=null) {
+						if (config.getAvailableDimensions()!=null) {
+							// check that the axis is available
+							String check = index.getAxis().prettyPrint(new PrettyPrintOptions(ReferenceStyle.IDENTIFIER, null));
+							for (String available : config.getAvailableDimensions()) {
+								// if available contains an object, all sub-content is available
+								// todo: provide a way to restrict for a single sub-level (e.g. x.y versus x.y.*)
+								if (check.startsWith(available)) {
+									axes.add(index.getAxis());
+								}
+							}
+						} else {
+							// allow all if nothing is defined
+							axes.add(index.getAxis());
+						}
+					}
+					// else if cannot get the config, block all references
+				} else {
+					axes.add(index.getAxis());
+				}
 			}
 		} catch (ComputingException | InterruptedException e) {
 			// ignore
