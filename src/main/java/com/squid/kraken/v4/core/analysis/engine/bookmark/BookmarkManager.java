@@ -65,7 +65,7 @@ public class BookmarkManager {
 			BookmarkConfig config = mapper.readValue(bookmark.getConfig(), BookmarkConfig.class);
 			return config;
 		} catch (Exception e) {
-			throw new ScopeException("unable to read the bookmark '"+bookmark.getBBID()+"' config: "+e.getMessage(), e);
+			throw new ScopeException("unable to read the bookmark '"+bookmark.getReference()+"' config: "+e.getMessage(), e);
 		}
 	}
 	
