@@ -315,6 +315,27 @@ public class ServiceUtils {
 	public AccessToken createToken(String customerId, ClientPK clientPk,
 			String userId, Long creationTimestamp, Long validityMillis,
 			AccessToken.Type type, String refreshTokenId) {
+		return createToken(customerId, clientPk, userId, creationTimestamp, validityMillis, type, refreshTokenId);
+	}
+	
+	/**
+	 * Create a new Token.
+	 * 
+	 * @param clientPk
+	 * @param userId
+	 * @param creationTimestamp
+	 *            custom creation date or current date if <tt>null</tt>
+	 * @param validityMillis
+	 *            the token validity in milliseconds.
+	 * @param token
+	 *            type (or null)
+	 * @param authorizationCode
+	 *            the OB.io authorization code, or null if none
+	 * @return an AccessToken
+	 */
+	public AccessToken createToken(String customerId, ClientPK clientPk,
+			String userId, Long creationTimestamp, Long validityMillis,
+			AccessToken.Type type, String refreshTokenId, String authorizationCode) {
 		AppContext rootContext = ServiceUtils.getInstance().getRootUserContext(
 				customerId);
 		Long exp = null;
@@ -330,6 +351,7 @@ public class ServiceUtils {
 		newToken.setUserId(userId);
 		newToken.setType(type);
 		newToken.setRefreshToken(refreshTokenId);
+		newToken.setAuthorizationCode(authorizationCode);
 		AccessToken token = DAOFactory.getDAOFactory()
 				.getDAO(AccessToken.class).create(rootContext, newToken);
 		return token;
