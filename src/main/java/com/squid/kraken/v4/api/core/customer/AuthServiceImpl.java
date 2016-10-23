@@ -413,8 +413,7 @@ public class AuthServiceImpl extends
 					ClientPK client = new ClientPK(singleCustomer.getCustomerId(), clientId.getClientId());
 					token = ServiceUtils.getInstance().createToken(singleCustomer.getCustomerId(), client, userId,
 							System.currentTimeMillis(), ServiceUtils.getInstance().getTokenExpirationPeriodMillis(),
-							AccessToken.Type.NORMAL, null);
-					token.setAuthorizationCode(authorizationCode);
+							AccessToken.Type.NORMAL, null, authorizationCode);
 				} else {
 					logger.info("Auth with OB.io failed : no Membership");
 					throw new InvalidTokenAPIException("Auth failed", false, KrakenConfig.getAuthServerEndpoint());
