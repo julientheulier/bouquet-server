@@ -64,6 +64,7 @@ import com.squid.kraken.v4.api.core.customer.CoreAuthenticatedServiceRest;
 import com.squid.kraken.v4.api.core.customer.CustomerServiceBaseImpl;
 import com.squid.kraken.v4.api.core.user.UserServiceBaseImpl;
 import com.squid.kraken.v4.api.core.usergroup.UserGroupServiceBaseImpl;
+import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
 import com.squid.kraken.v4.core.analysis.scope.GlobalExpressionScope;
 import com.squid.kraken.v4.core.analysis.scope.ProjectExpressionRef;
 import com.squid.kraken.v4.core.analysis.scope.SpaceExpression;
@@ -487,13 +488,16 @@ public class EnterpriseServiceRest extends CoreAuthenticatedServiceRest {
 			// asking for removing access to the resource
 		} else {
 			Role acl = convertRole(role);
-			HashSet<AccessRight> rights = new HashSet<>(resource.getAccessRights());
-			AccessRight right = new AccessRight(acl, user.getId().getUserId(), null);
-			if (!AccessRightsUtils.getInstance().hasRole(user, rights, acl)) {
-				rights.add(right);
-				resource.setAccessRights(rights);
-				DAOFactory.getDAOFactory().getDAO(Bookmark.class).update(ctx, resource);
-				return true;
+			// grant access to the bookmark
+			if (grantRole(ctx, resource, user, acl)) {
+				// give the user access to the project with role=EXECUTE if necessary
+				try {
+					Project project = ProjectManager.INSTANCE.getProject(ctx, resource.getId().getProjectId());
+					grantRole(ctx, project, user, Role.EXECUTE);
+					return true;
+				} catch (ScopeException e) {
+					return false;
+				}
 			} else {
 				// already has it or better, what to do?
 				Role current = AccessRightsUtils.getInstance().getRole(user, resource);
@@ -507,6 +511,29 @@ public class EnterpriseServiceRest extends CoreAuthenticatedServiceRest {
 		return false;
 	}
 	
+	/**
+	 * Add the role for the user to the resource
+	 * @param ctx
+	 * @param project
+	 * @param user
+	 */
+	@SuppressWarnings("unchecked")
+	private boolean grantRole(AppContext ctx, PersistentBaseImpl<? extends GenericPK> resource, User user, Role role) {
+		Role currentRole = AccessRightsUtils.getInstance().getRole(user, resource);
+		if (currentRole==null || currentRole.ordinal()<Role.EXECUTE.ordinal()) {
+			HashSet<AccessRight> rights = new HashSet<>(resource.getAccessRights());
+			AccessRight right = new AccessRight(role, user.getId().getUserId(), null);
+			if (!AccessRightsUtils.getInstance().hasRole(user, rights, role)) {
+				rights.add(right);
+				resource.setAccessRights(rights);
+				DAOFactory.getDAOFactory().getDAO(resource.getClass()).update(ctx, resource);
+				return true;
+			}
+		}
+		// else 
+		return false;
+	}
+
 	private Role convertRole(AccessLevel role) {
 		switch (role) {
 		case NONE:
