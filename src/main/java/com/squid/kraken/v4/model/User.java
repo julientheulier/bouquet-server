@@ -57,7 +57,7 @@ import com.squid.kraken.v4.persistence.DAOFactory;
 		@Index(fields = { @Field(value = "id.customerId"),
 				@Field(value = "email") }, options = @IndexOptions(unique = true)),
 		@Index(fields = { @Field(value = "authId"),
-				@Field(value = "authId") }, options = @IndexOptions(unique = true))})
+				@Field(value = "authId") }) })// do not use unique option because we must be able to create user without authID
 public class User extends PersistentBaseImpl<UserPK> {
 
 	private String login;
