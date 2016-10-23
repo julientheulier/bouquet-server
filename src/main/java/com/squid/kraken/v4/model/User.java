@@ -24,6 +24,7 @@
 package com.squid.kraken.v4.model;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -36,6 +37,7 @@ import org.mongodb.morphia.annotations.Field;
 import org.mongodb.morphia.annotations.Index;
 import org.mongodb.morphia.annotations.IndexOptions;
 import org.mongodb.morphia.annotations.Indexes;
+import org.mongodb.morphia.annotations.Transient;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -67,6 +69,12 @@ public class User extends PersistentBaseImpl<UserPK> {
 	private List<String> groups;
 	
 	private String authId;
+
+	/**
+	 * this is a list of groups added temporarily to the user during a transaction (to support EXECUTE role, T2121)
+	 */
+	@Transient
+	private List<String> upgrades;
 
 	@XmlTransient
 	@JsonIgnore
@@ -123,6 +131,33 @@ public class User extends PersistentBaseImpl<UserPK> {
 
 	public void setGroups(List<String> groups) {
 		this.groups = groups;
+	}
+	
+	public List<String> getUpgrades() {
+		if (upgrades == null) {
+			upgrades = new ArrayList<String>();
+		}
+		return upgrades;
+	}
+	
+	public void setUpgrades(List<String> upgrades) {
+		this.upgrades = upgrades;
+	}
+	
+	public List<String> getGroupsAndUpgrades() {
+		if (upgrades==null || upgrades.isEmpty()) {
+			if (groups==null || groups.isEmpty()) {
+				return Collections.emptyList();
+			} else {
+				return groups;
+			}
+		} else if (groups==null || groups.isEmpty()) {
+			return upgrades;
+		} else {
+			ArrayList<String> flatten = new ArrayList<>(groups);
+			flatten.addAll(upgrades);
+			return flatten;
+		}
 	}
 
 	@XmlTransient

@@ -267,7 +267,7 @@ public class ProjectServiceRest extends BaseServiceRest {
 
 	@Path("{"+PARAM_NAME+"}"+"/access")
 	@GET
-	@ApiOperation(hidden=true, value = "Gets a Project's access rights")
+	@ApiOperation(hidden=false, value = "Gets a Project's access rights")
 	public Set<AccessRight> readAccessRights(
 			@PathParam(PARAM_NAME) String objectId) {
 		return delegate.readAccessRights(userContext,
@@ -276,7 +276,7 @@ public class ProjectServiceRest extends BaseServiceRest {
 
 	@Path("{"+PARAM_NAME+"}"+"/access")
 	@POST
-	@ApiOperation(hidden=true, value = "Sets a Project's access rights")
+	@ApiOperation(hidden=false, value = "Sets a Project's access rights")
 	public Set<AccessRight> storeAccessRights(
 			@PathParam(PARAM_NAME) String objectId,
 			@ApiParam(required = true) Set<AccessRight> accessRights) {

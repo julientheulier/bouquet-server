@@ -235,7 +235,7 @@ public class AnalysisJobComputer implements JobComputer<ProjectAnalysisJob, Proj
 		// get the project using a root context since JDBC settings may not be
 		// visible to the user
 		long start = System.currentTimeMillis();
-		Project project = projService.read(ctx, projectPK, true);// use the user
+		Project project = projService.read(ctx, projectPK, false);// use the user
 		// ctx to
 		// read the
 		// project -
@@ -521,6 +521,7 @@ public class AnalysisJobComputer implements JobComputer<ProjectAnalysisJob, Proj
 	private static Axis readAxis(AppContext ctx, Universe universe, Expression expr)
 			throws ScopeException, ComputingException, InterruptedException {
 		Axis axis = EngineUtils.getInstance().getFacetAxis(ctx, universe, expr.getValue());// universe.axis(expr.getValue());
+		/*
 		// check user ACL
 		DimensionIndex index = axis.getIndex();
 		if (index == null) {
@@ -546,6 +547,7 @@ public class AnalysisJobComputer implements JobComputer<ProjectAnalysisJob, Proj
 		} else {
 			AccessRightsUtils.getInstance().checkRole(ctx, index.getDimension(), Role.READ);
 		}
+		*/
 		return axis;
 	}
 

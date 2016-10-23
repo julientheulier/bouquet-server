@@ -32,7 +32,9 @@ import java.io.Serializable;
 public class AccessRight implements Serializable {
 
     static public enum Role {
-        NONE, READ, WRITE, OWNER
+        NONE, 
+        EXECUTE, // T2121: note that ordinal is key; EXECUTE<READ
+        READ, WRITE, OWNER, 
     };
 
     private Role role;
