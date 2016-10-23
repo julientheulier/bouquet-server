@@ -682,7 +682,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			}
 		}
 		html.append("</td></tr></table>");
-		URI scopeLink = service.getPublicBaseUriBuilder().path("/analytics/{reference}/scope").queryParam("style", Style.HTML).queryParam("access_token", service.getUserContext()).build(query.getBBID());
+		URI scopeLink = service.getPublicBaseUriBuilder().path("/analytics/{reference}/scope").queryParam("style", Style.HTML).queryParam("access_token", getToken()).build(query.getBBID());
 		html.append("<a href=\""+StringEscapeUtils.escapeHtml4(scopeLink.toASCIIString())+"\">View the scope</a>");
 		html.append("</fieldset>");
 	}
@@ -734,17 +734,17 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			if (item.getObjectType()==ObjectType.FUNCTION) style = func_style;
 			html.append("<span style='"+style+"'>&nbsp;"+item.getDisplay()+"&nbsp;</span>");
 			if (item.getSuggestion()!=null) {
-				URI link = service.getPublicBaseUriBuilder().path("/analytics/{reference}/scope").queryParam("value", value+item.getSuggestion()).queryParam("style", Style.HTML).queryParam("access_token", service.getUserContext()).build(BBID);
+				URI link = service.getPublicBaseUriBuilder().path("/analytics/{reference}/scope").queryParam("value", value+item.getSuggestion()).queryParam("style", Style.HTML).queryParam("access_token", getToken()).build(BBID);
 				html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(link.toASCIIString())+"\">+</a>]");
 			}
 			if (item.getExpression()!=null && item.getExpression() instanceof AxisExpression) {
 				AxisExpression ref = (AxisExpression)item.getExpression();
 				Axis axis = ref.getAxis();
 				if (axis.getDimensionType()==Type.CATEGORICAL) {
-					URI link = service.getPublicBaseUriBuilder().path("/analytics/{reference}/facets/{facetId}").queryParam("style", Style.HTML).queryParam("access_token", service.getUserContext()).build(BBID, item.getSuggestion());
+					URI link = service.getPublicBaseUriBuilder().path("/analytics/{reference}/facets/{facetId}").queryParam("style", Style.HTML).queryParam("access_token", getToken()).build(BBID, item.getSuggestion());
 					html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(link.toASCIIString())+"\">Indexed</a>]");
 				} else if (axis.getDimensionType()==Type.CONTINUOUS) {
-					URI link = service.getPublicBaseUriBuilder().path("/analytics/{reference}/facets/{facetId}").queryParam("style", Style.HTML).queryParam("access_token", service.getUserContext()).build(BBID, item.getSuggestion());
+					URI link = service.getPublicBaseUriBuilder().path("/analytics/{reference}/facets/{facetId}").queryParam("style", Style.HTML).queryParam("access_token", getToken()).build(BBID, item.getSuggestion());
 					html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(link.toASCIIString())+"\">Period</a>]");
 				}
 			}
