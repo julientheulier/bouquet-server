@@ -74,9 +74,13 @@ public class Bookmark extends DynamicObject<BookmarkPK> implements HasConfig {
 		super(id);
 	}
 	
-	public String getBBID() {
+	/**
+	 * return the expression that reference this bookmark. You can use the reference with the /analytics API and in un-scoped expression.
+	 * @return
+	 */
+	public String getReference() {
 		if (getId()==null) return "";
-		return id.getProjectId()+":"+id.getBookmarkId();
+		return "@'"+id.getProjectId()+"'.@bookmark:'"+id.getBookmarkId()+"'";
 	}
 
 	public String getName() {
