@@ -182,6 +182,8 @@ public class AnalysisCompute {
 		Axis joinAxis = null;
 		IntervalleObject presentInterval = null;
 		IntervalleObject pastInterval = null;
+				// compute the joinAxis if exists, i.e. if one of the groupBy dimension is part of the comparison
+
 		for (Axis filter : compare.getFilters()) {
 			// check if the filter is a join
 			GroupByAxis groupBy = findGroupingJoin(filter, currentAnalysis);
@@ -190,7 +192,7 @@ public class AnalysisCompute {
 					throw new ScopeException("only one join axis supported");
 				}
 				joinAxis = groupBy.getAxis();
-				// compute the min & max for present
+				// compute the min & max for present (if it's an interval)
 				Collection<DimensionMember> members = presentSelection.getMembers(filter);
 				presentInterval = computeMinMax(members);
 			}
@@ -199,53 +201,66 @@ public class AnalysisCompute {
 		// handling orderBy in the proper way...
 		final List<OrderBy> fixed = new ArrayList<>();
 		List<OrderBy> remaining = new ArrayList<>();
-		int i = 0;
-		// list the dimensions
-		ArrayList<ExpressionAST> dimensions = new ArrayList<>();// order matter
-		for (GroupByAxis group : currentAnalysis.getGrouping()) {
-			dimensions.add(group.getAxis().getReference());
+ 		int i = 0;
+ 		// list the dimensions
+		ArrayList<ExpressionAST> queue = new ArrayList<>();// order matter
+ 		for (GroupByAxis group : currentAnalysis.getGrouping()) {
+			queue.add(group.getAxis().getReference());
+ 		}
+		// use this list to compute the dimension index
+		ArrayList<ExpressionAST> dimensionIndexes = new ArrayList<>(queue);
+ 		// will hold in which order to merge
+		int[] mergeOrder = new int[dimensionIndexes.size()];
+		// rebuild the full orderBy specs
+ 		List<OrderBy> originalOrders = currentAnalysis.getOrders();
+		//
+		// if there is a joinAxis, it must appear as the first orderBy
+		if (joinAxis != null) {
+			OrderBy order = null;
+			if (originalOrders!=null && !originalOrders.isEmpty()) {
+				// look for the real spec
+				for (OrderBy check : originalOrders) {
+					if (check.getExpression().equals(joinAxis.getReference())) {
+						order = check;
+						break;// quit the loop
+					}
+ 				}
+ 			}
+			if (order==null) {
+				// not defined, create a default one
+				order = new OrderBy(0, joinAxis.getReference(), ORDERING.DESCENT);
+			}
+			fixed.add(new OrderBy(i, order.getExpression(), order.getOrdering()));
+			mergeOrder[i++] = dimensionIndexes.indexOf(order.getExpression());
 		}
-		// use this list to compute the dimensioni index
-		ArrayList<ExpressionAST> dimensionIndexes = new ArrayList<>(dimensions);
-		// will hold in which order to merge
-		int[] mergeOrder = new int[dimensions.size()];
-		// rebuild the full order specs
-		List<OrderBy> originalOrders = currentAnalysis.getOrders();
+		//
+		// check the explicit orderBy
 		for (OrderBy order : originalOrders) {
-			if (i == 0 && joinAxis != null) {
-				if (order.getExpression().equals(joinAxis.getReference())) {
-					// ok, it's first
+ 			// check if it is a dimension
+			if (queue.contains(order.getExpression())) {
+				// is it the joinAxis ?
+				if (joinAxis!=null && order.getExpression().equals(joinAxis.getReference())) {
+					// we already added it, just remove from the queue
+					queue.remove(order.getExpression());
+				} else {
+					// ok, just add it
 					fixed.add(new OrderBy(i, order.getExpression(), order.getOrdering()));
 					mergeOrder[i++] = dimensionIndexes.indexOf(order.getExpression());
-					continue;// done for this order
-				} else {
-					// add it first, default to DESC because it is the join (date)
-					fixed.add(new OrderBy(i, joinAxis.getReference(), ORDERING.DESCENT));
-					mergeOrder[i++] = dimensionIndexes.indexOf(joinAxis.getReference());
-					// now we need to take care of the order
+					// and remove the dimension from the list
+					queue.remove(order.getExpression());
 				}
-			}
-			// not (the first & join)...
-			// check if it is a dimension
-			if (dimensions.contains(order.getExpression())) {
-				// ok, just add it
-				fixed.add(new OrderBy(i, order.getExpression(), order.getOrdering()));
-				mergeOrder[i++] = dimensionIndexes.indexOf(order.getExpression());
-				// and remove the dimension from the list
-				dimensions.remove(order.getExpression());
-			} else {
-				// assuming it is a metric or something else, keep it but at the
-				// end
-				remaining.add(order);// don't know the position yet
-			}
-		}
-		// add missing dimensions
-		if (!dimensions.isEmpty()) {
-			for (ExpressionAST dim : dimensions) {
-				if (joinAxis == null || !joinAxis.getReference().equals(dim)) {
-					// check the best order
-					IDomain image = dim.getImageDomain();
-					fixed.add(new OrderBy(i, dim, image.isInstanceOf(IDomain.TEMPORAL)?ORDERING.DESCENT:ORDERING.ASCENT));
+ 			} else {
+ 				// assuming it is a metric or something else, keep it but at the
+ 				// end
+ 				remaining.add(order);// don't know the position yet
+ 			}
+ 		}
+		// handling the dimensions not sorted
+		if (!queue.isEmpty()) {
+			for (ExpressionAST dim : queue) {
+ 				if (joinAxis == null || !joinAxis.getReference().equals(dim)) {
+ 					// check the best order
+ 					IDomain image = dim.getImageDomain();					fixed.add(new OrderBy(i, dim, image.isInstanceOf(IDomain.TEMPORAL)?ORDERING.DESCENT:ORDERING.ASCENT));
 					mergeOrder[i++] = dimensionIndexes.indexOf(dim);
 				}
 			}
@@ -591,7 +606,7 @@ public class AnalysisCompute {
 			IntervalleObject pastInterval) throws ScopeException {
 		if (joinAxis == null || presentInterval == null || pastInterval == null) {
 			return null;
-		} else {
+		} else {	
 			AxisValues check = present.find(joinAxis);
 			if (check == null) {
 				return null;// no need to bother
