@@ -315,7 +315,7 @@ public class ServiceUtils {
 	public AccessToken createToken(String customerId, ClientPK clientPk,
 			String userId, Long creationTimestamp, Long validityMillis,
 			AccessToken.Type type, String refreshTokenId) {
-		return createToken(customerId, clientPk, userId, creationTimestamp, validityMillis, type, refreshTokenId);
+		return createToken(customerId, clientPk, userId, creationTimestamp, validityMillis, type, refreshTokenId, null);
 	}
 	
 	/**
