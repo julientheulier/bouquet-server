@@ -255,8 +255,12 @@ public class CXFServletService extends CXFNonSpringJaxrsServlet {
 		logger.info("Swagger base path " + basePath);
 		String oauthEndpoint = KrakenConfig.getProperty("kraken.oauth.endpoint",
 				"https://api.squidsolutions.com/release/auth/oauth");
+		String publicBaseUri = KrakenConfig.getProperty(KrakenConfig.publicBaseUri, true);
+		if (publicBaseUri == null) {
+			publicBaseUri = basePath;
+		}
 		OAuth2Definition auth2Definition = new OAuth2Definition()
-				.accessCode(oauthEndpoint, KrakenConfig.getProperty(KrakenConfig.publicBaseUri) + "/rs/token")
+				.accessCode(oauthEndpoint, publicBaseUri + "/rs/token")
 				.scope("access", "Access protected resources");
 		swagger.securityDefinition("kraken_auth", auth2Definition);
 
