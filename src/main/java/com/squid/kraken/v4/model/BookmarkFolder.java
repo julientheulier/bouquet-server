@@ -43,6 +43,7 @@ public class BookmarkFolder implements HasChildren {
 	private BookmarkFolderPK id;
 	private String name;
 	private List<BookmarkLink> bookmarks;
+	private List<BookmarkFolder> folders;
 
 	/**
 	 * Default constructor (required for jaxb).
@@ -93,12 +94,12 @@ public class BookmarkFolder implements HasChildren {
 		return CHILDREN;
 	}
 	
-	/*
-	 * Stupid getter for Backbone nested model.
-	 * @return empty list
-	 */
 	public List<BookmarkFolder> getFolders() {
-		return Collections.<BookmarkFolder> emptyList();
+		return folders!=null?folders:Collections.<BookmarkFolder>emptyList();
+	}
+	
+	public void setFolders(List<BookmarkFolder> folders) {
+		this.folders = folders;
 	}
 	
 	/**
@@ -121,9 +122,9 @@ public class BookmarkFolder implements HasChildren {
 			this.id = id;
 		}
 		
-		public String getBBID() {
+		public String getReference() {
 			if (id==null) return "";
-			return id.getProjectId()+":"+id.getBookmarkId();
+			return "@'"+id.getProjectId()+"'.@bookmark'"+id.getBookmarkId()+"'";
 		}
 
 		public BookmarkPK getId() {
