@@ -23,11 +23,16 @@
  *******************************************************************************/
 package com.squid.enterprise.model;
 
+import javax.xml.bind.annotation.XmlRootElement;
+import javax.xml.bind.annotation.XmlType;
+
 /**
  * A snippet describe how to access a resource on the server and its content, so that remote OB.io can "show" it users
  * @author serge.fantino
  *
  */
+@XmlType(namespace = "http://model.enterprise.squid.com")
+@XmlRootElement
 public class Snippet extends ObjectReference {
 	
 	// this is the resource type

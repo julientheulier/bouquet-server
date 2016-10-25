@@ -25,10 +25,15 @@ package com.squid.enterprise.model;
 
 import java.net.URL;
 
+import javax.xml.bind.annotation.XmlRootElement;
+import javax.xml.bind.annotation.XmlType;
+
 /**
  * @author serge.fantino
  *
  */
+@XmlType(namespace = "http://model.enterprise.squid.com")
+@XmlRootElement
 public class ObjectReference {
 	
 	public class Binding <T> {

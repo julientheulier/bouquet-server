@@ -25,11 +25,16 @@ package com.squid.enterprise.model;
 
 import java.util.List;
 
+import javax.xml.bind.annotation.XmlRootElement;
+import javax.xml.bind.annotation.XmlType;
+
 /**
  * define what/who to share
  * @author serge.fantino
  *
  */
+@XmlType(namespace = "http://model.enterprise.squid.com")
+@XmlRootElement
 public class ShareQuery {
 	
 	private List<ObjectReference> resources = null;

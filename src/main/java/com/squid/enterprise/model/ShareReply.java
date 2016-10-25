@@ -25,11 +25,16 @@ package com.squid.enterprise.model;
 
 import java.util.Collection;
 
+import javax.xml.bind.annotation.XmlRootElement;
+import javax.xml.bind.annotation.XmlType;
+
 /**
  * Return the list of invitations sent
  * @author serge.fantino
  *
  */
+@XmlType(namespace = "http://model.enterprise.squid.com")
+@XmlRootElement
 public class ShareReply {
 	
 	private Collection<Invitation> invitations;

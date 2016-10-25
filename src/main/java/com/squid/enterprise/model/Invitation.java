@@ -25,12 +25,17 @@ package com.squid.enterprise.model;
 
 import java.util.List;
 
+import javax.xml.bind.annotation.XmlRootElement;
+import javax.xml.bind.annotation.XmlType;
+
 /**
  * 
  * An invitation is targettd as one user for one or many resources, described by Snippets
  * @author serge.fantino
  *
  */
+@XmlType(namespace = "http://model.enterprise.squid.com")
+@XmlRootElement
 public class Invitation {
 	
 	private UserAcessLevel recipient;

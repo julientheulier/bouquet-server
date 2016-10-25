@@ -23,11 +23,16 @@
  *******************************************************************************/
 package com.squid.enterprise.model;
 
+import javax.xml.bind.annotation.XmlRootElement;
+import javax.xml.bind.annotation.XmlType;
+
 /**
  * just aggregate User identification and requested Access Level
  * @author serge.fantino
  *
  */
+@XmlType(namespace = "http://model.enterprise.squid.com")
+@XmlRootElement
 public class UserAcessLevel {
 	
 	public enum AccessLevel { 
