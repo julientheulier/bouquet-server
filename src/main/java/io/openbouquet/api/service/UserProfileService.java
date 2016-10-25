@@ -1,5 +1,6 @@
 package io.openbouquet.api.service;
 
+import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
 import javax.ws.rs.HeaderParam;
 import javax.ws.rs.POST;
@@ -10,6 +11,7 @@ import javax.ws.rs.core.MediaType;
 import io.openbouquet.api.model.UserProfile;
 
 @Produces(MediaType.APPLICATION_JSON)
+@Consumes(MediaType.APPLICATION_JSON)
 public interface UserProfileService {
 
     @POST

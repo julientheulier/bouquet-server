@@ -342,7 +342,6 @@ public class AuthServiceImpl extends
 			Customer singleCustomer = ServiceUtils.getInstance().getSingleCustomer();
 			if ((singleCustomer != null) && (authorizationCode != null)) {
 				// Perform Auth with OB.io
-				OBioApiHelper.setApiEndpoint(KrakenConfig.getProperty("ob-io-api.endpoint"));
 				Membership membership = null;
 				try {
 					if (teamId !=null) {

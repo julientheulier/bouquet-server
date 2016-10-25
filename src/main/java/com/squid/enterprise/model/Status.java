@@ -23,11 +23,16 @@
  *******************************************************************************/
 package com.squid.enterprise.model;
 
+import javax.xml.bind.annotation.XmlRootElement;
+import javax.xml.bind.annotation.XmlType;
+
 /**
  * Enterprise API status
  * @author serge.fantino
  *
  */
+@XmlType(namespace = "http://model.enterprise.squid.com")
+@XmlRootElement
 public class Status {
 	
 	private String version = "1.0";

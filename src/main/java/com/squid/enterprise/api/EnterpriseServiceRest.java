@@ -42,7 +42,6 @@ import javax.ws.rs.core.MediaType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Optional;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.scope.ScopeException;
@@ -261,12 +260,12 @@ public class EnterpriseServiceRest extends CoreAuthenticatedServiceRest {
 		// check that the customer is valid for using OB.io
 		Customer customer = CustomerServiceBaseImpl.getInstance().read(root, ctx.getCustomerPk());
 		if (customer==null || customer.getAuthMode()!=AUTH_MODE.OBIO || customer.getTeamId()==null || customer.getTeamId().equals("")) {
-			if (System.getProperty("enterprise.debug")==null) {
+			if (System.getProperty("enterprise.debug")==null || System.getProperty("enterprise.debug").equals("false")) {
 				throw new APIException("this API is not available for this customer");
 			}
 		}
 		if (ctx.getToken().getAuthorizationCode()==null) {
-			if (System.getProperty("enterprise.debug")==null) {
+			if (System.getProperty("enterprise.debug")==null || System.getProperty("enterprise.debug").equals("false")) {
 				throw new APIException("this API is not available for this session");
 			}
 		}
@@ -326,7 +325,7 @@ public class EnterpriseServiceRest extends CoreAuthenticatedServiceRest {
 					if (!snippets.isEmpty()) {
 						Invitation invitation = new Invitation(sharing, snippets);
 						invitations.add(invitation);
-						if (System.getProperty("enterprise.debug")==null) {
+						if (System.getProperty("enterprise.debug")==null || System.getProperty("enterprise.debug").equals("false")) {
 							sendInvitation(ctx, customer, user, invitation);
 						}
 					}
@@ -352,15 +351,13 @@ public class EnterpriseServiceRest extends CoreAuthenticatedServiceRest {
 	private boolean sendInvitation(AppContext ctx, Customer customer, User user, Invitation invitation) {
 		try {
 			String teamId = customer.getTeamId();
-			String authorization = ctx.getToken().getAuthorizationCode();
-			ObjectMapper json = new ObjectMapper();
-			String data = json.writeValueAsString(invitation);
+			String authorization = "Bearer " + ctx.getToken().getAuthorizationCode();
 			if (user.getAuthId()!=null) {
 				// we already know the guy
-				OBioApiHelper.getInstance().getMembershipService().inviteMember(authorization, teamId, user.getAuthId(), data);
+				OBioApiHelper.getInstance().getMembershipService().inviteMember(authorization, teamId, user.getAuthId(), invitation);
 			} else {
 				// we don't know him
-				OBioApiHelper.getInstance().getMembershipService().inviteMember(authorization, teamId, user.getEmail(), data);
+				OBioApiHelper.getInstance().getMembershipService().inviteMember(authorization, teamId, user.getEmail(), invitation);
 			}
 			return true;
 		} catch (Exception e) {
