@@ -132,6 +132,10 @@ public class KrakenConfig implements KrakenConfigConstants {
 					if (confV2.getWsHost() != null) {
 						props.setProperty("kraken.ws.host", confV2.getWsHost());
 					}
+					
+					if (confV2.getPublicBaseUri() != null) {
+						props.setProperty(publicBaseUri, confV2.getPublicBaseUri());
+					}
 
 					if (confV2.getMongodb().getHost() != null) {
 						props.setProperty("kraken.mongodb.host", confV2.getMongodb().getHost());

@@ -192,6 +192,17 @@ public class AccessToken implements Persistent<AccessTokenPK> {
 	public void setAuthorizationCode(String authorizationCode) {
 		this.authorizationCode = authorizationCode;
 	}
+	
+	/**
+	 * Return the access token value as a json attribute compatible with OAuth's RFC
+	 * https://tools.ietf.org/html/rfc6749#section-4.3.3
+	 * (this is used by SwaggerUI)
+	 * @return
+	 */
+	@JsonProperty(value = "access_token")
+	public String getAccessToken() {
+		return getOid();
+	}
 
 	@XmlElement
 	public String getObjectType() {

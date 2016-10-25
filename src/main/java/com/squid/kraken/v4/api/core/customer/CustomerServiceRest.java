@@ -41,6 +41,7 @@ import javax.ws.rs.core.MediaType;
 import com.squid.core.api.CoreVersion;
 import com.squid.core.jdbc.vendor.IVendorSupport;
 import com.squid.core.jdbc.vendor.VendorSupportRegistry;
+import com.squid.kraken.v4.KrakenConfig;
 import com.squid.kraken.v4.api.core.APIException;
 import com.squid.kraken.v4.api.core.EmailHelperImpl;
 import com.squid.kraken.v4.api.core.ServiceUtils;
@@ -60,6 +61,7 @@ import com.squid.kraken.v4.model.ClientPK;
 import com.squid.kraken.v4.model.CustomerInfo;
 import com.squid.kraken.v4.model.CustomerPK;
 import com.squid.kraken.v4.model.User;
+import com.squid.kraken.v4.model.Customer.AUTH_MODE;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DAOFactory;
 import io.swagger.annotations.Api;
@@ -219,7 +221,7 @@ public class CustomerServiceRest extends CoreAuthenticatedServiceRest {
 			@ApiParam @FormParam("refresh_token") String refreshToken,
 			@ApiParam(required = true) @FormParam("client_id") String clientId,
 			@ApiParam @FormParam("client_secret") String clientSecret,
-			@ApiParam(required = true) @FormParam("redirect_uri") String redirectUri,
+			@ApiParam @FormParam("redirect_uri") String redirectUri,
 			@ApiParam @FormParam("assertion") String assertion,
 			@ApiParam @FormParam("teamId") String teamId) {
 		AppContext userContext = getAnonymousUserContext(request, null,
@@ -227,7 +229,7 @@ public class CustomerServiceRest extends CoreAuthenticatedServiceRest {
 		// process
 		ClientPK clientPk = new ClientPK(userContext.getCustomerId(), clientId);
 		if (code != null) {
-			if (teamId == null) {
+			if (KrakenConfig.getAuthMode() == AUTH_MODE.OAUTH) {
 				// auth code
 				return authService.getTokenFromAuthCode(userContext, clientPk,
 						redirectUri, code);

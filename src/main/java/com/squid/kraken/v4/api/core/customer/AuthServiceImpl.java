@@ -345,7 +345,19 @@ public class AuthServiceImpl extends
 				OBioApiHelper.setApiEndpoint(KrakenConfig.getProperty("ob-io-api.endpoint"));
 				Membership membership = null;
 				try {
-					membership = OBioApiHelper.getInstance().getMembershipService().get("Bearer "+authorizationCode, teamId);
+					if (teamId !=null) {
+						// get User membership for the team
+						membership = OBioApiHelper.getInstance().getMembershipService().get("Bearer "+authorizationCode, teamId);
+					} else {
+						// get User memberships
+						List<Membership> userMemberships = OBioApiHelper.getInstance().getMembershipService().getUserMemberships("Bearer "+authorizationCode);
+						// check if there is a suitable membership for current Customer
+						for (Membership m : userMemberships) {
+							if ((m.getTeam() != null) && (m.getTeam().getId().equals(singleCustomer.getTeamId()))) {
+								membership = m;
+							}
+						}
+					}
 				} catch (Exception e) {
 					logger.info("Auth with OB.io failed", e);
 					throw new InvalidTokenAPIException("Auth failed", false, KrakenConfig.getAuthServerEndpoint());
