@@ -31,6 +31,9 @@ import java.util.Set;
 
 import org.apache.commons.codec.binary.Base64;
 
+import com.squid.kraken.v4.api.core.AccessRightsUtils;
+import com.squid.kraken.v4.api.core.ObjectNotFoundAPIException;
+import com.squid.kraken.v4.model.AccessRight.Role;
 import com.squid.kraken.v4.model.Bookmark;
 import com.squid.kraken.v4.model.BookmarkFolder;
 import com.squid.kraken.v4.model.BookmarkFolder.BookmarkLink;
@@ -53,6 +56,11 @@ public class BookmarkFolderServiceBaseImpl {
 		return instance;
 	}
 
+	private static final String ROOT = "$";
+	private static final String MYBOOKMARKS = ROOT + "MYBOOKMARKS";
+	private static final String SHARED = ROOT + "SHARED";
+	private static final String SHAREDWITHME = ROOT + "SHAREDWITHME";
+
 	private BookmarkFolderServiceBaseImpl() {
 	}
 
@@ -64,15 +72,15 @@ public class BookmarkFolderServiceBaseImpl {
 	 *            a base64 encoded path or null
 	 * @return decoded path or current user path
 	 */
-	private String buildBookmarksPath(AppContext ctx, String pathBase64) {
+	private String buildBookmarksPath(AppContext ctx, String path) {
 		String fullPath;
-		if (pathBase64 == null) {
+		if (path == null || path.equals("")) {
 			// get my bookmarks
 			String myPath = Bookmark.SEPARATOR + Bookmark.Folder.USER
 					+ Bookmark.SEPARATOR + ctx.getUser().getOid();
 			fullPath = myPath;
 		} else {
-			fullPath = new String(Base64.decodeBase64(pathBase64));
+			fullPath = path;
 		}
 		return fullPath;
 	}
@@ -87,47 +95,197 @@ public class BookmarkFolderServiceBaseImpl {
 			return bookmarks;
 		}
 	}
-
-	public BookmarkFolder read(AppContext ctx, String pathBase64) {
+	
+	private BookmarkFolder getMyBookmarksFolder(AppContext ctx, boolean folders, boolean bookmarks) {
+		// this is actually the user/OID folder
 		BookmarkFolder bf = new BookmarkFolder();
-		String fullPath = buildBookmarksPath(ctx, pathBase64);
-		String bookmarkFolderOid = Base64.encodeBase64URLSafeString(fullPath
-				.getBytes());
+		String fullPath = MYBOOKMARKS;
+		String bookmarkFolderOid = genOID(fullPath);
 		bf.setId(new BookmarkFolderPK(ctx.getCustomerId(), bookmarkFolderOid));
-		if (pathBase64 != null) {
-			bf.setName(buildFolderName(ctx, fullPath));
+		bf.setName("/My Bookmarks");// we don't really care
+		if (folders) {
+			bf.setFolders(readFolders(ctx, MYBOOKMARKS, folders, bookmarks));
 		}
-		List<Bookmark> bookmarks = getBookmarks(ctx, fullPath, pathBase64 == null);
+		return bf;
+	}
+
+	private BookmarkFolder getSharedWithMeFolder(AppContext ctx, boolean folders, boolean bookmarks) {
+		// this is actually the user/OID folder
+		BookmarkFolder bf = new BookmarkFolder();
+		String fullPath = SHAREDWITHME;
+		String bookmarkFolderOid = genOID(fullPath);
+		bf.setId(new BookmarkFolderPK(ctx.getCustomerId(), bookmarkFolderOid));
+		bf.setName("/Shared with me");// we don't really care
+		if (folders) {
+			bf.setFolders(readFolders(ctx, MYBOOKMARKS, folders, bookmarks));
+		}
+		return bf;
+	}
+
+	private BookmarkFolder getSharedFolder(AppContext ctx, boolean folders, boolean bookmarks) {
+		// this is actually the user/OID folder
+		BookmarkFolder bf = new BookmarkFolder();
+		String fullPath = SHARED;
+		String bookmarkFolderOid = genOID(fullPath);
+		bf.setId(new BookmarkFolderPK(ctx.getCustomerId(), bookmarkFolderOid));
+		bf.setName("/Public");// we don't really care
+		if (folders) {
+			bf.setFolders(readFolders(ctx, MYBOOKMARKS, folders, bookmarks));
+		}
+		return bf;
+	}
+
+	public BookmarkFolder read(AppContext ctx, String path) {
+		if (path==null || path.equals("") || path.equals(ROOT)) {
+			// create the ROOT folder
+			BookmarkFolder bf = new BookmarkFolder();
+			String fullPath = ROOT;
+			String bookmarkFolderOid = genOID(fullPath);
+			bf.setId(new BookmarkFolderPK(ctx.getCustomerId(), bookmarkFolderOid));
+			bf.setName("/");// we don't really care
+			return bf;
+		} else if (path.equals(MYBOOKMARKS)) {
+			return getMyBookmarksFolder(ctx, false, true);
+		} else if (path.equals(SHAREDWITHME)) {
+			return getSharedWithMeFolder(ctx,false, true);
+		} else if (path.equals(SHARED)) {
+			return getSharedFolder(ctx, false, true);
+		} else if (path.startsWith(MYBOOKMARKS)) {
+			String internalPath = convertMyBookmarksToInternalPath(ctx, path);
+			return readInternal(ctx, path, internalPath);
+		} else if (path.startsWith(SHAREDWITHME)) {
+			return readSharedWithMeInternal(ctx, path);
+		} else if (path.startsWith(SHARED)) {
+			String internalPath = convertSharedToInternalPath(ctx, path);
+			return readInternal(ctx, path, internalPath);
+		} else if (path.startsWith(Bookmark.SEPARATOR)) {
+			// try the regular path?
+			// in this case internal path is the actual path
+			return readInternal(ctx, path, path);
+		} else {
+			throw new ObjectNotFoundAPIException("undefined bookmark path", true);
+		}
+	}
+	
+	private BookmarkFolder readInternal(AppContext ctx, String path, String internalPath) {
+		BookmarkFolder bf = new BookmarkFolder();
+		String bookmarkFolderOid = genOID(path);
+		bf.setId(new BookmarkFolderPK(ctx.getCustomerId(), bookmarkFolderOid));
+		if (path != null) {
+			bf.setName(buildFolderName(ctx, path));
+		}
+		bf.setBookmarks(readBookmarks(ctx, path, internalPath));
+		return bf;
+	}
+	
+	private List<BookmarkLink> readBookmarks(AppContext ctx, String path, String internalPath) {
+		List<Bookmark> bookmarks = getBookmarks(ctx, internalPath, path == null);
+		// build the folder content
+		List<BookmarkLink> links = new ArrayList<BookmarkLink>();
+		for (Bookmark o : bookmarks) {
+			String p = o.getPath();
+			// only handle the exact path
+			if (p.equals(internalPath)) {
+				BookmarkLink bm = new BookmarkLink(o.getId());
+				bm.setName(o.getName());
+				bm.setDescription(o.getDescription());
+				links.add(bm);
+			}
+		}
+		return links;
+	}
+	
+	private BookmarkFolder readSharedWithMeInternal(AppContext ctx, String path) {
+		String internalPath = Bookmark.SEPARATOR + Bookmark.Folder.USER;
+		String userPath = "/"+ctx.getUser().getOid();
+		String filterPath = path.substring(SHAREDWITHME.length());
+		BookmarkFolder bf = new BookmarkFolder();
+		String bookmarkFolderOid = genOID(path);
+		bf.setId(new BookmarkFolderPK(ctx.getCustomerId(), bookmarkFolderOid));
+		if (path != null) {
+			bf.setName(buildFolderName(ctx, path));
+		}
+		List<Bookmark> bookmarks = getBookmarks(ctx, internalPath, path == null);
 		// build the folder content
 		List<BookmarkLink> bmList = new ArrayList<BookmarkLink>();
 		for (Bookmark o : bookmarks) {
 			String p = o.getPath();
-			// only handle the exact path
-			if (p.equals(fullPath)) {
-				BookmarkLink bm = new BookmarkLink(o.getId());
-				bm.setName(o.getName());
-				bm.setDescription(o.getDescription());
-				bmList.add(bm);
+			// only handle the exact pathp = p.substring(internalPath.length());
+			p = p.substring(internalPath.length());
+			if (!p.startsWith(userPath)) {// excluding my bookmarks
+				String subPath = getSubPath(p);
+				if (filterPath.equals("") || subPath.equals(filterPath)) {
+					BookmarkLink bm = new BookmarkLink(o.getId());
+					bm.setName(o.getName());
+					bm.setDescription(o.getDescription());
+					bmList.add(bm);
+				}
 			}
 		}
 		bf.setBookmarks(bmList);
 		return bf;
 	}
+	
+	private String genOID(String path) {
+		return Base64.encodeBase64URLSafeString(path.getBytes());
+	}
 
-	public List<BookmarkFolder> readFolders(AppContext ctx, String pathBase64) {
+	public List<BookmarkFolder> readFolders(AppContext ctx, String path, boolean folders, boolean bookmarks) {
+		if (path==null || path.equals("") || path.equals(ROOT)) {
+			// create fake folders for MyBokmarks and SharedWithMe
+			List<BookmarkFolder> bfList = new ArrayList<BookmarkFolder>();
+			bfList.add(getMyBookmarksFolder(ctx, folders, bookmarks));
+			bfList.add(getSharedWithMeFolder(ctx, folders, bookmarks));
+			bfList.add(getSharedFolder(ctx, folders, bookmarks));
+			return bfList;
+		} else if (path.startsWith(MYBOOKMARKS)) {
+			return readMyBookmarkFolders(ctx, path, folders, bookmarks);
+		} else if (path.startsWith(SHAREDWITHME)) {
+			return readSharedWithMeFolders(ctx, path, folders, bookmarks);
+		} else if (path.startsWith(SHARED)) {
+			return readSharedFolders(ctx, path, folders, bookmarks);
+		} else {
+			throw new ObjectNotFoundAPIException("undefined bookmark path", true);
+		}
+	}
+	
+	protected String getInternalUserPath(AppContext ctx) {
+		return Bookmark.SEPARATOR + Bookmark.Folder.USER
+				+ Bookmark.SEPARATOR + ctx.getUser().getOid();
+	}
+	
+	protected String convertMyBookmarksToInternalPath(AppContext ctx, String path) {
+		String folderPath = path.substring(MYBOOKMARKS.length());
+		return getInternalUserPath(ctx)+folderPath;
+	}
+	
+	protected String convertSharedToInternalPath(AppContext ctx, String path) {
+		String folderPath = path.substring(SHARED.length());
+		return "/SHARED"+folderPath;
+	}
+	
+	protected List<BookmarkFolder> readMyBookmarkFolders(AppContext ctx, String path, boolean folders, boolean bookmarks) {
+		String internalPath = convertMyBookmarksToInternalPath(ctx, path);
+		return readInternalFolders(ctx, path, internalPath, folders, bookmarks);
+	}
+	
+	protected List<BookmarkFolder> readSharedFolders(AppContext ctx, String path, boolean folders, boolean bookmarks) {
+		String internalPath = convertSharedToInternalPath(ctx, path);
+		return readInternalFolders(ctx, path, internalPath, folders, bookmarks);
+	}
+	
+	protected List<BookmarkFolder> readInternalFolders(AppContext ctx, String path, String internalPath, boolean dofolders, boolean dobookmarks) {
 		List<BookmarkFolder> bfList = new ArrayList<BookmarkFolder>();
-		String fullPath = buildBookmarksPath(ctx, pathBase64);
-		List<Bookmark> bookmarks = getBookmarks(ctx, fullPath, pathBase64 == null);
-
+		List<Bookmark> bookmarks = getBookmarks(ctx, internalPath, path == null);
 		// compute the folders
 		List<BookmarkPK> pkList = new ArrayList<BookmarkPK>();
 		Set<String> folders = new HashSet<String>();
 		for (Bookmark o : bookmarks) {
 			String p = o.getPath();
 			// ignore leading mypath
-			p = p.substring(fullPath.length());
+			p = p.substring(internalPath.length());
 			// process the trailing path
-			if (p != null) {
+			if (p != null && !p.equals("")) {
 				String[] split = p.split(Bookmark.SEPARATOR);
 				if (split.length > 0) {
 					if (split[0].equals("")) {
@@ -145,13 +303,72 @@ public class BookmarkFolderServiceBaseImpl {
 		}
 		// build the BookmarkFolder list
 		for (String s : folders) {
-			String folderPath = fullPath + Bookmark.SEPARATOR + s;
-			String bookmarkFolderOid = Base64
-					.encodeBase64URLSafeString(folderPath.getBytes());
-			BookmarkFolder bf = read(ctx, bookmarkFolderOid);
-			bfList.add(bf);
+			String folderPath = path + Bookmark.SEPARATOR + s;
+			if (dobookmarks) {
+				String folderInternalPath = internalPath + Bookmark.SEPARATOR + s;
+				BookmarkFolder bf = readInternal(ctx, folderPath, folderInternalPath);
+				bfList.add(bf);
+			} else {
+				bfList.add(createEmptyFolder(ctx, folderPath));
+			}
 		}
 		return bfList;
+	}
+	
+	private String getSubPath(String path) {
+		// remove the user OID part (first part)
+		int pos = path.indexOf("/",1);
+		if (pos>=0) {
+			return path.substring(pos);
+		} else {
+			return "";
+		}
+	}
+	
+	protected List<BookmarkFolder> readSharedWithMeFolders(AppContext ctx, String path, boolean folders2, boolean bookmarks2) {
+		String internalPath = Bookmark.SEPARATOR + Bookmark.Folder.USER;
+		String userPath = "/"+ctx.getUser().getOid();
+		String filterPath = path.substring(SHAREDWITHME.length());
+		List<BookmarkFolder> bfList = new ArrayList<BookmarkFolder>();
+		List<Bookmark> bookmarks = getBookmarks(ctx, internalPath, path == null);
+		// compute the folders
+		Set<String> folders = new HashSet<String>();
+		for (Bookmark o : bookmarks) {
+			String p = o.getPath();
+			// ignore leading mypath
+			p = p.substring(internalPath.length());
+			if (!p.startsWith(userPath)) {// excluding my bookmarks
+				String subPath = getSubPath(p);
+				if (filterPath.equals("") || subPath.startsWith(filterPath)) {
+					// process the trailing path
+					String trailing = !filterPath.equals("")?subPath.substring(filterPath.length()):subPath;
+					if (trailing != null) {
+						String[] split = trailing.split(Bookmark.SEPARATOR);
+						if (split.length > 1) {
+							folders.add(split[1]);
+						} else {
+							//folders.add("");
+						}
+					}
+				}
+			}
+		}
+		// build the BookmarkFolder list
+		for (String s : folders) {
+			String folderPath = path + Bookmark.SEPARATOR + s;
+			bfList.add(createEmptyFolder(ctx, folderPath));
+		}
+		return bfList;
+	}
+	
+	private BookmarkFolder createEmptyFolder(AppContext ctx, String folderPath) {
+		BookmarkFolder bf = new BookmarkFolder();
+		String bookmarkFolderOid = genOID(folderPath);
+		bf.setId(new BookmarkFolderPK(ctx.getCustomerId(), bookmarkFolderOid));
+		if (folderPath != null) {
+			bf.setName(buildFolderName(ctx, folderPath));
+		}
+		return bf;
 	}
 
 	private String buildFolderName(AppContext ctx, String fullPath) {
@@ -163,6 +380,31 @@ public class BookmarkFolderServiceBaseImpl {
 		} else {
 			return fullPath.substring(fullPath.lastIndexOf(Bookmark.SEPARATOR));
 		}
+	}
+	
+	/**
+	 * this method list the bookmarks shared with the current user
+	 * @param ctx
+	 * @return
+	 */
+	public List<Bookmark> listSharedBookmarks(AppContext ctx, String path) {
+		List<Bookmark> result = new ArrayList<>();
+		// this is someone else bookmark, so we can only filter by /USER/
+		String usersPath = Bookmark.SEPARATOR + Bookmark.Folder.USER
+			+ Bookmark.SEPARATOR;
+		List<Bookmark> bookmarks = ((BookmarkDAO) factory
+				.getDAO(Bookmark.class)).findByPath(ctx, usersPath);
+		// this is my bookmarks - but we don't want them
+		String myPath = usersPath + ctx.getUser().getOid();
+		for (Bookmark bookmark : bookmarks) {
+			if (!bookmark.getPath().startsWith(myPath)) {// not mine
+				// do user have access to it?
+				if (AccessRightsUtils.getInstance().hasRole(ctx, bookmark, Role.READ)) {
+					result.add(bookmark);
+				}
+			}
+		}
+		return result;
 	}
 
 }
