@@ -5,6 +5,8 @@ import java.io.Serializable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.squid.kraken.v4.KrakenConfig;
+
 import io.openbouquet.api.service.MembershipService;
 import io.openbouquet.api.service.UserProfileService;
 
@@ -22,6 +24,9 @@ public class OBioApiHelper implements Serializable {
 	public static OBioApiHelper getInstance() {
 		if (instance == null) {
 			instance = new OBioApiHelper();
+			if (apiEndpoint == null) {
+				OBioApiHelper.setApiEndpoint(KrakenConfig.getProperty("ob-io-api.endpoint"));
+			}
 		}
 		return instance;
 	}
