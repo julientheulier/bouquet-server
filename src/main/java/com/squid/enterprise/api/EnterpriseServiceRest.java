@@ -490,7 +490,7 @@ public class EnterpriseServiceRest extends CoreAuthenticatedServiceRest {
 			user.setGroups(copy);
 			userDAO.update(ctx, user);
 			// return true only if new invitation is needed
-			return currentRole!=null && currentRole.ordinal()<role.ordinal();
+			return role.ordinal()>Role.NONE.ordinal() && (currentRole==null || currentRole.ordinal()<role.ordinal());
 		} else {
 			return false;
 		}
