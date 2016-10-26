@@ -169,7 +169,7 @@ public class BookmarkFolderServiceBaseImpl {
 	private BookmarkFolder readInternal(AppContext ctx, String path, String internalPath) {
 		BookmarkFolder bf = new BookmarkFolder();
 		// for real folder, using the internal path
-		String bookmarkFolderOid = genOID(internalPath);
+		String bookmarkFolderOid = genOID(path);
 		bf.setId(new BookmarkFolderPK(ctx.getCustomerId(), bookmarkFolderOid));
 		if (path != null) {
 			bf.setName(buildFolderName(ctx, path));
@@ -200,7 +200,7 @@ public class BookmarkFolderServiceBaseImpl {
 		String userPath = "/"+ctx.getUser().getOid();
 		String filterPath = path.substring(BookmarkFolder.SHAREDWITHME.length());
 		BookmarkFolder bf = new BookmarkFolder();
-		String bookmarkFolderOid = genOID(internalPath);
+		String bookmarkFolderOid = genOID(path);
 		bf.setId(new BookmarkFolderPK(ctx.getCustomerId(), bookmarkFolderOid));
 		if (path != null) {
 			bf.setName(buildFolderName(ctx, path));
@@ -315,7 +315,7 @@ public class BookmarkFolderServiceBaseImpl {
 				BookmarkFolder bf = readInternal(ctx, folderPath, folderInternalPath);
 				bfList.add(bf);
 			} else {
-				bfList.add(createEmptyFolder(ctx, folderPath, folderInternalPath));
+				bfList.add(createEmptyFolder(ctx, folderPath));
 			}
 		}
 		return bfList;
@@ -362,15 +362,14 @@ public class BookmarkFolderServiceBaseImpl {
 		// build the BookmarkFolder list
 		for (String s : folders) {
 			String folderPath = path + Bookmark.SEPARATOR + s;
-			String folderInternalPath = internalPath + Bookmark.SEPARATOR + s;
-			bfList.add(createEmptyFolder(ctx, folderPath, folderInternalPath));
+			bfList.add(createEmptyFolder(ctx, folderPath));
 		}
 		return bfList;
 	}
 	
-	private BookmarkFolder createEmptyFolder(AppContext ctx, String path, String internalPath) {
+	private BookmarkFolder createEmptyFolder(AppContext ctx, String path) {
 		BookmarkFolder bf = new BookmarkFolder();
-		String bookmarkFolderOid = genOID(internalPath);
+		String bookmarkFolderOid = genOID(path);
 		bf.setId(new BookmarkFolderPK(ctx.getCustomerId(), bookmarkFolderOid));
 		if (path != null) {
 			bf.setName(buildFolderName(ctx, path));
