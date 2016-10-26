@@ -304,6 +304,10 @@ public class AccessRightsUtils {
 				if (currentUser.getId().getUserId().equals(r.getUserId())) {
 					i.remove();
 				}
+				// removing right with EXECUTE
+				else if (Role.EXECUTE.equals(r.getRole())) {
+					i.remove();
+				}
 			}
 			// add the current user
 			AccessRight ownerRight = new AccessRight();

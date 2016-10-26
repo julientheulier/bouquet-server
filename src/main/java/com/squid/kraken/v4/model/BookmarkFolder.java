@@ -37,6 +37,12 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  */
 @XmlType(namespace = "http://model.v4.kraken.squid.com")
 public class BookmarkFolder implements HasChildren {
+	
+	// Special Paths
+	public static final String ROOT = "$";
+	public static final String MYBOOKMARKS = ROOT + "MYBOOKMARKS";
+	public static final String SHARED = ROOT + "SHARED";
+	public static final String SHAREDWITHME = ROOT + "SHAREDWITHME";
 
 	private static String[] CHILDREN = { "folders" };
 
@@ -72,7 +78,7 @@ public class BookmarkFolder implements HasChildren {
 	}
 
 	public List<BookmarkLink> getBookmarks() {
-		return bookmarks;
+		return bookmarks!=null?bookmarks:Collections.emptyList();
 	}
 
 	public void setBookmarks(List<BookmarkLink> bookmarks) {
