@@ -229,8 +229,8 @@ public class EnterpriseServiceRest extends CoreAuthenticatedServiceRest {
 	}
 	
 	private UserAcessLevel getUserAccessLevel(AppContext ctx, AccessRight right) {
-		AccessLevel role = convertRole(right.getRole());
-		if (role!=null) {
+		AccessLevel acl = convertRole(right.getRole());
+		if (acl!=null && !acl.equals(AccessLevel.NONE)) {
 			// lookup the user
 			String userId = right.getUserId();
 			UserPK pk = new UserPK(ctx.getCustomerId(), userId);
@@ -240,7 +240,7 @@ public class EnterpriseServiceRest extends CoreAuthenticatedServiceRest {
 				if (user.getEmail()!=null) {// we are using the email as the identifier for external
 					UserAcessLevel ual = new UserAcessLevel();
 					ual.setUserID(user.getEmail());
-					ual.setAccessLevel(role);
+					ual.setAccessLevel(acl);
 					return ual;
 				}
 			}
@@ -466,13 +466,12 @@ public class EnterpriseServiceRest extends CoreAuthenticatedServiceRest {
 	 * @param role
 	 * @return
 	 */
-	private boolean updateAccessRole(AppContext ctx, Project resource, User user, AccessLevel role) {
+	private boolean updateAccessRole(AppContext ctx, Project resource, User user, AccessLevel acl) {
 		// in order to give full access to the project, the user must be added to one of the special groups (admin_$ID or guet_$ID)
-		Role acl = convertRole(role);
-		AccessRight right = new AccessRight(acl, user.getId().getUserId(), null);
+		Role role = convertRole(acl);
 		Role currentRole = AccessRightsUtils.getInstance().getRole(user, resource);
-		if (currentRole==null || !currentRole.equals(right.getRole())) {
-			UserGroup group = getUserGroupForRole(ctx, resource, role);
+		if (currentRole==null || !currentRole.equals(role)) {
+			UserGroup group = getUserGroupForRole(ctx, resource, acl);
 			// if group is null that means revoking access!!!
 			ArrayList<String> copy = new ArrayList<>(user.getGroups());
 			Iterator<String> iter = copy.iterator();
@@ -491,7 +490,7 @@ public class EnterpriseServiceRest extends CoreAuthenticatedServiceRest {
 			user.setGroups(copy);
 			userDAO.update(ctx, user);
 			// return true only if new invitation is needed
-			return currentRole!=null && !currentRole.equals(Role.NONE);
+			return currentRole!=null && currentRole.ordinal()<role.ordinal();
 		} else {
 			return false;
 		}
@@ -624,7 +623,7 @@ public class EnterpriseServiceRest extends CoreAuthenticatedServiceRest {
 		switch (role) {
 		case WRITE: return AccessLevel.EDITOR;
 		case READ: return AccessLevel.VIEWER;
-		case EXECUTE: return AccessLevel.VIEWER;
+		case EXECUTE: return AccessLevel.NONE;
 		case OWNER:// ignore, we never change OWNER role
 		case NONE:
 		default:
