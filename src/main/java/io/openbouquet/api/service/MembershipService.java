@@ -23,7 +23,7 @@ import io.openbouquet.api.model.User;
 public interface MembershipService {
 
     @GET
-    @Path("/teamMembership")
+    @Path("/teamMembership/{teamid}")
     public Membership get(@HeaderParam("Authorization") String authorization, @PathParam("teamid") String teamid);
 
     @GET
