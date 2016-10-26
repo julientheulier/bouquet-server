@@ -23,6 +23,7 @@
  *******************************************************************************/
 package com.squid.kraken.v4.api.core;
 
+import java.io.IOException;
 import java.math.BigInteger;
 import java.security.Key;
 import java.security.MessageDigest;
@@ -31,6 +32,7 @@ import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Date;
 import java.util.Enumeration;
 import java.util.HashMap;
@@ -53,6 +55,9 @@ import org.bson.types.ObjectId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.fasterxml.jackson.core.JsonParseException;
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Optional;
 import com.squid.kraken.v4.KrakenConfig;
 import com.squid.kraken.v4.api.core.customer.AuthServiceImpl;
@@ -339,7 +344,19 @@ public class ServiceUtils {
 		AppContext rootContext = ServiceUtils.getInstance().getRootUserContext(
 				customerId);
 		Long exp = null;
-		if (validityMillis != null) {
+		if (authorizationCode != null) {
+			// decode auth code payload to get expiration date
+			String[] aCode = authorizationCode.split("\\.");
+			String payload = new String(Base64.getDecoder().decode(aCode[1]));
+			ObjectMapper objectMapper = new ObjectMapper();
+			try {
+				JWTPayload readValue = objectMapper.readValue(payload, JWTPayload.class);
+				exp = readValue.getExp()*1000;
+			} catch (Exception e) {
+				logger.info("AuthorizationCode parsing issue", e);
+			}
+		} 
+		if ((exp == null) && (validityMillis != null)) {
 			exp = (creationTimestamp == null) ? System.currentTimeMillis()
 					: creationTimestamp;
 			exp += validityMillis;
