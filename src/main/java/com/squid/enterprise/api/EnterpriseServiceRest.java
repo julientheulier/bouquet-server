@@ -59,6 +59,7 @@ import com.squid.kraken.v4.api.core.AccessRightsUtils;
 import com.squid.kraken.v4.api.core.OBioApiHelper;
 import com.squid.kraken.v4.api.core.ObjectNotFoundAPIException;
 import com.squid.kraken.v4.api.core.ServiceUtils;
+import com.squid.kraken.v4.api.core.bookmark.BookmarkServiceBaseImpl;
 import com.squid.kraken.v4.api.core.customer.CoreAuthenticatedServiceRest;
 import com.squid.kraken.v4.api.core.customer.CustomerServiceBaseImpl;
 import com.squid.kraken.v4.api.core.user.UserServiceBaseImpl;
@@ -136,20 +137,58 @@ public class EnterpriseServiceRest extends CoreAuthenticatedServiceRest {
 		if (resource==null) {
 			throw new ObjectNotFoundAPIException("cannot find resource with reference="+reference, true);
 		}
-		HashSet<AccessRight> rights = new HashSet<>(resource.getAccessRights());
-		ObjectReference ref = new ObjectReference(reference);
-		ArrayList<UserAcessLevel> invitations = new ArrayList<>();
+		if (resource instanceof Bookmark) {
+			return getBookmarkShare(ctx, root, reference, (Bookmark)resource);
+		} else {
+			return getStandardShare(ctx, root, reference, resource);
+		}
+	}
+
+	/**
+	 * use bookmark rules for computing the sharing
+	 * @param ctx
+	 * @param root
+	 * @param reference
+	 * @param resource
+	 * @return
+	 */
+	private ShareQuery getBookmarkShare(AppContext ctx, AppContext root, String reference, Bookmark resource) {
+		ArrayList<UserAcessLevel> accesses = new ArrayList<>();
+		for (AccessRight right : resource.getAccessRights()) {
+			if (right.getUserId()!=null) {
+				UserAcessLevel ual = getUserAccessLevel(ctx, right);
+				if (ual!=null) {
+					accesses.add(ual);
+				}
+			}
+		}
+		ShareQuery query = new ShareQuery();
+		query.setResources(Collections.singletonList(new ObjectReference(reference)));
+		query.setSharing(accesses);
+		return query;
+	}
+	
+	/**
+	 * use the standard ACL implementation for computing the sharing
+	 * @param ctx
+	 * @param root
+	 * @param reference
+	 * @param resource
+	 * @return
+	 */
+	private ShareQuery getStandardShare(AppContext ctx, AppContext root, String reference, PersistentBaseImpl<? extends GenericPK> resource) {
+		ArrayList<UserAcessLevel> accesses = new ArrayList<>();
 		logger.info("ACL for object: "+resource.getId().toString());
 		String objectID = "";
 		if (resource.getId() instanceof ProjectPK) {
 			// get it by inheritance
 			objectID = ((ProjectPK)resource.getId()).getProjectId();
 		}
-		for (AccessRight right : rights) {
+		for (AccessRight right : resource.getAccessRights()) {
 			if (right.getUserId()!=null) {
 				UserAcessLevel ual = getUserAccessLevel(ctx, right);
 				if (ual!=null) {
-					invitations.add(ual);
+					accesses.add(ual);
 				}
 			} else if (right.getGroupId()!=null) {
 				try {
@@ -163,7 +202,7 @@ public class EnterpriseServiceRest extends CoreAuthenticatedServiceRest {
 							logger.info(user.toString()+" as part of "+group.toString());
 							UserAcessLevel invitation = getUserAccessLevel(ctx, right, user);
 							if (invitation!=null) {
-								invitations.add(invitation);
+								accesses.add(invitation);
 							}
 						}
 					}
@@ -173,8 +212,8 @@ public class EnterpriseServiceRest extends CoreAuthenticatedServiceRest {
 			}
 		}
 		ShareQuery query = new ShareQuery();
-		query.setResources(Collections.singletonList(ref));
-		query.setSharing(invitations);
+		query.setResources(Collections.singletonList(new ObjectReference(reference)));
+		query.setSharing(accesses);
 		return query;
 	}
 	
@@ -243,18 +282,18 @@ public class EnterpriseServiceRest extends CoreAuthenticatedServiceRest {
 	@ApiOperation(
 			value = "Share some resources with some users",
 			notes = "")
-	public ShareReply postShare(
+	public ShareReply doShare(
 			@Context HttpServletRequest request,
 			ShareQuery query) 
 	{
-		return doShare(request, query);
+		AppContext ctx = getUserContext(request);
+		return doShare(ctx, query);
 	}
 	
 	private ShareReply doShare(
-			HttpServletRequest request,
+			AppContext ctx,
 			ShareQuery query) {
 		Collection<String> errors = new ArrayList<>();
-		AppContext ctx = getUserContext(request);
 		// escalate to root when needing to deal with Customer or updating User's rights
 		AppContext root = ServiceUtils.getInstance().getRootUserContext(ctx);
 		// check that the customer is valid for using OB.io
@@ -430,7 +469,6 @@ public class EnterpriseServiceRest extends CoreAuthenticatedServiceRest {
 	private boolean updateAccessRole(AppContext ctx, Project resource, User user, AccessLevel role) {
 		// in order to give full access to the project, the user must be added to one of the special groups (admin_$ID or guet_$ID)
 		Role acl = convertRole(role);
-		HashSet<AccessRight> rights = new HashSet<>(resource.getAccessRights());
 		AccessRight right = new AccessRight(acl, user.getId().getUserId(), null);
 		Role currentRole = AccessRightsUtils.getInstance().getRole(user, resource);
 		if (currentRole==null || !currentRole.equals(right.getRole())) {
@@ -452,12 +490,20 @@ public class EnterpriseServiceRest extends CoreAuthenticatedServiceRest {
 			if (group!=null) copy.add(group.getId().getUserGroupId());
 			user.setGroups(copy);
 			userDAO.update(ctx, user);
-			return true;
+			// return true only if new invitation is needed
+			return currentRole!=null && !currentRole.equals(Role.NONE);
 		} else {
 			return false;
 		}
 	}
 	
+	/**
+	 * return the group to use given the access level, or null if no access is permitted
+	 * @param ctx
+	 * @param resource
+	 * @param role
+	 * @return
+	 */
 	private UserGroup getUserGroupForRole(AppContext ctx, Project resource, AccessLevel role) {
 		String prefix = "";
 		if (role==AccessLevel.EDITOR) prefix="admin_";
@@ -480,28 +526,49 @@ public class EnterpriseServiceRest extends CoreAuthenticatedServiceRest {
 	 * @param role
 	 * @return
 	 */
-	private boolean updateAccessRole(AppContext ctx, Bookmark resource, User user, AccessLevel role) {
-		if (role==AccessLevel.NONE) {
-			// asking for removing access to the resource
-		} else {
-			Role acl = convertRole(role);
+	private boolean updateAccessRole(AppContext ctx, Bookmark bookmark, User user, AccessLevel acl) {
+		Role role = convertRole(acl);
+		// check what to do
+		Role currentRole = AccessRightsUtils.getInstance().getRole(user, bookmark);
+		if (currentRole==null || currentRole.ordinal()!=role.ordinal()) {
 			// grant access to the bookmark
-			if (grantRole(ctx, resource, user, acl)) {
-				// give the user access to the project with role=EXECUTE if necessary
-				try {
-					Project project = ProjectManager.INSTANCE.getProject(ctx, resource.getId().getProjectId());
-					grantRole(ctx, project, user, Role.EXECUTE);
-					return true;
-				} catch (ScopeException e) {
-					return false;
+			if (grantRole(ctx, bookmark, user, role)) {
+				if (!role.equals(Role.NONE)) {
+					// give the user access to the project with role=EXECUTE if necessary
+					try {
+						Project project = ProjectManager.INSTANCE.getProject(ctx, bookmark.getId().getProjectId());
+						grantRole(ctx, project, user, Role.EXECUTE);// if already granted it's a no-op
+						return true;
+					} catch (ScopeException e) {
+						return false;
+					}
+				} else {
+					// remove access if no more sharing
+					try {
+						Project project = ProjectManager.INSTANCE.getProject(ctx, bookmark.getId().getProjectId());
+						if (hasSharedWithMeBookmark(ctx, bookmark.getId().getProjectId())) {
+							grantRole(ctx, project, user, Role.NONE);
+						}
+						return false;// no invitation
+					} catch (ScopeException e) {
+						return false;
+					}
 				}
-			} else {
-				// already has it or better, what to do?
-				Role current = AccessRightsUtils.getInstance().getRole(user, resource);
-				if (current==Role.WRITE && acl==Role.READ) {
-					// someone is asking for downgrade
-					return true;
-				}
+			}
+		} else {
+			// already have it
+			return false;
+		}
+		return false;
+	}
+	
+	private boolean hasSharedWithMeBookmark(AppContext ctx, String projectID) {
+		String pathPrefix = Bookmark.SEPARATOR+Bookmark.Folder.USER+Bookmark.SEPARATOR;
+		List<Bookmark> bookmarks = BookmarkServiceBaseImpl.getInstance().readAll(ctx, projectID, pathPrefix);
+		pathPrefix += ctx.getUser().getOid()+Bookmark.SEPARATOR;
+		for (Bookmark bookmark : bookmarks) {
+			if (!bookmark.getPath().startsWith(pathPrefix)) {
+				return true;
 			}
 		}
 		// else
@@ -509,32 +576,41 @@ public class EnterpriseServiceRest extends CoreAuthenticatedServiceRest {
 	}
 	
 	/**
-	 * Add the role for the user to the resource
+	 * Add the role for the user to the resource - not taking the groups into account
+	 * If the role is NONE, that will remove any Role for that user
 	 * @param ctx
 	 * @param project
 	 * @param user
 	 */
 	@SuppressWarnings("unchecked")
 	private boolean grantRole(AppContext ctx, PersistentBaseImpl<? extends GenericPK> resource, User user, Role role) {
-		Role currentRole = AccessRightsUtils.getInstance().getRole(user, resource);
-		if (currentRole==null || currentRole.ordinal()<Role.EXECUTE.ordinal()) {
-			HashSet<AccessRight> rights = new HashSet<>(resource.getAccessRights());
-			AccessRight right = new AccessRight(role, user.getId().getUserId(), null);
-			if (!AccessRightsUtils.getInstance().hasRole(user, rights, role)) {
-				rights.add(right);
-				resource.setAccessRights(rights);
-				DAOFactory.getDAOFactory().getDAO(resource.getClass()).update(ctx, resource);
-				return true;
+		HashSet<AccessRight> rights = new HashSet<>(resource.getAccessRights());
+		AccessRight right = new AccessRight(role, user.getId().getUserId(), null);
+		removeRightsFor(rights, user);// just in case
+		if (!role.equals(Role.NONE)) rights.add(right);
+		resource.setAccessRights(rights);
+		DAOFactory.getDAOFactory().getDAO(resource.getClass()).update(ctx, resource);
+		return true;
+	}
+
+	/**
+	 * @param rights
+	 * @param user
+	 */
+	private void removeRightsFor(HashSet<AccessRight> rights, User user) {
+		Iterator<AccessRight> iter = rights.iterator();
+		while (iter.hasNext()) {
+			AccessRight acr = iter.next();
+			if (acr.getUserId()!=null && acr.getUserId().equals(user.getOid())) {
+				iter.remove();
 			}
 		}
-		// else 
-		return false;
 	}
 
 	private Role convertRole(AccessLevel role) {
 		switch (role) {
 		case NONE:
-			return null;
+			return Role.NONE;
 		case EDITOR:
 			return Role.WRITE;
 		case VIEWER:
@@ -548,6 +624,7 @@ public class EnterpriseServiceRest extends CoreAuthenticatedServiceRest {
 		switch (role) {
 		case WRITE: return AccessLevel.EDITOR;
 		case READ: return AccessLevel.VIEWER;
+		case EXECUTE: return AccessLevel.VIEWER;
 		case OWNER:// ignore, we never change OWNER role
 		case NONE:
 		default:
