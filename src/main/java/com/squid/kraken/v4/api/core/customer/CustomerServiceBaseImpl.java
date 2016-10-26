@@ -50,7 +50,6 @@ import com.squid.kraken.v4.api.core.user.UserServiceBaseImpl;
 import com.squid.kraken.v4.model.AccessRight;
 import com.squid.kraken.v4.model.AccessRight.Role;
 import com.squid.kraken.v4.model.AccessToken;
-import com.squid.kraken.v4.model.AccessTokenPK;
 import com.squid.kraken.v4.model.Client;
 import com.squid.kraken.v4.model.ClientPK;
 import com.squid.kraken.v4.model.Customer;
@@ -284,33 +283,6 @@ public class CustomerServiceBaseImpl extends
 			// should not happen
 			throw new RuntimeException(e);
 		}
-	}
-
-	/**
-	 * Create a new Token.
-	 * 
-	 * @param ctx
-	 * @param clientPk
-	 * @param userId
-	 * @param creationTimestamp
-	 *            custom creation date or current date if <tt>null</tt>
-	 * @param validityMillis
-	 *            the token validity in milliseconds.
-	 * @return an AccessToken
-	 */
-	public AccessToken createToken(AppContext ctx, ClientPK clientPk,
-			String userId, Long creationTimestamp, Long validityMillis) {
-		long exp = (creationTimestamp == null) ? System.currentTimeMillis()
-				: creationTimestamp;
-		exp += validityMillis;
-		AccessTokenPK tokenId = new AccessTokenPK(UUID.randomUUID().toString());
-		String clientId = clientPk == null ? null : clientPk.getClientId();
-		AccessToken newToken = new AccessToken(tokenId, ctx.getCustomerId(),
-				clientId, exp);
-		newToken.setUserId(userId);
-		AccessToken token = DAOFactory.getDAOFactory()
-				.getDAO(AccessToken.class).create(ctx, newToken);
-		return token;
 	}
 
 	/**
