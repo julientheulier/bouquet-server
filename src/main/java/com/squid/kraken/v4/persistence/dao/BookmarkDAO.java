@@ -28,8 +28,10 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 
+import com.google.common.base.Optional;
 import com.squid.kraken.v4.api.core.AccessRightsUtils;
 import com.squid.kraken.v4.api.core.InvalidCredentialsAPIException;
+import com.squid.kraken.v4.api.core.AccessRightsUtils.Inheritance;
 import com.squid.kraken.v4.caching.Cache;
 import com.squid.kraken.v4.caching.CacheFactoryEHCache;
 import com.squid.kraken.v4.model.AccessRight;
@@ -199,6 +201,49 @@ public class BookmarkDAO extends
 			findByProjectCache.remove(new ProjectPK(id.getCustomerId(), id
 					.getProjectId()));
 		}
+	}
+	
+	/**
+	 * override in order to apply special bookmark rules
+	 */
+	@Override
+	public Optional<Bookmark> read(AppContext ctx, BookmarkPK id) {
+		Optional<Bookmark> object = ds.read(ctx, type, id);
+		if (object.isPresent()) {
+			// check is based on the path
+			String path = object.get().getPath();
+			if (path==null) {
+				// apply default
+				AccessRightsUtils.getInstance().checkRole(ctx, object.get(),
+						Role.READ);
+			} else if (path.startsWith(Bookmark.SEPARATOR + Bookmark.Folder.SHARED)) {
+				// this is a shared bookmark, anyone with at least execute right on the project can access
+				AccessRightsUtils.getInstance().checkRole(ctx, object.get(),
+						Role.EXECUTE);
+			} else if (path.startsWith(Bookmark.SEPARATOR + Bookmark.Folder.USER)) {
+				// need to check the oid
+				if (path.startsWith(Bookmark.SEPARATOR + Bookmark.Folder.USER + Bookmark.SEPARATOR + ctx.getUser().getOid() + Bookmark.SEPARATOR)
+				 || (path.equals(Bookmark.SEPARATOR + Bookmark.Folder.USER + Bookmark.SEPARATOR + ctx.getUser().getOid())))
+				 {
+					// just always OK
+				} else {
+					// check if it is shared with me
+					final Role role = Role.EXECUTE;
+					if (!AccessRightsUtils.getInstance().hasRole(ctx.getUser(), object.get().getAccessRights(), role, 
+							Inheritance.NONE)// check for explicit role
+					) {
+						throw new InvalidCredentialsAPIException(
+								"Insufficient privileges : caller hasn't " + role.name()
+										+ " role on " + object.get().getId(), ctx.isNoError());
+					}
+				}
+			} else {
+				// apply default
+				AccessRightsUtils.getInstance().checkRole(ctx, object.get(),
+						Role.READ);
+			}
+		}
+		return super.read(ctx, id);
 	}
 
 }
