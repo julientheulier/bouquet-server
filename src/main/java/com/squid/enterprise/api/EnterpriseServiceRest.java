@@ -365,7 +365,7 @@ public class EnterpriseServiceRest extends CoreAuthenticatedServiceRest {
 						Invitation invitation = new Invitation(sharing, snippets);
 						invitations.add(invitation);
 						if (System.getProperty("enterprise.debug")==null || System.getProperty("enterprise.debug").equals("false")) {
-							sendInvitation(ctx, customer, user, invitation);
+							String error = sendInvitation(ctx, customer, user, invitation);
 						}
 					}
 				} else {
@@ -382,26 +382,26 @@ public class EnterpriseServiceRest extends CoreAuthenticatedServiceRest {
 
 	/**
 	 * send the invitation to the user through OB.io
-	 * @param customer 
-	 * @param user 
-	 * @param invitation
-	 * @param snippets
+	 * @param ctx: the app context as usual
+	 * @param customer: the current customer to get the teamId to join
+	 * @param user : the user to invite
+	 * @param invitation : the invitation object
+	 * @return a error string, null if invitation is sent
 	 */
-	private boolean sendInvitation(AppContext ctx, Customer customer, User user, Invitation invitation) {
+	private String sendInvitation(AppContext ctx, Customer customer, User user, Invitation invitation) {
 		try {
 			String teamId = customer.getTeamId();
 			String authorization = "Bearer " + ctx.getToken().getAuthorizationCode();
-			if (user.getAuthId()!=null) {
-				// we already know the guy
-				OBioApiHelper.getInstance().getMembershipService().inviteMember(authorization, teamId, user.getAuthId(), invitation);
+			if (user.getEmail()!=null) {
+				String result = OBioApiHelper.getInstance().getMembershipService().inviteMember(authorization, teamId, user.getEmail(), invitation);
+				System.out.println(result);
 			} else {
-				// we don't know him
-				OBioApiHelper.getInstance().getMembershipService().inviteMember(authorization, teamId, user.getEmail(), invitation);
+				return "unable to send invitation to some user with no email";
 			}
-			return true;
+			return null;
 		} catch (Exception e) {
 			logger.error("/share failed to send invite to user "+user.getEmail()+" due to:"+e.getMessage(), e);
-			return false;
+			return "unable to send invitation to "+user.getEmail();
 		}
 	}
 
