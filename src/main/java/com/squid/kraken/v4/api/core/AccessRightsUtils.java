@@ -46,6 +46,19 @@ public class AccessRightsUtils {
 	 * Check if a User has a given Role (or superior Role) for an object.
 	 */
 	public boolean hasRole(User user, Set<AccessRight> accessRights, Role role) {
+		return hasRole(user, accessRights, role, Inheritance.GROUP);// including groups
+	}
+	
+	public enum Inheritance { 
+		NONE, 	// NO inheritance, user must have explicit access
+		GROUP 	// inherit access from any group
+	};
+
+	/**
+	 * Check if a User has a given Role (or superior Role) for an object.
+	 * @param if explicit is true, the user must have an explicit role, not inherited by the group
+	 */
+	public boolean hasRole(User user, Set<AccessRight> accessRights, Role role, Inheritance inheritance) {
 		boolean hasRole = false;
 		if (user.isSuperUser()) {
 			hasRole = true;
@@ -96,7 +109,7 @@ public class AccessRightsUtils {
 										user.getId().getUserId())) {
 							hasRole = true;
 							return hasRole;// since hasRole will stay true, we can exit now
-						} else {
+						} else if (inheritance==Inheritance.GROUP) {
 							// check if one of user's groups has right
 							for (String group : user.getGroupsAndUpgrades()) {
 								if ((right.getGroupId() != null)
@@ -175,7 +188,7 @@ public class AccessRightsUtils {
 			hasRole = (maxRole(role, objectRole) == objectRole);
 		} else {
 			// use object's access rights
-			hasRole = hasRole(ctx.getUser(), object.getAccessRights(), role);
+			hasRole = hasRole(ctx.getUser(), object.getAccessRights(), role, Inheritance.GROUP);
 		}
 		// if not superuser and hasn't right
 		if (!hasRole) {
@@ -186,7 +199,7 @@ public class AccessRightsUtils {
 	}
 
 	public boolean hasRole(AppContext ctx, Persistent<?> object, Role role) {
-		return hasRole(ctx.getUser(), object.getAccessRights(), role);
+		return hasRole(ctx.getUser(), object.getAccessRights(), role, Inheritance.GROUP);
 	}
 
 	/**
