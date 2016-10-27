@@ -37,12 +37,19 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  */
 @XmlType(namespace = "http://model.v4.kraken.squid.com")
 public class BookmarkFolder implements HasChildren {
+	
+	// Special Paths
+	public static final String ROOT = "$";
+	public static final String MYBOOKMARKS = ROOT + "MYBOOKMARKS";
+	public static final String SHARED = ROOT + "SHARED";
+	public static final String SHAREDWITHME = ROOT + "SHAREDWITHME";
 
 	private static String[] CHILDREN = { "folders" };
 
 	private BookmarkFolderPK id;
 	private String name;
 	private List<BookmarkLink> bookmarks;
+	private List<BookmarkFolder> folders;
 
 	/**
 	 * Default constructor (required for jaxb).
@@ -71,7 +78,7 @@ public class BookmarkFolder implements HasChildren {
 	}
 
 	public List<BookmarkLink> getBookmarks() {
-		return bookmarks;
+		return bookmarks!=null?bookmarks:Collections.emptyList();
 	}
 
 	public void setBookmarks(List<BookmarkLink> bookmarks) {
@@ -93,12 +100,12 @@ public class BookmarkFolder implements HasChildren {
 		return CHILDREN;
 	}
 	
-	/*
-	 * Stupid getter for Backbone nested model.
-	 * @return empty list
-	 */
 	public List<BookmarkFolder> getFolders() {
-		return Collections.<BookmarkFolder> emptyList();
+		return folders!=null?folders:Collections.<BookmarkFolder>emptyList();
+	}
+	
+	public void setFolders(List<BookmarkFolder> folders) {
+		this.folders = folders;
 	}
 	
 	/**
@@ -121,9 +128,9 @@ public class BookmarkFolder implements HasChildren {
 			this.id = id;
 		}
 		
-		public String getBBID() {
+		public String getReference() {
 			if (id==null) return "";
-			return id.getProjectId()+":"+id.getBookmarkId();
+			return "@'"+id.getProjectId()+"'.@bookmark'"+id.getBookmarkId()+"'";
 		}
 
 		public BookmarkPK getId() {

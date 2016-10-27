@@ -129,12 +129,15 @@ public class DimensionExpressionScope extends DomainExpressionScope {
 	public ExpressionDiagnostic validateExpression(ExpressionAST expression) {
     	IDomain image = expression.getImageDomain();
     	if (image.isInstanceOf(IDomain.AGGREGATE)) {
-    		return new ExpressionDiagnostic("invalid dimension type, cannot be an aggregate formula");
+    		if (!image.isInstanceOf(IDomain.CONDITIONAL)) {
+    			return new ExpressionDiagnostic("invalid dimension type, cannot be an aggregate formula");
+    		}
+    		// it is okay to use a having statement
     	} else if (image.isInstanceOf(AnalyticDomain.DOMAIN)) {
         		return new ExpressionDiagnostic("invalid dimension type, cannot be an analytic formula");
-    	} else {
-    		return super.validateExpression(expression);
     	}
+    	// else
+    	return super.validateExpression(expression);
 	}
 
 }

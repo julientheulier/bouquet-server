@@ -6,7 +6,7 @@ import java.util.List;
 import com.squid.kraken.v4.model.NavigationQuery.Style;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.RollUp;
 
-public class AnalyticsQueryImpl implements AnalyticsQuery {
+public class AnalyticsQueryImpl extends AnalyticsSelectionImpl implements AnalyticsQuery {
 	
 	private String BBID;
 
@@ -16,17 +16,9 @@ public class AnalyticsQueryImpl implements AnalyticsQuery {
 	
 	private List<String> metrics;
 	
-	private List<String> filters;
-	
 	private List<String> orderBy;
 	
 	private List<RollUp> rollups;
-	
-	private String period;
-	
-	private List<String> timeframe;
-	
-	private List<String> compareTo;
 
 	private Long offset;
 
@@ -50,16 +42,13 @@ public class AnalyticsQueryImpl implements AnalyticsQuery {
 	}
 	
 	public AnalyticsQueryImpl(AnalyticsQuery copy) {
+		super(copy);
 		this.BBID = copy.getBBID();
 		this.domain = copy.getDomain();
 		this.groupBy = copy.getGroupBy();
 		this.metrics = copy.getMetrics();
-		this.filters = copy.getFilters();
 		this.orderBy = copy.getOrderBy();
 		this.rollups = copy.getRollups();
-		this.period = copy.getPeriod();
-		this.timeframe = copy.getTimeframe();
-		this.compareTo = copy.getCompareTo();
 		this.offset = copy.getOffset();
 		this.limit = copy.getLimit();
 		this.beyondLimit = copy.getBeyondLimit();
@@ -108,22 +97,6 @@ public class AnalyticsQueryImpl implements AnalyticsQuery {
 	}
 
 	/* (non-Javadoc)
-	 * @see com.squid.kraken.v4.model.Analysis#getFilters()
-	 */
-	@Override
-	public List<String> getFilters() {
-		return filters;
-	}
-
-	/* (non-Javadoc)
-	 * @see com.squid.kraken.v4.model.Analysis#setFilters(java.util.List)
-	 */
-	@Override
-	public void setFilters(List<String> filters) {
-		this.filters = filters;
-	}
-
-	/* (non-Javadoc)
 	 * @see com.squid.kraken.v4.model.Analysis#getOrderBy()
 	 */
 	@Override
@@ -153,30 +126,6 @@ public class AnalyticsQueryImpl implements AnalyticsQuery {
 	@Override
 	public void setRollups(List<RollUp> rollups) {
 		this.rollups = rollups;
-	}
-	
-	public String getPeriod() {
-		return period;
-	}
-
-	public void setPeriod(String period) {
-		this.period = period;
-	}
-	
-	public List<String> getTimeframe() {
-		return timeframe;
-	}
-
-	public void setTimeframe(List<String> timeframe) {
-		this.timeframe = timeframe;
-	}
-
-	public List<String> getCompareTo() {
-		return compareTo;
-	}
-
-	public void setCompareTo(List<String> compareTo) {
-		this.compareTo = compareTo;
 	}
 
 	/* (non-Javadoc)
@@ -293,9 +242,9 @@ public class AnalyticsQueryImpl implements AnalyticsQuery {
 	@Override
 	public String toString() {
 		return "AnalysisQueryImpl [BBID=" + BBID + ", domain=" + domain + ", groupBy=" + groupBy + ", metrics="
-				+ metrics + ", filters=" + filters + ", orderBy=" + orderBy + ", rollups=" + rollups + ", period="
-				+ period + ", timeframe=" + timeframe + ", compareTo="
-				+ compareTo + ", offset=" + offset + ", limit=" + limit + ", bookmarkId="
+				+ metrics + ", filters=" + getFilters() + ", orderBy=" + orderBy + ", rollups=" + rollups + ", period="
+				+ getPeriod() + ", timeframe=" + getTimeframe() + ", compareTo="
+				+ getCompareTo() + ", offset=" + offset + ", limit=" + limit + ", bookmarkId="
 				+ bookmarkId + ", maxResults=" + maxResults + ", startIndex=" + startIndex
 				+ ", lazy=" + lazy + ", style=" + style + "]";
 	}

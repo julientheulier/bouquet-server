@@ -218,7 +218,7 @@ public class DimensionStore extends DimensionStoreAbstract {
     @Override
     public DimensionMember getMemberByKey(String key) {
         DimensionMember member = IDs.get(key);
-        if (member!=null) {
+     /*   if (member!=null) {
             return member;
         } else {
             // we expect the key to be a integer
@@ -229,8 +229,9 @@ public class DimensionStore extends DimensionStoreAbstract {
                 // failed to match the index
                 return null;
             }
-        }
-    }
+        } */
+        return member;
+    } 
     
     @Override
     public String indexCorrelations(List<DimensionIndex> types, List<DimensionMember> values) {

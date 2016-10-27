@@ -85,7 +85,7 @@ public class FacetJobComputer implements
 		logger.debug("FacetJobComputer.compute(): stepA in "
 				+ ((new Date().getTime()) - start) + " ms");
 
-		Project project = projService.read(ctx, projectPK, true);
+		Project project = projService.read(ctx, projectPK, false);//T2121
 		Universe universe = new Universe(ctx, project);
 
 		// setup the selection

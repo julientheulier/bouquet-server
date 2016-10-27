@@ -72,6 +72,14 @@ public class AccessRightsUtils {
 							roleOk = true;
 						}
 						break;
+					case EXECUTE:
+						if (right.getRole() == Role.OWNER
+								|| right.getRole() == Role.WRITE
+								|| right.getRole() == Role.READ
+								|| right.getRole() == Role.EXECUTE) {
+							roleOk = true;
+						}
+						break;
 					case NONE:
 						if (right.getRole() == Role.OWNER
 								|| right.getRole() == Role.WRITE
@@ -90,7 +98,7 @@ public class AccessRightsUtils {
 							return hasRole;// since hasRole will stay true, we can exit now
 						} else {
 							// check if one of user's groups has right
-							for (String group : user.getGroups()) {
+							for (String group : user.getGroupsAndUpgrades()) {
 								if ((right.getGroupId() != null)
 										&& right.getGroupId().equals(group)) {
 									hasRole = true;
@@ -203,7 +211,7 @@ public class AccessRightsUtils {
 						}
 					}
 				} else {
-					for (String group : user.getGroups()) {
+					for (String group : user.getGroupsAndUpgrades()) {
 						if ((right.getGroupId() != null)
 								&& right.getGroupId().equals(group)) {
 							if ((role == null)
@@ -294,6 +302,10 @@ public class AccessRightsUtils {
 					.hasNext();) {
 				AccessRight r = i.next();
 				if (currentUser.getId().getUserId().equals(r.getUserId())) {
+					i.remove();
+				}
+				// removing right with EXECUTE
+				else if (Role.EXECUTE.equals(r.getRole())) {
 					i.remove();
 				}
 			}

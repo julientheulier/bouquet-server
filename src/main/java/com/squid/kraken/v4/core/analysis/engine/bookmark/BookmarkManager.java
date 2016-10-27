@@ -29,7 +29,6 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Optional;
 import com.squid.core.expression.scope.ScopeException;
-import com.squid.kraken.v4.api.core.APIException;
 import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.kraken.v4.model.Bookmark;
@@ -37,6 +36,7 @@ import com.squid.kraken.v4.model.BookmarkConfig;
 import com.squid.kraken.v4.model.BookmarkPK;
 import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.DomainPK;
+import com.squid.kraken.v4.model.State;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DAOFactory;
 import com.squid.kraken.v4.persistence.dao.BookmarkDAO;
@@ -57,7 +57,7 @@ public class BookmarkManager {
 	
 	public BookmarkDAO getDAO() { return delegate; }
 	
-	public BookmarkConfig readConfig(Bookmark bookmark) {
+	public BookmarkConfig readConfig(Bookmark bookmark) throws ScopeException {
 		if (bookmark==null) return null;
 		ObjectMapper mapper = new ObjectMapper();
 		mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
@@ -65,7 +65,19 @@ public class BookmarkManager {
 			BookmarkConfig config = mapper.readValue(bookmark.getConfig(), BookmarkConfig.class);
 			return config;
 		} catch (Exception e) {
-			throw new APIException(e);
+			throw new ScopeException("unable to read the bookmark '"+bookmark.getReference()+"' config: "+e.getMessage(), e);
+		}
+	}
+	
+	public BookmarkConfig readConfig(State state) throws ScopeException {
+		if (state==null) return null;
+		ObjectMapper mapper = new ObjectMapper();
+		mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+		try {
+			BookmarkConfig config = mapper.readValue(state.getConfig(), BookmarkConfig.class);
+			return config;
+		} catch (Exception e) {
+			throw new ScopeException("unable to read the state '"+state.getOid()+"' config: "+e.getMessage(), e);
 		}
 	}
 	

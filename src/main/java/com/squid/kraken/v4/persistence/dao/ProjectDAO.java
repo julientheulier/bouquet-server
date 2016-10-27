@@ -117,7 +117,7 @@ public class ProjectDAO extends AccessRightsPersistentDAO<Project, ProjectPK> {
 
 	private void checkReadRights(AppContext ctx, Project project) {
 		// check the access rights
-		AccessRightsUtils.getInstance().checkRole(ctx, project, Role.READ);
+		AccessRightsUtils.getInstance().checkRole(ctx, project, Role.EXECUTE);// T2121
 		boolean hasWriteRole = AccessRightsUtils.getInstance().hasRole(
 				ctx.getUser(), project.getAccessRights(), Role.WRITE);
 		if (project.getDbPassword() != null) {

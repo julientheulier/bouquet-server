@@ -23,54 +23,6 @@
  *******************************************************************************/
 package com.squid.kraken.v4.model;
 
-import io.swagger.annotations.ApiModelProperty;
-
-/**
- * This is the result of an analysis
- * @author sergefantino
- *
- */
-public class AnalyticsReply {
-	
-	// this is the query that generated this analysis
-	private AnalyticsQuery query;
-	
-	// the analysis selection
-	private AnalyticsSelection selection;
-	
-	// the resulting dataTable
-	private Object result;// this may depend on the output format
-	
-	/**
-	 * 
-	 */
-	public AnalyticsReply() {
-		// TODO Auto-generated constructor stub
-	}
-
-	public AnalyticsQuery getQuery() {
-		return query;
-	}
-
-	public void setQuery(AnalyticsQuery query) {
-		this.query = query;
-	}
-
-	@ApiModelProperty(hidden=true)// only used for LEGACY mode, so don't mess user with it
-	public AnalyticsSelection getSelection() {
-		return selection;
-	}
-
-	public void setSelection(AnalyticsSelection selection) {
-		this.selection = selection;
-	}
-
-	public Object getResult() {
-		return result;
-	}
-
-	public void setResult(Object result) {
-		this.result = result;
-	}
-
+public enum DataLayout {
+	LEGACY,SQL,RECORDS,TABLE,TRANSPOSE
 }

@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 
+import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.core.analysis.engine.cartography.Cartography;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainContent;
 import com.squid.kraken.v4.core.analysis.universe.Space;
@@ -155,7 +156,7 @@ public class ProjectDynamicContent {
 		if (old==null) sync.countDown();
 	}
 	
-	public DomainContent getDomainContent(Space space) {
+	public DomainContent getDomainContent(Space space) throws ScopeException {
 		return this.domainContentManager.getDomainContent(space);
 	}
 
