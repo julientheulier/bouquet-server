@@ -70,15 +70,6 @@ public class BookmarkFolderServiceRest extends BaseServiceRest {
 	}
 
 	@GET
-	@Path("/shared")
-	@ApiOperation(value = "Get My Bookmarks")
-	public List<Bookmark> readSharedWithMe(
-			@QueryParam("path") String path
-		) {
-		return delegate.listSharedBookmarks(userContext, path);
-	}
-
-	@GET
 	@Path("{pathBase64}")
 	@ApiOperation(value = "Get a Bookmark folder given a full path")
 	public BookmarkFolder readOld(@PathParam("pathBase64") String pathBase64) {
