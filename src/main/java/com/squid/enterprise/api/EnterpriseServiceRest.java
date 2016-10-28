@@ -561,8 +561,15 @@ public class EnterpriseServiceRest extends CoreAuthenticatedServiceRest {
 		return false;
 	}
 	
+	/**
+	 * check if there are some bookmarks shared with the current user
+	 * @param ctx
+	 * @param projectID
+	 * @return
+	 */
 	private boolean hasSharedWithMeBookmark(AppContext ctx, String projectID) {
 		String pathPrefix = Bookmark.SEPARATOR+Bookmark.Folder.USER+Bookmark.SEPARATOR;
+		// in order to check at all depth, we must check all the bookmarks
 		List<Bookmark> bookmarks = BookmarkServiceBaseImpl.getInstance().readAll(ctx, projectID, pathPrefix);
 		pathPrefix += ctx.getUser().getOid()+Bookmark.SEPARATOR;
 		for (Bookmark bookmark : bookmarks) {
