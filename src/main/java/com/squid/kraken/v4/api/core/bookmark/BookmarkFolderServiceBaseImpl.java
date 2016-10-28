@@ -31,9 +31,7 @@ import java.util.Set;
 
 import org.apache.commons.codec.binary.Base64;
 
-import com.squid.kraken.v4.api.core.AccessRightsUtils;
 import com.squid.kraken.v4.api.core.ObjectNotFoundAPIException;
-import com.squid.kraken.v4.model.AccessRight.Role;
 import com.squid.kraken.v4.model.Bookmark;
 import com.squid.kraken.v4.model.BookmarkFolder;
 import com.squid.kraken.v4.model.BookmarkFolder.BookmarkLink;
@@ -118,6 +116,10 @@ public class BookmarkFolderServiceBaseImpl {
 		if (folders) {
 			bf.setFolders(readFolders(ctx, BookmarkFolder.MYBOOKMARKS, folders, bookmarks));
 		}
+		if (bookmarks) {
+			BookmarkFolder dummy = readSharedWithMeInternal(ctx, fullPath);
+			bf.setBookmarks(dummy.getBookmarks());
+		}
 		return bf;
 	}
 
@@ -127,9 +129,13 @@ public class BookmarkFolderServiceBaseImpl {
 		String fullPath = BookmarkFolder.SHARED;
 		String bookmarkFolderOid = genOID(fullPath);
 		bf.setId(new BookmarkFolderPK(ctx.getCustomerId(), bookmarkFolderOid));
-		bf.setName("/Public");// we don't really care
+		bf.setName("/Public");// changing the name
 		if (folders) {
 			bf.setFolders(readFolders(ctx, BookmarkFolder.MYBOOKMARKS, folders, bookmarks));
+		}
+		if (bookmarks) {
+			String internalPath = convertSharedToInternalPath(ctx, fullPath);
+			bf.setBookmarks(readBookmarks(ctx, fullPath, internalPath));
 		}
 		return bf;
 	}
@@ -241,8 +247,10 @@ public class BookmarkFolderServiceBaseImpl {
 			List<BookmarkFolder> bfList = new ArrayList<BookmarkFolder>();
 			bfList.add(getMyBookmarksFolder(ctx, folders, bookmarks));
 			bfList.add(getSharedWithMeFolder(ctx, folders, bookmarks));
-			// disabling Shared folder for now...
-			//bfList.add(getSharedFolder(ctx, folders, bookmarks));
+			// display shared folder only if there is something to show
+			if (hasSharedBookmarks(ctx)) {
+				bfList.add(getSharedFolder(ctx, folders, bookmarks));
+			}
 			return bfList;
 		} else if (path.startsWith(BookmarkFolder.MYBOOKMARKS)) {
 			return readMyBookmarkFolders(ctx, path, folders, bookmarks);
@@ -255,6 +263,14 @@ public class BookmarkFolderServiceBaseImpl {
 		}
 	}
 	
+	/**
+	 * @return
+	 */
+	private boolean hasSharedBookmarks(AppContext ctx) {
+		List<Bookmark> bookmarks = getBookmarks(ctx, Bookmark.SEPARATOR + Bookmark.Folder.SHARED, false);
+		return !bookmarks.isEmpty();
+	}
+
 	protected String getInternalUserPath(AppContext ctx) {
 		return Bookmark.SEPARATOR + Bookmark.Folder.USER
 				+ Bookmark.SEPARATOR + ctx.getUser().getOid();
@@ -331,7 +347,7 @@ public class BookmarkFolderServiceBaseImpl {
 		}
 	}
 	
-	protected List<BookmarkFolder> readSharedWithMeFolders(AppContext ctx, String path, boolean folders2, boolean bookmarks2) {
+	protected List<BookmarkFolder> readSharedWithMeFolders(AppContext ctx, String path, boolean isFolders, boolean isBookmarks) {
 		String internalPath = Bookmark.SEPARATOR + Bookmark.Folder.USER;
 		String userPath = "/"+ctx.getUser().getOid();
 		String filterPath = path.substring(BookmarkFolder.SHAREDWITHME.length());
@@ -384,33 +400,9 @@ public class BookmarkFolderServiceBaseImpl {
 		if (idx == 0) {
 			return fullPath.substring(userPath.length());
 		} else {
-			return fullPath.substring(fullPath.lastIndexOf(Bookmark.SEPARATOR));
+			int firstSegement = fullPath.lastIndexOf(Bookmark.SEPARATOR);
+			return firstSegement>=0?fullPath.substring(firstSegement):"$$$";
 		}
-	}
-	
-	/**
-	 * this method list the bookmarks shared with the current user
-	 * @param ctx
-	 * @return
-	 */
-	public List<Bookmark> listSharedBookmarks(AppContext ctx, String path) {
-		List<Bookmark> result = new ArrayList<>();
-		// this is someone else bookmark, so we can only filter by /USER/
-		String usersPath = Bookmark.SEPARATOR + Bookmark.Folder.USER
-			+ Bookmark.SEPARATOR;
-		List<Bookmark> bookmarks = ((BookmarkDAO) factory
-				.getDAO(Bookmark.class)).findByPath(ctx, usersPath);
-		// this is my bookmarks - but we don't want them
-		String myPath = usersPath + ctx.getUser().getOid();
-		for (Bookmark bookmark : bookmarks) {
-			if (!bookmark.getPath().startsWith(myPath)) {// not mine
-				// do user have access to it?
-				if (AccessRightsUtils.getInstance().hasRole(ctx, bookmark, Role.READ)) {
-					result.add(bookmark);
-				}
-			}
-		}
-		return result;
 	}
 
 }
