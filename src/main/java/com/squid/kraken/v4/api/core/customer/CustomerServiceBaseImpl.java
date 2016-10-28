@@ -136,6 +136,8 @@ public class CustomerServiceBaseImpl extends
 		cust.setShortcuts(customerInfo.getShortcuts());
 		cust.setStates(customerInfo.getStates());
 		cust.setAuthMode(customerInfo.getAuthMode());
+		cust.setTeamId(customerInfo.getTeamId());
+		cust.setPublicUrl(customerInfo.getPublicUrl());
 		super.store(ctx, cust);
 		return readCustomerInfo(ctx);
 	}
