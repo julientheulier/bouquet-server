@@ -72,6 +72,10 @@ public class CustomerInfo implements HasAccessRights, HasChildren  {
     private Role userRole;
     
     private AUTH_MODE authMode = AUTH_MODE.OAUTH;
+    
+    private String teamId;
+    
+    private String publicUrl;
 
 	public CustomerInfo() {
 	}
@@ -83,6 +87,8 @@ public class CustomerInfo implements HasAccessRights, HasChildren  {
 		this.id = customer.getOid();
 		this.accessRights = customer.getAccessRights();
 		this.authMode = customer.getAuthMode();
+		this.teamId = customer.getTeamId();
+		this.publicUrl = customer.getPublicUrl();
 	}
 
 	/**
@@ -221,5 +227,21 @@ public class CustomerInfo implements HasAccessRights, HasChildren  {
 
 	public void setAuthMode(AUTH_MODE authMode) {
 		this.authMode = authMode;
+	}
+	
+	public String getTeamId() {
+		return teamId;
+	}
+
+	public void setTeamId(String teamId) {
+		this.teamId = teamId;
+	}
+
+	public String getPublicUrl() {
+		return publicUrl;
+	}
+
+	public void setPublicUrl(String publicUrl) {
+		this.publicUrl = publicUrl;
 	}
 }
