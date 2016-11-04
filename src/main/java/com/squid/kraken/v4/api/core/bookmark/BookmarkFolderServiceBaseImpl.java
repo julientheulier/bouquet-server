@@ -201,9 +201,13 @@ public class BookmarkFolderServiceBaseImpl {
 		return links;
 	}
 	
+	private boolean isSharedWithMe(AppContext ctx, String path) {
+		String userPath = "/"+ctx.getUser().getOid();
+		return path.startsWith(userPath);
+	}
+	
 	private BookmarkFolder readSharedWithMeInternal(AppContext ctx, String path) {
 		String internalPath = Bookmark.SEPARATOR + Bookmark.Folder.USER;
-		String userPath = "/"+ctx.getUser().getOid();
 		String filterPath = path.substring(BookmarkFolder.SHAREDWITHME.length());
 		BookmarkFolder bf = new BookmarkFolder();
 		String bookmarkFolderOid = genOID(path);
@@ -218,9 +222,9 @@ public class BookmarkFolderServiceBaseImpl {
 			String p = o.getPath();
 			// only handle the exact pathp = p.substring(internalPath.length());
 			p = p.substring(internalPath.length());
-			if (!p.startsWith(userPath)) {// excluding my bookmarks
+			if (!isSharedWithMe(ctx, p)) {// excluding my bookmarks
 				String subPath = getSubPath(p);
-				if (filterPath.equals("") || subPath.equals(filterPath)) {
+				if (subPath.equals(filterPath)) {
 					BookmarkLink bm = new BookmarkLink(o.getId());
 					bm.setName(o.getName());
 					bm.setDescription(o.getDescription());
@@ -347,9 +351,9 @@ public class BookmarkFolderServiceBaseImpl {
 		}
 	}
 	
+	// this one
 	protected List<BookmarkFolder> readSharedWithMeFolders(AppContext ctx, String path, boolean isFolders, boolean isBookmarks) {
 		String internalPath = Bookmark.SEPARATOR + Bookmark.Folder.USER;
-		String userPath = "/"+ctx.getUser().getOid();
 		String filterPath = path.substring(BookmarkFolder.SHAREDWITHME.length());
 		List<BookmarkFolder> bfList = new ArrayList<BookmarkFolder>();
 		List<Bookmark> bookmarks = getBookmarks(ctx, internalPath, path == null);
@@ -359,9 +363,9 @@ public class BookmarkFolderServiceBaseImpl {
 			String p = o.getPath();
 			// ignore leading mypath
 			p = p.substring(internalPath.length());
-			if (!p.startsWith(userPath)) {// excluding my bookmarks
+			if (!isSharedWithMe(ctx, p)) {// excluding my bookmarks
 				String subPath = getSubPath(p);
-				if (filterPath.equals("") || subPath.startsWith(filterPath)) {
+				if (subPath.startsWith(filterPath)) {
 					// process the trailing path
 					String trailing = !filterPath.equals("")?subPath.substring(filterPath.length()):subPath;
 					if (trailing != null) {
