@@ -494,7 +494,7 @@ public class AnalysisCompute {
 							}
 						}
 					}
-				} else if (image.isInstanceOf(IDomain.QUATERLY) || image.isInstanceOf(IDomain.MONTHLY)) {
+				} else if (image.isInstanceOf(IDomain.QUARTERLY) || image.isInstanceOf(IDomain.MONTHLY)) {
 					// check if present is an exact number of month
 					if (lowerPresentDT.getDayOfMonth() == 1
 							&& upperPresentDT.getDayOfMonth() == upperPresentDT.dayOfMonth().getMaximumValue()) {
@@ -651,7 +651,7 @@ public class AnalysisCompute {
 						pastDate = newDT.toDate();
 					}
 				}
-			} else if (image.isInstanceOf(IDomain.QUATERLY) || image.isInstanceOf(IDomain.MONTHLY)) {
+			} else if (image.isInstanceOf(IDomain.QUARTERLY) || image.isInstanceOf(IDomain.MONTHLY)) {
 
 				if (presentPeriod.getMonths() > pastPeriod.getMonths()) {
 					// e.g present period of 28 days(February) ->
@@ -683,7 +683,7 @@ public class AnalysisCompute {
 	private PeriodType computePeriodType(IDomain image) {
 		if (image.isInstanceOf(IDomain.YEARLY)) {
 			return PeriodType.years();
-		} else if (image.isInstanceOf(IDomain.QUATERLY)) {
+		} else if (image.isInstanceOf(IDomain.QUARTERLY)) {
 			return PeriodType.months();
 		} else if (image.isInstanceOf(IDomain.MONTHLY)) {
 			return PeriodType.months();

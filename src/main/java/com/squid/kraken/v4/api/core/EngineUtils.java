@@ -75,7 +75,7 @@ import com.squid.kraken.v4.persistence.AppContext;
  */
 public class EngineUtils {
 
-    enum Bound {
+	public    enum Bound {
     	LOWER, UPPER
     }
     
@@ -181,7 +181,7 @@ public class EngineUtils {
      * @throws ScopeException
      * @throws ComputingException 
      */
-	public Date convertToDate(Universe universe, DimensionIndex index, Bound bound, String value, IntervalleObject compareFromInterval)
+    static public Date convertToDate(Universe universe, DimensionIndex index, Bound bound, String value, IntervalleObject compareFromInterval)
 			throws ParseException, ScopeException, ComputingException {
 		if (value.equals("")) {
 			return null;
@@ -360,7 +360,7 @@ public class EngineUtils {
 		}
 	}
 	
-	private Object evaluateExpression(Universe universe, DimensionIndex index, String expr, IntervalleObject compareFromInterval) throws ScopeException {
+    static private Object evaluateExpression(Universe universe, DimensionIndex index, String expr, IntervalleObject compareFromInterval) throws ScopeException {
 		try {
 			DimensionDefaultValueScope scope = new DimensionDefaultValueScope(universe.getContext(), index);
 			if (compareFromInterval!=null) {
