@@ -76,8 +76,8 @@ import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.Relation;
 
 /**
- * this is the Query for computing analysis, that manages measures, axes and filters
- * KRKN-59: now also support rollup
+ * this is the Query for computing analysis, that manages measures, axes and
+ * filters KRKN-59: now also support rollup
  * 
  * @author sfantino
  *
@@ -86,33 +86,35 @@ public class SimpleQuery extends BaseQuery {
 
 	private Domain subject;
 
-    // krkn-59: rollup support
-    private List<GroupByAxis> rollup = null;
-    private boolean rollupGrandTotal = false;
-	
+	// krkn-59: rollup support
+	private List<GroupByAxis> rollup = null;
+	private boolean rollupGrandTotal = false;
+
 	public SimpleQuery(Space subject) throws ScopeException, SQLScopeException {
-		super(subject.getUniverse(),subject.getRoot());
+		super(subject.getUniverse(), subject.getRoot());
 		this.subject = subject.getRoot();
 	}
-	
+
 	public Domain getSubject() {
 		return subject;
 	}
-	
 
 	public void select(Measure measure, ExpressionAST expr) throws SQLScopeException, ScopeException {
 		try {
-			ISelectPiece piece = select.select(expr,measure.getName());
+			ISelectPiece piece = select.select(expr, measure.getName());
 			String name = measure.getName();
-			piece.addComment(name+" (Metric)");
-			setComment("\ncomputing KPI '"+name+"'");
-			select.getScope().put(measure, expr);// register the measure in the select context
+			piece.addComment(name + " (Metric)");
+			setComment("\ncomputing KPI '" + name + "'");
+			select.getScope().put(measure, expr);// register the measure in the
+													// select context
 			MeasureMapping kx = new MeasureMapping(piece, measure);
 			add(kx);
 		} catch (ScopeException e) {
-			throw new ScopeException("error while parsing Metric '"+measure.getName()+"'\ncaused by: "+e.getLocalizedMessage(), e);
+			throw new ScopeException(
+					"error while parsing Metric '" + measure.getName() + "'\ncaused by: " + e.getLocalizedMessage(), e);
 		} catch (SQLScopeException e) {
-			throw new ScopeException("error while using Metric '"+measure.getName()+"'\ncaused by: "+e.getLocalizedMessage(), e);
+			throw new ScopeException(
+					"error while using Metric '" + measure.getName() + "'\ncaused by: " + e.getLocalizedMessage(), e);
 		}
 	}
 
@@ -121,17 +123,21 @@ public class SimpleQuery extends BaseQuery {
 			// check axis
 			Domain a_domain = axis.getParent().getRoot();
 			if (!this.subject.equals(a_domain)) {
-				throw new ScopeException("cannot select '"+axis.prettyPrint()+"': domain '"+a_domain.getName()+"' does not match select domain '"+this.subject.getName()+"'");
+				throw new ScopeException("cannot select '" + axis.prettyPrint() + "': domain '" + a_domain.getName()
+						+ "' does not match select domain '" + this.subject.getName() + "'");
 			}
 			ExpressionAST expr = axis.getDefinition();
 			IDomain image = expr.getImageDomain();
 			if (image.isInstanceOf(SetDomain.DOMAIN)) {
-				//throw new ScopeException("unsupported operation: cannot slice downward using axis: "+axis.toString());
+				// throw new ScopeException("unsupported operation: cannot slice
+				// downward using axis: "+axis.toString());
 			}
 			if (image.isInstanceOf(VectorDomain.DOMAIN)) {
-				throw new SQLScopeException("cannot select '"+axis.getDimension().getName()+"': unsupported VECTOR expression");
+				throw new SQLScopeException(
+						"cannot select '" + axis.getDimension().getName() + "': unsupported VECTOR expression");
 			}
-			// ticket:3014 - handles predicate as case(P,true,null): we don't want to index false values
+			// ticket:3014 - handles predicate as case(P,true,null): we don't
+			// want to index false values
 			if (image.isInstanceOf(IDomain.CONDITIONAL)) {
 				// transform expr into case(expr,true,null)
 				expr = ExpressionMaker.CASE(expr, ExpressionMaker.TRUE(), ExpressionMaker.NULL());
@@ -142,172 +148,179 @@ public class SimpleQuery extends BaseQuery {
 				expr = extractRelation(axis, expr);
 			}
 			AxisMapping ax = getMapper().find(axis);
-			if (ax!=null) {// if there is already a slice, discard it
+			if (ax != null) {// if there is already a slice, discard it
 				return ax.getPiece();
 			} else {
 				return selectDimension(axis, expr);
 			}
 		} catch (ScopeException e) {
-			throw new ScopeException("error while parsing Dimension '"+axis.getName()+"'\ncaused by: "+e.getLocalizedMessage(), e);
+			throw new ScopeException(
+					"error while parsing Dimension '" + axis.getName() + "'\ncaused by: " + e.getLocalizedMessage(), e);
 		}
 	}
-	
+
 	private ExpressionAST extractRelation(Axis axis, ExpressionAST expr) throws ScopeException, SQLScopeException {
 		if (expr instanceof RelationReference) {
-			Relation rel = ((RelationReference)expr).getRelation();
+			Relation rel = ((RelationReference) expr).getRelation();
 			Column exported = getExportedKey(axis, rel);
 			return new ColumnReference(exported);
-		} if (expr instanceof Compose) {
-			Compose compose = (Compose)expr;
+		}
+		if (expr instanceof Compose) {
+			Compose compose = (Compose) expr;
 			ExpressionAST exported = extractRelation(axis, compose.getHead());
-			return new Compose(compose.getTail(),exported);// relink exported key
+			return new Compose(compose.getTail(), exported);// relink exported
+															// key
 		} else {
-			throw new SQLScopeException("Domain dimension not supported: "+axis.getName());
+			throw new SQLScopeException("Domain dimension not supported: " + axis.getName());
 		}
 	}
-	
+
 	private Column getExportedKey(Axis axis, Relation rel) throws ScopeException, SQLScopeException {
 		ExpressionAST join = axis.getParent().getUniverse().getParser().parse(rel);
 		if (join instanceof ForeignKeyReference) {
-			ForeignKey fk = ((ForeignKeyReference)join).getForeignKey();
-			if (fk.getKeys().size()!=1) {
-				throw new SQLScopeException("Domain dimension not supported: "+axis.getName());
+			ForeignKey fk = ((ForeignKeyReference) join).getForeignKey();
+			if (fk.getKeys().size() != 1) {
+				throw new SQLScopeException("Domain dimension not supported: " + axis.getName());
 			}
 			KeyPair first = fk.getKeys().get(0);
 			Column exported = first.getExported();
 			return exported;
 		} else {
 			// need to try harder...
-			throw new SQLScopeException("Domain dimension not supported: "+axis.getName());
+			throw new SQLScopeException("Domain dimension not supported: " + axis.getName());
 		}
 	}
-	
+
 	protected ISelectPiece selectDimension(Axis axis, ExpressionAST expr) throws ScopeException, SQLScopeException {
-		ISelectPiece piece = select.select(expr,axis.getName());
-		select.getScope().put(axis, expr);// register the axis in the select context
+		ISelectPiece piece = select.select(expr, axis.getName());
+		select.getScope().put(axis, expr);// register the axis in the select
+											// context
 		AxisMapping ax = new AxisMapping(piece, axis);
 		add(ax);
-        //
-		piece.addComment(axis.getName()+" (Dimension)");
+		//
+		piece.addComment(axis.getName() + " (Dimension)");
 		return piece;
 	}
-	
+
 	public List<ISelectPiece> selectIntervalle(Axis axis, ExpressionAST expr) throws ScopeException, SQLScopeException {
-		ExpressionAST min = ExpressionMaker.MIN(expr);//universe.measure("MIN("+axis.prettyPrint()+")");
-		ExpressionAST max = ExpressionMaker.MAX(expr);//universe.measure("MAX("+axis.prettyPrint()+")");
+		ExpressionAST min = ExpressionMaker.MIN(expr);// universe.measure("MIN("+axis.prettyPrint()+")");
+		ExpressionAST max = ExpressionMaker.MAX(expr);// universe.measure("MAX("+axis.prettyPrint()+")");
 		ISelectPiece select_min = select.select(min);
 		ISelectPiece select_max = select.select(max);
-		ContinuousAxisMapping ax = new ContinuousAxisMapping(axis, new SimpleMapping(select_min), new SimpleMapping(select_max));
+		ContinuousAxisMapping ax = new ContinuousAxisMapping(axis, new SimpleMapping(select_min),
+				new SimpleMapping(select_max));
 		add(ax);
 		ArrayList<ISelectPiece> result = new ArrayList<ISelectPiece>();
 		result.add(select_min);
-		select_min.addComment("Filtering on "+axis.getName());
+		select_min.addComment("Filtering on " + axis.getName());
 		result.add(select_max);
 		return result;
 	}
-	
 
 	@Override
 	public void where(Axis axis, Collection<DimensionMember> filters) throws ScopeException, SQLScopeException {
 		// check axis
 		Domain a_domain = axis.getParent().getRoot();
 		if (!this.subject.equals(a_domain)) {
-			throw new ScopeException("cannot select '"+axis.getDimension().getName()+"': domain '"+a_domain.getName()+"'does not match select ('"+this.subject.getName()+"')");
+			throw new ScopeException("cannot select '" + axis.getDimension().getName() + "': domain '"
+					+ a_domain.getName() + "'does not match select ('" + this.subject.getName() + "')");
 		}
 		IDomain image = axis.getDefinition().getImageDomain();
 		if (image.isInstanceOf(SetDomain.DOMAIN)) {
-		    // check if the axis is already selected
-		    SpaceScope selected = isSelected(axis.getParent());
-		    if (selected!=null) {
-		        // prune the axis
-		        Axis prune = axis.prune(selected.space);
-		        IDomain prune_image = prune.getDefinition().getImageDomain();
-		        if (prune_image.isInstanceOf(SetDomain.DOMAIN)) {
-		            // TODO: 
-	                super.exists(axis, filters);
-		        } else {
-    		        // no need to use exists
-    		        super.where(axis, filters);
-		        }
-		    } else {
-    			// we need to use EXISTS operator
-    			super.exists(axis, filters);
-		    }
+			// check if the axis is already selected
+			SpaceScope selected = isSelected(axis.getParent());
+			if (selected != null) {
+				// prune the axis
+				Axis prune = axis.prune(selected.space);
+				IDomain prune_image = prune.getDefinition().getImageDomain();
+				if (prune_image.isInstanceOf(SetDomain.DOMAIN)) {
+					// TODO:
+					super.exists(axis, filters);
+				} else {
+					// no need to use exists
+					super.where(axis, filters);
+				}
+			} else {
+				// we need to use EXISTS operator
+				super.exists(axis, filters);
+			}
 		} else {
 			super.where(axis, filters);
 		}
 	}
 
 	/**
-	 * test if the space is already selected, i.e. included in the FROM statement;
-	 * if so will return the selected part as a Space
+	 * test if the space is already selected, i.e. included in the FROM
+	 * statement; if so will return the selected part as a Space
+	 * 
 	 * @param space
 	 * @return
 	 */
 	private SpaceScope isSelected(Space space) {
-	    if (space.getParent()==null) {
-	        // ok, let's check the domain
-	        Object rel = this.select.getScope().get(space.getDomain());
-	        if (rel!=null && rel instanceof IFromPiece) {
-                IFromPiece from = (IFromPiece)rel;
-                return new SpaceScope(space,from.getScope());
-	        } else {
-	            // domain mismatch
-	            return null;
-	        }
-	    } else {
-	        // check parent
-	        SpaceScope check = isSelected(space.getParent());
-	        if (check==null) {
-	            return null;
-	        } else if (check.space.equals(space)) {
-	            // completely selected
-	            return check;
-	        } else {
-	            // check incoming relation
-	            Object rel = check.scope.get(space.getRelation());
-	            if (rel!=null && rel instanceof IFromPiece) {
-	                IFromPiece from = (IFromPiece)rel;
-	                return new SpaceScope(space,from.getScope());
-	            } else {
-	                // cannot go further
-	                return check;
-	            }
-	        }
-	    }
-    }
-	
-	class SpaceScope {
-	    public Space space;
-	    public Scope scope;
-        public SpaceScope(Space space, Scope scope) {
-            super();
-            this.space = space;
-            this.scope = scope;
-        }
+		if (space.getParent() == null) {
+			// ok, let's check the domain
+			Object rel = this.select.getScope().get(space.getDomain());
+			if (rel != null && rel instanceof IFromPiece) {
+				IFromPiece from = (IFromPiece) rel;
+				return new SpaceScope(space, from.getScope());
+			} else {
+				// domain mismatch
+				return null;
+			}
+		} else {
+			// check parent
+			SpaceScope check = isSelected(space.getParent());
+			if (check == null) {
+				return null;
+			} else if (check.space.equals(space)) {
+				// completely selected
+				return check;
+			} else {
+				// check incoming relation
+				Object rel = check.scope.get(space.getRelation());
+				if (rel != null && rel instanceof IFromPiece) {
+					IFromPiece from = (IFromPiece) rel;
+					return new SpaceScope(space, from.getScope());
+				} else {
+					// cannot go further
+					return check;
+				}
+			}
+		}
 	}
 
-    public FromSelectStatementPiece join(Axis axis, SimpleQuery inner) throws SQLScopeException, ScopeException {
+	class SpaceScope {
+		public Space space;
+		public Scope scope;
+
+		public SpaceScope(Space space, Scope scope) {
+			super();
+			this.space = space;
+			this.scope = scope;
+		}
+	}
+
+	public FromSelectStatementPiece join(Axis axis, SimpleQuery inner) throws SQLScopeException, ScopeException {
 		FromSelectStatementPiece from = select.from(inner.select);
 		//
 		AxisMapping m = inner.getMapper().find(axis);
-		if (m!=null) {
+		if (m != null) {
 			ISelectPiece source = m.getPiece();
-			ExpressionAST expr = axis.getDefinition();//ExpressionResolver.resolve(select.getMainSubject(),x);
+			ExpressionAST expr = axis.getDefinition();// ExpressionResolver.resolve(select.getMainSubject(),x);
 			IPiece target = select.createPiece(Context.WHERE, expr);
 			//
 			// compute the join
 			IPiece[] p = new IPiece[2];
-			p[0] = new SubSelectReferencePiece(from,source);
+			p[0] = new SubSelectReferencePiece(from, source);
 			p[1] = target;
-			IPiece where = new OperatorPiece(OperatorScope.getDefault().lookupByID(IntrinsicOperators.EQUAL),p);
+			IPiece where = new OperatorPiece(OperatorScope.getDefault().lookupByID(IntrinsicOperators.EQUAL), p);
 			select.getStatement().getConditionalPieces().add(new WherePiece(where));
 			//
 			// import the inner measure in the outer scope
 			for (MeasureMapping mm : inner.getMapper().getMeasureMapping()) {
-				SubSelectReferencePiece reference_piece = new SubSelectReferencePiece(from,mm.getPiece());
-				ExpressionAST mexpr = (ExpressionAST)inner.select.getScope().get(mm.getMapping());
-				select.getScope().put(mexpr,reference_piece);
+				SubSelectReferencePiece reference_piece = new SubSelectReferencePiece(from, mm.getPiece());
+				ExpressionAST mexpr = (ExpressionAST) inner.select.getScope().get(mm.getMapping());
+				select.getScope().put(mexpr, reference_piece);
 			}
 			//
 			return from;
@@ -315,31 +328,31 @@ public class SimpleQuery extends BaseQuery {
 			throw new SQLScopeException("cannot join the measure using that axis");
 		}
 	}
-    
-    /**
-     * join this query with the inner SimpleQuery based on the axes equi-
-     * join
-     * @param axes
-     * @param inner
-     * @return
-     * @throws SQLScopeException
-     * @throws ScopeException
-     */
-    public FromSelectStatementPiece join(List<Axis> axes, SimpleQuery inner) throws SQLScopeException, ScopeException {
+
+	/**
+	 * join this query with the inner SimpleQuery based on the axes equi- join
+	 * 
+	 * @param axes
+	 * @param inner
+	 * @return
+	 * @throws SQLScopeException
+	 * @throws ScopeException
+	 */
+	public FromSelectStatementPiece join(List<Axis> axes, SimpleQuery inner) throws SQLScopeException, ScopeException {
 		FromSelectStatementPiece from = select.from(inner.select);
 		//
 		for (Axis axis : axes) {
 			AxisMapping m = inner.getMapper().find(axis);
-			if (m!=null) {
+			if (m != null) {
 				ISelectPiece source = m.getPiece();
-				ExpressionAST expr = axis.getDefinition();//ExpressionResolver.resolve(select.getMainSubject(),x);
+				ExpressionAST expr = axis.getDefinition();// ExpressionResolver.resolve(select.getMainSubject(),x);
 				IPiece target = select.createPiece(Context.WHERE, expr);
 				//
 				// compute the join
 				IPiece[] p = new IPiece[2];
-				p[0] = new SubSelectReferencePiece(from,source);
+				p[0] = new SubSelectReferencePiece(from, source);
 				p[1] = target;
-				IPiece where = new OperatorPiece(OperatorScope.getDefault().lookupByID(IntrinsicOperators.EQUAL),p);
+				IPiece where = new OperatorPiece(OperatorScope.getDefault().lookupByID(IntrinsicOperators.EQUAL), p);
 				select.getStatement().getConditionalPieces().add(new WherePiece(where));
 			} else {
 				throw new SQLScopeException("cannot join the queries using that axis");
@@ -352,15 +365,16 @@ public class SimpleQuery extends BaseQuery {
 	public void select(Measure measure) throws ScopeException, SQLScopeException {
 		select(measure, measure.getDefinition());
 	}
-    
-    /**
-     * define a rollup
-     * @param axis
-     * @throws ScopeException 
-     * @throws SQLScopeException 
-     */
-    public void rollUp(List<GroupByAxis> axis, boolean grandTotal) throws ScopeException, SQLScopeException {
-		if (rollup==null) {
+
+	/**
+	 * define a rollup
+	 * 
+	 * @param axis
+	 * @throws ScopeException
+	 * @throws SQLScopeException
+	 */
+	public void rollUp(List<GroupByAxis> axis, boolean grandTotal) throws ScopeException, SQLScopeException {
+		if (rollup == null) {
 			rollup = new ArrayList<>();
 		}
 		rollupGrandTotal = grandTotal;
@@ -372,36 +386,43 @@ public class SimpleQuery extends BaseQuery {
 			if (source.isInstanceOf(IDomain.OBJECT)) {
 				// check for availability in the parent scope
 				Object object = source.getAdapter(Domain.class);
-				if (object!=null && object instanceof Domain) {
-					mapping = select.getScope().get(((Domain)object));
+				if (object != null && object instanceof Domain) {
+					mapping = select.getScope().get(((Domain) object));
 				} else {
 					object = source.getAdapter(Table.class);
-					if (object!=null && object instanceof Table) {
-						mapping = select.getScope().get((Table)object);
+					if (object != null && object instanceof Table) {
+						mapping = select.getScope().get((Table) object);
 					}
 				}
 			}
-			if (mapping==null && !source.equals(IDomain.NULL)) { // null domain will be automatically bound to the main scope
+			if (mapping == null && !source.equals(IDomain.NULL)) { // null
+																	// domain
+																	// will be
+																	// automatically
+																	// bound to
+																	// the main
+																	// scope
 				throw new SQLScopeException("the source domain is not bound");
 			}
 			//
-    		rollup.add(groupBy);
+			rollup.add(groupBy);
 		}
-    }
-    
-    @Override
-    public SQLScript generateScript() throws SQLScopeException {
-        // krkn-59: rollup support
-        if (rollupGrandTotal || (rollup!=null && !rollup.isEmpty())) {
-        	IRollupStrategy strategy = RollupStrategySelector.selectStrategy(this, select, rollup, rollupGrandTotal, getMapper());
-            return strategy.generateScript();
-        } else {
-            // just use the plain select
-            return super.generateScript();
-        }
-    }
-    
-    @Override
+	}
+
+	@Override
+	public SQLScript generateScript() throws SQLScopeException {
+		// krkn-59: rollup support
+		if (rollupGrandTotal || (rollup != null && !rollup.isEmpty())) {
+			IRollupStrategy strategy = RollupStrategySelector.selectStrategy(this, select, rollup, rollupGrandTotal,
+					getMapper());
+			return strategy.generateScript();
+		} else {
+			// just use the plain select
+			return super.generateScript();
+		}
+	}
+
+	@Override
 	protected SQLScript generateQualifyScript() throws SQLScopeException {
 		try {
 			//
@@ -411,19 +432,31 @@ public class SimpleQuery extends BaseQuery {
 			main.getStatement().addComment("!! QUALIFY strategy: external query to filter on analytic features");
 			select.getStatement().addComment("!! QUALIFY strategy: compute analytic features");
 			// select the measures and dimensions
-	        for (MeasureMapping mx : getMapper().getMeasureMapping()) {
+			for (MeasureMapping mx : getMapper().getMeasureMapping()) {
 				SubSelectReferencePiece pieceRef = new SubSelectReferencePiece(from, mx.getPiece());
-	            ISelectPiece piece = main.select(pieceRef, mx.getPiece().getAlias());// make sure to use the same alias
-	    		piece.addComment("copy of "+mx.getMapping().getName()+" (Metric)");
-	    		mx.setPiece(piece);// update the mapping... that's dangerous!
-	        }
-	        for (AxisMapping ax : getMapper().getAxisMapping()) {
+				ISelectPiece piece = main.select(pieceRef, mx.getPiece().getAlias());// make
+																						// sure
+																						// to
+																						// use
+																						// the
+																						// same
+																						// alias
+				piece.addComment("copy of " + mx.getMapping().getName() + " (Metric)");
+				mx.setPiece(piece);// update the mapping... that's dangerous!
+			}
+			for (AxisMapping ax : getMapper().getAxisMapping()) {
 				SubSelectReferencePiece pieceRef = new SubSelectReferencePiece(from, ax.getPiece());
-	            ISelectPiece piece = main.select(pieceRef, ax.getPiece().getAlias());// make sure to use the same alias
-	    		piece.addComment("copy of "+ax.getAxis().getName()+" (Dimension)");
-	    		ax.setPiece(piece);// update the mapping... that's dangerous!
-	        }
-	        // handle the QUALIFY conditions
+				ISelectPiece piece = main.select(pieceRef, ax.getPiece().getAlias());// make
+																						// sure
+																						// to
+																						// use
+																						// the
+																						// same
+																						// alias
+				piece.addComment("copy of " + ax.getAxis().getName() + " (Dimension)");
+				ax.setPiece(piece);// update the mapping... that's dangerous!
+			}
+			// handle the QUALIFY conditions
 			for (ExpressionAST condition : getConditions()) {
 				if (condition.getImageDomain().isInstanceOf(AnalyticDomain.DOMAIN)) {
 					try {
@@ -431,26 +464,30 @@ public class SimpleQuery extends BaseQuery {
 						IWherePiece where = main.where(rewrite);
 						// override QUALIFY
 						where.setType(IWherePiece.WHERE);
-						where.addComment("QUALIFY clause: "+condition.prettyPrint());
+						where.addComment("QUALIFY clause: " + condition.prettyPrint());
 					} catch (SQLScopeException | ScopeException e) {
-						throw new SQLScopeException("cannot rewrite QuUALIFY condition: "+condition.prettyPrint()+" caused by:\n"+e.getLocalizedMessage());
+						throw new SQLScopeException("cannot rewrite QuUALIFY condition: " + condition.prettyPrint()
+								+ " caused by:\n" + e.getLocalizedMessage());
 					}
 				}
 			}
 			return new SQLScript(main, getMapper());
 		} catch (SQLScopeException e) {
-			throw new SQLScopeException("Failed to generate the QUALIFY clause, caused by:\n"+e.getLocalizedMessage(),e);
+			throw new SQLScopeException("Failed to generate the QUALIFY clause, caused by:\n" + e.getLocalizedMessage(),
+					e);
 		}
 	}
 
-	private ExpressionAST rewriteQualifyCondition(ExpressionAST expression, SelectUniversal mainSelect, FromSelectUniversal from) throws SQLScopeException, ScopeException {
+	private ExpressionAST rewriteQualifyCondition(ExpressionAST expression, SelectUniversal mainSelect,
+			FromSelectUniversal from) throws SQLScopeException, ScopeException {
 		if (expression.getImageDomain().isInstanceOf(AnalyticDomain.DOMAIN)) {
-			// the idea is to extract the analytic operator, generate measure for each, and replace by a reference to the measure
+			// the idea is to extract the analytic operator, generate measure
+			// for each, and replace by a reference to the measure
 			if (expression instanceof Operator) {
-				Operator op = (Operator)expression;
+				Operator op = (Operator) expression;
 				if (op.getOperatorDefinition() instanceof OrderedAnalyticOperatorDefinition) {
 					// analytics operator
-					throw new SQLScopeException("cannot rewrite QuUALIFY expression: "+expression.prettyPrint());
+					throw new SQLScopeException("cannot rewrite QuUALIFY expression: " + expression.prettyPrint());
 				} else {
 					// continue...
 					Operator rewrite = new Operator(op.getOperatorDefinition());
@@ -461,14 +498,20 @@ public class SimpleQuery extends BaseQuery {
 					return rewrite;
 				}
 			} else if (expression instanceof ExpressionRef) {
-				ExpressionRef ref = (ExpressionRef)expression;
+				ExpressionRef ref = (ExpressionRef) expression;
 				Object obj = ref.getReference();
 				if (obj instanceof Measure) {
-					Measure measure = (Measure)obj;
+					Measure measure = (Measure) obj;
 					// select the measure
-					ISelectPiece piece = select.select(measure.getDefinition(),measure.getName());
-					piece.addComment(measure.getName()+" (Qualify)");
-					select.getScope().put(measure, measure.getDefinitionSafe());// register the measure in the select context
+					ISelectPiece piece = select.select(measure.getDefinition(), measure.getName());
+					piece.addComment(measure.getName() + " (Qualify)");
+					select.getScope().put(measure, measure.getDefinitionSafe());// register
+																				// the
+																				// measure
+																				// in
+																				// the
+																				// select
+																				// context
 					// register the piece in the main select
 					SubSelectReferencePiece pieceRef = new SubSelectReferencePiece(from, piece);
 					mainSelect.getScope().put(ref, pieceRef);
@@ -476,21 +519,24 @@ public class SimpleQuery extends BaseQuery {
 				}
 			}
 			// else
-			throw new SQLScopeException("cannot rewrite QuUALIFY expression: "+expression.prettyPrint());
+			throw new SQLScopeException("cannot rewrite QuUALIFY expression: " + expression.prettyPrint());
 		} else {
 			// do nothing
 			return expression;
 		}
 	}
-    
-    @Override
-    /**
-     * override to add subject
-     */
-	public List<String> computeDependencies() {
-    	List<String> deps = super.computeDependencies();
-    	deps.add(subject.getId().toUUID());
-    	return deps;
-    }
 
+	@Override
+	/**
+	 * override to add subject
+	 */
+	public List<String> computeDependencies() {
+		List<String> deps = super.computeDependencies();
+		deps.add(subject.getId().toUUID());
+		return deps;
+	}
+
+	public boolean hasRollups() {
+		return rollupGrandTotal || (rollup != null && !rollup.isEmpty());
+	}
 }
