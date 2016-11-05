@@ -152,11 +152,6 @@ public class ConnectionServiceRest extends BaseServiceRest {
 			@ApiParam(value = "the project connection information") Project project,
 			@ApiParam(value = "if noError is true, do not raise an error but return an error status as part of the reply", defaultValue = "false") @QueryParam("noError") boolean noError
 			) {
-		//
-		// check user role
-		Customer customer = DAOFactory.getDAOFactory().getDAO(Customer.class).readNotNull(userContext, userContext.getCustomerPk());
-		AccessRightsUtils.getInstance().checkRole(userContext, customer, Role.WRITE);
- 		//
 		SimpleDatabaseManager manager = null;
 		try {
 			boolean useExistingDatabase = false;
