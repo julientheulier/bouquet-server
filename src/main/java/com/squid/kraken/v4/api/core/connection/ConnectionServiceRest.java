@@ -89,11 +89,6 @@ public class ConnectionServiceRest extends BaseServiceRest {
 			@ApiParam(value = "the password") @QueryParam("password") String password,
 			@ApiParam(value = "the project if already defined") @QueryParam("projectId") String projectId
 			) {
-		//
-		// check user role
-		Customer customer = DAOFactory.getDAOFactory().getDAO(Customer.class).readNotNull(userContext, userContext.getCustomerPk());
-		AccessRightsUtils.getInstance().checkRole(userContext, customer, Role.WRITE);
- 		//
 		SimpleDatabaseManager manager = null;
 		try {
 			boolean useExistingDatabase = false;
