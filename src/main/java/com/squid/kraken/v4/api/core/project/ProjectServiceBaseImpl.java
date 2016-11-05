@@ -56,8 +56,6 @@ import com.squid.kraken.v4.core.expression.scope.ProjectExpressionScope;
 import com.squid.kraken.v4.core.expression.scope.RelationExpressionScope;
 import com.squid.kraken.v4.model.AccessRight;
 import com.squid.kraken.v4.model.AccessRight.Role;
-import com.squid.kraken.v4.model.visitor.DeepReadVisitor;
-import com.squid.kraken.v4.model.visitor.InvalidationVisitor;
 import com.squid.kraken.v4.model.Annotation;
 import com.squid.kraken.v4.model.AnnotationList;
 import com.squid.kraken.v4.model.AnnotationPK;
@@ -65,8 +63,6 @@ import com.squid.kraken.v4.model.Customer;
 import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.DomainPK;
 import com.squid.kraken.v4.model.ExpressionSuggestion;
-import com.squid.kraken.v4.model.GenericPK;
-import com.squid.kraken.v4.model.Persistent;
 import com.squid.kraken.v4.model.Project;
 import com.squid.kraken.v4.model.ProjectPK;
 import com.squid.kraken.v4.model.ProjectUser;
@@ -74,6 +70,8 @@ import com.squid.kraken.v4.model.ProjectUserPK;
 import com.squid.kraken.v4.model.UserGroup;
 import com.squid.kraken.v4.model.UserGroupPK;
 import com.squid.kraken.v4.model.ValueType;
+import com.squid.kraken.v4.model.visitor.DeepReadVisitor;
+import com.squid.kraken.v4.model.visitor.InvalidationVisitor;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DAOFactory;
 import com.squid.kraken.v4.persistence.MongoDBHelper;
@@ -141,20 +139,14 @@ public class ProjectServiceBaseImpl extends GenericServiceImpl<Project, ProjectP
         if (!updateMode) {
         	// apply creation specific rules
 	        String projectOid = newProject.getId().getProjectId();
-	        // check the access rights
-	 		Persistent<? extends GenericPK> parent = newProject
-	 				.getParentObject(ctx);
-	 		// need write role on parent
-	 		AccessRightsUtils.getInstance().checkRole(ctx, parent, Role.WRITE);
-	 		// set the access rights
-	 		AccessRightsUtils.getInstance().setAccessRights(ctx, newProject, parent);
 	        Set<AccessRight> projectAccessRights = newProject.getAccessRights();
+	        AppContext rootCtx = ServiceUtils.getInstance().getRootUserContext(ctx);
 	        
 	        // create the admin group
 	        UserGroup adminGroup = new UserGroup();
 	        adminGroup.setId(new UserGroupPK(ctx.getCustomerId(), CoreConstants.PRJ_DEFAULT_GROUP_ADMIN + projectOid));
 	        adminGroup.setName("Administrators for project "+newProject.getName());
-	        UserGroup newAdminGroup = DAOFactory.getDAOFactory().getDAO(UserGroup.class).create(ctx, adminGroup);
+	        UserGroup newAdminGroup = DAOFactory.getDAOFactory().getDAO(UserGroup.class).create(rootCtx, adminGroup);
 	        
 	        // "admin_projectId" group is assigned WRITE right to the new project
 	        AccessRight writeRight = new AccessRight();
@@ -166,7 +158,7 @@ public class ProjectServiceBaseImpl extends GenericServiceImpl<Project, ProjectP
 	        UserGroup guestGroup = new UserGroup();
 	        guestGroup.setId(new UserGroupPK(ctx.getCustomerId(), CoreConstants.PRJ_DEFAULT_GROUP_GUEST + projectOid));
 	        guestGroup.setName("Guests for project "+newProject.getName());
-	        UserGroup newGuestGroup = DAOFactory.getDAOFactory().getDAO(UserGroup.class).create(ctx, guestGroup);
+	        UserGroup newGuestGroup = DAOFactory.getDAOFactory().getDAO(UserGroup.class).create(rootCtx, guestGroup);
 	        
 	        // "guest_projectId" group is assigned READ right to the new project
 	        AccessRight readRight = new AccessRight();
