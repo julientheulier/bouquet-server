@@ -351,7 +351,6 @@ public class BookmarkFolderServiceBaseImpl {
 		}
 	}
 	
-	// this one
 	protected List<BookmarkFolder> readSharedWithMeFolders(AppContext ctx, String path, boolean isFolders, boolean isBookmarks) {
 		String internalPath = Bookmark.SEPARATOR + Bookmark.Folder.USER;
 		String filterPath = path.substring(BookmarkFolder.SHAREDWITHME.length());
