@@ -27,10 +27,13 @@ import java.util.List;
 
 import com.google.common.base.Optional;
 import com.squid.kraken.v4.api.core.AccessRightsUtils;
+import com.squid.kraken.v4.api.core.ServiceUtils;
 import com.squid.kraken.v4.caching.Cache;
 import com.squid.kraken.v4.caching.CacheFactoryEHCache;
 import com.squid.kraken.v4.model.AccessRight.Role;
 import com.squid.kraken.v4.model.CustomerPK;
+import com.squid.kraken.v4.model.GenericPK;
+import com.squid.kraken.v4.model.Persistent;
 import com.squid.kraken.v4.model.Project;
 import com.squid.kraken.v4.model.ProjectPK;
 import com.squid.kraken.v4.persistence.AccessRightsPersistentDAO;
@@ -72,6 +75,21 @@ public class ProjectDAO extends AccessRightsPersistentDAO<Project, ProjectPK> {
         }
     }
     
+    /**
+     * Anyone can create a project.<br>
+     * Access rights are inherited from its parent (see
+     * {@link AccessRightsUtils#setAccessRights(AppContext, Persistent, Persistent)}).<br>
+     */
+	@Override
+	public Project create(AppContext ctx, Project newInstance) {
+		// set the access rights
+		AppContext rootCtx = ServiceUtils.getInstance().getRootUserContext(ctx);
+		Persistent<? extends GenericPK> parent = newInstance
+				.getParentObject(rootCtx);
+		AccessRightsUtils.getInstance().setAccessRights(ctx, newInstance, parent);
+
+		return ds.create(ctx, newInstance);
+	}
     
 	/**
 	 * Role {@link Role#READ} is required to perform the operation but

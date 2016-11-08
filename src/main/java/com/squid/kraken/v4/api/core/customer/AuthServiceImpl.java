@@ -400,25 +400,14 @@ public class AuthServiceImpl extends
 						}
 					}
 					if (userId == null) {
-						List<User> findByCustomer = userDAO.findByCustomer(root, singleCustomer.getId());
-						if (findByCustomer.size() == 1) {
-							// we only have one non registered user
-							User user = findByCustomer.get(0);
-							user.setLogin(userOBio.getName());
-							user.setAuthId(userOBio.getId());
-							user.setEmail(userOBio.getEmail());
-							userDAO.update(root, user);
-							userId = user.getOid();
-						} else {
-							// register a brand new user
-							User user = new User();
-							user.setId(new UserPK(singleCustomer.getCustomerId()));
-							user.setLogin(userOBio.getName());
-							user.setAuthId(userOBio.getId());
-							user.setEmail(userOBio.getEmail());
-							user = userDAO.create(root, user);
-							userId = user.getOid();
-						}
+						// register a brand new user
+						User user = new User();
+						user.setId(new UserPK(singleCustomer.getCustomerId()));
+						user.setLogin(userOBio.getName());
+						user.setAuthId(userOBio.getId());
+						user.setEmail(userOBio.getEmail());
+						user = userDAO.create(root, user);
+						userId = user.getOid();
 					}
 					// generate a new token
 					ClientPK client = new ClientPK(singleCustomer.getCustomerId(), clientId.getClientId());
