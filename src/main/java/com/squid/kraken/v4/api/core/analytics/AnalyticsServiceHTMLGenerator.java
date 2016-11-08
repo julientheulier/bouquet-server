@@ -485,6 +485,14 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			}
 			html.append("</table>");
 			createHTMLpagination(html, query, data);
+			{
+				UriBuilder builder = service.getPublicBaseUriBuilder().
+						path("/analytics/{"+BBID_PARAM_NAME+"}/query");
+				builder.queryParam(STYLE_PARAM, Style.HTML);
+				builder.queryParam("access_token", userContext.getToken().getOid());
+				URI uri = builder.build(space.getBBID(Style.ROBOT));
+				html.append("<p>Query ran on domain: <a href=\""+StringEscapeUtils.escapeHtml4(uri.toString())+"\">"+StringEscapeUtils.escapeHtml4(space.getBBID(Style.HUMAN))+"</a></p>");
+			}
 		} else {
 			html.append("<i>Result is not available, it's probably due to an error</i>");
 			html.append("<p>");
@@ -492,14 +500,6 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			html.append("</p<br>");
 		}
 		html.append("<form>");
-		{
-			UriBuilder builder = service.getPublicBaseUriBuilder().
-					path("/analytics/{"+BBID_PARAM_NAME+"}/query");
-			builder.queryParam(STYLE_PARAM, Style.HTML);
-			builder.queryParam("access_token", userContext.getToken().getOid());
-			URI uri = builder.build(space.getBBID(Style.ROBOT));
-			html.append("<p>Query ran on domain: <a href=\""+StringEscapeUtils.escapeHtml4(uri.toString())+"\">"+StringEscapeUtils.escapeHtml4(space.getBBID(Style.HUMAN))+"</a></p>");
-		}
 		createHTMLfilters(html, query);
 		html.append("<table>");
 		html.append("<tr><td valign='top'>groupBy</td><td>");
