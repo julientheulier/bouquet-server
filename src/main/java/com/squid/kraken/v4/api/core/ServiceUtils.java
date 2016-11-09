@@ -23,7 +23,6 @@
  *******************************************************************************/
 package com.squid.kraken.v4.api.core;
 
-import java.io.IOException;
 import java.math.BigInteger;
 import java.security.Key;
 import java.security.MessageDigest;
@@ -55,8 +54,6 @@ import org.bson.types.ObjectId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.fasterxml.jackson.core.JsonParseException;
-import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Optional;
 import com.squid.kraken.v4.KrakenConfig;

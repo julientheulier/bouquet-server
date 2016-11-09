@@ -58,6 +58,7 @@ import com.squid.kraken.v4.model.AccessTokenPK;
 import com.squid.kraken.v4.model.AuthCode;
 import com.squid.kraken.v4.model.Client;
 import com.squid.kraken.v4.model.ClientPK;
+import com.squid.kraken.v4.model.Customer;
 import com.squid.kraken.v4.model.CustomerInfo;
 import com.squid.kraken.v4.model.CustomerPK;
 import com.squid.kraken.v4.model.User;
@@ -538,6 +539,17 @@ public class CustomerServiceRest extends CoreAuthenticatedServiceRest {
 		res += "]";
 		CoreVersion version = new CoreVersion();
 		res += ", \"bouquet-core\" : \"" + version.getVendorVersion() + "\"";
+		// Team Id
+		if (KrakenConfig.getAuthMode() == AUTH_MODE.OBIO) {
+			Customer singleCustomer = ServiceUtils.getInstance().getSingleCustomer();
+			if (singleCustomer != null) {
+				if (singleCustomer.getTeamId() != null) {
+					res += ",\"teamId\" : \"" + singleCustomer.getTeamId() + "\"";
+				} else {
+					res += ",\"teamId\" : null";
+				}
+			}
+		}
 
 		res += " }";
 		return res;
