@@ -614,7 +614,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		Iterator<Bookmark> iter = bookmarks.iterator();
 		while (iter.hasNext()) {
 			Bookmark bookmark = iter.next();
-			if (!bookmark.getPath().startsWith(userPath)) {// excluding my bookmarks
+			if (bookmark.getPath().startsWith(userPath)) {// excluding my bookmarks
 				iter.remove();
 			} else {
 				String subPath = getSubPath(bookmark.getPath());
