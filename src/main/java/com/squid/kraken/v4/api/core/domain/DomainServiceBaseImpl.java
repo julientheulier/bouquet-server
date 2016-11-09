@@ -99,13 +99,14 @@ public class DomainServiceBaseImpl extends GenericServiceImpl<Domain, DomainPK> 
 					// if write access, always add it
 					visibles.add(domain);
 				} else {
-					if (!domain.isDynamic()) {
+					// T2204
+					//if (!domain.isDynamic()) {
 						// not dynamic and not write, check if has metrics
-						List<Metric> metrics = metricDAO.findByDomain(ctx, domain.getId());
-						if (!metrics.isEmpty()) {
+						//List<Metric> metrics = metricDAO.findByDomain(ctx, domain.getId());
+						//if (!metrics.isEmpty()) {
 							visibles.add(domain);
-						}
-					}
+						//}
+					//}
 				}
 			}
 			return visibles;
