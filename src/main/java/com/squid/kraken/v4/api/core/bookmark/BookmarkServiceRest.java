@@ -47,7 +47,7 @@ import io.swagger.annotations.ApiParam;
 import io.swagger.annotations.Authorization;
 import io.swagger.annotations.AuthorizationScope;
 
-@Api(hidden=true, value = "bookmarks", authorizations = { @Authorization(value = "kraken_auth", scopes = { @AuthorizationScope(scope = "access", description = "Access")}) })
+@Api(hidden=false, value = "bookmarks", authorizations = { @Authorization(value = "kraken_auth", scopes = { @AuthorizationScope(scope = "access", description = "Access")}) })
 @Produces({ MediaType.APPLICATION_JSON })
 public class BookmarkServiceRest extends BaseServiceRest {
 
