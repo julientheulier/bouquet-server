@@ -303,10 +303,14 @@ public class AccessRightsUtils {
 	 */
 	public void setAccessRights(AppContext ctx, Persistent<?> target,
 			Persistent<?> parent) {
-		// target object is only visible from this thread so we can safely modify its properties
-		Set<AccessRight> accessRights = target.getAccessRights();
 		// parent object may be shared with the Universe - do not alter, us a copy
-		Set<AccessRight> parentAccessRights = new HashSet<>(parent.getAccessRights());
+		setAccessRights(ctx, target, parent.getAccessRights());
+	}
+	
+	public void setAccessRights(AppContext ctx, Persistent<?> target,
+			final Set<AccessRight> parentAccessRights) {
+		// parent object may be shared with the Universe - do not alter, us a copy
+		Set<AccessRight> parentAccessRightsCopy = new HashSet<>();
 		User currentUser = ctx.getUser();
 		// add the current user as owner (if not super user)
 		if (!currentUser.isSuperUser()) {
@@ -315,22 +319,33 @@ public class AccessRightsUtils {
 					.hasNext();) {
 				AccessRight r = i.next();
 				if (currentUser.getId().getUserId().equals(r.getUserId())) {
-					i.remove();
+					// remove
 				}
 				// removing right with EXECUTE
 				else if (Role.EXECUTE.equals(r.getRole())) {
-					i.remove();
+					//remove
+				}
+				// donwgrade OWNER to WRITER only
+				else if (Role.OWNER.equals(r.getRole())) {
+					// replace
+					AccessRight copy = new AccessRight(Role.WRITE, r.getUserId(), r.getGroupId());
+					parentAccessRightsCopy.add(copy);
+				} else {
+					// keep it
+					parentAccessRightsCopy.add(r);
 				}
 			}
 			// add the current user
 			AccessRight ownerRight = new AccessRight();
 			ownerRight.setRole(Role.OWNER);
 			ownerRight.setUserId(ctx.getUser().getId().getUserId());
-			parentAccessRights.add(ownerRight);
+			parentAccessRightsCopy.add(ownerRight);
 		}
 		Set<AccessRight> newAccessRights = AccessRightsUtils.getInstance()
 				.applyAccessRights(ctx, target.getAccessRights(),
-						parentAccessRights);
+						parentAccessRightsCopy);
+		// target object is only visible from this thread so we can safely modify its properties
+		Set<AccessRight> accessRights = target.getAccessRights();
 		accessRights.addAll(newAccessRights);
 		newAccessRights = AccessRightsUtils.getInstance().applyAccessRights(
 				ctx, newAccessRights, accessRights);
