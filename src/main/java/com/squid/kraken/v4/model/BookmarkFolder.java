@@ -117,6 +117,8 @@ public class BookmarkFolder implements HasChildren {
 
 		private String name;
 		private String description;
+		
+		private String projectName;
 
 		/**
 		 * Default constructor (required for jaxb).
@@ -147,6 +149,14 @@ public class BookmarkFolder implements HasChildren {
 
 		public void setName(String name) {
 			this.name = name;
+		}
+		
+		public void setProjectName(String projectName) {
+			this.projectName = projectName;
+		}
+		
+		public String getProjectName() {
+			return projectName;
 		}
 
 		public String getDescription() {
