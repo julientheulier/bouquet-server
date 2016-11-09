@@ -37,6 +37,9 @@ import com.squid.kraken.v4.model.BookmarkFolder;
 import com.squid.kraken.v4.model.BookmarkFolder.BookmarkLink;
 import com.squid.kraken.v4.model.BookmarkFolderPK;
 import com.squid.kraken.v4.model.BookmarkPK;
+import com.squid.kraken.v4.model.GenericPK;
+import com.squid.kraken.v4.model.Persistent;
+import com.squid.kraken.v4.model.Project;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DAOFactory;
 import com.squid.kraken.v4.persistence.dao.BookmarkDAO;
@@ -188,17 +191,27 @@ public class BookmarkFolderServiceBaseImpl {
 		List<Bookmark> bookmarks = getBookmarks(ctx, internalPath, path == null);
 		// build the folder content
 		List<BookmarkLink> links = new ArrayList<BookmarkLink>();
-		for (Bookmark o : bookmarks) {
-			String p = o.getPath();
+		for (Bookmark bookmark : bookmarks) {
+			String realPath = bookmark.getPath();
 			// only handle the exact path
-			if (p.equals(internalPath)) {
-				BookmarkLink bm = new BookmarkLink(o.getId());
-				bm.setName(o.getName());
-				bm.setDescription(o.getDescription());
-				links.add(bm);
+			if (realPath.equals(internalPath)) {
+				links.add(createBookmarkLink(ctx, bookmark));
 			}
 		}
 		return links;
+	}
+	
+	private BookmarkLink createBookmarkLink(AppContext ctx, Bookmark bookmark) {
+		BookmarkLink link = new BookmarkLink(bookmark.getId());
+		link.setName(bookmark.getName());
+		link.setDescription(bookmark.getDescription());
+		// get the parent (project)
+		Persistent<? extends GenericPK> parent = bookmark.getParentObject(ctx);
+		if (parent instanceof Project) {
+			Project project = (Project)parent;
+			link.setProjectName(project.getName());
+		}
+		return link;
 	}
 	
 	private boolean isSharedWithMe(AppContext ctx, String path) {
@@ -218,17 +231,14 @@ public class BookmarkFolderServiceBaseImpl {
 		List<Bookmark> bookmarks = getBookmarks(ctx, internalPath, path == null);
 		// build the folder content
 		List<BookmarkLink> bmList = new ArrayList<BookmarkLink>();
-		for (Bookmark o : bookmarks) {
-			String p = o.getPath();
+		for (Bookmark bookmark : bookmarks) {
+			String realPath = bookmark.getPath();
 			// only handle the exact pathp = p.substring(internalPath.length());
-			p = p.substring(internalPath.length());
-			if (!isSharedWithMe(ctx, p)) {// excluding my bookmarks
-				String subPath = getSubPath(p);
+			String extPath = realPath.substring(internalPath.length());
+			if (!isSharedWithMe(ctx, extPath)) {// excluding my bookmarks
+				String subPath = getSubPath(extPath);
 				if (subPath.equals(filterPath)) {
-					BookmarkLink bm = new BookmarkLink(o.getId());
-					bm.setName(o.getName());
-					bm.setDescription(o.getDescription());
-					bmList.add(bm);
+					bmList.add(createBookmarkLink(ctx, bookmark));
 				}
 			}
 		}
