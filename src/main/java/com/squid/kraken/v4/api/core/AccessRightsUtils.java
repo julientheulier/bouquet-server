@@ -340,6 +340,8 @@ public class AccessRightsUtils {
 			ownerRight.setRole(Role.OWNER);
 			ownerRight.setUserId(ctx.getUser().getId().getUserId());
 			parentAccessRightsCopy.add(ownerRight);
+		} else {
+			parentAccessRightsCopy = new HashSet<>(parentAccessRights);
 		}
 		Set<AccessRight> newAccessRights = AccessRightsUtils.getInstance()
 				.applyAccessRights(ctx, target.getAccessRights(),
