@@ -34,6 +34,7 @@ import java.util.HashMap;
 import java.util.IllegalFormatException;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.StringTokenizer;
 
 import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Response;
@@ -57,6 +58,7 @@ import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.core.expression.scope.ExpressionSuggestionHandler;
 import com.squid.kraken.v4.model.AnalyticsQuery;
 import com.squid.kraken.v4.model.Bookmark;
+import com.squid.kraken.v4.model.BookmarkFolder;
 import com.squid.kraken.v4.model.DataTable;
 import com.squid.kraken.v4.model.ExpressionSuggestion;
 import com.squid.kraken.v4.model.ExpressionSuggestionItem;
@@ -410,6 +412,9 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			html.append("<p><i>"+result.getParent().getDescription()+"</i></p>");
 		}
 		// coontent
+		if (result.getChildren().isEmpty()) {
+			html.append("<p><center>empty folder, nothing to show</center></p>");
+		}
 		html.append("<table style='border-collapse:collapse'>");
 		for (NavigationItem item : result.getChildren()) {
 			html.append("<tr>");
@@ -873,14 +878,21 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 	
 	public String getBookmarkNavigationPath(Bookmark bookmark) {
 		String path = bookmark.getPath();
-		if (path.startsWith("/USER/")) {
-			int pos = path.indexOf("/", 6);
-			if (pos>=0) {
-				path = path.substring(pos);
+		if (path.startsWith(Bookmark.SEPARATOR + Bookmark.Folder.USER)) {
+			String[] elements = path.split(Bookmark.SEPARATOR);
+			if (elements.length>=3) {
+				String oid = elements[2];
+				path = path.substring((Bookmark.SEPARATOR + Bookmark.Folder.USER + Bookmark.SEPARATOR + oid).length());
+				if (oid.equals(service.getUserContext().getUser().getOid())) {
+					path = AnalyticsServiceBaseImpl.MYBOOKMARKS_FOLDER.getSelfRef()+path;
+				} else {
+					path = AnalyticsServiceBaseImpl.SHAREDWITHME_FOLDER.getSelfRef()+path;
+				}
 			} else {
-				path = "";// remove all, the path is in form /USERS/id
+				path = AnalyticsServiceBaseImpl.MYBOOKMARKS_FOLDER.getSelfRef()+path.substring((Bookmark.SEPARATOR + Bookmark.Folder.USER).length());
 			}
-			path = AnalyticsServiceBaseImpl.MYBOOKMARKS_FOLDER.getSelfRef()+"/"+path;
+		} else if (path.startsWith(Bookmark.SEPARATOR + Bookmark.Folder.SHARED)) {
+			path = AnalyticsServiceBaseImpl.SHARED_FOLDER.getSelfRef()+path.substring((Bookmark.SEPARATOR + Bookmark.Folder.SHARED).length());
 		}
 		if (path.endsWith("/")) path = path.substring(0, path.length()-1);
 		return path;
