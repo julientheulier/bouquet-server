@@ -34,7 +34,6 @@ import java.util.HashMap;
 import java.util.IllegalFormatException;
 import java.util.List;
 import java.util.Map.Entry;
-import java.util.StringTokenizer;
 
 import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Response;
@@ -58,7 +57,6 @@ import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.core.expression.scope.ExpressionSuggestionHandler;
 import com.squid.kraken.v4.model.AnalyticsQuery;
 import com.squid.kraken.v4.model.Bookmark;
-import com.squid.kraken.v4.model.BookmarkFolder;
 import com.squid.kraken.v4.model.DataTable;
 import com.squid.kraken.v4.model.ExpressionSuggestion;
 import com.squid.kraken.v4.model.ExpressionSuggestionItem;
