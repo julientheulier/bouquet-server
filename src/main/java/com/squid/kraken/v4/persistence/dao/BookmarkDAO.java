@@ -31,6 +31,7 @@ import java.util.Set;
 import com.google.common.base.Optional;
 import com.squid.kraken.v4.api.core.AccessRightsUtils;
 import com.squid.kraken.v4.api.core.InvalidCredentialsAPIException;
+import com.squid.kraken.v4.api.core.ServiceUtils;
 import com.squid.kraken.v4.api.core.AccessRightsUtils.Inheritance;
 import com.squid.kraken.v4.caching.Cache;
 import com.squid.kraken.v4.caching.CacheFactoryEHCache;
@@ -179,11 +180,12 @@ public class BookmarkDAO extends
 				if (pathUserId.equals(ctx.getUser().getOid())) {
 					// path user id is current user : keep it like it is
 				} else {
-					// check if this is a valid user id
+					// check if this is a valid user id (we need a root ctx for that)
+					AppContext root = ServiceUtils.getInstance().getRootUserContext(ctx);
 					DAOFactory
 							.getDAOFactory()
 							.getDAO(User.class)
-							.readNotNull(ctx,
+							.readNotNull(root,
 									new UserPK(ctx.getCustomerId(), pathUserId));
 					// check if ctx user is admin
 					if (!isAdmin) {
