@@ -27,8 +27,10 @@ import java.util.HashMap;
 import java.util.List;
 
 import com.squid.core.domain.IDomain;
+import com.squid.core.domain.vector.VectorOperatorDefinition;
 import com.squid.core.expression.ConstantValue;
 import com.squid.core.expression.ExpressionAST;
+import com.squid.core.expression.Operator;
 import com.squid.core.expression.scope.DefaultScope;
 import com.squid.core.expression.scope.ExpressionDiagnostic;
 import com.squid.core.expression.scope.ExpressionScope;
@@ -79,7 +81,8 @@ public class DimensionDefaultValueScope extends DefaultScope {
 	
 	@Override
     public ExpressionAST createCompose(ExpressionAST first, ExpressionAST second) throws ScopeException {
-		if (first instanceof ParameterReference && second instanceof ConstantValue) {
+		if (first instanceof ParameterReference && (second instanceof ConstantValue
+				|| (second instanceof Operator && ((Operator)second).getOperatorDefinition() instanceof VectorOperatorDefinition))) {
 			ParameterReference check = (ParameterReference)first;
 			if (check.getParameterName().equalsIgnoreCase("USER")) {
 				return second;

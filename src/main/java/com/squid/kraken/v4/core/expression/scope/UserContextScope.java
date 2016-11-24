@@ -50,7 +50,13 @@ public class UserContextScope extends DefaultScope {
 	@Override
 	public Object lookupObject(IdentifierType type, String name) throws ScopeException {
 		if (ctx.getUser().getAttributes()!=null && ctx.getUser().getAttributes().containsKey(name)) {
-			return ExpressionMaker.CONSTANT(ctx.getUser().getAttributes().get(name));
+			try {
+				ExpressionAST exp = this.parseExpression(ctx.getUser().getAttributes().get(name));
+				return exp;				
+			} catch (ScopeException se) {
+				return ExpressionMaker.CONSTANT(ctx.getUser().getAttributes().get(name));
+			}
+			//
 		} else {
 			throw new ScopeException("the attribute '"+name+"' is not defined for user '"+ctx.getUser().getLogin()+"'");
 		}
