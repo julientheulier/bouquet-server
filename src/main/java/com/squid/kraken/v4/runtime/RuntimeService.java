@@ -30,6 +30,7 @@ import java.util.HashSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.squid.core.database.plugins.PluginsLoader;
 import com.squid.kraken.v4.KrakenConfig;
 import com.squid.kraken.v4.ESIndexFacade.ESIndexFacadeConfiguration;
 import com.squid.kraken.v4.api.core.ServiceUtils;
@@ -89,8 +90,8 @@ public class RuntimeService {
         }
         CacheInitPoint cache = CacheInitPoint.INSTANCE;
         cache.start(conf, facets);
-		DriversService.initDriver();
-
+//		DriversService.initDriver();
+        PluginsLoader.INSTANCE.loadPlugins();
         // DimensionStoreManagerFactory initialization
         try {
 			String embeddedValue = KrakenConfig.getProperty("elastic.local", "true");
