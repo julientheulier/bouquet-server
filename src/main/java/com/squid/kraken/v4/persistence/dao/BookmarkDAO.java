@@ -31,6 +31,7 @@ import java.util.Set;
 import com.google.common.base.Optional;
 import com.squid.kraken.v4.api.core.AccessRightsUtils;
 import com.squid.kraken.v4.api.core.InvalidCredentialsAPIException;
+import com.squid.kraken.v4.api.core.ServiceUtils;
 import com.squid.kraken.v4.api.core.AccessRightsUtils.Inheritance;
 import com.squid.kraken.v4.caching.Cache;
 import com.squid.kraken.v4.caching.CacheFactoryEHCache;
@@ -106,7 +107,7 @@ public class BookmarkDAO extends
 	public Bookmark create(AppContext ctx, Bookmark bookmark) {
 		Persistent<? extends GenericPK> parent = bookmark.getParentObject(ctx);
 		AccessRightsUtils.getInstance().checkRole(ctx, parent, Role.READ);
-		applyPathRules(ctx, parent, bookmark);
+		applyPathRules(ctx, parent.getAccessRights(), null, bookmark);
 		AccessRightsUtils.getInstance().setAccessRights(ctx, bookmark, parent);
 		return ds.create(ctx, bookmark);
 	}
@@ -118,36 +119,73 @@ public class BookmarkDAO extends
 		Set<AccessRight> newAccessRights = AccessRightsUtils.getInstance()
 				.applyAccessRights(ctx, toUpdate.getAccessRights(),
 						bookmark.getAccessRights());
-		applyPathRules(ctx, toUpdate, bookmark);
+		applyPathRules(ctx, toUpdate.getAccessRights(), toUpdate, bookmark);
 		bookmark.setAccessRights(newAccessRights);
 		ds.update(ctx, bookmark);
 	}
 
-	private void applyPathRules(AppContext ctx, Persistent<? extends GenericPK> accessRightHolder, Bookmark bookmark) {
-		String path = bookmark.getPath();
+	private void applyPathRules(AppContext ctx, Set<AccessRight> accessRights, Bookmark toUpdate, Bookmark newBookmark) {
+		String path = newBookmark.getPath();
 		if (path == null) {
 			path = "";
 		}
 		if (path.equals("")) {
 			path = path + Bookmark.SEPARATOR;
 		}
-		boolean isAdmin = AccessRightsUtils.getInstance().hasRole(ctx,
-				accessRightHolder, Role.WRITE);
+		boolean isAdmin = AccessRightsUtils.getInstance().hasRole(ctx.getUser(),
+				accessRights, Role.WRITE);
 		String[] pathSplit = path.split("\\"+Bookmark.SEPARATOR);
+		// T2184
+		if (toUpdate!=null) {
+			boolean isOwner = AccessRightsUtils.getInstance().hasRole(ctx.getUser(),
+					accessRights, Role.OWNER);
+			if (!isOwner) {
+				// if not an owner, cannot change the root path
+				String[] originalPathSplit = toUpdate.getPath().split("\\"+Bookmark.SEPARATOR);
+				if (originalPathSplit.length<=1) {
+					if (pathSplit.length>1) {
+						throw new InvalidCredentialsAPIException(
+								"User cannot move the bookmark root folder", ctx.isNoError());
+					}
+				} else {
+					if (originalPathSplit[1].equals(Bookmark.Folder.SHARED.name())) {
+						if (!pathSplit[1].equals(Bookmark.Folder.SHARED.name())) {
+							throw new InvalidCredentialsAPIException(
+									"User cannot move the bookmark root folder", ctx.isNoError());
+						}
+					}
+					if (originalPathSplit[1].equals(Bookmark.Folder.USER.name())) {
+						if (!pathSplit[1].equals(Bookmark.Folder.USER.name())) {
+							throw new InvalidCredentialsAPIException(
+									"User cannot move the bookmark root folder", ctx.isNoError());
+						} else {
+							// check OID
+							String pathUserId = pathSplit.length>2?pathSplit[2]:"";
+							String originalPathUserId = originalPathSplit.length>2?originalPathSplit[2]:"";
+							if (!originalPathUserId.equals(pathUserId)) {
+								throw new InvalidCredentialsAPIException(
+										"User cannot move the bookmark root folder", ctx.isNoError());
+							}
+						}
+					}
+				}
+			}
+		}
 		if (pathSplit.length>1) {
 			// check if path is a USER path
 			boolean isUserPath = pathSplit[1].equals(Bookmark.Folder.USER.name());
 			if (isUserPath) {
 				// get the userID
-				String pathUserId = pathSplit[2];
+				String pathUserId = pathSplit.length>2?pathSplit[2]:"";
 				if (pathUserId.equals(ctx.getUser().getOid())) {
 					// path user id is current user : keep it like it is
 				} else {
-					// check if this is a valid user id
+					// check if this is a valid user id (we need a root ctx for that)
+					AppContext root = ServiceUtils.getInstance().getRootUserContext(ctx);
 					DAOFactory
 							.getDAOFactory()
 							.getDAO(User.class)
-							.readNotNull(ctx,
+							.readNotNull(root,
 									new UserPK(ctx.getCustomerId(), pathUserId));
 					// check if ctx user is admin
 					if (!isAdmin) {
@@ -179,7 +217,7 @@ public class BookmarkDAO extends
 		if (path.endsWith(Bookmark.SEPARATOR)) {
 			path = path.substring(0, path.length()-1);
 		}
-		bookmark.setPath(path);
+		newBookmark.setPath(path);
 	}
 
 	@Override

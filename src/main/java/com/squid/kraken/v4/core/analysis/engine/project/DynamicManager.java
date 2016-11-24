@@ -161,7 +161,8 @@ public class DynamicManager {
 						// normalizeObjectName(table.getName());
 						String tableRef = table.getSchema().isNullSchema() ? table.getName()
 								: (table.getSchema().getName() + ":" + table.getName());
-						DomainPK domainPk = new DomainPK(project.getId(), checkUniqueId(tableRef, checkIDs));
+						String ID = normalizePK(tableRef);
+						DomainPK domainPk = new DomainPK(project.getId(), checkUniqueId(ID, checkIDs));
 						Domain domain = new Domain(domainPk, domainName, new Expression("'" + tableRef + "'"), true);
 						if (table.getDescription()!=null) domain.setDescription(table.getDescription());
 						domain.setAccessRights(accessRights);
@@ -208,6 +209,24 @@ public class DynamicManager {
 
 		}
 		return domains;
+	}
+
+	/**
+	 * Make sure the ID conforms to the storage layer rules: must match pattern: [a-zA-Z_\-\:0-9]
+	 * @param tableRef
+	 * @return
+	 */
+	private String normalizePK(String ID) {
+		String normalize = "";
+		for (int i=0;i<ID.length();i++) {
+			char c = ID.charAt(i);
+			if (Character.isLetterOrDigit(c) || c=='_' || c=='-' || c==':') {
+				normalize += c;
+			} else {
+				normalize += "_";
+			}
+		}
+		return normalize;
 	}
 
 	protected String checkUniqueId(String ID, HashSet<String> IDs) {

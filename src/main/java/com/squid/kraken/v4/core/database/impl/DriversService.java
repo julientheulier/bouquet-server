@@ -89,8 +89,8 @@ public class DriversService {
 			}
 		}
 
-		try {
-			for (String driverName : drivers) {
+		for (String driverName : drivers) {
+			try {
 				Driver driver = (Driver) Class.forName(driverName, true, dd).newInstance();
 				Enumeration<Driver> availableDrivers = DriverManager.getDrivers();
 				Boolean duplicate = false;
@@ -103,19 +103,15 @@ public class DriversService {
 					}
 				}
 				if (logger.isDebugEnabled()) {
-					logger.debug("driver available " + driver.getClass());
+					logger.debug("driver available: " + driverName);
 				}
-				;
 				if (!duplicate) {
 					DriverShim shim = new DriverShim(driver);
 					DriverManager.registerDriver(shim);
 				}
-				;
+			} catch (InstantiationException | IllegalAccessException | ClassNotFoundException | SQLException e) {
+				logger.error("unavailable driver: " + driverName);
 			}
-
-		} catch (InstantiationException | IllegalAccessException | ClassNotFoundException | SQLException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
 		}
 
 		Thread.currentThread().setContextClassLoader(rollback);
