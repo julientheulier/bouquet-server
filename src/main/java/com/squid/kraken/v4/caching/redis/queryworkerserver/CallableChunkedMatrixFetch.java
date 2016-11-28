@@ -116,7 +116,7 @@ class CallableChunkedMatrixFetch implements Callable<Boolean> {
 			} while (!done && !error && !cancel);
 
 			if (cancel && !done) {
-				logger.info("Canceling SQLQuery#" + item.getID() + " jobId " + request.getJobId() + " on worker " + workerId
+				logger.info("Canceling SQLQuery#" + item.getID() + " jobId " + request.getJobId() + "for userId "+ request.getUserID() + " on worker " + workerId
 						+ " duration=" + (end-start) + " ms; read=" + batchUpperBound + " lines; queryid=" + item.getID());
 				throw new RedisCacheException("Canceling read result for queryid=" + item.getID()
 						+ " jobId " + request.getJobId() + " on worker " + workerId + " in redis");
@@ -125,7 +125,7 @@ class CallableChunkedMatrixFetch implements Callable<Boolean> {
 				throw new RedisCacheException("We did not manage to store the result for queryid=" + item.getID()
 						+ " jobId " + request.getJobId() + " on worker " + workerId + " in redis");
 			} else {
-				logger.info("Result for SQLQuery#" + item.getID() + " jobId " + request.getJobId() + " on worker " + workerId
+				logger.info("Result for SQLQuery#" + item.getID() + " jobId " + request.getJobId() + "for userId "+ request.getUserID() + " on worker " + workerId
 						+ "was split into " + nbBatches + " batches; duration=" + (end-start) + " ms; read=" + batchUpperBound + " lines; queryid=" + item.getID());
 			}
 			return true;
