@@ -122,7 +122,8 @@ public class QueryRunner {
 			} else {
 				// compute
 				ProjectPK projectPK = project.getId();
-				result = RedisCacheManager.getInstance().getRedisCacheValue(ctx.getUser().getOid(), projectPK, sql,
+				result = RedisCacheManager.getInstance().getRedisCacheValue(ctx.getUser().getOid(),
+						projectPK, sql,
 						deps, jobId, url, user, pwd, -2, query.getSelect().getStatement().getLimitValue());
 				if (result == null) {
 					throw new ComputingException("Failed to compute or retrieve the matrix for job " + jobId);
