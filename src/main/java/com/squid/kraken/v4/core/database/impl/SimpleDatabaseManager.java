@@ -35,7 +35,6 @@ import org.slf4j.LoggerFactory;
 import com.squid.core.database.impl.DataSourceReliable;
 import com.squid.core.database.impl.DataSourceReliable.FeatureSupport;
 import com.squid.core.database.impl.DatabaseServiceException;
-import com.squid.core.database.impl.DriverLoader;
 import com.squid.core.database.lazy.LazyDatabaseFactory;
 import com.squid.core.database.metadata.IMetadataEngine;
 import com.squid.core.database.model.Database;
@@ -75,7 +74,7 @@ public class SimpleDatabaseManager extends DatabaseManager {
 	protected HikariDataSourceReliable createDatasourceWithConfig(JDBCConfig config) {
 		logger.info("Creating a new datasource for " + config.getJdbcUrl() + " " + config.getUsername());
 		HikariDataSourceReliable ds = new HikariDataSourceReliable();
-		ds.setCustomClassloader(DriverLoader.getDriverLoader());
+//		ds.setCustomClassloader(DriverLoader.getDriverLoader());
 		ds.setJdbcUrl(config.getJdbcUrl());
 		ds.setUsername(config.getUsername());
 		ds.setPassword(config.getPassword());
@@ -118,7 +117,7 @@ public class SimpleDatabaseManager extends DatabaseManager {
 			// Connection.isValid() method is not supported
 			ds.setConnectionTestQuery("show databases");
 		}
-	}
+	} 
 
 	public void setup() throws ExecutionException, DatabaseServiceException {
 		HikariDataSourceReliable hikari = setupDataSource();
@@ -133,7 +132,7 @@ public class SimpleDatabaseManager extends DatabaseManager {
 
 	protected HikariDataSourceReliable setupDataSource() throws DatabaseServiceException {
 		HikariDataSourceReliable ds = createDatasourceWithConfig(config);
-		chooseDriver(ds);
+//		chooseDriver(ds);
 		// check the connection
 		try {
 			Connection conn = ds.getConnectionBlocking();
@@ -183,7 +182,7 @@ public class SimpleDatabaseManager extends DatabaseManager {
 		// Now that we have fully detected the database type we can change to
 		// most accurate driver.
 		if (db.getProductName().equals(IMetadataEngine.REDSHIFT_NAME)) {
-			hikari.setDriverClassName("com.amazon.redshift.jdbc41.Driver");
+//			hikari.setDriverClassName("com.amazon.redshift.jdbc41.Driver");
 		}
 		if (db.getUrl().contains("jdbc:drill")) {
 			// Do nothing on purpose setAutocommit is/was not well supported.

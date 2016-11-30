@@ -56,7 +56,6 @@ import com.squid.kraken.v4.caching.redis.RedisCacheConfig;
 import com.squid.kraken.v4.caching.redis.RedisCacheManager;
 import com.squid.kraken.v4.config.KrakenConfigV2;
 import com.squid.kraken.v4.core.analysis.engine.index.DimensionStoreManagerFactory;
-import com.squid.kraken.v4.core.database.impl.DriversService;
 import com.squid.kraken.v4.model.Customer;
 import com.squid.kraken.v4.model.Customer.AUTH_MODE;
 import com.squid.kraken.v4.persistence.AppContext;
@@ -100,8 +99,9 @@ public class CXFServletService extends CXFNonSpringJaxrsServlet {
 		if (facets.contains("front")) {
 			// init the API
 			logger.info("Facet: Front");
-			servletConf.setJaxrsServiceClassesParam(AnalyticsServiceRest.class.getName() + "," + CustomerServiceRest.class.getName() + ","
-					+ AdminServiceRest.class.getName() + "," + ApiListingResource.class.getName());
+			servletConf.setJaxrsServiceClassesParam(
+					AnalyticsServiceRest.class.getName() + "," + CustomerServiceRest.class.getName() + ","
+							+ AdminServiceRest.class.getName() + "," + ApiListingResource.class.getName());
 		} else {
 			servletConf.setJaxrsServiceClassesParam(CacheInitPoint.class.getName());
 		}
@@ -167,7 +167,7 @@ public class CXFServletService extends CXFNonSpringJaxrsServlet {
 			} else {
 				if (krakenConfigV2file != null) {
 					KrakenConfigV2 krakenConf = KrakenConfigV2.loadFromjson(krakenConfigV2file);
-					if (krakenConf==null) {
+					if (krakenConf == null) {
 						logger.error("Failed to load bouquet.config.file json file: " + krakenConfigV2file);
 						throw new IOException("Failed to load bouquet.config.file json file: " + krakenConfigV2file);
 					}
@@ -199,9 +199,8 @@ public class CXFServletService extends CXFNonSpringJaxrsServlet {
 		}
 		CacheInitPoint cache = CacheInitPoint.INSTANCE;
 		cache.start(conf, facets);
-//		DriversService.initDriver();
 		PluginsLoader.INSTANCE.loadPlugins();
-		
+
 		// DimensionStoreManagerFactory initialization
 		try {
 			String embeddedValue = KrakenConfig.getProperty("elastic.local", "true");
@@ -230,10 +229,10 @@ public class CXFServletService extends CXFNonSpringJaxrsServlet {
 				}
 			}
 		}
-		
+
 		AUTH_MODE authMode = KrakenConfig.getAuthMode();
 		if (authMode != AUTH_MODE.OAUTH) {
-			logger.warn("AUTH MODE set to "+authMode);
+			logger.warn("AUTH MODE set to " + authMode);
 		}
 
 		logger.info("Open Bouquet started with build version : " + ServiceUtils.getInstance().getBuildVersionString());
@@ -257,7 +256,8 @@ public class CXFServletService extends CXFNonSpringJaxrsServlet {
 
 		ServletContext context = config.getServletContext();
 		context.setAttribute("swagger", swagger);
-		// apparently required by swagger 1.5 (see SwaggerContextService#getScanner)
+		// apparently required by swagger 1.5 (see
+		// SwaggerContextService#getScanner)
 		context.setAttribute(SwaggerContextService.SCANNER_ID_DEFAULT, scanner);
 	}
 
