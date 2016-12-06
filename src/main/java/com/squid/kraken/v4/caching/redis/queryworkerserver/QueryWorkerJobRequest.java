@@ -34,6 +34,7 @@ public class QueryWorkerJobRequest {
 	
 	// provide a simple way to associate the job to user, required for job management
 	private String userID;
+	private String login;//for logging
 	private ProjectPK projectPK;
 	
 	private String key;
@@ -47,10 +48,11 @@ public class QueryWorkerJobRequest {
 	private int ttl;
 	private long limit;
 	
-	public QueryWorkerJobRequest(String userID, ProjectPK projectPK, String key, String sQLQuery, String jobId,
+	public QueryWorkerJobRequest(String userID, String login, ProjectPK projectPK, String key, String sQLQuery, String jobId,
 			String jdbcURL, String username, String pwd, int ttl, long limit) {
 		super();
 		this.userID = userID;
+		this.login = login;
 		this.projectPK = projectPK;
 		this.key = key;
 		SQLQuery = sQLQuery;
@@ -64,6 +66,18 @@ public class QueryWorkerJobRequest {
 
 	public String getUserID() {
 		return userID;
+	}
+	
+	public String getLogin() {
+		return login;
+	}
+	
+	/**
+	 * return the userID and the login - use this for logging
+	 * @return
+	 */
+	public String getUserIdandLogin() {
+		return userID+" ("+login+")";
 	}
 
 	public ProjectPK getProjectPK() {

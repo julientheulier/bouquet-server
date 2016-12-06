@@ -70,6 +70,7 @@ public class ExecuteQueryTask implements CancellableCallable<IExecutionItem> {
 	private String workerId;
 	private String jobId;
 	private String userId;
+	private String login;
 	
 	public ExecuteQueryTask(DatabaseManager ds, int queryNum, String sql) {
 		this.ds = ds;
@@ -116,6 +117,14 @@ public class ExecuteQueryTask implements CancellableCallable<IExecutionItem> {
 		this.userId = userId;
 	}
 	
+	public void setLogin(String login) {
+		this.login = login;
+	}
+	
+	public String getUserIdAndLogin() {
+		return userId+" ("+login+")";
+	}
+	
 	/**
 	 * optionally prepare the call and make sure to allocate a connection from
 	 * the pool
@@ -160,7 +169,7 @@ public class ExecuteQueryTask implements CancellableCallable<IExecutionItem> {
 			boolean needCommit = false;
 
 			if (connection == null || statement == null) {
-				throw new SQLException("failed to connect SQLQuery#" + queryNum + " jobId "+jobId + " from userId " + userId  + " on worker " + this.workerId + " queryid=" + queryNum
+				throw new SQLException("failed to connect SQLQuery#" + queryNum + " jobId "+jobId + " from userId " + getUserIdAndLogin()  + " on worker " + this.workerId + " queryid=" + queryNum
 						+ " method=call() status=error");
 			}
 			// ok to start
@@ -178,7 +187,7 @@ public class ExecuteQueryTask implements CancellableCallable<IExecutionItem> {
 				IJDBCDataFormatter formatter = ds.getDataFormatter(connection);
 
 				statement.setFetchSize(formatter.getFetchSize());
-				logger.info("starting SQLQuery#" + queryNum +" jobId "+jobId + " from userId " + userId  + " on worker " + this.workerId+ " jdbc=" + ds.getConfig().getJdbcUrl() + " sql=\n" + sql
+				logger.info("starting SQLQuery#" + queryNum +" jobId "+jobId + " from userId " + getUserIdAndLogin()  + " on worker " + this.workerId+ " jdbc=" + ds.getConfig().getJdbcUrl() + " sql=\n" + sql
 						+ "\n hashcode=" + sql.hashCode() + " method=executeQuery" + " duration="
 						+ " error=false status=done driver=" + connection.getMetaData().getDatabaseProductName()
 						+" queryid=" + queryNum + " task=" + this.getClass().getName());
@@ -191,7 +200,7 @@ public class ExecuteQueryTask implements CancellableCallable<IExecutionItem> {
 				ResultSet result = statement.getResultSet();
 
 				long duration = (System.currentTimeMillis() - now);
-				logger.info("finished SQLQuery#" + queryNum +" jobId "+jobId + " from userId " + userId + " on worker " + this.workerId+  " method=executeQuery" + " duration=" + duration
+				logger.info("finished SQLQuery#" + queryNum +" jobId "+jobId + " from userId " + getUserIdAndLogin() + " on worker " + this.workerId+  " method=executeQuery" + " duration=" + duration
 						+ " error=false status=done driver=" + connection.getMetaData().getDatabaseProductName() +" queryid=" + queryNum
 						+ " task=" + this.getClass().getName());
 				SQLStats queryLog = new SQLStats(Integer.toString(queryNum), "executeQuery", sql, duration,

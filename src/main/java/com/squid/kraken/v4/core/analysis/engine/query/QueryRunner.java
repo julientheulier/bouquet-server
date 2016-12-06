@@ -123,6 +123,7 @@ public class QueryRunner {
 				// compute
 				ProjectPK projectPK = project.getId();
 				result = RedisCacheManager.getInstance().getRedisCacheValue(ctx.getUser().getOid(),
+						ctx.getUser().getLogin(), // T2324
 						projectPK, sql,
 						deps, jobId, url, user, pwd, -2, query.getSelect().getStatement().getLimitValue());
 				if (result == null) {
