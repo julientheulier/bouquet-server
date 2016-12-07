@@ -151,4 +151,6 @@ public interface IESIndexFacade {
 	MappingState computeDimensionMappingState(String domainName, String dimensionName, String idFieldName,
 			HashMap<String, ESMapping> mapping);
 
+	ArrayList<Map<String, Object>> getDimensionByIDs(String domainName, String dimensionName, ArrayList<String> ids);
+
 }

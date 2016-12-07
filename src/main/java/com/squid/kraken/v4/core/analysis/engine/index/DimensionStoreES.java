@@ -47,6 +47,7 @@ import com.squid.kraken.v4.ESIndexFacade.ESIndexFacadeUtilities;
 import com.squid.kraken.v4.ESIndexFacade.ESMapping;
 import com.squid.kraken.v4.ESIndexFacade.ESMapping.ESIndexMapping;
 import com.squid.kraken.v4.ESIndexFacade.ESMapping.ESTypeMapping;
+import com.squid.kraken.v4.ESIndexFacade.HierarchiesSearchResult;
 import com.squid.kraken.v4.api.core.ServiceUtils;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex.Status;
@@ -457,7 +458,7 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 				ArrayList<Map<String, Object>> elements = master
 						.getNDimensionMembers(indexName, dimensionTypeName,
 								this.idName_mapping, offset, size, this.mapping);
-				return readMembersWithAttrs(elements);
+				return readMembers(elements);
 			} else {
 				return new ArrayList<DimensionMember>();
 			}
@@ -478,7 +479,7 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 						.searchDimensionMembersByTokensAndLocalFilter(
 								indexName, dimensionTypeName, tokens, offset,
 								size, mapping, idName_mapping).hits;
-				return readMembersWithAttrs(elements);
+				return readMembers(elements);
 			} else {
 				return new ArrayList<DimensionMember>();
 			}
@@ -492,112 +493,97 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 	protected List<DimensionMember> readMembers(
 			List<Map<String, Object>> elements) {
 		ArrayList<DimensionMember> members = new ArrayList<>();
-		if (getDimensionIndex().getDimension().getType() == Type.CONTINUOUS) {
-			IDomain image = getDimensionIndex().getAxis().getDefinitionSafe().getImageDomain();
-			boolean isDate = image.isInstanceOf(IDomain.TEMPORAL);
-			for (Map<String, Object> element : elements) {
-				Comparable<?> lower_bound = (Comparable<?>) element
-						.get(idName + "_l");
-				Comparable<?> upper_bound = (Comparable<?>) element
-						.get(idName + "_u");
-				if (lower_bound != null && upper_bound != null) {
-					if (isDate) {
-						try {
-							Date lower_date = ServiceUtils.getInstance().toDate((String)lower_bound);
-							Date upper_date = ServiceUtils.getInstance().toDate((String)upper_bound);
-							IntervalleObject interval = new IntervalleObject(
-									lower_date, upper_date);
-							members.add(new DimensionMember(-1, interval, 0));
-						} catch (ParseException e) {
-							IntervalleObject interval = new IntervalleObject(
-									lower_bound, upper_bound);
-							members.add(new DimensionMember(-1, interval, 0));
-						}
-					} else {
-						IntervalleObject interval = new IntervalleObject(
-								lower_bound, upper_bound);
-						members.add(new DimensionMember(-1, interval, 0));
-					}
-				}
-			}
-		} else {
-			for (Map<String, Object> element : elements) {
-				Object ID;
-				if(mapping.containsKey(idName_mapping+ESIndexFacadeUtilities.rawSuffix)){
-					ID = element.get(idName_mapping+ESIndexFacadeUtilities.rawSuffix);
-				}else{
-					ID = element.get(idName_mapping);					
-				}
-					
-				
-				if (ID != null) {
-					members.add(new DimensionMember(-1, ID, 0));
-				} else {
-					ID = element.get(idName);
-					if (ID != null) {
-						members.add(new DimensionMember(-1, ID, 0));
-					}
-				}
-			}
-		}
-		return members;
-	}
+		boolean isContinuous = getDimensionIndex().getDimension().getType() == Type.CONTINUOUS ;
+				IDomain image = getDimensionIndex().getAxis().getDefinitionSafe().getImageDomain();
+		boolean isDate = image.isInstanceOf(IDomain.TEMPORAL);
 
-	protected List<DimensionMember> readMembersWithAttrs(
-			List<Map<String, Object>> elements) {
-		ArrayList<DimensionMember> members = new ArrayList<>();
-		if (getDimensionIndex().getDimension().getType() == Type.CONTINUOUS) {
-			IDomain image = getDimensionIndex().getAxis().getDefinitionSafe().getImageDomain();
-			boolean isDate = image.isInstanceOf(IDomain.TEMPORAL);
 			for (Map<String, Object> element : elements) {
-				Comparable<?> lower_bound = (Comparable<?>) element
-						.get(idName + "_l");
-				Comparable<?> upper_bound = (Comparable<?>) element
-						.get(idName + "_u");
-				if (lower_bound != null && upper_bound != null) {
-					if (isDate) {
-						try {
-							Date lower_date = ServiceUtils.getInstance().toDate((String)lower_bound);
-							Date upper_date = ServiceUtils.getInstance().toDate((String)upper_bound);
-							IntervalleObject interval = new IntervalleObject(
-									lower_date, upper_date);
-							members.add(new DimensionMember(-1, interval, 0));
-						} catch (ParseException e) {
-							IntervalleObject interval = new IntervalleObject(
-									lower_bound, upper_bound);
-							members.add(new DimensionMember(-1, interval, 0));
-						}
-					} else {
-						IntervalleObject interval = new IntervalleObject(
-								lower_bound, upper_bound);
-						members.add(new DimensionMember(-1, interval, 0));
-					}
+				DimensionMember m =readMember(element, isContinuous, isDate); 
+				if (m!=null){
+					members.add(m) ;
 				}
 			}
-		} else {
-			for (Map<String, Object> element : elements) {
-				Object ID = element.get(idName_mapping);
-				if (ID == null)
-					ID = element.get(idName);
-				if (ID != null) {
-					DimensionMember member = new DimensionMember(-1, ID,
-							getAttributeCount());
-					if (getAttributeCount() > 0) {
-						int i = 0;
-						for (Attribute attr : getAttributes()) {
-							Object value = element.get(attr.getOid());
-							if (value != null) {
-								member.setAttribute(i, value);
-							}
-							i++;
-						}
-					}
-					members.add(member);
-				}
-			}
-		}
+		
 		return members;
 	}
+	
+	
+	
+	private DimensionMember readMember(Map<String, Object> element, boolean isContinuous, boolean isDate){
+		if (isContinuous) {
+			return  readContinuousMemberNoAttribute(element, isDate);
+		}else{
+			return readMemberWithAttributes(element);
+		}			
+	}
+	
+	
+	
+	private DimensionMember readContinuousMemberNoAttribute(Map<String, Object> element, boolean isDate){
+		Comparable<?> lower_bound = (Comparable<?>) element
+				.get(idName + "_l");
+		Comparable<?> upper_bound = (Comparable<?>) element
+				.get(idName + "_u");
+		if (lower_bound != null && upper_bound != null) {
+			if (isDate) {
+				try {
+					Date lower_date = ServiceUtils.getInstance().toDate((String)lower_bound);
+					Date upper_date = ServiceUtils.getInstance().toDate((String)upper_bound);
+					IntervalleObject interval = new IntervalleObject(
+							lower_date, upper_date);
+					return new DimensionMember(-1, interval, 0);
+				} catch (ParseException e) {
+					IntervalleObject interval = new IntervalleObject(
+							lower_bound, upper_bound);
+					return new DimensionMember(-1, interval, 0);
+				}
+			} else {
+				IntervalleObject interval = new IntervalleObject(
+						lower_bound, upper_bound);
+				return new DimensionMember(-1, interval, 0);
+			}
+		}
+		return null;
+	}
+	
+	
+	 private DimensionMember readMemberNoAttribute(Map<String, Object> element){
+		 Object ID;
+			if(mapping.containsKey(idName_mapping+ESIndexFacadeUtilities.rawSuffix)){
+				ID = element.get(idName_mapping+ESIndexFacadeUtilities.rawSuffix);
+			}else{
+				ID = element.get(idName_mapping);					
+			}
+			if (ID != null) {
+				return new DimensionMember(-1, ID, 0);
+			} else {
+				ID = element.get(idName);
+				if (ID != null) {
+					return new DimensionMember(-1, ID, 0);
+				}
+				return null;
+			}		 
+	 }
+	 
+	 private DimensionMember readMemberWithAttributes(Map<String, Object> element){
+		 DimensionMember m = readMemberNoAttribute(element);
+		 if (m!=null && getAttributeCount() > 0){
+			 int i = 0;
+				for (Attribute attr : getAttributes()) {
+					Object value = element.get(attr.getOid());
+					if (value != null) {
+						m.setAttribute(i, value);
+					}
+					i++;
+				}
+		 }
+		 
+		 return m ;
+	 }
+
+	
+	
+	
 
 	@Override
 	public List<DimensionMember> getMembersFilterByParents(
@@ -619,10 +605,17 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 			Map<DimensionIndex, List<DimensionMember>> selections, int offset,
 			int size) throws ESIndexFacadeException {
 		HashMap<String, ArrayList<String>> filters = createFilterByParents(selections);
-		Set<String> results = master.filterHierarchyByMemberValues(indexName,
+
+		HierarchiesSearchResult  results = master.filterHierarchyByMemberValues(indexName,
 				hierarchyTypeName, target.getDimensionFieldName(), filters,
-				offset, size, mappingCorrelations).hits;
-		return createDimensionMembers(results);
+				offset, size, mappingCorrelations);
+		if (getAttributeCount() != 0){			
+			 ArrayList<Map<String, Object>> withAttr = master.getDimensionByIDs(indexName,target.getDimensionFieldName(),new ArrayList(results.hitsID));
+			 return createDimensionMembers(results, withAttr,target.getDimensionFieldName() );
+		}else{
+		
+			return createDimensionMembers(results,target.getDimensionFieldName());
+		}
 	}
 
 	@Override
@@ -662,7 +655,7 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 				// master.searchDimensionMembersByIdsAndSubstring(indexES,
 				// dimensionGen, results, filter, offset, size, mapping);
 				// return createDimensionMembers(filtered);
-				Set<String> results = master
+				Set<> results = master
 						.filterHierarchyByMemberValuesAndSubstring(indexName,
 								hierarchyTypeName, target.getDimensionFieldName(),
 								filters, filter, offset, size, mappingCorrelations).hits;
@@ -673,16 +666,45 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 		}
 	}
 
-	private List<DimensionMember> createDimensionMembers(Collection<String> IDs) {
+	private List<DimensionMember> createDimensionMembers(HierarchiesSearchResult res, String dimensionName ) {
 		ArrayList<DimensionMember> members = new ArrayList<>();
-		for (String ID : IDs) {
+		if (res.hasAttr){ 
+			boolean isContinuous = getDimensionIndex().getDimension().getType() == Type.CONTINUOUS ;
+			IDomain image = getDimensionIndex().getAxis().getDefinitionSafe().getImageDomain();
+			boolean isDate = image.isInstanceOf(IDomain.TEMPORAL);
+			for (String ID : res.hitsID){ 
+				members.add(this.readMember(res.hitsAttr.get(ID), isContinuous, isDate));
+			}
+		}else{
+		for (String ID : res.hitsID) {
 			if (ID != null) {
 				members.add(new DimensionMember(-1, ID, getAttributeCount()));
 			}
 		}
+		}
 		return members;
 	}
 
+	private List<DimensionMember> createDimensionMembers(HierarchiesSearchResult res, ArrayList<Map<String, Object>> withAttr, String dimensionName ) {
+		ArrayList<DimensionMember> members = new ArrayList<DimensionMember>(res.hitsID.size());
+		if (withAttr ==null){
+			return createDimensionMembers(res, dimensionName);
+		}
+		boolean isContinuous = getDimensionIndex().getDimension().getType() == Type.CONTINUOUS ;
+		IDomain image = getDimensionIndex().getAxis().getDefinitionSafe().getImageDomain();
+		boolean isDate = image.isInstanceOf(IDomain.TEMPORAL);
+		
+		for (Map<String, Object> hit : withAttr ){
+			DimensionMember m = this.readMember(hit, isContinuous, isDate);	
+			ArrayList<String> ids = new ArrayList<String>( res.hitsID);
+			members.add(ids.indexOf(m.getID()), m);
+						
+		}
+		return members;
+		
+	}
+	
+	
 	private HashMap<String, ArrayList<String>> createFilterByParents(
 			Map<DimensionIndex, List<DimensionMember>> selections) {
 		//

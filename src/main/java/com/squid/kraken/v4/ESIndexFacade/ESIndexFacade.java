@@ -609,6 +609,7 @@ public class ESIndexFacade implements IESIndexFacade {
 	}
 
 	// search within a dimension
+	
 	@Override
 	public Map<String, Object> getDimensionValue(String domainName, String dimensionName, String valueID)
 			throws ESIndexFacadeException {
@@ -629,6 +630,29 @@ public class ESIndexFacade implements IESIndexFacade {
 		}
 	}
 
+	@Override
+	public ArrayList<Map<String, Object>> getDimensionByIDs(String domainName, String dimensionName, ArrayList<String> ids){
+		
+		QueryBuilder idsQuery = ESIndexFacadeUtilities.getIdsQuery(dimensionName, ids);
+		SearchRequestBuilder srb = client.prepareSearch(domainName).setTypes(dimensionName).setQuery(idsQuery);
+		srb.setFrom(0);
+		srb.setSize(ids.size());
+		SearchResponse resp = srb.execute().actionGet();
+
+		ArrayList<Map<String, Object>> res = new ArrayList<Map<String, Object>>();
+		for (SearchHit hit : resp.getHits().getHits()) {
+			Map<String, Object> source = hit.getSource();
+			if (!source.isEmpty()) {
+				res.add(hit.getSource());
+			} else {
+				res.add(Collections.singletonMap(DimensionStoreES.idName, (Object) hit.getId()));
+			}
+		}
+
+		return res;
+	}
+
+	
 	@Override
 	public ArrayList<Map<String, Object>> getNDimensionMembers(String domainName, String dimensionName,
 			String sortingFieldName, int from, int nbRes, HashMap<String, ESMapping> mappings)
@@ -1080,8 +1104,8 @@ public class ESIndexFacade implements IESIndexFacade {
 
 			int iter = 0;
 			int nbHits = 0;
-			res.hits = new LinkedHashSet<String>();
-
+			res.hitsID = new LinkedHashSet<String>();
+			res.hasAttr = false;
 			for (Bucket b : terms.getBuckets()) {
 				if (iter < from) {
 					// aggregations are always accessed from the start, we need
@@ -1107,11 +1131,11 @@ public class ESIndexFacade implements IESIndexFacade {
 					}
 
 					if (substring == null) {
-						res.hits.add(val);
+						res.hitsID.add(val);
 						nbHits++;
 					} else {
 						if (val.toLowerCase().contains(substring.toLowerCase())) {
-							res.hits.add(val);
+							res.hitsID.add(val);
 							nbHits++;
 						}
 					}
@@ -1127,7 +1151,7 @@ public class ESIndexFacade implements IESIndexFacade {
 			res.stoppedAt = iter;
 
 			if (logger.isDebugEnabled()) {
-				logger.debug((" get N results " + res.hits.toString()));
+				logger.debug((" get N results " + res.hitsID.toString()));
 			}
 			return res;
 		} catch (ElasticsearchException e) {
