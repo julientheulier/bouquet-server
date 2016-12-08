@@ -606,14 +606,15 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 			int size) throws ESIndexFacadeException {
 		HashMap<String, ArrayList<String>> filters = createFilterByParents(selections);
 
+		// get the ID of dimensionMember
 		HierarchiesSearchResult  results = master.filterHierarchyByMemberValues(indexName,
 				hierarchyTypeName, target.getDimensionFieldName(), filters,
 				offset, size, mappingCorrelations);
 		if (getAttributeCount() != 0){			
-			 ArrayList<Map<String, Object>> withAttr = master.getDimensionByIDs(indexName,target.getDimensionFieldName(),new ArrayList(results.hitsID));
+			//we need to retrieve the full dimensionmembers - with attributes - from the dimensionIndex 
+			 ArrayList<Map<String, Object>> withAttr = master.getDimensionByIDs(indexName,target.getDimensionFieldName(),new ArrayList<String>(results.hitsID));
 			 return createDimensionMembers(results, withAttr,target.getDimensionFieldName() );
-		}else{
-		
+		}else{			
 			return createDimensionMembers(results,target.getDimensionFieldName());
 		}
 	}
