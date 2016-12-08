@@ -26,7 +26,6 @@ package com.squid.kraken.v4.api.core.analytics;
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URLEncoder;
-import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Collections;
 import java.util.Date;
@@ -47,6 +46,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.squid.core.domain.IDomain;
 import com.squid.core.expression.ExpressionAST;
+import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.api.core.APIException;
 import com.squid.kraken.v4.api.core.ServiceUtils;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex;
@@ -837,7 +837,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		try {
 			Date date = ServiceUtils.getInstance().toDate(jsonFormat);
 			return htmlDateFormat.format(date);
-		} catch (ParseException e) {
+		} catch (ScopeException e) {
 			return jsonFormat;
 		}
 	}

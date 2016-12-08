@@ -23,7 +23,6 @@
  *******************************************************************************/
 package com.squid.kraken.v4.core.analysis.engine.index;
 
-import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
@@ -508,7 +507,7 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 							IntervalleObject interval = new IntervalleObject(
 									lower_date, upper_date);
 							members.add(new DimensionMember(-1, interval, 0));
-						} catch (ParseException e) {
+						} catch (ScopeException e) {
 							IntervalleObject interval = new IntervalleObject(
 									lower_bound, upper_bound);
 							members.add(new DimensionMember(-1, interval, 0));
@@ -562,7 +561,7 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 							IntervalleObject interval = new IntervalleObject(
 									lower_date, upper_date);
 							members.add(new DimensionMember(-1, interval, 0));
-						} catch (ParseException e) {
+						} catch (ScopeException e) {
 							IntervalleObject interval = new IntervalleObject(
 									lower_bound, upper_bound);
 							members.add(new DimensionMember(-1, interval, 0));

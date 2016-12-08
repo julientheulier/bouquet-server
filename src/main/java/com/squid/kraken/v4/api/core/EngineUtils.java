@@ -182,7 +182,7 @@ public class EngineUtils {
      * @throws ComputingException 
      */
     static public Date convertToDate(Universe universe, DimensionIndex index, Bound bound, String value, IntervalleObject compareFromInterval)
-			throws ParseException, ScopeException, ComputingException {
+			throws ScopeException, ComputingException {
 		if (value.equals("")) {
 			return null;
 		} else if (value.startsWith("__")) {
@@ -517,15 +517,11 @@ public class EngineUtils {
                         		}
                         	}
                             FacetMemberInterval fmi = (FacetMemberInterval) selectedItem;
-                            try {
-                                Date lowerDate = convertToDate(universe, index, Bound.LOWER, fmi.getLowerBound(), compareFromInterval);
-                                Date upperDate = convertToDate(universe, index, Bound.UPPER, fmi.getUpperBound(), compareFromInterval);
-                                // add as a Date Interval
-                                // T1769: if lower&upper are null, this is no-op
-                                ds.add(axis, IntervalleObject.createInterval(lowerDate, upperDate));
-                            } catch (java.text.ParseException e) {
-                                throw new ComputingException(e);
-                            }
+                            Date lowerDate = convertToDate(universe, index, Bound.LOWER, fmi.getLowerBound(), compareFromInterval);
+                            Date upperDate = convertToDate(universe, index, Bound.UPPER, fmi.getUpperBound(), compareFromInterval);
+                            // add as a Date Interval
+                            // T1769: if lower&upper are null, this is no-op
+                            ds.add(axis, IntervalleObject.createInterval(lowerDate, upperDate));
                         } else if (selectedItem instanceof FacetMemberString) {
                         	FacetMemberString fmember = (FacetMemberString) selectedItem;
                         	if (fmember.getId()!=null && !fmember.getId().equals("") 
