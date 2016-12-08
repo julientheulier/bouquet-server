@@ -1853,8 +1853,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 									.getAdapter(DomainNumericConstant.class);
 							int index = num.getValue().intValue();
 							if (!lookup.containsKey(index)) {
-								throw new ScopeException("invalid orderBy expression at position " + pos
-										+ ": the index specified (" + index + ") is out of bounds");
+								throw new ScopeException("the orderBy index specified (" + index + ") is out of bounds");
 							}
 							int legacy = lookup.get(index);
 							if (metricSet.contains(index)) {
@@ -1880,7 +1879,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 						}
 					} catch (ScopeException e) {
 						throw new ScopeException(
-								"unable to parse orderBy expression at position " + pos + ": " + e.getCause(), e);
+								"unable to parse orderBy expression at position " + pos + ": " + e.getMessage(), e);
 					}
 				}
 				pos++;
@@ -2465,7 +2464,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			String envelope) throws ScopeException, ComputingException, InterruptedException {
 		Space space = getSpace(userContext, BBID);
 		//
-		if (data==null) data=style==Style.HTML?"EMBEDED":"URL";
+		if (data==null) data=style==Style.HTML?"EMBEDDED":"URL";
 		boolean preFetch = true;// default to prefetch when data mode is URL
 		//
 		Bookmark bookmark = space.getBookmark();
@@ -2852,7 +2851,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		//
 		// handling data
 		ResultInfo info = null;
-		if (data.equals("EMBEDED")) {
+		if (data.equals("EMBEDED") || data.equals("EMBEDDED")) {
 			DataMatrix matrix = compute(userContext, job, query.getMaxResults(), query.getStartIndex(), false);
 			if (!outputConfig.isHasMetricSeries()) {
 				specs.data = transformToVegaData(query, matrix, DataLayout.RECORDS);
@@ -2894,7 +2893,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			specs.data.format = new Format();
 			specs.data.format.type = FormatType.json;// lowercase only!
 		} else {
-			throw new APIException("undefined value for data parameter, must be EMBEDED or URL");
+			throw new APIException("undefined value for data parameter, must be EMBEDDED or URL");
 		}
 		// mark
 		if (outputConfig.isTimeseries()) {
