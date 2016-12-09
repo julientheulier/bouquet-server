@@ -11,6 +11,7 @@ public class NotInCacheException extends APIException {
 
     @Override
     protected Integer getErrorCode() {
+    	// keeping 204 here for compatibility with the old API
     	return 204 ;
     }
 	

@@ -1118,13 +1118,23 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 						throw e;
 					}
 				} catch (ExecutionException e) {
-					if (query.getStyle()==Style.HUMAN || query.getStyle()==Style.HTML) {
-						// wrap the exception in a Problem
-						Throwable cause = getCauseException(e);
-						query.add(new Problem(Severity.ERROR, "SQL", "Failed to run the query: "+cause.getMessage(), cause));
+					Throwable cause = e.getCause();
+					if (cause instanceof NotInCacheException) {
+						if (query.getLazy().equals("noError") || query.getStyle()==Style.HTML) {
+							query.add(new Problem(Severity.ERROR, "SQL", "Lazy flag prevented to run the query: "+cause.getMessage(), cause));
+							reply.setResult(new AnalyticsResult());
+						} else {
+							// now using a 404 instead of the 204
+							throw new AnalyticsAPIException(cause, 404, query);
+						}
 					} else {
-						// just let if go
-						throwCauseException(e);
+						if (query.getStyle()==Style.HTML) {
+							// wrap the exception in a Problem
+							query.add(new Problem(Severity.ERROR, "SQL", "Failed to run the query: "+cause.getMessage(), cause));
+						} else {
+							// just let if go
+							throwCauseException(e);
+						}
 					}
 				} catch (TimeoutException e) {
 					if (query.getStyle()==Style.HUMAN || query.getStyle()==Style.HTML) {
