@@ -544,7 +544,7 @@ public class ESIndexFacade implements IESIndexFacade {
 	@Override
 	public String addBatchDimensionMembers(String domainName, String dimensionName, String idName,
 			ArrayList<HashMap<String, Object>> members, HashMap<String, ESMapping> mappings, boolean wait)
-					throws ESIndexFacadeException {
+			throws ESIndexFacadeException {
 		try {
 
 			CountDownLatch finish = new CountDownLatch(1);
@@ -609,6 +609,7 @@ public class ESIndexFacade implements IESIndexFacade {
 	}
 
 	// search within a dimension
+
 	@Override
 	public Map<String, Object> getDimensionValue(String domainName, String dimensionName, String valueID)
 			throws ESIndexFacadeException {
@@ -630,9 +631,32 @@ public class ESIndexFacade implements IESIndexFacade {
 	}
 
 	@Override
+	public ArrayList<Map<String, Object>> getDimensionByIDs(String domainName, String dimensionName,
+			ArrayList<String> ids) {
+
+		QueryBuilder idsQuery = ESIndexFacadeUtilities.getIdsQuery(dimensionName, ids);
+		SearchRequestBuilder srb = client.prepareSearch(domainName).setTypes(dimensionName).setQuery(idsQuery);
+		srb.setFrom(0);
+		srb.setSize(ids.size());
+		SearchResponse resp = srb.execute().actionGet();
+
+		ArrayList<Map<String, Object>> res = new ArrayList<Map<String, Object>>();
+		for (SearchHit hit : resp.getHits().getHits()) {
+			Map<String, Object> source = hit.getSource();
+			if (!source.isEmpty()) {
+				res.add(hit.getSource());
+			} else {
+				res.add(Collections.singletonMap(DimensionStoreES.idName, (Object) hit.getId()));
+			}
+		}
+
+		return res;
+	}
+
+	@Override
 	public ArrayList<Map<String, Object>> getNDimensionMembers(String domainName, String dimensionName,
 			String sortingFieldName, int from, int nbRes, HashMap<String, ESMapping> mappings)
-					throws ESIndexFacadeException {
+			throws ESIndexFacadeException {
 		try {
 			logger.debug(" Searching " + nbRes + "first results in " + domainName + "/" + dimensionName);
 
@@ -665,7 +689,7 @@ public class ESIndexFacade implements IESIndexFacade {
 	@Override
 	public DimensionsSearchResult searchDimensionMembersByTokensAndLocalFilter(String domainName, String dimensionName,
 			String[] tokens, int from, int nbResults, HashMap<String, ESMapping> mappings, String idFieldname)
-					throws ESIndexFacadeException {
+			throws ESIndexFacadeException {
 		boolean ok = false;
 		int currentFrom = from;
 		DimensionsSearchResult results = new DimensionsSearchResult();
@@ -674,40 +698,15 @@ public class ESIndexFacade implements IESIndexFacade {
 		while (!ok) {
 
 			// get results
-			SearchResponse resp = this.partialSearchDimensionMembersByTokensAndLocalFilter(domainName, dimensionName,
-					tokens, currentFrom, nbResults, mappings);
+			SearchResponse resp = this.partialSearchDimensionMembersByIdsAndTokens(domainName, dimensionName, tokens,
+					currentFrom, nbResults, mappings);
 			List<Map<String, Object>> intermediateRes = ESIndexFacadeUtilities
 					.getSourceFromHits(resp.getHits().getHits());
 
 			int nbPartialRes = 0;
 			// local filter
 			for (Map<String, Object> row : intermediateRes) {
-				boolean rowOk = true;
-				// special case : numeric ID and only one token
-				if (mappings.containsKey(idFieldname + "_raw")
-						&& (mappings.get(idFieldname + "_raw").type == ESTypeMapping.DOUBLE) && (tokens.length == 1)) {
-					String val = row.get(idFieldname + "_raw").toString();
-					rowOk = val.toLowerCase().equals(tokens[0].toLowerCase());
-				} else {
-					for (String token : tokens) {
-						boolean okOneToken = false;
-						for (String key : row.keySet()) {
-							if (key.equals(ESIndexFacadeUtilities.sortKey))
-								continue;
-							if (mappings.get(key).type == ESTypeMapping.STRING) {
-								String val = (String) row.get(key);
-								if (val.toLowerCase().contains(token.toLowerCase())) {
-									okOneToken = true;
-									break;
-								}
-							}
-						}
-						if (!okOneToken) {
-							rowOk = false;
-							break;
-						}
-					}
-				}
+				boolean rowOk = applyLocalFilter(row, mappings, idFieldname, tokens);
 				if (rowOk) {
 					res.add(row);
 					nbPartialRes += 1;
@@ -732,12 +731,42 @@ public class ESIndexFacade implements IESIndexFacade {
 			}
 		}
 		return results;
-
 	}
 
-	private SearchResponse partialSearchDimensionMembersByTokensAndLocalFilter(String domainName, String dimensionName,
+	private boolean applyLocalFilter(Map<String, Object> row, HashMap<String, ESMapping> mappings, String idFieldname,
+			String[] tokens) {
+		boolean rowOk = true;
+		// special case : numeric ID and only one token
+		if (mappings.containsKey(idFieldname + "_raw")
+				&& (mappings.get(idFieldname + "_raw").type == ESTypeMapping.DOUBLE) && (tokens.length == 1)) {
+			String val = row.get(idFieldname + "_raw").toString();
+			rowOk = val.toLowerCase().equals(tokens[0].toLowerCase());
+		} else {
+			for (String token : tokens) {
+				boolean okOneToken = false;
+				for (String key : row.keySet()) {
+					if (key.equals(ESIndexFacadeUtilities.sortKey))
+						continue;
+					if (mappings.get(key).type == ESTypeMapping.STRING) {
+						String val = (String) row.get(key);
+						if (val.toLowerCase().contains(token.toLowerCase())) {
+							okOneToken = true;
+							break;
+						}
+					}
+				}
+				if (!okOneToken) {
+					rowOk = false;
+					break;
+				}
+			}
+		}
+		return rowOk;
+	}
+
+	private SearchResponse partialSearchDimensionMembersByIdsAndTokens(String domainName, String dimensionName,
 			String[] tokens, int from, int nbResults, HashMap<String, ESMapping> mappings)
-					throws ESIndexFacadeException {
+			throws ESIndexFacadeException {
 
 		boolean useSortKey = false;
 		BoolQueryBuilder andQuery = QueryBuilders.boolQuery();
@@ -791,7 +820,7 @@ public class ESIndexFacade implements IESIndexFacade {
 	@Override
 	public String addHierarchyCorrelationsBatch(String domainName, String hierarchyName, ArrayList<String> types,
 			Collection<List<DimensionMember>> ids, HashMap<String, ESMapping> mappings, boolean wait)
-					throws ESIndexFacadeException {
+			throws ESIndexFacadeException {
 
 		CountDownLatch finish = new CountDownLatch(1);
 
@@ -1080,8 +1109,8 @@ public class ESIndexFacade implements IESIndexFacade {
 
 			int iter = 0;
 			int nbHits = 0;
-			res.hits = new LinkedHashSet<String>();
-
+			res.hitsID = new LinkedHashSet<String>();
+			res.hasAttr = false;
 			for (Bucket b : terms.getBuckets()) {
 				if (iter < from) {
 					// aggregations are always accessed from the start, we need
@@ -1107,11 +1136,11 @@ public class ESIndexFacade implements IESIndexFacade {
 					}
 
 					if (substring == null) {
-						res.hits.add(val);
+						res.hitsID.add(val);
 						nbHits++;
 					} else {
 						if (val.toLowerCase().contains(substring.toLowerCase())) {
-							res.hits.add(val);
+							res.hitsID.add(val);
 							nbHits++;
 						}
 					}
@@ -1127,7 +1156,7 @@ public class ESIndexFacade implements IESIndexFacade {
 			res.stoppedAt = iter;
 
 			if (logger.isDebugEnabled()) {
-				logger.debug((" get N results " + res.hits.toString()));
+				logger.debug((" get N results " + res.hitsID.toString()));
 			}
 			return res;
 		} catch (ElasticsearchException e) {

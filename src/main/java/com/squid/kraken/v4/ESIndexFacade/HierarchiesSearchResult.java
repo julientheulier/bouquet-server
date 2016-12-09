@@ -23,14 +23,17 @@
  *******************************************************************************/
 package com.squid.kraken.v4.ESIndexFacade;
 
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 
 public class HierarchiesSearchResult {
 	
 	public boolean hasMore ;
 	public int stoppedAt ;
-	public LinkedHashSet<String> hits ;
-	
+	public LinkedHashSet<String> hitsID ;
+	public HashMap< String, HashMap<String, Object>>  hitsAttr;
+	public boolean hasAttr ;
+
 	public HierarchiesSearchResult(){
 		
 	}

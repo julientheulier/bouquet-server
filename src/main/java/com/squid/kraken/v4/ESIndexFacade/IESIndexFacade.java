@@ -73,7 +73,7 @@ public interface IESIndexFacade {
 
 	public String addBatchDimensionMembers(String domainName, String dimensionName, String id,
 			ArrayList<HashMap<String, Object>> members, HashMap<String, ESMapping> mappings, boolean wait)
-					throws ESIndexFacadeException;
+			throws ESIndexFacadeException;
 
 	// search dimensions
 
@@ -89,14 +89,16 @@ public interface IESIndexFacade {
 	// projectName, String dimensionName) throws DimensionIndexException;
 	public List<Map<String, Object>> getNDimensionMembers(String domainName, String dimensionName,
 			String sortingFieldName, int from, int nbRes, HashMap<String, ESMapping> mappings)
-					throws ESIndexFacadeException;
+			throws ESIndexFacadeException;
 
 	public Map<String, Object> getDimensionValue(String domainName, String dimensionName, String valueID)
 			throws ESIndexFacadeException;
 
 	public DimensionsSearchResult searchDimensionMembersByTokensAndLocalFilter(String domainName, String dimensionName,
 			String[] tokens, int from, int nbResults, HashMap<String, ESMapping> mappings, String idFieldname)
-					throws ESIndexFacadeException;
+			throws ESIndexFacadeException;
+
+	ArrayList<Map<String, Object>> getDimensionByIDs(String domainName, String dimensionName, ArrayList<String> ids);
 
 	// populate correlations
 
@@ -105,7 +107,7 @@ public interface IESIndexFacade {
 
 	public String addHierarchyCorrelationsBatch(String domainName, String hierarchyName, ArrayList<String> types,
 			Collection<List<DimensionMember>> ids, HashMap<String, ESMapping> mappings, boolean wait)
-					throws ESIndexFacadeException;
+			throws ESIndexFacadeException;
 
 	public String addHierarchyCorrelation(String domainName, String hierarchyName, ArrayList<String> types,
 			List<DimensionMember> corr, HashMap<String, ESMapping> mappings) throws ESIndexFacadeException;
@@ -136,6 +138,8 @@ public interface IESIndexFacade {
 	// count
 
 	public long getCountType(String domainName, String dimensionName);
+
+	// populate
 
 	void addDomain(String domainName) throws ESIndexFacadeException;
 
