@@ -23,7 +23,6 @@
  *******************************************************************************/
 package com.squid.kraken.v4.core.analysis.engine.index;
 
-import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
@@ -39,6 +38,7 @@ import org.slf4j.LoggerFactory;
 
 import com.squid.core.domain.IDomain;
 import com.squid.core.expression.ExpressionAST;
+import com.squid.core.expression.parser.ParseException;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.ESIndexFacade.ESIndexFacade;
 import com.squid.kraken.v4.ESIndexFacade.ESIndexFacade.MappingState;
@@ -451,6 +451,7 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 			DimensionMember m = readMember(element, isContinuous, isDate);
 			if (m != null) {
 				members.add(m);
+
 			}
 		}
 

@@ -103,7 +103,7 @@ public class FacetJobServiceBaseImpl extends
 			ProjectPK projectPK = new ProjectPK(customerId, job.getId()
 					.getProjectId());
 			// make sure user can read the project
-			projService.read(userContext, projectPK, true);
+			projService.read(userContext, projectPK, false);// T2121
 
 			// get the project using a root context since JDBC settings may not
 			// be visible to the user

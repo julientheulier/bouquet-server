@@ -53,6 +53,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Optional;
+import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.KrakenConfig;
 import com.squid.kraken.v4.api.core.customer.AuthServiceImpl;
 import com.squid.kraken.v4.api.core.customer.StateServiceBaseImpl;
@@ -155,11 +156,11 @@ public class ServiceUtils {
 		for (AppContext ctx : rootUsers.values()){
 			List<User> users = UserServiceBaseImpl.getInstance().readAll(ctx);
 			for(User user : users){
-						if (user.getGroups() == null) {
-							return (false || user.isSuperUser());
-						}else{
-							return (user.getGroups().contains("superuser") || user.isSuperUser());
-						}
+				if (user.getGroups() == null) {
+					return (false || user.isSuperUser());
+				}else{
+					return (user.getGroups().contains("superuser") || user.isSuperUser());
+				}
 			}
 		}
 
@@ -495,7 +496,7 @@ public class ServiceUtils {
 	/**
 	 * Convert ISO 8601 (javascript) string to Date.
 	 */
-	public Date toDate(String iso8601string) throws ParseException {
+	public Date toDate(String iso8601string) throws ScopeException {
 		if (iso8601string == null) {
 			return null;
 		}
@@ -518,7 +519,11 @@ public class ServiceUtils {
 			} catch (ParseException ee) {
 				DateFormat lastChance = new SimpleDateFormat(JavaDateToStringFormat);
 				lastChance.setTimeZone(TimeZone.getTimeZone("UTC"));
-				return lastChance.parse(iso8601string);
+				try {
+					return lastChance.parse(iso8601string);
+				} catch (ParseException eee) {
+					throw new ScopeException("unable to parse date: \""+iso8601string+"\", supported formats are ISO8601 (\""+ISO8601+"\" or \""+ISO8601short+"\") or Java format (\""+JavaDateToStringFormat+"\")", eee);
+				}
 			}
 		}
 	}

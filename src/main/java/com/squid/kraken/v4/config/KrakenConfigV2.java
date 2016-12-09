@@ -63,16 +63,28 @@ public class KrakenConfigV2 {
 	
 	public AUTH_MODE authMode = AUTH_MODE.BYPASS;
 
+	public String publicBaseUri;
+
+	public KrakenConfigV2() {
+
+	}
+
+	
+	public String getPublicBaseUri() {
+		return publicBaseUri;
+	}
+
+
+	public void setPublicBaseUri(String publicBaseUri) {
+		this.publicBaseUri = publicBaseUri;
+	}
+
 	public String getKrakenWSVersion() {
 		return krakenWSVersion;
 	}
 
 	public void setKrakenWSVersion(String krakenWSVersion) {
 		this.krakenWSVersion = krakenWSVersion;
-	}
-
-	public KrakenConfigV2() {
-
 	}
 
 	public RedisCacheConfig getCache() {

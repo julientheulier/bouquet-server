@@ -78,9 +78,15 @@ public class QueryRunner {
 			SQLScript script = query.generateScript();
 			String sql = script.render();
 			String sqlNoLimitNoOrder = null;// Optionally the "full" version
-			boolean checkFullVersion = query.getSelect().getStatement().hasLimitValue()
+			boolean noRollups = true;
+			if (query instanceof SimpleQuery) {
+				SimpleQuery sq = (SimpleQuery) query;
+				noRollups = !sq.hasRollups();
+			}
+
+			boolean checkFullVersion = (query.getSelect().getStatement().hasLimitValue()
 					|| query.getSelect().getStatement().hasOffsetValue()
-					|| query.getSelect().getStatement().hasOrderByPieces();
+					|| query.getSelect().getStatement().hasOrderByPieces()) && noRollups;
 			RedisCacheValue result;
 			// first check if the original query is in cache (lazy)
 			result = RedisCacheManager.getInstance().getRedisCacheValueLazy(sql, deps, url, user, pwd, -2);
@@ -99,8 +105,11 @@ public class QueryRunner {
 					if (!query.getOrderBy().isEmpty()) {
 						query.addPostProcessing(new DataMatrixTransformOrderBy(query.getOrderBy()));
 					}
-					if (query.getSelect().getStatement().hasLimitValue() || query.getSelect().getStatement().hasOffsetValue()) {
-						query.addPostProcessing(new DataMatrixTransformTruncate(query.getSelect().getStatement().getLimitValue(), query.getSelect().getStatement().getOffsetValue()));
+					if (query.getSelect().getStatement().hasLimitValue()
+							|| query.getSelect().getStatement().hasOffsetValue()) {
+						query.addPostProcessing(
+								new DataMatrixTransformTruncate(query.getSelect().getStatement().getLimitValue(),
+										query.getSelect().getStatement().getOffsetValue()));
 					}
 				}
 			}
@@ -113,8 +122,10 @@ public class QueryRunner {
 			} else {
 				// compute
 				ProjectPK projectPK = project.getId();
-				result = RedisCacheManager.getInstance().getRedisCacheValue(ctx.getUser().getOid(), projectPK, sql, deps, jobId, url, user, pwd, -2,
-						query.getSelect().getStatement().getLimitValue());
+				result = RedisCacheManager.getInstance().getRedisCacheValue(ctx.getUser().getOid(),
+						ctx.getUser().getLogin(), // T2324
+						projectPK, sql,
+						deps, jobId, url, user, pwd, -2, query.getSelect().getStatement().getLimitValue());
 				if (result == null) {
 					throw new ComputingException("Failed to compute or retrieve the matrix for job " + jobId);
 				} else {
@@ -126,7 +137,8 @@ public class QueryRunner {
 							String refKey = RedisCacheManager.getInstance().addCacheReference(sqlNoLimitNoOrder, deps,
 									rm.getRedisKey());
 							if (refKey != null) {
-								logger.info("Analysis " + jobId + " full result set: Creating new Cache Reference to NO-LIMIT version: "
+								logger.info("Analysis " + jobId
+										+ " full result set: Creating new Cache Reference to NO-LIMIT version: "
 										+ refKey + " to " + rm.getRedisKey());
 							}
 						}
@@ -139,7 +151,8 @@ public class QueryRunner {
 			writer.write();
 
 		} catch (InterruptedException | RenderingException | ScopeException | SQLScopeException e) {
-			throw new ComputingException("Failed to compute or retrieve the matrix for job " + jobId + ": "+e.getMessage(), e);
+			throw new ComputingException(
+					"Failed to compute or retrieve the matrix for job " + jobId + ": " + e.getMessage(), e);
 		}
 
 	}
