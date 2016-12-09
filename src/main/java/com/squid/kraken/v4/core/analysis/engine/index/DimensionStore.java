@@ -85,9 +85,11 @@ public class DimensionStore extends DimensionStoreAbstract {
                     size++;
                     IDs.put(member.getID(), member);
                 } else {
+                	if (check.getIndex() >=0){
                     // update values
                     members.set(check.getIndex(), member);
                     IDs.put(member.getID(), member);
+                	}
                 }
             }
             return "";
