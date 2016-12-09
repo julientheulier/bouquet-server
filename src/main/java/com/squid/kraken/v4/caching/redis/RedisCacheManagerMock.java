@@ -75,7 +75,7 @@ public class RedisCacheManagerMock implements IRedisCacheManager {
 	}
 
 	@Override
-	public RawMatrix getData(String userID, ProjectPK projectPK, String SQLQuery, List<String> dependencies, String jobId, String RSjdbcURL,
+	public RawMatrix getData(String userID, String login, ProjectPK projectPK, String SQLQuery, List<String> dependencies, String jobId, String RSjdbcURL,
 			String username, String pwd, int TTLinSec, long limit) throws InterruptedException {
 		//
 		// generate the key by adding projectID and SQL
@@ -83,7 +83,7 @@ public class RedisCacheManagerMock implements IRedisCacheManager {
 		boolean inCache = this.inCache(k);
 		logger.debug("cache hit = " + inCache + " for key = " + k);
 		if (!inCache) {
-			int queryNum = this.fetch(userID, projectPK, k, SQLQuery, jobId, RSjdbcURL, username, pwd, TTLinSec, limit);
+			int queryNum = this.fetch(userID, login, projectPK, k, SQLQuery, jobId, RSjdbcURL, username, pwd, TTLinSec, limit);
 			if (queryNum == -1) {
 				logger.info("failed to fetch query:\n" + SQLQuery + "\nfetch failed");
 				return null;
@@ -153,9 +153,9 @@ public class RedisCacheManagerMock implements IRedisCacheManager {
 		return this.redis.inCache(key);
 	}
 
-	private int fetch(String userID, ProjectPK projectPK, String k, String SQLQuery, String jobId, String RSjdbcURL, String username, String pwd, int ttl,
+	private int fetch(String userID, String login, ProjectPK projectPK, String k, String SQLQuery, String jobId, String RSjdbcURL, String username, String pwd, int ttl,
 			long limit) throws InterruptedException {
-		QueryWorkerJobRequest request = new QueryWorkerJobRequest(userID, projectPK, k, SQLQuery, jobId, RSjdbcURL, username, pwd, ttl, limit);
+		QueryWorkerJobRequest request = new QueryWorkerJobRequest(userID, login, projectPK, k, SQLQuery, jobId, RSjdbcURL, username, pwd, ttl, limit);
 		return this.queriesServ.fetch(request);
 	}
 
@@ -185,7 +185,7 @@ public class RedisCacheManagerMock implements IRedisCacheManager {
 	}
 
 	@Override
-	public RedisCacheValue getRedisCacheValue(String userID, ProjectPK projectPK, String SQLQuery, List<String> dependencies, String jobId,
+	public RedisCacheValue getRedisCacheValue(String userID, String login, ProjectPK projectPK, String SQLQuery, List<String> dependencies, String jobId,
 			String RSjdbcURL, String username, String pwd, int TTLinSec, long limit) throws InterruptedException {
 		// TODO Auto-generated method stub
 		return null;

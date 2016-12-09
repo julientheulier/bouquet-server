@@ -21,48 +21,47 @@
  * you and Squid Solutions (above licenses and LICENSE.txt included).
  * See http://www.squidsolutions.com/EnterpriseBouquet/
  *******************************************************************************/
-package com.squid.kraken.v4.caching.redis.queryworkerserver;
+package com.squid.kraken.v4.api.core.analytics;
 
-import com.squid.kraken.v4.core.database.impl.ExecuteQueryTask;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.squid.kraken.v4.api.core.APIException;
 
 /**
- * A simple wrapper to keep track of the job
+ * A custom version of the APIException in order to be able to return a information object and to be able to set the error code
  * @author sergefantino
  *
  */
-public class QueryWorkerJob {
+public class AnalyticsAPIException extends APIException {
 	
-	private QueryWorkerJobRequest request;
-	private ExecuteQueryTask job;
-	
-	private long start;
-	
-	public QueryWorkerJob(QueryWorkerJobRequest request, ExecuteQueryTask job) {
-		super();
-		this.request = request;
-		this.job = job;
-		this.start = System.currentTimeMillis();
-	}
-	
-	public QueryWorkerJobStatus getStatus() {
-		long elapse = System.currentTimeMillis() - start;
-		return new QueryWorkerJobStatus(
-				request.getUserID(), 
-				request.getLogin(),
-				request.getProjectPK(),
-				request.getJobId(),
-				request.getKey(), 
-				job.getID(), 
-				request.getSQLQuery(),
-				start,
-				elapse);
-	}
-
 	/**
-	 * @return
+	 * 
 	 */
-	public void cancel() {
-		job.cancel();
+	private static final long serialVersionUID = 170479236484610673L;
+
+	private Object query;
+	
+	private int errorCode;
+	
+	/**
+	 * 
+	 */
+	public AnalyticsAPIException(Throwable cause, int errorCode, Object query) {
+		super(cause.getMessage(), cause, false);
+		this.query = query;
+		this.errorCode = errorCode;
 	}
 
+	@Override
+	protected Integer getErrorCode() {
+		return errorCode;
+	}
+	
+	/**
+	 * @return the query
+	 */
+	@JsonProperty
+	public Object getQuery() {
+		return query;
+	}
+	
 }

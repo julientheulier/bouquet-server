@@ -66,19 +66,17 @@ extends AnalysisScope
 	public Object lookupObject(IdentifierType identifierType, String name) throws ScopeException {
 		// lookup a domain
 		if (identifierType==IdentifierType.DEFAULT || identifierType==DOMAIN) {
-			for (Domain domain : universe.getDomains()) {
-				if (domain.getName().equals(name)) {
-					return new Space(universe, domain);
-				}
+			Domain check = universe.lookupDomainByName(name);
+			if (check!=null) {
+				return new Space(universe, check);
 			}
 		}
 		// lookup domain by ID
         else if (identifierType==IdentifierType.IDENTIFIER) {
-            for (Domain domain : universe.getDomains()) {
-                if (domain.getOid().equals(name)) {
-                    return new Space(universe, domain);
-                }
-            }
+			Domain check = universe.lookupDomainByID(name);
+			if (check!=null) {
+				return new Space(universe, check);
+			}
         }
 		// lookup bookmark by ID
         else if (identifierType==BOOKMARK) {

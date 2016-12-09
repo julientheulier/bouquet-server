@@ -46,6 +46,19 @@ public class AccessRightsUtils {
 	 * Check if a User has a given Role (or superior Role) for an object.
 	 */
 	public boolean hasRole(User user, Set<AccessRight> accessRights, Role role) {
+		return hasRole(user, accessRights, role, Inheritance.GROUP);// including groups
+	}
+	
+	public enum Inheritance { 
+		NONE, 	// NO inheritance, user must have explicit access
+		GROUP 	// inherit access from any group
+	};
+
+	/**
+	 * Check if a User has a given Role (or superior Role) for an object.
+	 * @param if explicit is true, the user must have an explicit role, not inherited by the group
+	 */
+	public boolean hasRole(User user, Set<AccessRight> accessRights, Role role, Inheritance inheritance) {
 		boolean hasRole = false;
 		if (user.isSuperUser()) {
 			hasRole = true;
@@ -72,6 +85,14 @@ public class AccessRightsUtils {
 							roleOk = true;
 						}
 						break;
+					case EXECUTE:
+						if (right.getRole() == Role.OWNER
+								|| right.getRole() == Role.WRITE
+								|| right.getRole() == Role.READ
+								|| right.getRole() == Role.EXECUTE) {
+							roleOk = true;
+						}
+						break;
 					case NONE:
 						if (right.getRole() == Role.OWNER
 								|| right.getRole() == Role.WRITE
@@ -88,9 +109,9 @@ public class AccessRightsUtils {
 										user.getId().getUserId())) {
 							hasRole = true;
 							return hasRole;// since hasRole will stay true, we can exit now
-						} else {
+						} else if (inheritance==Inheritance.GROUP) {
 							// check if one of user's groups has right
-							for (String group : user.getGroups()) {
+							for (String group : user.getGroupsAndUpgrades()) {
 								if ((right.getGroupId() != null)
 										&& right.getGroupId().equals(group)) {
 									hasRole = true;
@@ -167,7 +188,7 @@ public class AccessRightsUtils {
 			hasRole = (maxRole(role, objectRole) == objectRole);
 		} else {
 			// use object's access rights
-			hasRole = hasRole(ctx.getUser(), object.getAccessRights(), role);
+			hasRole = hasRole(ctx.getUser(), object.getAccessRights(), role, Inheritance.GROUP);
 		}
 		// if not superuser and hasn't right
 		if (!hasRole) {
@@ -178,7 +199,7 @@ public class AccessRightsUtils {
 	}
 
 	public boolean hasRole(AppContext ctx, Persistent<?> object, Role role) {
-		return hasRole(ctx.getUser(), object.getAccessRights(), role);
+		return hasRole(ctx.getUser(), object.getAccessRights(), role, Inheritance.GROUP);
 	}
 
 	/**
@@ -203,7 +224,7 @@ public class AccessRightsUtils {
 						}
 					}
 				} else {
-					for (String group : user.getGroups()) {
+					for (String group : user.getGroupsAndUpgrades()) {
 						if ((right.getGroupId() != null)
 								&& right.getGroupId().equals(group)) {
 							if ((role == null)
@@ -282,10 +303,14 @@ public class AccessRightsUtils {
 	 */
 	public void setAccessRights(AppContext ctx, Persistent<?> target,
 			Persistent<?> parent) {
-		// target object is only visible from this thread so we can safely modify its properties
-		Set<AccessRight> accessRights = target.getAccessRights();
 		// parent object may be shared with the Universe - do not alter, us a copy
-		Set<AccessRight> parentAccessRights = new HashSet<>(parent.getAccessRights());
+		setAccessRights(ctx, target, parent.getAccessRights());
+	}
+	
+	public void setAccessRights(AppContext ctx, Persistent<?> target,
+			final Set<AccessRight> parentAccessRights) {
+		// parent object may be shared with the Universe - do not alter, us a copy
+		Set<AccessRight> parentAccessRightsCopy = new HashSet<>();
 		User currentUser = ctx.getUser();
 		// add the current user as owner (if not super user)
 		if (!currentUser.isSuperUser()) {
@@ -294,18 +319,35 @@ public class AccessRightsUtils {
 					.hasNext();) {
 				AccessRight r = i.next();
 				if (currentUser.getId().getUserId().equals(r.getUserId())) {
-					i.remove();
+					// remove
+				}
+				// removing right with EXECUTE
+				else if (Role.EXECUTE.equals(r.getRole())) {
+					//remove
+				}
+				// donwgrade OWNER to WRITER only
+				else if (Role.OWNER.equals(r.getRole())) {
+					// replace
+					AccessRight copy = new AccessRight(Role.WRITE, r.getUserId(), r.getGroupId());
+					parentAccessRightsCopy.add(copy);
+				} else {
+					// keep it
+					parentAccessRightsCopy.add(r);
 				}
 			}
 			// add the current user
 			AccessRight ownerRight = new AccessRight();
 			ownerRight.setRole(Role.OWNER);
 			ownerRight.setUserId(ctx.getUser().getId().getUserId());
-			parentAccessRights.add(ownerRight);
+			parentAccessRightsCopy.add(ownerRight);
+		} else {
+			parentAccessRightsCopy = new HashSet<>(parentAccessRights);
 		}
 		Set<AccessRight> newAccessRights = AccessRightsUtils.getInstance()
 				.applyAccessRights(ctx, target.getAccessRights(),
-						parentAccessRights);
+						parentAccessRightsCopy);
+		// target object is only visible from this thread so we can safely modify its properties
+		Set<AccessRight> accessRights = target.getAccessRights();
 		accessRights.addAll(newAccessRights);
 		newAccessRights = AccessRightsUtils.getInstance().applyAccessRights(
 				ctx, newAccessRights, accessRights);

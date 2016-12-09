@@ -128,6 +128,7 @@ public class QueryWorkerServer implements IQueryWorkerServer {
 			ExecuteQueryTask exec = db.createExecuteQueryTask(request.getSQLQuery());
 			exec.setWorkerId(this.host + ":" + this.port);
 			exec.setJobId(request.getJobId());
+			exec.setUserId(request.getUserID());
 			executingQueries.put(request.getKey(), new QueryWorkerJob(request, exec));
 			item = exec.call();
 

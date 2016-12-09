@@ -45,6 +45,7 @@ public class QueryWorkerJobStatus {
 	private Status status;
 
 	private String userID;
+	private String login;
 	private ProjectPK projectPK;
 	private String jobID;
 	private String key;
@@ -89,9 +90,10 @@ public class QueryWorkerJobStatus {
 	 * @param id2
 	 * @param sqlQuery
 	 */
-	public QueryWorkerJobStatus(String userID, ProjectPK projectPK, String jobID, String key, int ID, String SQL, long start, long elapse) {
+	public QueryWorkerJobStatus(String userID, String login, ProjectPK projectPK, String jobID, String key, int ID, String SQL, long start, long elapse) {
 		this.status = Status.EXECUTING;
 		this.userID = userID;
+		this.login = login;
 		this.projectPK = projectPK;
 		this.jobID = jobID;
 		this.key = key;
@@ -112,9 +114,10 @@ public class QueryWorkerJobStatus {
 	 * @param read
 	 * @param chunks
 	 */
-	public QueryWorkerJobStatus(String userID, ProjectPK projectPK, String jobID, String key, int ID, String SQL, long start, long elapse, long read, int chunks) {
+	public QueryWorkerJobStatus(String userID, String login, ProjectPK projectPK, String jobID, String key, int ID, String SQL, long start, long elapse, long read, int chunks) {
 		this.status = Status.READING;
 		this.userID = userID;
+		this.login = login;
 		this.projectPK = projectPK;
 		this.jobID = jobID;
 		this.key = key;
@@ -135,7 +138,7 @@ public class QueryWorkerJobStatus {
 	 */
 	public QueryWorkerJobStatus(QueryWorkerJobRequest request, IExecutionItem item, long start, long elapse, long lineRead,
 			int nbChunks) {
-		this(request.getUserID(), request.getProjectPK(), request.getJobId(), request.getKey(), item.getID(), request.getSQLQuery(), start, elapse, lineRead, nbChunks);
+		this(request.getUserID(), request.getLogin(), request.getProjectPK(), request.getJobId(), request.getKey(), item.getID(), request.getSQLQuery(), start, elapse, lineRead, nbChunks);
 	}
 
 	/**

@@ -35,6 +35,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
@@ -93,6 +94,7 @@ import com.squid.kraken.v4.api.core.JobStats;
 import com.squid.kraken.v4.api.core.ObjectNotFoundAPIException;
 import com.squid.kraken.v4.api.core.PerfDB;
 import com.squid.kraken.v4.api.core.bookmark.BookmarkServiceBaseImpl;
+import com.squid.kraken.v4.api.core.project.ProjectServiceBaseImpl;
 import com.squid.kraken.v4.api.core.customer.StateServiceBaseImpl;
 import com.squid.kraken.v4.api.core.projectanalysisjob.AnalysisJobComputer;
 import com.squid.kraken.v4.caching.NotInCacheException;
@@ -187,8 +189,6 @@ import com.squid.kraken.v4.model.ValueType;
 import com.squid.kraken.v4.model.ViewQuery;
 import com.squid.kraken.v4.model.ViewReply;
 import com.squid.kraken.v4.persistence.AppContext;
-import com.squid.kraken.v4.persistence.DAOFactory;
-import com.squid.kraken.v4.persistence.dao.ProjectDAO;
 import com.squid.kraken.v4.vegalite.VegaliteConfigurator;
 import com.squid.kraken.v4.vegalite.VegaliteSpecs;
 import com.squid.kraken.v4.vegalite.VegaliteSpecs.Data;
@@ -277,8 +277,9 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 
 	protected static final NavigationItem ROOT_FOLDER = new NavigationItem("Root", "list all your available content, organize by Projects and Bookmarks", null, "/", "FOLDER");
 	protected static final NavigationItem PROJECTS_FOLDER = new NavigationItem("Projects", "list all your Projects", "/", "/PROJECTS", "FOLDER");
-	protected static final NavigationItem SHARED_FOLDER = new NavigationItem("Shared Bookmarks", "list all the bookmarks shared with you", "/", "/SHARED", "FOLDER");
+	protected static final NavigationItem SHARED_FOLDER = new NavigationItem("Shared Bookmarks", "list all public bookmarks", "/", "/SHARED", "FOLDER");
 	protected static final NavigationItem MYBOOKMARKS_FOLDER = new NavigationItem("My Bookmarks", "list all your bookmarks", "/", "/MYBOOKMARKS", "FOLDER");
+	protected static final NavigationItem SHAREDWITHME_FOLDER = new NavigationItem("Shared With Me", "list bookmarks shared with me", "/", "/SHAREDWITHME", "FOLDER");
 
 	public Response listContent(
 			AppContext userContext,
@@ -321,10 +322,15 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			if (hierarchyMode!=null) listSharedBoomarks(userContext, query, SHARED_FOLDER.getSelfRef(), filters, hierarchyMode, result.getChildren());
 			result.getChildren().add(createLinkableFolder(userContext, query, MYBOOKMARKS_FOLDER));
 			if (hierarchyMode!=null) listMyBoomarks(userContext, query, MYBOOKMARKS_FOLDER.getSelfRef(), filters, hierarchyMode, result.getChildren());
+			result.getChildren().add(createLinkableFolder(userContext, query, SHAREDWITHME_FOLDER));
+			if (hierarchyMode!=null) listSharedWithMeBoomarks(userContext, query, SHAREDWITHME_FOLDER.getSelfRef(), filters, hierarchyMode, result.getChildren());
 		} else {
 			// need to list parent's content
 			if (parent.startsWith(PROJECTS_FOLDER.getSelfRef())) {
 				result.setParent(listProjects(userContext, query, parent, filters, hierarchyMode, result.getChildren()));
+			} else if (parent.startsWith(SHAREDWITHME_FOLDER.getSelfRef())) {
+				// need to check first to avoid going into SHARED
+				result.setParent(listSharedWithMeBoomarks(userContext, query, parent, filters, hierarchyMode, result.getChildren()));
 			} else if (parent.startsWith(SHARED_FOLDER.getSelfRef())) {
 				result.setParent(listSharedBoomarks(userContext, query, parent, filters, hierarchyMode, result.getChildren()));
 			} else if (parent.startsWith(MYBOOKMARKS_FOLDER.getSelfRef())) {
@@ -363,7 +369,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		}
 	}
 	
-	private static final List<String> topLevelOrder = Arrays.asList(new String[]{PROJECTS_FOLDER.getSelfRef(), SHARED_FOLDER.getSelfRef(), MYBOOKMARKS_FOLDER.getSelfRef()});
+	private static final List<String> topLevelOrder = Arrays.asList(new String[]{PROJECTS_FOLDER.getSelfRef(), SHARED_FOLDER.getSelfRef(), MYBOOKMARKS_FOLDER.getSelfRef(), SHAREDWITHME_FOLDER.getSelfRef()});
 	private static final List<String> typeOrder = Arrays.asList(new String[]{NavigationItem.FOLDER_TYPE, NavigationItem.BOOKMARK_TYPE, NavigationItem.DOMAIN_TYPE});
 	
 	/**
@@ -405,8 +411,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		// list project related resources
 		if (parent==null || parent.equals("") || parent.equals("/") || parent.equals(PROJECTS_FOLDER.getSelfRef())) {
 			// return available project
-			List<Project> projects = ((ProjectDAO) DAOFactory.getDAOFactory().getDAO(Project.class))
-					.findByCustomer(userContext, userContext.getCustomerPk());
+			List<Project> projects = ProjectServiceBaseImpl.getInstance().readAll(userContext);
 			for (Project project : projects) {
 				if (filters==null || filter(project, filters)) {
 					NavigationItem folder = new NavigationItem(query, project, parent);
@@ -546,14 +551,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			return ProjectManager.INSTANCE.getProject(userContext, projectPk);
 		} else {
 			// using name
-			List<Project> projects = ((ProjectDAO) DAOFactory.getDAOFactory().getDAO(Project.class))
-					.findByCustomer(userContext, userContext.getCustomerPk());
-			for (Project project : projects) {
-				if (project.getName()!=null && project.getName().equals(projectRef)) {
-					return project;
-				}
-			}
-			throw new ScopeException("cannot find project with name='"+projectRef+"'");
+			return ProjectManager.INSTANCE.findProjectByName(userContext, projectRef);
 		}
 	}
 
@@ -585,6 +583,66 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		return parentFolder;
 	}
 	
+	private NavigationItem listSharedWithMeBoomarks(AppContext userContext, NavigationQuery query, String parent, String[] filters, HierarchyMode hierarchyMode, List<NavigationItem> content) throws ScopeException {
+		// list mybookmark related resources
+		NavigationItem parentFolder = null;
+		if (parent.equals(SHAREDWITHME_FOLDER.getSelfRef())) {
+			// just keep the fullpath
+			parentFolder = createLinkableFolder(userContext, query, SHAREDWITHME_FOLDER);
+		} else {
+			// add the remaining path to fullpath
+			String name = parent.substring(parent.lastIndexOf("/"));
+			String grandParent = parent.substring(0, parent.lastIndexOf("/"));
+			parentFolder = new NavigationItem(name, "", grandParent, parent, NavigationItem.FOLDER_TYPE);
+		}
+		String filterPath = parent.substring(SHAREDWITHME_FOLDER.getSelfRef().length());
+		List<Bookmark> bookmarks = findSharedWithMeBookmarks(userContext, filterPath);
+		listBoomarks(userContext, query, parent, filters, hierarchyMode, filterPath, bookmarks, content);
+		return parentFolder;
+	}
+	
+	/**
+	 * list the bookmark shared with me
+	 * @param userContext
+	 * @param filterPath: this is the remaining part of the path, excluding the root folder prefix
+	 * @return
+	 */
+	private List<Bookmark> findSharedWithMeBookmarks(AppContext userContext, String filterPath) {
+		String internalPath = Bookmark.SEPARATOR + Bookmark.Folder.USER;
+		String userPath = internalPath + "/"+userContext.getUser().getOid();
+		List<Bookmark> bookmarks = BookmarkManager.INSTANCE.findBookmarksByParent(userContext, internalPath);
+		Iterator<Bookmark> iter = bookmarks.iterator();
+		while (iter.hasNext()) {
+			Bookmark bookmark = iter.next();
+			if (bookmark.getPath().startsWith(userPath)) {// excluding my bookmarks
+				iter.remove();
+			} else {
+				String subPath = getSubPath(bookmark.getPath());
+				if (!subPath.startsWith(filterPath)) {
+					iter.remove();
+				}
+			}
+		}
+		return bookmarks;
+	}
+	
+	private String getSubPath(String path) {
+		// remove the user OID part (first part)
+		if (path.startsWith(Bookmark.SEPARATOR + Bookmark.Folder.USER)) {
+			path = path.substring((Bookmark.SEPARATOR + Bookmark.Folder.USER).length());
+			int pos = path.indexOf("/",1);
+			if (pos>=0) {
+				return path.substring(pos);
+			} else {
+				return "";
+			}
+		} else if (path.startsWith(Bookmark.SEPARATOR + Bookmark.Folder.SHARED)) {
+			return path.substring((Bookmark.SEPARATOR + Bookmark.Folder.SHARED).length());
+		} else {
+			return path;
+		}
+	}
+	
 	/**
 	 * List the Shared bookmarks and folders
 	 * @param userContext
@@ -611,6 +669,12 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		listBoomarks(userContext, query, parent, filters, hierarchyMode, fullPath, content);
 		return parentFolder;
 	}
+	
+	private void listBoomarks(AppContext userContext, NavigationQuery query, String parent, String[] filters, HierarchyMode hierarchyMode, String fullPath, List<NavigationItem> content) {
+		List<Bookmark> bookmarks = BookmarkManager.INSTANCE.findBookmarksByParent(userContext, fullPath);
+		String filterPath = getSubPath(fullPath);
+		listBoomarks(userContext, query, parent, filters, hierarchyMode, filterPath, bookmarks, content);
+	}
 
 	/**
 	 * 
@@ -619,58 +683,62 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	 * @param parent
 	 * @param filters
 	 * @param hierarchyMode
-	 * @param fullPath
+	 * @param filterPath
 	 * @param content
 	 * @throws ScopeException
 	 */
-	private void listBoomarks(AppContext userContext, NavigationQuery query, String parent, String[] filters, HierarchyMode hierarchyMode, String fullPath, List<NavigationItem> content) throws ScopeException {
+	private void listBoomarks(AppContext userContext, NavigationQuery query, String parent, String[] filters, HierarchyMode hierarchyMode, String filterPath, List<Bookmark> bookmarks, List<NavigationItem> content) {
 		// list the content first
-		List<Bookmark> bookmarks = BookmarkManager.INSTANCE.findBookmarksByParent(userContext, fullPath);
 		HashSet<String> folders = new HashSet<>();
 		for (Bookmark bookmark : bookmarks) {
-			Project project = ProjectManager.INSTANCE.getProject(userContext, bookmark.getId().getParent());
-			String path = bookmark.getPath();
-			// only handle the exact path
-			boolean checkParent = (hierarchyMode==HierarchyMode.FLAT)?path.startsWith(fullPath):path.equals(fullPath);
-			if (checkParent) {
-				if (filters==null || filter(bookmark, project, filters)) {
-					String actualParent = parent;
-					if (hierarchyMode==HierarchyMode.FLAT) {
-						actualParent = (parent + path.substring(fullPath.length()));
+			try {
+				Project project = ProjectManager.INSTANCE.getProject(userContext, bookmark.getId().getParent());
+				String path = bookmark.getPath();
+				String subPath = getSubPath(path);
+				// only handle the exact path
+				boolean checkParent = (hierarchyMode==HierarchyMode.FLAT)?subPath.startsWith(filterPath):subPath.equals(filterPath);
+				if (checkParent) {
+					if (filters==null || filter(bookmark, project, filters)) {
+						String actualParent = parent;
+						if (hierarchyMode==HierarchyMode.FLAT) {
+							actualParent = (parent + subPath.substring(filterPath.length()));
+						}
+						NavigationItem item = new NavigationItem(query, project, bookmark, actualParent);
+						if (query.getStyle()==Style.HUMAN || query.getStyle()==Style.HTML) {
+							item.setLink(createLinkToAnalysis(userContext, query, item));
+							item.setViewLink(createLinkToView(userContext, query, item));
+							item.setObjectLink(createObjectLink(userContext, query, bookmark));
+						}
+						HashMap<String, String> attrs = new HashMap<>();
+						attrs.put("project", project.getName());
+						item.setAttributes(attrs);
+						content.add(item);
 					}
-					NavigationItem item = new NavigationItem(query, project, bookmark, actualParent);
-					if (query.getStyle()==Style.HUMAN || query.getStyle()==Style.HTML) {
-						item.setLink(createLinkToAnalysis(userContext, query, item));
-						item.setViewLink(createLinkToView(userContext, query, item));
-						item.setObjectLink(createObjectLink(userContext, query, bookmark));
-					}
-					HashMap<String, String> attrs = new HashMap<>();
-					attrs.put("project", project.getName());
-					item.setAttributes(attrs);
-					content.add(item);
-				}
-			} else {
-				// it's a sub folder
-				path = bookmark.getPath().substring(fullPath.length()+1);// remove first /
-				String[] split = path.split("/");
-				if (split.length>0) {
-					String name = "/"+(hierarchyMode!=null?path:split[0]);
-					String selfpath = parent+name;
-					if (!folders.contains(selfpath)) {
-						if (filters==null || filter(name, filters)) {
-							String oid = Base64
-									.encodeBase64URLSafeString(selfpath.getBytes());
-							// legacy folder PK support
-							BookmarkFolderPK id = new BookmarkFolderPK(bookmark.getId().getCustomerId(), oid);
-							NavigationItem folder = new NavigationItem(query.getStyle()==Style.LEGACY?id:null, name, "", parent, selfpath, NavigationItem.FOLDER_TYPE);
-							if (query.getStyle()==Style.HUMAN || query.getStyle()==Style.HTML) {
-								folder.setLink(createLinkToFolder(userContext, query, folder));
+				} else {
+					// it's a sub folder
+					String local = subPath.substring(filterPath.length()+1);// remove first /
+					String[] split = local.split("/");
+					if (split.length>0) {
+						String name = "/"+(hierarchyMode!=null?local:split[0]);
+						String selfpath = parent+name;
+						if (!folders.contains(selfpath)) {
+							if (filters==null || filter(name, filters)) {
+								String oid = Base64
+										.encodeBase64URLSafeString(selfpath.getBytes());
+								// legacy folder PK support
+								BookmarkFolderPK id = new BookmarkFolderPK(bookmark.getId().getCustomerId(), oid);
+								NavigationItem folder = new NavigationItem(query.getStyle()==Style.LEGACY?id:null, name, "", parent, selfpath, NavigationItem.FOLDER_TYPE);
+								if (query.getStyle()==Style.HUMAN || query.getStyle()==Style.HTML) {
+									folder.setLink(createLinkToFolder(userContext, query, folder));
+								}
+								content.add(folder);
+								folders.add(selfpath);
 							}
-							content.add(folder);
-							folders.add(selfpath);
 						}
 					}
 				}
+			} catch (ScopeException e) {
+				// ignore
 			}
 		}
 	}
@@ -1050,13 +1118,23 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 						throw e;
 					}
 				} catch (ExecutionException e) {
-					if (query.getStyle()==Style.HUMAN || query.getStyle()==Style.HTML) {
-						// wrap the exception in a Problem
-						Throwable cause = getCauseException(e);
-						query.add(new Problem(Severity.ERROR, "SQL", "Failed to run the query: "+cause.getMessage(), cause));
+					Throwable cause = e.getCause();
+					if (cause instanceof NotInCacheException) {
+						if (query.getLazy().equals("noError") || query.getStyle()==Style.HTML) {
+							query.add(new Problem(Severity.ERROR, "SQL", "Lazy flag prevented to run the query: "+cause.getMessage(), cause));
+							reply.setResult(new AnalyticsResult());
+						} else {
+							// now using a 404 instead of the 204
+							throw new AnalyticsAPIException(cause, 404, query);
+						}
 					} else {
-						// just let if go
-						throwCauseException(e);
+						if (query.getStyle()==Style.HTML) {
+							// wrap the exception in a Problem
+							query.add(new Problem(Severity.ERROR, "SQL", "Failed to run the query: "+cause.getMessage(), cause));
+						} else {
+							// just let if go
+							throwCauseException(e);
+						}
 					}
 				} catch (TimeoutException e) {
 					if (query.getStyle()==Style.HUMAN || query.getStyle()==Style.HTML) {
@@ -1785,8 +1863,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 									.getAdapter(DomainNumericConstant.class);
 							int index = num.getValue().intValue();
 							if (!lookup.containsKey(index)) {
-								throw new ScopeException("invalid orderBy expression at position " + pos
-										+ ": the index specified (" + index + ") is out of bounds");
+								throw new ScopeException("the orderBy index specified (" + index + ") is out of bounds");
 							}
 							int legacy = lookup.get(index);
 							if (metricSet.contains(index)) {
@@ -1812,7 +1889,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 						}
 					} catch (ScopeException e) {
 						throw new ScopeException(
-								"unable to parse orderBy expression at position " + pos + ": " + e.getCause(), e);
+								"unable to parse orderBy expression at position " + pos + ": " + e.getMessage(), e);
 					}
 				}
 				pos++;
@@ -2397,7 +2474,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			String envelope) throws ScopeException, ComputingException, InterruptedException {
 		Space space = getSpace(userContext, BBID);
 		//
-		if (data==null) data=style==Style.HTML?"EMBEDED":"URL";
+		if (data==null) data=style==Style.HTML?"EMBEDDED":"URL";
 		boolean preFetch = true;// default to prefetch when data mode is URL
 		//
 		Bookmark bookmark = space.getBookmark();
@@ -2784,7 +2861,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		//
 		// handling data
 		ResultInfo info = null;
-		if (data.equals("EMBEDED")) {
+		if (data.equals("EMBEDED") || data.equals("EMBEDDED")) {
 			DataMatrix matrix = compute(userContext, job, query.getMaxResults(), query.getStartIndex(), false);
 			if (!outputConfig.isHasMetricSeries()) {
 				specs.data = transformToVegaData(query, matrix, DataLayout.RECORDS);
@@ -2826,7 +2903,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			specs.data.format = new Format();
 			specs.data.format.type = FormatType.json;// lowercase only!
 		} else {
-			throw new APIException("undefined value for data parameter, must be EMBEDED or URL");
+			throw new APIException("undefined value for data parameter, must be EMBEDDED or URL");
 		}
 		// mark
 		if (outputConfig.isTimeseries()) {
@@ -2870,6 +2947,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		info.setStartIndex(startIndex);
 		info.setPageSize(pageSize);
 		info.setTotalSize(matrix.getRows().size());
+		info.setComplete(matrix.isFullset());
 		return info;
 	}
 	

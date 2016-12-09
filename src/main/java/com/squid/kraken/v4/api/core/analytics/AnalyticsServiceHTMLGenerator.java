@@ -26,7 +26,6 @@ package com.squid.kraken.v4.api.core.analytics;
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URLEncoder;
-import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Collections;
 import java.util.Date;
@@ -47,6 +46,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.squid.core.domain.IDomain;
 import com.squid.core.expression.ExpressionAST;
+import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.api.core.APIException;
 import com.squid.kraken.v4.api.core.ServiceUtils;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex;
@@ -410,6 +410,9 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			html.append("<p><i>"+result.getParent().getDescription()+"</i></p>");
 		}
 		// coontent
+		if (result.getChildren().isEmpty()) {
+			html.append("<p><center>empty folder, nothing to show</center></p>");
+		}
 		html.append("<table style='border-collapse:collapse'>");
 		for (NavigationItem item : result.getChildren()) {
 			html.append("<tr>");
@@ -485,6 +488,14 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			}
 			html.append("</table>");
 			createHTMLpagination(html, query, data);
+			{
+				UriBuilder builder = service.getPublicBaseUriBuilder().
+						path("/analytics/{"+BBID_PARAM_NAME+"}/query");
+				builder.queryParam(STYLE_PARAM, Style.HTML);
+				builder.queryParam("access_token", userContext.getToken().getOid());
+				URI uri = builder.build(space.getBBID(Style.ROBOT));
+				html.append("<p>Query ran on domain: <a href=\""+StringEscapeUtils.escapeHtml4(uri.toString())+"\">"+StringEscapeUtils.escapeHtml4(space.getBBID(Style.HUMAN))+"</a></p>");
+			}
 		} else {
 			html.append("<i>Result is not available, it's probably due to an error</i>");
 			html.append("<p>");
@@ -492,14 +503,6 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			html.append("</p<br>");
 		}
 		html.append("<form>");
-		{
-			UriBuilder builder = service.getPublicBaseUriBuilder().
-					path("/analytics/{"+BBID_PARAM_NAME+"}/query");
-			builder.queryParam(STYLE_PARAM, Style.HTML);
-			builder.queryParam("access_token", userContext.getToken().getOid());
-			URI uri = builder.build(space.getBBID(Style.ROBOT));
-			html.append("<p>Query ran on domain: <a href=\""+StringEscapeUtils.escapeHtml4(uri.toString())+"\">"+StringEscapeUtils.escapeHtml4(space.getBBID(Style.HUMAN))+"</a></p>");
-		}
 		createHTMLfilters(html, query);
 		html.append("<table>");
 		html.append("<tr><td valign='top'>groupBy</td><td>");
@@ -682,7 +685,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			}
 		}
 		html.append("</td></tr></table>");
-		URI scopeLink = service.getPublicBaseUriBuilder().path("/analytics/{reference}/scope").queryParam("style", Style.HTML).queryParam("access_token", service.getUserContext()).build(query.getBBID());
+		URI scopeLink = service.getPublicBaseUriBuilder().path("/analytics/{reference}/scope").queryParam("style", Style.HTML).queryParam("access_token", getToken()).build(query.getBBID());
 		html.append("<a href=\""+StringEscapeUtils.escapeHtml4(scopeLink.toASCIIString())+"\">View the scope</a>");
 		html.append("</fieldset>");
 	}
@@ -734,17 +737,17 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			if (item.getObjectType()==ObjectType.FUNCTION) style = func_style;
 			html.append("<span style='"+style+"'>&nbsp;"+item.getDisplay()+"&nbsp;</span>");
 			if (item.getSuggestion()!=null) {
-				URI link = service.getPublicBaseUriBuilder().path("/analytics/{reference}/scope").queryParam("value", value+item.getSuggestion()).queryParam("style", Style.HTML).queryParam("access_token", service.getUserContext()).build(BBID);
+				URI link = service.getPublicBaseUriBuilder().path("/analytics/{reference}/scope").queryParam("value", value+item.getSuggestion()).queryParam("style", Style.HTML).queryParam("access_token", getToken()).build(BBID);
 				html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(link.toASCIIString())+"\">+</a>]");
 			}
 			if (item.getExpression()!=null && item.getExpression() instanceof AxisExpression) {
 				AxisExpression ref = (AxisExpression)item.getExpression();
 				Axis axis = ref.getAxis();
 				if (axis.getDimensionType()==Type.CATEGORICAL) {
-					URI link = service.getPublicBaseUriBuilder().path("/analytics/{reference}/facets/{facetId}").queryParam("style", Style.HTML).queryParam("access_token", service.getUserContext()).build(BBID, item.getSuggestion());
+					URI link = service.getPublicBaseUriBuilder().path("/analytics/{reference}/facets/{facetId}").queryParam("style", Style.HTML).queryParam("access_token", getToken()).build(BBID, item.getSuggestion());
 					html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(link.toASCIIString())+"\">Indexed</a>]");
 				} else if (axis.getDimensionType()==Type.CONTINUOUS) {
-					URI link = service.getPublicBaseUriBuilder().path("/analytics/{reference}/facets/{facetId}").queryParam("style", Style.HTML).queryParam("access_token", service.getUserContext()).build(BBID, item.getSuggestion());
+					URI link = service.getPublicBaseUriBuilder().path("/analytics/{reference}/facets/{facetId}").queryParam("style", Style.HTML).queryParam("access_token", getToken()).build(BBID, item.getSuggestion());
 					html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(link.toASCIIString())+"\">Period</a>]");
 				}
 			}
@@ -834,7 +837,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		try {
 			Date date = ServiceUtils.getInstance().toDate(jsonFormat);
 			return htmlDateFormat.format(date);
-		} catch (ParseException e) {
+		} catch (ScopeException e) {
 			return jsonFormat;
 		}
 	}
@@ -873,14 +876,21 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 	
 	public String getBookmarkNavigationPath(Bookmark bookmark) {
 		String path = bookmark.getPath();
-		if (path.startsWith("/USER/")) {
-			int pos = path.indexOf("/", 6);
-			if (pos>=0) {
-				path = path.substring(pos);
+		if (path.startsWith(Bookmark.SEPARATOR + Bookmark.Folder.USER)) {
+			String[] elements = path.split(Bookmark.SEPARATOR);
+			if (elements.length>=3) {
+				String oid = elements[2];
+				path = path.substring((Bookmark.SEPARATOR + Bookmark.Folder.USER + Bookmark.SEPARATOR + oid).length());
+				if (oid.equals(service.getUserContext().getUser().getOid())) {
+					path = AnalyticsServiceBaseImpl.MYBOOKMARKS_FOLDER.getSelfRef()+path;
+				} else {
+					path = AnalyticsServiceBaseImpl.SHAREDWITHME_FOLDER.getSelfRef()+path;
+				}
 			} else {
-				path = "";// remove all, the path is in form /USERS/id
+				path = AnalyticsServiceBaseImpl.MYBOOKMARKS_FOLDER.getSelfRef()+path.substring((Bookmark.SEPARATOR + Bookmark.Folder.USER).length());
 			}
-			path = AnalyticsServiceBaseImpl.MYBOOKMARKS_FOLDER.getSelfRef()+"/"+path;
+		} else if (path.startsWith(Bookmark.SEPARATOR + Bookmark.Folder.SHARED)) {
+			path = AnalyticsServiceBaseImpl.SHARED_FOLDER.getSelfRef()+path.substring((Bookmark.SEPARATOR + Bookmark.Folder.SHARED).length());
 		}
 		if (path.endsWith("/")) path = path.substring(0, path.length()-1);
 		return path;

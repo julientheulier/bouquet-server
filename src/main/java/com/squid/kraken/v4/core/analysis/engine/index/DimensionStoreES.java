@@ -23,7 +23,6 @@
  *******************************************************************************/
 package com.squid.kraken.v4.core.analysis.engine.index;
 
-import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
@@ -39,6 +38,7 @@ import org.slf4j.LoggerFactory;
 
 import com.squid.core.domain.IDomain;
 import com.squid.core.expression.ExpressionAST;
+import com.squid.core.expression.parser.ParseException;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.ESIndexFacade.ESIndexFacade;
 import com.squid.kraken.v4.ESIndexFacade.ESIndexFacade.MappingState;
@@ -47,6 +47,7 @@ import com.squid.kraken.v4.ESIndexFacade.ESIndexFacadeUtilities;
 import com.squid.kraken.v4.ESIndexFacade.ESMapping;
 import com.squid.kraken.v4.ESIndexFacade.ESMapping.ESIndexMapping;
 import com.squid.kraken.v4.ESIndexFacade.ESMapping.ESTypeMapping;
+import com.squid.kraken.v4.ESIndexFacade.HierarchiesSearchResult;
 import com.squid.kraken.v4.api.core.ServiceUtils;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex.Status;
@@ -58,8 +59,7 @@ import com.squid.kraken.v4.model.Dimension.Type;
 
 public class DimensionStoreES extends DimensionStoreAbstract {
 
-	private static final Logger logger = LoggerFactory
-			.getLogger(DimensionStoreES.class);
+	private static final Logger logger = LoggerFactory.getLogger(DimensionStoreES.class);
 
 	public static final String idName = "ID";
 
@@ -81,7 +81,7 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 	private String hierarchyTypeName = null;
 
 	private boolean mappingInitialized;
-	protected boolean correlationMappingInitialized ;
+	protected boolean correlationMappingInitialized;
 
 	/*
 	 * private String dimensionGenKey = null; private String correlationGenKey =
@@ -100,15 +100,14 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 	private String idName_mapping = idName;// this is the actual name we will
 											// use to lookup the ID
 
-	public DimensionStoreES(ESIndexFacade master, String indexES,
-			DimensionIndex index) throws ESIndexFacadeException {
+	public DimensionStoreES(ESIndexFacade master, String indexES, DimensionIndex index) throws ESIndexFacadeException {
 		super(index);
 		this.master = master;
 		this.indexName = indexES;
 		this.rootStore = getStore(index.getRoot());
 		//
 		this.mappingInitialized = false;
-		this.correlationMappingInitialized = false; 
+		this.correlationMappingInitialized = false;
 	}
 
 	/**
@@ -119,23 +118,21 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 	 * @throws ESIndexFacadeException
 	 */
 	@Override
-	public void setup(DimensionIndex index, String query)
-			throws ESIndexFacadeException {
+	public void setup(DimensionIndex index, String query) throws ESIndexFacadeException {
 		this.query = query;
 		initReferences(index);
 		if (index.getStatus() == Status.DONE) {
 			// if index has status DONE, check if we can get the type in ES
-			this.cached = master.dimensionMappingInES(indexName,
-					dimensionTypeName);
-			logger.debug("setup - " +  index.getDimensionName()+" DONE");
+			this.cached = master.dimensionMappingInES(indexName, dimensionTypeName);
+			logger.debug("setup - " + index.getDimensionName() + " DONE");
 			if (!this.cached) {
 				// clear the status
-				logger.debug("setup " +  index.getDimensionName()+" not in cache");
+				logger.debug("setup " + index.getDimensionName() + " not in cache");
 				index.setStale();
 			}
 		} else {
 			if (index.getStatus() == Status.ERROR) {
-				logger.debug("setup " +  index.getDimensionName()+" ERROR - set to STALE");
+				logger.debug("setup " + index.getDimensionName() + " ERROR - set to STALE");
 				index.setStale();
 			}
 		}
@@ -149,103 +146,80 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 	}
 
 	private void refreshDimensionTypeName() {
-		this.dimensionTypeName = ESIndexPrefix + dimensionFieldName + "-"
-				+ DigestUtils.sha256Hex(this.query);
+		this.dimensionTypeName = ESIndexPrefix + dimensionFieldName + "-" + DigestUtils.sha256Hex(this.query);
 	}
 
 	private void refreshHierarchyTypeName() {
-		hierarchyTypeName = ESHierarchyPrefix + dimensionFieldName + "-"
-				+ DigestUtils.sha256Hex(this.query);
+		hierarchyTypeName = ESHierarchyPrefix + dimensionFieldName + "-" + DigestUtils.sha256Hex(this.query);
 	}
 
 	private void initReferences(DimensionIndex index) {
-		this.dimensionFieldName = getFieldName(this.getDimensionIndex()
-				.getDimension());
+		this.dimensionFieldName = getFieldName(this.getDimensionIndex().getDimension());
 		refreshDimensionTypeName();
 	}
 
 	protected void restoreDimensionMapping() {
 
-		logger.info("restoring dimension mapping "
-				+ this.getDimensionIndex().getDimensionName());
-		MappingState state = this.master.computeDimensionMappingState(
-				indexName, dimensionTypeName, this.idName_mapping, mapping);
+		logger.info("restoring dimension mapping " + this.getDimensionIndex().getDimensionName());
+		MappingState state = this.master.computeDimensionMappingState(indexName, dimensionTypeName, this.idName_mapping,
+				mapping);
 
 		if (state == MappingState.ERROR) {
-			logger.info("Could not create a mapping for type "
-					+ dimensionTypeName);
-			this.getDimensionIndex().setPermanentError(
-					"could not create mappings");
+			logger.info("Could not create a mapping for type " + dimensionTypeName);
+			this.getDimensionIndex().setPermanentError("could not create mappings");
 			return;
 		}
 
 		if (state == MappingState.EXISTSEQUAL) {
-			logger.info("Mapping for type  " + dimensionTypeName
-					+ "  already exists");
+			logger.info("Mapping for type  " + dimensionTypeName + "  already exists");
 			Status status = this.getDimensionIndex().getStatus();
 			if (status == DimensionIndex.Status.DONE) {
-				logger.info("index " + this.getDimensionIndex().toString()
-						+ ": restoring DimensionStore from ES cache");
+				logger.info(
+						"index " + this.getDimensionIndex().toString() + ": restoring DimensionStore from ES cache");
 			} else {
-				logger.info("index " + this.getDimensionIndex().toString()
-						+ ": not in ES cache");
+				logger.info("index " + this.getDimensionIndex().toString() + ": not in ES cache");
 				this.cached = false;
 			}
 		}
 		if (state == MappingState.EXISTSDIFFERENT) {
-			logger.info("A different mapping exists for type  "
-					+ dimensionTypeName,
+			logger.info("A different mapping exists for type  " + dimensionTypeName,
 					" attempt to destroy it a create a new one");
 			logger.info(mapping.toString());
 			this.cached = false;
 			this.getDimensionIndex().setStale();
-			boolean delRes = this.master.destroyDimensionMapping(indexName,
-					dimensionTypeName);
+			boolean delRes = this.master.destroyDimensionMapping(indexName, dimensionTypeName);
 			if (!delRes) {
-				logger.info("failed creating mapping for type "
-						+ dimensionTypeName);
-				this.getDimensionIndex().setPermanentError(
-						"could not create mappings");
+				logger.info("failed creating mapping for type " + dimensionTypeName);
+				this.getDimensionIndex().setPermanentError("could not create mappings");
 			} else {
 				// reset references
 				// RedisCacheManager.getInstance().refresh(ESIndexPrefix +
 				// dimensionFieldName);// refresh the index
 				initReferences(this.getDimensionIndex());
 				try {
-					if (!this.master.addDimensionMapping(indexName,
-							dimensionTypeName, this.idName_mapping, mapping)) {
-						logger.info("failed creating mapping for type "
-								+ dimensionTypeName);
-						this.getDimensionIndex().setPermanentError(
-								"could not create mappings");
+					if (!this.master.addDimensionMapping(indexName, dimensionTypeName, this.idName_mapping, mapping)) {
+						logger.info("failed creating mapping for type " + dimensionTypeName);
+						this.getDimensionIndex().setPermanentError("could not create mappings");
 					}
 				} catch (ESIndexFacadeException e) {
-					logger.info("failed creating mapping for type "
-							+ dimensionTypeName);
-					this.getDimensionIndex().setPermanentError(
-							"could not create mappings");
+					logger.info("failed creating mapping for type " + dimensionTypeName);
+					this.getDimensionIndex().setPermanentError("could not create mappings");
 
 				}
 			}
 		}
 		if (state == MappingState.DOESNOTEXIST) {
-			logger.info("index " + this.getDimensionIndex().toString()
-					+ ": new");
+			logger.info("index " + this.getDimensionIndex().toString() + ": new");
 			this.getDimensionIndex().setStale();
 			this.cached = false;
 			try {
-				if (!this.master.addDimensionMapping(indexName,
-						dimensionTypeName, this.idName_mapping, mapping)) {
-					logger.info("failed creating mapping for type "
-							+ dimensionTypeName);
-					this.getDimensionIndex().setPermanentError(
-							"could not create mappings");
+				if (!this.master.addDimensionMapping(indexName, dimensionTypeName, this.idName_mapping, mapping)) {
+					logger.info("failed creating mapping for type " + dimensionTypeName);
+					this.getDimensionIndex().setPermanentError("could not create mappings");
 				}
 			} catch (ESIndexFacadeException e) {
-				logger.info("failed creating mapping for type "
-						+ dimensionTypeName);
-				this.getDimensionIndex().setPermanentError(
-						"could not create mappings");
+				logger.info("failed creating mapping for type " + dimensionTypeName);
+				this.getDimensionIndex().setPermanentError("could not create mappings");
 			}
 		}
 	}
@@ -272,7 +246,6 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 			}
 		}
 	}
-	
 
 	/**
 	 * create the mapping for the dimension type - note that the mapping is not
@@ -285,54 +258,45 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 		HashMap<String, ESMapping> mapping = new HashMap<>();
 		IDomain idDomainType = this.getAxisDomain(index);
 		ESTypeMapping idType = computeIDTypeMapping(index, idDomainType);
-//		this.idName_mapping = idName + "_" + idType.toString();
-		this.idName_mapping = idName ;
-		
-		if (idType.equals(ESTypeMapping.STRING)){	
-			mapping.put(idName_mapping, new ESMapping(idName_mapping,
-				ESIndexMapping.BOTH, idType));// ESTypeMapping.STRING));
-		}else{
-			//we store a version with the original type and an indexable version
-			mapping.put(idName_mapping+ESIndexFacadeUtilities.rawSuffix, new ESMapping(idName_mapping+ESIndexFacadeUtilities.rawSuffix,
-					ESIndexMapping.NOT_ANALYZED, idType ));
-			mapping.put(idName_mapping, new ESMapping(idName_mapping,
-					ESIndexMapping.BOTH, ESTypeMapping.STRING ));
-			
+		// this.idName_mapping = idName + "_" + idType.toString();
+		this.idName_mapping = idName;
+
+		if (idType.equals(ESTypeMapping.STRING)) {
+			mapping.put(idName_mapping, new ESMapping(idName_mapping, ESIndexMapping.BOTH, idType));// ESTypeMapping.STRING));
+		} else {
+			// we store a version with the original type and an indexable
+			// version
+			mapping.put(idName_mapping + ESIndexFacadeUtilities.rawSuffix, new ESMapping(
+					idName_mapping + ESIndexFacadeUtilities.rawSuffix, ESIndexMapping.NOT_ANALYZED, idType));
+			mapping.put(idName_mapping, new ESMapping(idName_mapping, ESIndexMapping.BOTH, ESTypeMapping.STRING));
+
 		}
-		
+
 		if (getAttributeCount() > 0) {
 			for (Attribute attr : getAttributes()) {
 				try {
-					ExpressionAST attribute = index
-							.getAxis()
-							.getParent()
-							.getUniverse()
-							.getParser()
-							.parse(index.getAxis().getParent().getDomain(),
-									attr);
+					ExpressionAST attribute = index.getAxis().getParent().getUniverse().getParser()
+							.parse(index.getAxis().getParent().getDomain(), attr);
 					ESTypeMapping attrType = computeTypeMapping(getAttributeDomain(attribute));
 					if (attrType.equals((ESTypeMapping.STRING))) {
 						mapping.put(attr.getId().getAttributeId(),
-								new ESMapping(attr.getId().getAttributeId(),
-										ESIndexMapping.BOTH, attrType));
+								new ESMapping(attr.getId().getAttributeId(), ESIndexMapping.BOTH, attrType));
 					} else {
 						mapping.put(attr.getId().getAttributeId(),
-								new ESMapping(attr.getId().getAttributeId(),
-										ESIndexMapping.NOT_ANALYZED, attrType));
+								new ESMapping(attr.getId().getAttributeId(), ESIndexMapping.NOT_ANALYZED, attrType));
 					}
 				} catch (ScopeException e) {
-					mapping.put(attr.getId().getAttributeId(), new ESMapping(
-							attr.getId().getAttributeId(), ESIndexMapping.BOTH,
-							ESTypeMapping.STRING));
+					mapping.put(attr.getId().getAttributeId(),
+							new ESMapping(attr.getId().getAttributeId(), ESIndexMapping.BOTH, ESTypeMapping.STRING));
 				}
 			}
 		}
 		if (index.getDimension().getType() == Type.CONTINUOUS) {
 
-			mapping.put(idName + "_l", new ESMapping(idName + "_l",
-					ESIndexMapping.NO, computeTypeMapping(idDomainType)));
-			mapping.put(idName + "_u", new ESMapping(idName + "_u",
-					ESIndexMapping.NO, computeTypeMapping(idDomainType)));
+			mapping.put(idName + "_l",
+					new ESMapping(idName + "_l", ESIndexMapping.NO, computeTypeMapping(idDomainType)));
+			mapping.put(idName + "_u",
+					new ESMapping(idName + "_u", ESIndexMapping.NO, computeTypeMapping(idDomainType)));
 		}
 
 		return mapping;
@@ -346,10 +310,8 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 		return attribute.getImageDomain();
 	}
 
-	private ESTypeMapping computeIDTypeMapping(DimensionIndex index,
-			IDomain type) {
-		if (type.isInstanceOf(IDomain.DATE)
-				&& index.getDimension().getType() == Type.CONTINUOUS) {
+	private ESTypeMapping computeIDTypeMapping(DimensionIndex index, IDomain type) {
+		if (type.isInstanceOf(IDomain.DATE) && index.getDimension().getType() == Type.CONTINUOUS) {
 			return ESTypeMapping.STRING;
 		} else {
 			return computeTypeMapping(type);
@@ -382,8 +344,7 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 	}
 
 	@Override
-	public String index(List<DimensionMember> members, boolean wait)
-			throws IndexationException {
+	public String index(List<DimensionMember> members, boolean wait) throws IndexationException {
 		try {
 			ArrayList<HashMap<String, Object>> data = new ArrayList<>();
 			for (DimensionMember member : members) {
@@ -397,19 +358,17 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 				} else {
 					attributes.put(idName_mapping, ID.toString());
 					attributes.put(ESIndexFacadeUtilities.sortKey, ID.toString().toLowerCase());
-					
-					if (mapping.containsKey(idName_mapping+ESIndexFacadeUtilities.rawSuffix)){
-						attributes.put(idName_mapping+ESIndexFacadeUtilities.rawSuffix, ID);
+
+					if (mapping.containsKey(idName_mapping + ESIndexFacadeUtilities.rawSuffix)) {
+						attributes.put(idName_mapping + ESIndexFacadeUtilities.rawSuffix, ID);
 					}
 				}
 				for (int k = 0; k < getAttributeCount(); k++) {
-					attributes.put(getAttributes().get(k).getId()
-							.getAttributeId(), member.getAttributes()[k]);
+					attributes.put(getAttributes().get(k).getId().getAttributeId(), member.getAttributes()[k]);
 				}
 				data.add(attributes);
 			}
-			return master.addBatchDimensionMembers(indexName,
-					dimensionTypeName, idName_mapping, data, mapping, wait);
+			return master.addBatchDimensionMembers(indexName, dimensionTypeName, idName_mapping, data, mapping, wait);
 		} catch (ESIndexFacadeException e) {
 			// TODO Auto-generated catch block
 			throw new IndexationException(e);
@@ -432,17 +391,15 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 			attributes.put(idName_mapping, raw[0]);
 		} else {
 			attributes.put(idName_mapping, raw[0].toString());
-			if (mapping.containsKey(idName_mapping+ESIndexFacadeUtilities.rawSuffix)){
-				attributes.put(idName_mapping+ESIndexFacadeUtilities.rawSuffix, raw[0]);
+			if (mapping.containsKey(idName_mapping + ESIndexFacadeUtilities.rawSuffix)) {
+				attributes.put(idName_mapping + ESIndexFacadeUtilities.rawSuffix, raw[0]);
 			}
 		}
 		for (int k = 1; k < raw.length; k++) {
-			attributes.put(getAttributes().get(k - 1).getId().getAttributeId(),
-					raw[k]);
+			attributes.put(getAttributes().get(k - 1).getId().getAttributeId(), raw[k]);
 		}
 		try {
-			master.addDimensionMember(indexName, dimensionTypeName,
-					idName_mapping, attributes, mapping);
+			master.addDimensionMember(indexName, dimensionTypeName, idName_mapping, attributes, mapping);
 			size.incrementAndGet();
 			return new DimensionMember(raw);
 		} catch (ESIndexFacadeException e) {
@@ -454,16 +411,14 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 	public List<DimensionMember> getMembers(int offset, int size) {
 		try {
 			if (this.mappingInitialized) {
-				ArrayList<Map<String, Object>> elements = master
-						.getNDimensionMembers(indexName, dimensionTypeName,
-								this.idName_mapping, offset, size, this.mapping);
-				return readMembersWithAttrs(elements);
+				ArrayList<Map<String, Object>> elements = master.getNDimensionMembers(indexName, dimensionTypeName,
+						this.idName_mapping, offset, size, this.mapping);
+				return readMembers(elements);
 			} else {
 				return new ArrayList<DimensionMember>();
 			}
 		} catch (ESIndexFacadeException e) {
-			logger.error("failed to get members page from ES: "
-					+ e.getMessage());
+			logger.error("failed to get members page from ES: " + e.getMessage());
 			throw new RuntimeException(e);
 		}
 	}
@@ -474,213 +429,199 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 		try {
 			if (this.mappingInitialized) {
 				String[] tokens = filter.split("\\s");
-				List<Map<String, Object>> elements = master
-						.searchDimensionMembersByTokensAndLocalFilter(
-								indexName, dimensionTypeName, tokens, offset,
-								size, mapping, idName_mapping).hits;
-				return readMembersWithAttrs(elements);
+				List<Map<String, Object>> elements = master.searchDimensionMembersByTokensAndLocalFilter(indexName,
+						dimensionTypeName, tokens, offset, size, mapping, idName_mapping).hits;
+				return readMembers(elements);
 			} else {
 				return new ArrayList<DimensionMember>();
 			}
 		} catch (Exception e) {
-			logger.error("failed to get members page from ES: "
-					+ e.getMessage());
+			logger.error("failed to get members page from ES: " + e.getMessage());
 			throw new RuntimeException(e);
 		}
 	}
 
-	protected List<DimensionMember> readMembers(
-			List<Map<String, Object>> elements) {
+	protected List<DimensionMember> readMembers(List<Map<String, Object>> elements) {
 		ArrayList<DimensionMember> members = new ArrayList<>();
-		if (getDimensionIndex().getDimension().getType() == Type.CONTINUOUS) {
-			IDomain image = getDimensionIndex().getAxis().getDefinitionSafe().getImageDomain();
-			boolean isDate = image.isInstanceOf(IDomain.TEMPORAL);
-			for (Map<String, Object> element : elements) {
-				Comparable<?> lower_bound = (Comparable<?>) element
-						.get(idName + "_l");
-				Comparable<?> upper_bound = (Comparable<?>) element
-						.get(idName + "_u");
-				if (lower_bound != null && upper_bound != null) {
-					if (isDate) {
-						try {
-							Date lower_date = ServiceUtils.getInstance().toDate((String)lower_bound);
-							Date upper_date = ServiceUtils.getInstance().toDate((String)upper_bound);
-							IntervalleObject interval = new IntervalleObject(
-									lower_date, upper_date);
-							members.add(new DimensionMember(-1, interval, 0));
-						} catch (ParseException e) {
-							IntervalleObject interval = new IntervalleObject(
-									lower_bound, upper_bound);
-							members.add(new DimensionMember(-1, interval, 0));
-						}
-					} else {
-						IntervalleObject interval = new IntervalleObject(
-								lower_bound, upper_bound);
-						members.add(new DimensionMember(-1, interval, 0));
-					}
-				}
-			}
-		} else {
-			for (Map<String, Object> element : elements) {
-				Object ID;
-				if(mapping.containsKey(idName_mapping+ESIndexFacadeUtilities.rawSuffix)){
-					ID = element.get(idName_mapping+ESIndexFacadeUtilities.rawSuffix);
-				}else{
-					ID = element.get(idName_mapping);					
-				}
-					
-				
-				if (ID != null) {
-					members.add(new DimensionMember(-1, ID, 0));
-				} else {
-					ID = element.get(idName);
-					if (ID != null) {
-						members.add(new DimensionMember(-1, ID, 0));
-					}
-				}
+		boolean isContinuous = getDimensionIndex().getDimension().getType() == Type.CONTINUOUS;
+		IDomain image = getDimensionIndex().getAxis().getDefinitionSafe().getImageDomain();
+		boolean isDate = image.isInstanceOf(IDomain.TEMPORAL);
+
+		for (Map<String, Object> element : elements) {
+			DimensionMember m = readMember(element, isContinuous, isDate);
+			if (m != null) {
+				members.add(m);
+
 			}
 		}
+
 		return members;
 	}
 
-	protected List<DimensionMember> readMembersWithAttrs(
-			List<Map<String, Object>> elements) {
-		ArrayList<DimensionMember> members = new ArrayList<>();
-		if (getDimensionIndex().getDimension().getType() == Type.CONTINUOUS) {
-			IDomain image = getDimensionIndex().getAxis().getDefinitionSafe().getImageDomain();
-			boolean isDate = image.isInstanceOf(IDomain.TEMPORAL);
-			for (Map<String, Object> element : elements) {
-				Comparable<?> lower_bound = (Comparable<?>) element
-						.get(idName + "_l");
-				Comparable<?> upper_bound = (Comparable<?>) element
-						.get(idName + "_u");
-				if (lower_bound != null && upper_bound != null) {
-					if (isDate) {
-						try {
-							Date lower_date = ServiceUtils.getInstance().toDate((String)lower_bound);
-							Date upper_date = ServiceUtils.getInstance().toDate((String)upper_bound);
-							IntervalleObject interval = new IntervalleObject(
-									lower_date, upper_date);
-							members.add(new DimensionMember(-1, interval, 0));
-						} catch (ParseException e) {
-							IntervalleObject interval = new IntervalleObject(
-									lower_bound, upper_bound);
-							members.add(new DimensionMember(-1, interval, 0));
-						}
-					} else {
-						IntervalleObject interval = new IntervalleObject(
-								lower_bound, upper_bound);
-						members.add(new DimensionMember(-1, interval, 0));
-					}
-				}
-			}
+	private DimensionMember readMember(Map<String, Object> element, boolean isContinuous, boolean isDate) {
+		if (isContinuous) {
+			return readContinuousMemberNoAttribute(element, isDate);
 		} else {
-			for (Map<String, Object> element : elements) {
-				Object ID = element.get(idName_mapping);
-				if (ID == null)
-					ID = element.get(idName);
-				if (ID != null) {
-					DimensionMember member = new DimensionMember(-1, ID,
-							getAttributeCount());
-					if (getAttributeCount() > 0) {
-						int i = 0;
-						for (Attribute attr : getAttributes()) {
-							Object value = element.get(attr.getOid());
-							if (value != null) {
-								member.setAttribute(i, value);
-							}
-							i++;
-						}
-					}
-					members.add(member);
+			return readMemberWithAttributes(element);
+		}
+	}
+
+	private DimensionMember readContinuousMemberNoAttribute(Map<String, Object> element, boolean isDate) {
+		Comparable<?> lower_bound = (Comparable<?>) element.get(idName + "_l");
+		Comparable<?> upper_bound = (Comparable<?>) element.get(idName + "_u");
+		if (lower_bound != null && upper_bound != null) {
+			if (isDate) {
+				try {
+					Date lower_date = ServiceUtils.getInstance().toDate((String) lower_bound);
+					Date upper_date = ServiceUtils.getInstance().toDate((String) upper_bound);
+					IntervalleObject interval = new IntervalleObject(lower_date, upper_date);
+					return new DimensionMember(-1, interval, 0);
+				} catch (ParseException e) {
+					IntervalleObject interval = new IntervalleObject(lower_bound, upper_bound);
+					return new DimensionMember(-1, interval, 0);
 				}
+			} else {
+				IntervalleObject interval = new IntervalleObject(lower_bound, upper_bound);
+				return new DimensionMember(-1, interval, 0);
 			}
 		}
-		return members;
+		return null;
+	}
+
+	private DimensionMember readMemberNoAttribute(Map<String, Object> element) {
+		Object ID;
+		if (mapping.containsKey(idName_mapping + ESIndexFacadeUtilities.rawSuffix)) {
+			ID = element.get(idName_mapping + ESIndexFacadeUtilities.rawSuffix);
+		} else {
+			ID = element.get(idName_mapping);
+		}
+		if (ID != null) {
+			return new DimensionMember(-1, ID, 0);
+		} else {
+			ID = element.get(idName);
+			if (ID != null) {
+				return new DimensionMember(-1, ID, 0);
+			}
+			return null;
+		}
+	}
+
+	private DimensionMember readMemberWithAttributes(Map<String, Object> element) {
+		DimensionMember m = readMemberNoAttribute(element);
+		if (m != null && getAttributeCount() > 0) {
+			int i = 0;
+			for (Attribute attr : getAttributes()) {
+				Object value = element.get(attr.getOid());
+				if (value != null) {
+					m.setAttribute(i, value);
+				}
+				i++;
+			}
+		}
+
+		return m;
 	}
 
 	@Override
-	public List<DimensionMember> getMembersFilterByParents(
-			Map<DimensionIndex, List<DimensionMember>> selections, int offset,
-			int size) {
+	public List<DimensionMember> getMembersFilterByParents(Map<DimensionIndex, List<DimensionMember>> selections,
+			int offset, int size) {
 		// call the root method
 		try {
-			return rootStore.getMembersFilterByParents(this, selections,
-					offset, size);
+			return rootStore.getMembersFilterByParents(this, selections, offset, size);
 		} catch (ESIndexFacadeException e) {
-			logger.error("failed to get members page from ES: "
-					+ e.getMessage());
+			logger.error("failed to get members page from ES: " + e.getMessage());
 			throw new RuntimeException(e);
 		}
 	}
 
-	protected List<DimensionMember> getMembersFilterByParents(
-			DimensionStoreES target,
-			Map<DimensionIndex, List<DimensionMember>> selections, int offset,
-			int size) throws ESIndexFacadeException {
+	protected List<DimensionMember> getMembersFilterByParents(DimensionStoreES target,
+			Map<DimensionIndex, List<DimensionMember>> selections, int offset, int size) throws ESIndexFacadeException {
 		HashMap<String, ArrayList<String>> filters = createFilterByParents(selections);
-		Set<String> results = master.filterHierarchyByMemberValues(indexName,
-				hierarchyTypeName, target.getDimensionFieldName(), filters,
-				offset, size, mappingCorrelations).hits;
-		return createDimensionMembers(results);
+
+		// get the ID of dimensionMember
+		HierarchiesSearchResult results = master.filterHierarchyByMemberValues(indexName, hierarchyTypeName,
+				target.getDimensionFieldName(), filters, offset, size, mappingCorrelations);
+		if (target.getAttributeCount() != 0) {
+			// we need to retrieve the full dimensionmembers - with attributes -
+			// from the dimensionIndex
+			ArrayList<Map<String, Object>> withAttr = master.getDimensionByIDs(indexName, target.dimensionTypeName,
+					new ArrayList<String>(results.hitsID));
+			return createDimensionMembers(results, withAttr, target.getDimensionFieldName());
+		} else {
+			return createDimensionMembers(results, target.getDimensionFieldName());
+		}
 	}
 
 	@Override
-	public List<DimensionMember> getMembersFilterByParents(
-			Map<DimensionIndex, List<DimensionMember>> selections,
+	public List<DimensionMember> getMembersFilterByParents(Map<DimensionIndex, List<DimensionMember>> selections,
 			String filter, int offset, int size) {
 		try {
-			return rootStore.getMembersFilterByParents(this, selections,
-					filter, offset, size);
+			return rootStore.getMembersFilterByParents(this, selections, filter, offset, size);
 		} catch (ESIndexFacadeException e) {
-			logger.error("failed to get members page from ES: "
-					+ e.getMessage());
+			logger.error("failed to get members page from ES: " + e.getMessage());
 			throw new RuntimeException(e);
 		}
 	}
 
-	protected List<DimensionMember> getMembersFilterByParents(
-			DimensionStoreES target,
-			Map<DimensionIndex, List<DimensionMember>> selections,
-			String filter, int offset, int size) throws ESIndexFacadeException {
-		
-		
-		if ((this.rootStore == this ) && (this.correlationMappingInitialized )){ 
+	protected List<DimensionMember> getMembersFilterByParents(DimensionStoreES target,
+			Map<DimensionIndex, List<DimensionMember>> selections, String filter, int offset, int size)
+			throws ESIndexFacadeException {
+
+		if ((this.rootStore == this) && (this.correlationMappingInitialized)) {
 			HashMap<String, ArrayList<String>> filters = createFilterByParents(selections);
-			if (getAttributeCount() == 0) {
-				Set<String> results = master
-						.filterHierarchyByMemberValuesAndSubstring(indexName,
-								hierarchyTypeName, target.getDimensionFieldName(),
-								filters, filter, offset, size, mappingCorrelations).hits;
-				return createDimensionMembers(results);
+			// we filter directly on the correlation table
+			HierarchiesSearchResult results = master.filterHierarchyByMemberValuesAndSubstring(indexName,
+					hierarchyTypeName, target.getDimensionFieldName(), filters, filter, offset, size,
+					mappingCorrelations);
+			if (target.getAttributeCount() == 0) {
+				return createDimensionMembers(results, target.getDimensionFieldName());
 			} else {
-				// Set<String> results =
-				// master.filterHierarchyByMemberValues(indexES, "H/"+rootGen,
-				// dimensionUUID, filters, offset, size,
-				// rootStore.mappingCorrelations).hits;
-				// List<Map<String, Object>> filtered =
-				// master.searchDimensionMembersByIdsAndSubstring(indexES,
-				// dimensionGen, results, filter, offset, size, mapping);
-				// return createDimensionMembers(filtered);
-				Set<String> results = master
-						.filterHierarchyByMemberValuesAndSubstring(indexName,
-								hierarchyTypeName, target.getDimensionFieldName(),
-								filters, filter, offset, size, mappingCorrelations).hits;
-				return createDimensionMembers(results);
+				ArrayList<Map<String, Object>> withAttr = master.getDimensionByIDs(indexName, target.dimensionTypeName,
+						new ArrayList<String>(results.hitsID));
+				return createDimensionMembers(results, withAttr, target.getDimensionFieldName());
 			}
-		}else{
-			return  new ArrayList<DimensionMember>() ;
+		} else {
+			return new ArrayList<DimensionMember>();
 		}
 	}
 
-	private List<DimensionMember> createDimensionMembers(Collection<String> IDs) {
+	private List<DimensionMember> createDimensionMembers(HierarchiesSearchResult res, String dimensionName) {
 		ArrayList<DimensionMember> members = new ArrayList<>();
-		for (String ID : IDs) {
-			if (ID != null) {
-				members.add(new DimensionMember(-1, ID, getAttributeCount()));
+		if (res.hasAttr) {
+			boolean isContinuous = getDimensionIndex().getDimension().getType() == Type.CONTINUOUS;
+			IDomain image = getDimensionIndex().getAxis().getDefinitionSafe().getImageDomain();
+			boolean isDate = image.isInstanceOf(IDomain.TEMPORAL);
+			for (String ID : res.hitsID) {
+				members.add(this.readMember(res.hitsAttr.get(ID), isContinuous, isDate));
+			}
+		} else {
+			for (String ID : res.hitsID) {
+				if (ID != null) {
+					members.add(new DimensionMember(-1, ID, getAttributeCount()));
+				}
 			}
 		}
 		return members;
+	}
+
+	private List<DimensionMember> createDimensionMembers(HierarchiesSearchResult res,
+			ArrayList<Map<String, Object>> withAttr, String dimensionName) {
+		ArrayList<DimensionMember> members = new ArrayList<DimensionMember>(res.hitsID.size());
+		if (withAttr == null) {
+			return createDimensionMembers(res, dimensionName);
+		}
+		boolean isContinuous = getDimensionIndex().getDimension().getType() == Type.CONTINUOUS;
+		IDomain image = getDimensionIndex().getAxis().getDefinitionSafe().getImageDomain();
+		boolean isDate = image.isInstanceOf(IDomain.TEMPORAL);
+
+		for (Map<String, Object> hit : withAttr) {
+			DimensionMember m = this.readMember(hit, isContinuous, isDate);
+			ArrayList<String> ids = new ArrayList<String>(res.hitsID);
+			members.add(ids.indexOf(m.getID()), m);
+
+		}
+		return members;
+
 	}
 
 	private HashMap<String, ArrayList<String>> createFilterByParents(
@@ -704,18 +645,16 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 	@Override
 	public List<DimensionMember> getMembers() {
 		try {
-			if (this.mappingInitialized){
-				ArrayList<Map<String, Object>> elements = master
-					.getNDimensionMembers(indexName, dimensionTypeName,
-							this.idName_mapping, 0, 10000, this.mapping);
+			if (this.mappingInitialized) {
+				ArrayList<Map<String, Object>> elements = master.getNDimensionMembers(indexName, dimensionTypeName,
+						this.idName_mapping, 0, 10000, this.mapping);
 				return readMembers(elements);
-			}else{
+			} else {
 				return new ArrayList<DimensionMember>();
 			}
-			
+
 		} catch (ESIndexFacadeException e) {
-			logger.error("failed to get members page from ES: "
-					+ e.getMessage());
+			logger.error("failed to get members page from ES: " + e.getMessage());
 			throw new RuntimeException(e);
 		}
 	}
@@ -728,7 +667,7 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 
 	@Override
 	public DimensionMember getMemberByID(Object iD) {
-		if (iD==null) {
+		if (iD == null) {
 			// handling NULL value
 			return new DimensionMember(-1, iD, getAttributeCount());
 		}
@@ -743,13 +682,11 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 	@Override
 	public DimensionMember getMemberByKey(String key) {
 		try {
-			if (this.mappingInitialized){
-				Map<String, Object> map = master.getDimensionValue(indexName,
-						dimensionTypeName, key);
+			if (this.mappingInitialized) {
+				Map<String, Object> map = master.getDimensionValue(indexName, dimensionTypeName, key);
 				if (map != null) {
 					Object value = map.get(idName_mapping);
-					DimensionMember member = new DimensionMember(0, value,
-							getAttributeCount());
+					DimensionMember member = new DimensionMember(0, value, getAttributeCount());
 					int i = 0;
 					for (Attribute attr : getAttributes()) {
 						Object v = map.get(attr.getId().getAttributeId());
@@ -772,23 +709,21 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 	}
 
 	@Override
-	public String indexCorrelations(List<DimensionIndex> types,
-			List<DimensionMember> values) throws IndexationException {
+	public String indexCorrelations(List<DimensionIndex> types, List<DimensionMember> values)
+			throws IndexationException {
 		try {
 			ArrayList<String> estypes = new ArrayList<>();
 			for (int i = 0; i < types.size(); i++) {
 				estypes.add(types.get(i).getDimension().getId().toUUID());
 			}
-			return master.addHierarchyCorrelation(indexName, hierarchyTypeName,
-					estypes, values, mappingCorrelations);
+			return master.addHierarchyCorrelation(indexName, hierarchyTypeName, estypes, values, mappingCorrelations);
 		} catch (ESIndexFacadeException e) {
 			throw new IndexationException(e);
 		}
 	}
 
 	@Override
-	public String indexCorrelations(List<DimensionIndex> types,
-			Collection<List<DimensionMember>> batch, boolean wait)
+	public String indexCorrelations(List<DimensionIndex> types, Collection<List<DimensionMember>> batch, boolean wait)
 			throws IndexationException {
 		//
 		ArrayList<String> estypes = new ArrayList<>();
@@ -797,9 +732,8 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 		}
 		try {
 
-			return master.addHierarchyCorrelationsBatch(indexName,
-					hierarchyTypeName, estypes, batch, mappingCorrelations,
-					wait);
+			return master.addHierarchyCorrelationsBatch(indexName, hierarchyTypeName, estypes, batch,
+					mappingCorrelations, wait);
 		} catch (ESIndexFacadeException e) {
 			// TODO Auto-generated catch block
 
@@ -830,13 +764,10 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 			String typename = getFieldName(index.getDimension());
 			ESTypeMapping type = getTypeMapping(index);
 			if (index.getDimension().getType() == Type.CONTINUOUS) {
-				mappingCorrelations.put(typename, new ESMapping(
-						typename + "_l", ESIndexMapping.NOT_ANALYZED, type));
-				mappingCorrelations.put(typename, new ESMapping(
-						typename + "_u", ESIndexMapping.NOT_ANALYZED, type));
+				mappingCorrelations.put(typename, new ESMapping(typename + "_l", ESIndexMapping.NOT_ANALYZED, type));
+				mappingCorrelations.put(typename, new ESMapping(typename + "_u", ESIndexMapping.NOT_ANALYZED, type));
 			} else {
-				mappingCorrelations.put(typename, new ESMapping(typename,
-						ESIndexMapping.BOTH, type));
+				mappingCorrelations.put(typename, new ESMapping(typename, ESIndexMapping.BOTH, type));
 			}
 		}
 		return this.restoreHierarchyMapping();
@@ -847,43 +778,35 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 		// check mapping
 		logger.info("restore hierarchyMapping");
 
-		MappingState state = this.master.computeCorrelationMappingState(
-				indexName, hierarchyTypeName, mappingCorrelations);
+		MappingState state = this.master.computeCorrelationMappingState(indexName, hierarchyTypeName,
+				mappingCorrelations);
 
 		if (state == MappingState.ERROR) {
-			logger.info("Could not create a mapping for type "
-					+ hierarchyTypeName);
-			this.getDimensionIndex().setPermanentError(
-					"could not create mappings");
+			logger.info("Could not create a mapping for type " + hierarchyTypeName);
+			this.getDimensionIndex().setPermanentError("could not create mappings");
 			return false;
 		}
 
 		if (state == MappingState.EXISTSEQUAL) {
-			logger.info("Mapping for type  " + hierarchyTypeName
-					+ "  already exists");
+			logger.info("Mapping for type  " + hierarchyTypeName + "  already exists");
 			Status status = this.getDimensionIndex().getStatus();
 			if (status == DimensionIndex.Status.DONE) {
-				logger.info("index " + this.getDimensionIndex().toString()
-						+ ": restoring DimensionStore from ES cache");
+				logger.info(
+						"index " + this.getDimensionIndex().toString() + ": restoring DimensionStore from ES cache");
 			} else {
-				logger.info("index " + this.getDimensionIndex().toString()
-						+ ": not in ES cache");
+				logger.info("index " + this.getDimensionIndex().toString() + ": not in ES cache");
 				this.cached = false;
 			}
 		}
 		if (state == MappingState.EXISTSDIFFERENT) {
-			logger.info("A different mapping exists for type  "
-					+ hierarchyTypeName,
+			logger.info("A different mapping exists for type  " + hierarchyTypeName,
 					", we'll attempt to destroy it and create a new one");
 			this.cached = false;
 			this.getDimensionIndex().setStale();
-			boolean delRes = this.master.destroyCorrelationMapping(
-					this.indexName, hierarchyTypeName);
+			boolean delRes = this.master.destroyCorrelationMapping(this.indexName, hierarchyTypeName);
 			if (!delRes) {
-				logger.info("failed creating mapping for hierarchy "
-						+ hierarchyTypeName);
-				this.getDimensionIndex().setPermanentError(
-						"could not create hierarchy mappings");
+				logger.info("failed creating mapping for hierarchy " + hierarchyTypeName);
+				this.getDimensionIndex().setPermanentError("could not create hierarchy mappings");
 				return false;
 			} else {
 				// reset references
@@ -892,54 +815,43 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 				initReferences(this.getDimensionIndex());
 
 				try {
-					if (!this.master.addHierarchyCorrelationMapping(indexName,
-							hierarchyTypeName, mappingCorrelations)) {
-						logger.info("failed creating mapping for hierarchy "
-								+ hierarchyTypeName);
-						this.getDimensionIndex().setPermanentError(
-								"could not create hierarchy mappings");
+					if (!this.master.addHierarchyCorrelationMapping(indexName, hierarchyTypeName,
+							mappingCorrelations)) {
+						logger.info("failed creating mapping for hierarchy " + hierarchyTypeName);
+						this.getDimensionIndex().setPermanentError("could not create hierarchy mappings");
 						return false;
 					}
 				} catch (ESIndexFacadeException e) {
-					logger.info("failed creating mapping for type "
-							+ hierarchyTypeName);
-					this.getDimensionIndex().setPermanentError(
-							"could not create hierarchy mappings");
+					logger.info("failed creating mapping for type " + hierarchyTypeName);
+					this.getDimensionIndex().setPermanentError("could not create hierarchy mappings");
 					return false;
 				}
 			}
 		}
 		if (state == MappingState.DOESNOTEXIST) {
-			logger.info("index " + this.getDimensionIndex().toString()
-					+ ": new");
+			logger.info("index " + this.getDimensionIndex().toString() + ": new");
 			this.getDimensionIndex().setStale();
 			this.cached = false;
 			try {
-				if (!this.master.addHierarchyCorrelationMapping(indexName,
-						hierarchyTypeName, mappingCorrelations)) {
-					logger.info("failed creating mapping for hierarchy "
-							+ hierarchyTypeName);
-					this.getDimensionIndex().setPermanentError(
-							"could not create hierachy mappings");
+				if (!this.master.addHierarchyCorrelationMapping(indexName, hierarchyTypeName, mappingCorrelations)) {
+					logger.info("failed creating mapping for hierarchy " + hierarchyTypeName);
+					this.getDimensionIndex().setPermanentError("could not create hierachy mappings");
 					return false;
 				}
 			} catch (ESIndexFacadeException e) {
-				logger.info("failed creating mapping for hierarchy  "
-						+ hierarchyTypeName);
-				this.getDimensionIndex().setPermanentError(
-						"could not create hierarchy mappings");
+				logger.info("failed creating mapping for hierarchy  " + hierarchyTypeName);
+				this.getDimensionIndex().setPermanentError("could not create hierarchy mappings");
 				return false;
 			}
 		}
-		
+
 		this.correlationMappingInitialized = true;
 		return true;
 	}
 
 	protected ESTypeMapping getTypeMapping(DimensionIndex index) {
 		try {
-			return getTypeMapping(index.getAxis().getDefinition()
-					.getImageDomain());
+			return getTypeMapping(index.getAxis().getDefinition().getImageDomain());
 		} catch (ScopeException e) {
 			return ESTypeMapping.STRING;
 		}
@@ -961,8 +873,7 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 	public boolean isDimensionIndexationDone(String lastIndexedDimension) {
 		try {
 			if (this.mappingInitialized) {
-				if (master.getDimensionValue(indexName, dimensionTypeName,
-						lastIndexedDimension) != null) {
+				if (master.getDimensionValue(indexName, dimensionTypeName, lastIndexedDimension) != null) {
 					return true;
 				} else {
 					return false;
@@ -979,21 +890,19 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 	@Override
 	public boolean isCorrelationIndexationDone(String lastIndexedCorrelation) {
 		try {
-			if(rootStore.correlationMappingInitialized){
-				if (master.getDimensionValue(indexName, hierarchyTypeName,
-						lastIndexedCorrelation) != null) {
+			if (rootStore.correlationMappingInitialized) {
+				if (master.getDimensionValue(indexName, hierarchyTypeName, lastIndexedCorrelation) != null) {
 					return true;
 				} else {
 					return false;
 				}
-			}else{
+			} else {
 				return false;
 			}
-			
+
 		} catch (ESIndexFacadeException e) {
 			return false;
 		}
 	}
 
-	
 }

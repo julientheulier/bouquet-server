@@ -56,6 +56,8 @@ import com.squid.kraken.v4.core.expression.scope.ProjectExpressionScope;
 import com.squid.kraken.v4.core.expression.scope.RelationExpressionScope;
 import com.squid.kraken.v4.model.AccessRight;
 import com.squid.kraken.v4.model.AccessRight.Role;
+import com.squid.kraken.v4.model.visitor.DeepReadVisitor;
+import com.squid.kraken.v4.model.visitor.InvalidationVisitor;
 import com.squid.kraken.v4.model.Annotation;
 import com.squid.kraken.v4.model.AnnotationList;
 import com.squid.kraken.v4.model.AnnotationPK;
@@ -178,8 +180,45 @@ public class ProjectServiceBaseImpl extends GenericServiceImpl<Project, ProjectP
 	}
 
 	public List<Project> readAll(AppContext ctx) {
-		return ((ProjectDAO) DAOFactory.getDAOFactory().getDAO(Project.class))
+		List<Project> projects = ((ProjectDAO) DAOFactory.getDAOFactory().getDAO(Project.class))
 				.findByCustomer(ctx, ctx.getCustomerPk());
+		// T2121 : filter project with role execute
+		ArrayList<Project> filter = new ArrayList<>(projects.size());
+		for (Project project : projects) {
+			if (AccessRightsUtils.getInstance().hasRole(ctx, project, Role.READ)) {
+				filter.add(project);
+			}
+		}
+		return filter;
+	}
+	
+	/* (non-Javadoc)
+	 * @see com.squid.kraken.v4.api.core.GenericServiceImpl#read(com.squid.kraken.v4.persistence.AppContext, com.squid.kraken.v4.model.GenericPK, boolean)
+	 */
+	@Override
+	public Project read(AppContext ctx, ProjectPK objectId, boolean deepRead) {
+		// T2121
+		try {
+	        Project object = ProjectManager.INSTANCE.getProject(ctx, objectId);
+	        if (ctx.isRefresh()) {
+	            // check for owner role
+	            AccessRightsUtils.getInstance().checkRole(ctx, object, Role.WRITE);
+	            // perform recursive invalidation
+	            DeepReadVisitor v1 = new DeepReadVisitor(ctx);
+	            object.accept(v1);
+	            InvalidationVisitor invalidationVisitor = new InvalidationVisitor(ctx, object);
+	            object.accept(invalidationVisitor);
+	            invalidationVisitor.commit();
+	        } else if (deepRead) {
+	        	// T2121
+	        	ProjectManager.INSTANCE.upgradeUserAccess(ctx, object);
+	        	DeepReadVisitor v1 = new DeepReadVisitor(ctx);
+	            object.accept(v1);
+	        }
+			return object;
+		} catch (ScopeException e) {
+			throw new ObjectNotFoundAPIException(e, true);
+		}
 	}
     
     /**

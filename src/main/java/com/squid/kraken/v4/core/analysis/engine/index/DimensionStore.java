@@ -85,9 +85,11 @@ public class DimensionStore extends DimensionStoreAbstract {
                     size++;
                     IDs.put(member.getID(), member);
                 } else {
+                	if (check.getIndex() >=0){
                     // update values
                     members.set(check.getIndex(), member);
                     IDs.put(member.getID(), member);
+                	}
                 }
             }
             return "";
@@ -217,19 +219,7 @@ public class DimensionStore extends DimensionStoreAbstract {
 
     @Override
     public DimensionMember getMemberByKey(String key) {
-        DimensionMember member = IDs.get(key);
-        if (member!=null) {
-            return member;
-        } else {
-            // we expect the key to be a integer
-            try {
-                int index = Integer.parseInt(key);
-                return getMember(index);
-            } catch (NumberFormatException e) {
-                // failed to match the index
-                return null;
-            }
-        }
+       return IDs.get(key);
     }
     
     @Override

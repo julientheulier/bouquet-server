@@ -145,9 +145,10 @@ public class DimensionOptionUtils {
 								values.add(member);
 							} else {
 								// create a temporary member
-								values.add(new DimensionMember(-1, defaultValues.get(0), index.getAttributeCount()));
+								values.add(new DimensionMember(-1, value, index.getAttributeCount()));
 							}
 						}
+						return values;
 					}
 				}
 			}
