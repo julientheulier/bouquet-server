@@ -1878,8 +1878,8 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 								// remove the first operator
 								Operator op = (Operator)expr;
 								if (op.getArguments().size()==1 
-										&& (op.getOperatorDefinition().getExtendedID()==SortOperatorDefinition.ASC_ID
-										|| op.getOperatorDefinition().getExtendedID()==SortOperatorDefinition.DESC_ID)) 
+										&& (op.getOperatorDefinition().getExtendedID().equals(SortOperatorDefinition.ASC_ID)
+										|| op.getOperatorDefinition().getExtendedID().equals(SortOperatorDefinition.DESC_ID))) 
 								{
 									expr = op.getArguments().get(0);
 								}
@@ -2839,8 +2839,8 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 						// remove the first operator
 						Operator op = (Operator)o;
 						if (op.getArguments().size()==1 
-								&& (op.getOperatorDefinition().getExtendedID()==SortOperatorDefinition.ASC_ID
-								|| op.getOperatorDefinition().getExtendedID()==SortOperatorDefinition.DESC_ID)) 
+								&& (op.getOperatorDefinition().getExtendedID().equals(SortOperatorDefinition.ASC_ID)
+								|| op.getOperatorDefinition().getExtendedID().equals(SortOperatorDefinition.DESC_ID))) 
 						{
 							o = op.getArguments().get(0);
 						}
