@@ -162,7 +162,8 @@ public class Axis implements Property {
         	if (this.def_cache!=null && this.def_cache instanceof ColumnReference) {
         		return "#"+((ColumnReference)this.def_cache).getReferenceName();
         	} else {
-        		return ID;
+        		// return human readable name
+        		return prettyPrint(PrettyPrintOptions.HUMAN_GLOBAL);
         	}
         }
     }
@@ -451,7 +452,7 @@ public class Axis implements Property {
 	
 	@Override
 	public String toString() {
-		return "Axis/"+getParent().toString()+"."+(dimension!=null?dimension.getName():(def_cache!=null?def_cache.prettyPrint():"???"));
+		return "Axis/"+getParent().toString()+"."+(dimension!=null?dimension.getName():(def_cache!=null?def_cache.prettyPrint(PrettyPrintOptions.HUMAN_GLOBAL):"???"));
 	}
 
 	/**
