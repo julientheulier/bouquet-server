@@ -364,6 +364,20 @@ public class ProjectAnalysisJob extends JobBaseImpl<ProjectAnalysisJobPK, DataTa
 			this.position = position;
 		}
         
+        /* (non-Javadoc)
+         * @see java.lang.Object#toString()
+         */
+        @Override
+        public String toString() {
+        	switch (position) {
+			case LAST:
+				return "LAST("+getCol().toString()+")";
+			default:
+			case FIRST:
+				return getCol().toString();
+			}
+        }
+        
     }
 	
     /**
