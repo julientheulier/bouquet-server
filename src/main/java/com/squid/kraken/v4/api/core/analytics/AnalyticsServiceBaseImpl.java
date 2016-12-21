@@ -2474,7 +2474,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			String envelope) throws ScopeException, ComputingException, InterruptedException {
 		Space space = getSpace(userContext, BBID);
 		//
-		if (data==null) data=style==Style.HTML?"EMBEDDED":"URL";
+		if (data==null) data="URL";
 		boolean preFetch = true;// default to prefetch when data mode is URL
 		//
 		Bookmark bookmark = space.getBookmark();
@@ -2811,15 +2811,14 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			query.setBeyondLimit(Collections.singletonList(Integer.toString(outputConfig.getTimeseriesPosition())));
 			query.setMaxResults(null);
 		} else {
-			/*
-			// can add page size
-			if (query.getLimit()>10 && query.getMaxResults()==null) {
-				query.setMaxResults(10);
+			//
+			// set limit of not defined
+			if (query.getLimit()==null) {
+				query.setLimit((long) 100);
 			}
-			*/
 		}
 		final int startIndex = query.getStartIndex()!=null?query.getStartIndex():0;
-		final int maxResults = query.getMaxResults()!=null?query.getMaxResults():query.getLimit().intValue();
+		final int maxResults = query.getMaxResults()!=null?query.getMaxResults():(query.getLimit()!=null?query.getLimit().intValue():100);
 		// make sure we order by something
 		if (query.getOrderBy()==null || query.getOrderBy().size()==0) {
 			if (query.getMetrics().size()>0) {
@@ -2925,7 +2924,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		}
 		//
 		if (style!=null && style==Style.HTML) {
-			return generator.createHTMLPageView(space, view, info, reply);
+			return generator.createHTMLPageView(userContext, space, view, info, reply);
 		} else if (envelope==null || envelope.equals("") || envelope.equalsIgnoreCase("RESULT")) {
 			return Response.ok(reply.getResult(), MediaType.APPLICATION_JSON_TYPE.toString()).build();
 		} else if(envelope.equalsIgnoreCase("ALL")) {
