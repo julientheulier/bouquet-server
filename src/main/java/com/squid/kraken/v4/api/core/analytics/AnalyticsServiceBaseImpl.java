@@ -3038,7 +3038,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 				builder.queryParam(ORDERBY_PARAM, item);
 			}
 		}
-		if (query.getRollups()!=null) builder.queryParam(ROLLUP_PARAM, query.getRollups());
+		if (query.getRollups()!=null && !query.getRollups().isEmpty()) builder.queryParam(ROLLUP_PARAM, query.getRollups());
 		// limit override
 		if (override!=null && override.containsKey(LIMIT_PARAM)) {
 			if (override.get(LIMIT_PARAM)!=null) builder.queryParam(LIMIT_PARAM, override.get(LIMIT_PARAM));
