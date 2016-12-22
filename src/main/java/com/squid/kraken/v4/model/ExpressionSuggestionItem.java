@@ -47,6 +47,9 @@ public class ExpressionSuggestionItem {
     
     private ValueType valueType = null;
     
+    // the folder may allow to group suggestions
+    private String folder = null;
+    
     @JsonIgnore
     private ExpressionAST expression = null;
     
@@ -162,6 +165,14 @@ public class ExpressionSuggestionItem {
 
 	public ExpressionAST getExpression() {
 		return expression;
+	}
+	
+	public String getFolder() {
+		return folder;
+	}
+	
+	public void setFolder(String folder) {
+		this.folder = folder;
 	}
 
 }
