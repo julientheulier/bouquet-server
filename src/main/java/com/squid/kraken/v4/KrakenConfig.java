@@ -197,7 +197,7 @@ public class KrakenConfig implements KrakenConfigConstants {
 					}
 
 				} catch (IOException e) {
-					logger.error("Could not load config file : " + filePathV2);
+					logger.error("Could not load config file : " + filePathV2, e);
 				}
 
 			} else {
@@ -213,7 +213,7 @@ public class KrakenConfig implements KrakenConfigConstants {
 						InputStream in = KrakenConfig.class.getClassLoader().getResourceAsStream(filePath);
 						load(in, props);
 					} catch (Exception e1) {
-						logger.error("Could not load config file : " + filePath);
+						logger.error("Could not load config file : " + filePath, e1);
 					}
 				}
 			}
