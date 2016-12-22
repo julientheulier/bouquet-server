@@ -859,23 +859,27 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		}
 		html.append("<form>");
 		html.append("<p>Expression:<input type='text' name='value' size=100 value='"+getFieldValue(value)+"' placeholder='type expression to validate it or to filter the suggestion list'></p>");
-		html.append("<fieldset><legend>Filter by expression type</legend>");
-		html.append("<input type='checkbox' name='types' value='"+ObjectType.DIMENSION+"'>"+ObjectType.DIMENSION);
-		html.append("<input type='checkbox' name='types' value='"+ObjectType.COLUMN+"'>"+ObjectType.COLUMN);
-		html.append("<input type='checkbox' name='types' value='"+ObjectType.RELATION+"'>"+ObjectType.RELATION);
-		html.append("<input type='checkbox' name='types' value='"+ObjectType.METRIC+"'>"+ObjectType.METRIC);
-		html.append("<input type='checkbox' name='types' value='"+ObjectType.FUNCTION+"'>"+ObjectType.FUNCTION);
-		html.append("</fieldset>");
-		html.append("<fieldset><legend>Filter by expression value</legend>");
-		html.append("<input type='checkbox' name='values' value='"+ValueType.DATE+"'>"+ValueType.DATE);
-		html.append("<input type='checkbox' name='values' value='"+ValueType.STRING+"'>"+ValueType.STRING);
-		html.append("<input type='checkbox' name='values' value='"+ValueType.CONDITION+"'>"+ValueType.CONDITION);
-		html.append("<input type='checkbox' name='values' value='"+ValueType.NUMERIC+"'>"+ValueType.NUMERIC);
-		html.append("<input type='checkbox' name='values' value='"+ValueType.AGGREGATE+"'>"+ValueType.AGGREGATE);
-		html.append("</fieldset>");
+		html.append("<div class=\"clearfix\">");
+		html.append("<div style='float:left;padding:5px'>");
 		html.append("<input type=\"hidden\" name=\"style\" value=\"HTML\">"
 		+ "<input type=\"hidden\" name=\"access_token\" value=\""+space.getUniverse().getContext().getToken().getOid()+"\">"
 		+ "<input type=\"submit\" value=\"Refresh\">");
+		html.append("</div>");
+		html.append("<p style='padding:5px'>Filter by expression type:");
+		html.append("&nbsp;<input type='checkbox' name='types' value='"+ObjectType.DIMENSION+"'"+(checkObjectType(types,ObjectType.DIMENSION))+">&nbsp;"+ObjectType.DIMENSION);
+		html.append("&nbsp;<input type='checkbox' name='types' value='"+ObjectType.COLUMN+"'"+(checkObjectType(types,ObjectType.COLUMN))+">&nbsp;"+ObjectType.COLUMN);
+		html.append("&nbsp;<input type='checkbox' name='types' value='"+ObjectType.RELATION+"'"+(checkObjectType(types,ObjectType.RELATION))+">&nbsp;"+ObjectType.RELATION);
+		html.append("&nbsp;<input type='checkbox' name='types' value='"+ObjectType.METRIC+"'"+(checkObjectType(types,ObjectType.METRIC))+">&nbsp;"+ObjectType.METRIC);
+		html.append("&nbsp;<input type='checkbox' name='types' value='"+ObjectType.FUNCTION+"'"+(checkObjectType(types,ObjectType.FUNCTION))+">&nbsp;"+ObjectType.FUNCTION);
+		html.append("<br>");
+		html.append("Filter by expression value:");
+		html.append("&nbsp;<input type='checkbox' name='values' value='"+ValueType.DATE+"'"+(checkValueType(values,ValueType.DATE))+">&nbsp;"+ValueType.DATE);
+		html.append("&nbsp;<input type='checkbox' name='values' value='"+ValueType.STRING+"'"+(checkValueType(values,ValueType.STRING))+">&nbsp;"+ValueType.STRING);
+		html.append("&nbsp;<input type='checkbox' name='values' value='"+ValueType.CONDITION+"'"+(checkValueType(values,ValueType.CONDITION))+">&nbsp;"+ValueType.CONDITION);
+		html.append("&nbsp;<input type='checkbox' name='values' value='"+ValueType.NUMERIC+"'"+(checkValueType(values,ValueType.NUMERIC))+">&nbsp;"+ValueType.NUMERIC);
+		html.append("&nbsp;<input type='checkbox' name='values' value='"+ValueType.AGGREGATE+"'"+(checkValueType(values,ValueType.AGGREGATE))+">&nbsp;"+ValueType.AGGREGATE);
+		html.append("</p>");
+		html.append("</div>");
 		html.append("</form>");
 		html.append("<p><i> This is the list of all available expressions and function in this scope. Relation expression can be composed in order to navigate the data model.</i></p>");
 		html.append("<table>");
@@ -912,6 +916,36 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		createHTMLAPIpanel(html, "scopeAnalysis");
 		html.append("</body></html>");
 		return Response.ok(html.toString(),"text/html").build();
+	}
+
+	/**
+	 * @param values
+	 * @param date
+	 * @return
+	 */
+	private String checkValueType(ValueType[] values, ValueType type) {
+		for (ValueType check : values) {
+			if (check.equals(type)) {
+				return " checked=true";
+			}
+		}
+		// else
+		return "";
+	}
+
+	/**
+	 * @param types
+	 * @param dimension
+	 * @return
+	 */
+	private String checkObjectType(ObjectType[] types, ObjectType type) {
+		for (ObjectType check : types) {
+			if (check.equals(type)) {
+				return " checked=true";
+			}
+		}
+		// else
+		return "";
 	}
 
 	private void createHTMLAPIpanel(StringBuilder html, String method) {
