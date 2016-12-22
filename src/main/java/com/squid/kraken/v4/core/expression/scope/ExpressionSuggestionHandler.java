@@ -302,6 +302,8 @@ public class ExpressionSuggestionHandler {
 		                                        }
 		                                    }
 		                                }
+		                                String folder = opDef.getCategoryTypeName();
+		                                if (folder!=null) item.setFolder(folder);
 		                            }
 		                        }
 		                    }
