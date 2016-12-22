@@ -255,40 +255,40 @@ public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implemen
 			@PathParam(BBID_PARAM_NAME) String BBID,
 			// groupBy parameter
 			@ApiParam(
-					value = "Define the group-by facets to apply to results. Facet can be defined using it's ID or any valid expression. If empty, the subject default parameters will apply. You can use the * token to extend the subject default parameters.",
+					value = GROUPBY_DOC,
 					allowMultiple = true
 					) 
 			@QueryParam(GROUP_BY_PARAM) String[] groupBy, 
 			// metric parameter
 			@ApiParam(
-					value = "Define the metrics to compute. Metric can be defined using it's ID or any valid expression. If empty, the subject default parameters will apply. You can use the * token to extend the subject default parameters.",
+					value = METRICS_DOC,
 					allowMultiple = true) 
 			@QueryParam(METRICS_PARAM) String[] metrics, 
 			// filters
 			@ApiParam(
-					value = "Define the filters to apply to results. A filter must be a valid conditional expression. If empty, the subject default parameters will apply. You can use the * token to extend the subject default parameters.",
+					value = FILTERS_DOC,
 					allowMultiple = true) 
 			@QueryParam(FILTERS_PARAM) String[] filterExpressions,
 			// period
-			@ApiParam(value="define the main period. It must be a valid expression of type Date, Time or Timestamp. If not set the API will use the default one or try to figure out a sensible choice.") 
+			@ApiParam(value=PERIOD_DOC) 
 			@QueryParam(PERIOD_PARAM) String period,
 			// timeframe
-			@ApiParam(value="define the timeframe for the period. It can be a date range [lower,upper] or a special alias: ____ALL, ____LAST_DAY, ____LAST_7_DAYS, __CURRENT_MONTH, __PREVIOUS_MONTH, __CURRENT_MONTH, __PREVIOUS_YEAR", allowMultiple = true) 
+			@ApiParam(value=TIMEFRAME_DOC, allowMultiple = true) 
 			@QueryParam(TIMEFRAME_PARAM) String[] timeframe,
 			// compareTo
-			@ApiParam(value="activate and define the compare to period. It can be a date range [lower,upper] or a special alias: __COMPARE_TO_PREVIOUS_PERIOD, __COMPARE_TO_PREVIOUS_MONTH, __COMPARE_TO_PREVIOUS_YEAR", allowMultiple = true) 
+			@ApiParam(value=COMPARETO_DOC, allowMultiple = true) 
 			@QueryParam(COMPARETO_PARAM) String[] compareframe,
 			// orderBy
-			@ApiParam(allowMultiple = true) 
+			@ApiParam(value=ORDERBY_DOC, allowMultiple = true) 
 			@QueryParam(ORDERBY_PARAM) String[] orderExpressions,
 			// rollup
-			@ApiParam(allowMultiple = true) 
+			@ApiParam(value=ROLLUP_DOC, allowMultiple = true) 
 			@QueryParam(ROLLUP_PARAM) String[] rollupExpressions,
 			// limit
-			@ApiParam(value="limit the resultset size as computed by the database. Note that this is independant from the paging size defined by "+MAX_RESULTS_PARAM+".")
+			@ApiParam(value=LIMIT_DOC)
 			@QueryParam(LIMIT_PARAM) Long limit,
 			// offset
-			@ApiParam(value="offset the resultset first row - usually used with limit to paginate the database. Note that this is independant from the paging defined by "+START_INDEX_PARAM+".")
+			@ApiParam(value=OFFSET_DOC)
 			@QueryParam(OFFSET_PARAM) Long offset,
 			// beyondLimit
 			@ApiParam(
@@ -297,9 +297,11 @@ public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implemen
 					)
 			@QueryParam(BEYOND_LIMIT_PARAM) String[] beyondLimit,
 			// maxResults
-			@ApiParam(value = "paging size") @QueryParam(MAX_RESULTS_PARAM) Integer maxResults,
+			@ApiParam(value = MAX_RESULTS_DOC) 
+			@QueryParam(MAX_RESULTS_PARAM) Integer maxResults,
 			// startIndex
-			@ApiParam(value = "paging start index") @QueryParam(START_INDEX_PARAM) Integer startIndex,
+			@ApiParam(value = START_INDEX_DOC) 
+			@QueryParam(START_INDEX_PARAM) Integer startIndex,
 			// lazy
 			@ApiParam(value = "if true, get the analysis only if already in cache, else throw a NotInCacheException; if noError returns a null result if the analysis is not in cache ; else regular analysis", defaultValue = "false") 
 			@QueryParam(LAZY_PARAM) String lazy,
@@ -359,30 +361,30 @@ public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implemen
 			@QueryParam(VIEW_ROW_PARAM) String row,
 			// groupBy parameter
 			@ApiParam(
-					value = "Define the group-by facets to apply to results. Facet can be defined using it's ID or any valid expression. If empty, the subject default parameters will apply. You can use the * token to extend the subject default parameters.",
+					value = GROUPBY_DOC,
 					allowMultiple = true
 					) 
 			@QueryParam(GROUP_BY_PARAM) String[] groupBy, 
 			// metric parameter
 			@ApiParam(
-					value = "Define the metrics to compute. Metric can be defined using it's ID or any valid expression. If empty, the subject default parameters will apply. You can use the * token to extend the subject default parameters.",
+					value = METRICS_DOC,
 					allowMultiple = true) 
 			@QueryParam(METRICS_PARAM) String[] metrics, 
 			@ApiParam(
-					value = "Define the filters to apply to results. A filter must be a valid conditional expression. If empty, the subject default parameters will apply. You can use the * token to extend the subject default parameters.",
+					value = FILTERS_DOC,
 					allowMultiple = true) 
 			@QueryParam(FILTERS_PARAM) String[] filterExpressions,
-			@ApiParam(value="define the main period. It must be a valid expression of type Date, Time or Timestamp. If not set the API will use the default one or try to figure out a sensible choice.") 
+			@ApiParam(value=PERIOD_DOC) 
 			@QueryParam(PERIOD_PARAM) String period,
-			@ApiParam(value="define the timeframe for the period. It can be a date range [lower,upper] or a special alias: ____ALL, ____LAST_DAY, ____LAST_7_DAYS, __CURRENT_MONTH, __PREVIOUS_MONTH, __CURRENT_MONTH, __PREVIOUS_YEAR", allowMultiple = true) 
+			@ApiParam(value=TIMEFRAME_DOC, allowMultiple = true) 
 			@QueryParam(TIMEFRAME_PARAM) String[] timeframe,
-			@ApiParam(value="activate and define the compare to period. It can be a date range [lower,upper] or a special alias: __COMPARE_TO_PREVIOUS_PERIOD, __COMPARE_TO_PREVIOUS_MONTH, __COMPARE_TO_PREVIOUS_YEAR", allowMultiple = true) 
+			@ApiParam(value=COMPARETO_DOC, allowMultiple = true) 
 			@QueryParam(COMPARETO_PARAM) String[] compareframe,
-			@ApiParam(allowMultiple = true) 
+			@ApiParam(value=ORDERBY_DOC, allowMultiple = true) 
 			@QueryParam(ORDERBY_PARAM) String[] orderby, 
-			@ApiParam(value="limit the resultset size as computed by the database. Note that this is independant from the paging size defined by "+MAX_RESULTS_PARAM+".")
+			@ApiParam(value=LIMIT_DOC)
 			@QueryParam(LIMIT_PARAM) Long limit,
-			@ApiParam(value="offset the resultset first row - usually used with limit to paginate the database. Note that this is independant from the paging defined by "+START_INDEX_PARAM+".")
+			@ApiParam(value=OFFSET_DOC)
 			@QueryParam(OFFSET_PARAM) Long offset,
 			@ApiParam(
 					value="exclude some dimensions from the limit",
@@ -426,31 +428,32 @@ public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implemen
 			@PathParam("filename") String filename,
 			// groupBy parameter
 			@ApiParam(
-					value = "Define the group-by facets to apply to results. Facet can be defined using it's ID or any valid expression. If empty, the subject default parameters will apply. You can use the * token to extend the subject default parameters.",
+					value = GROUPBY_DOC,
 					allowMultiple = true
 					) 
 			@QueryParam(GROUP_BY_PARAM) String[] groupBy, 
 			// metric parameter
 			@ApiParam(
-					value = "Define the metrics to compute. Metric can be defined using it's ID or any valid expression. If empty, the subject default parameters will apply. You can use the * token to extend the subject default parameters.",
+					value = METRICS_DOC,
 					allowMultiple = true) 
 			@QueryParam(METRICS_PARAM) String[] metrics, 
 			@ApiParam(
-					value = "Define the filters to apply to results. A filter must be a valid conditional expression. If empty, the subject default parameters will apply. You can use the * token to extend the subject default parameters.",
+					value = FILTERS_DOC,
 					allowMultiple = true) 
 			@QueryParam(FILTERS_PARAM) String[] filterExpressions,
+			@ApiParam(value=PERIOD_DOC)
 			@QueryParam(PERIOD_PARAM) String period,
-			@ApiParam(value="define the timeframe for the period. It can be a date range [lower,upper] or a special alias: ____ALL, ____LAST_DAY, ____LAST_7_DAYS, __CURRENT_MONTH, __PREVIOUS_MONTH, __CURRENT_MONTH, __PREVIOUS_YEAR", allowMultiple = true) 
+			@ApiParam(value=TIMEFRAME_DOC, allowMultiple = true) 
 			@QueryParam(TIMEFRAME_PARAM) String[] timeframe,
-			@ApiParam(value="activate and define the compare to period. It can be a date range [lower,upper] or a special alias: __COMPARE_TO_PREVIOUS_PERIOD, __COMPARE_TO_PREVIOUS_MONTH, __COMPARE_TO_PREVIOUS_YEAR", allowMultiple = true) 
+			@ApiParam(value=COMPARETO_DOC, allowMultiple = true) 
 			@QueryParam(COMPARETO_PARAM) String[] compareframe,
-			@ApiParam(allowMultiple = true) 
+			@ApiParam(allowMultiple = true, value=ORDERBY_DOC) 
 			@QueryParam(ORDERBY_PARAM) String[] orderExpressions, 
-			@ApiParam(allowMultiple = true) 
+			@ApiParam(value=ROLLUP_DOC, allowMultiple = true) 
 			@QueryParam(ROLLUP_PARAM) String[] rollupExpressions,
-			@ApiParam(value="limit the resultset size as computed by the database. Note that this is independant from the paging size defined by "+MAX_RESULTS_PARAM+".")
+			@ApiParam(value=LIMIT_DOC)
 			@QueryParam(LIMIT_PARAM) Long limit,
-			@ApiParam(value="offset the resultset first row - usually used with limit to paginate the database. Note that this is independant from the paging defined by "+START_INDEX_PARAM+".")
+			@ApiParam(value=OFFSET_DOC)
 			@QueryParam(OFFSET_PARAM) Long offset,
 			@ApiParam(
 					value="exclude some dimensions from the limit",
@@ -599,25 +602,27 @@ public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implemen
 				// ok, do it quick...
 				RollUp rollup = new RollUp();
 				String expr = rollupExpressions[i].toLowerCase();
-				Position position = Position.FIRST;// default
-				if (expr.startsWith("last(")) {
-					position = Position.LAST;
-				}
-				expr = expr.replaceAll("", "");
-				try {
-					int index = Integer.parseInt(expr);
-					// rollup can use -1 to compute grand-total
-					if (index < -1 || index >= groupByLength) {
-						throw new ScopeException("invalid rollup expression at position " + pos
-								+ ": the index specified (" + index + ") is not defined");
+				if (expr!=null && !expr.equals("")) {
+					Position position = Position.FIRST;// default
+					if (expr.startsWith("last(")) {
+						position = Position.LAST;
 					}
-					rollup.setCol(index);
-					rollup.setPosition(position);
-				} catch (NumberFormatException e) {
-					throw new ScopeException("invalid rollup expression at position " + pos
-							+ ": must be a valid indexe N or the expression FIRST(N) or LAST(N) to set the rollup position");
+					expr = expr.replaceAll("", "");
+					try {
+						int index = Integer.parseInt(expr);
+						// rollup can use -1 to compute grand-total
+						if (index < -1 || index >= groupByLength) {
+							throw new ScopeException("invalid rollup expression at position " + pos
+									+ ": the index specified (" + index + ") is not defined");
+						}
+						rollup.setCol(index);
+						rollup.setPosition(position);
+					} catch (NumberFormatException e) {
+						throw new ScopeException("invalid rollup expression at position " + pos
+								+ ": must be a valid indexe N or the expression FIRST(N) or LAST(N) to set the rollup position");
+					}
+					rollups.add(rollup);
 				}
-				rollups.add(rollup);
 			}
 			query.setRollups(rollups);
 		}
