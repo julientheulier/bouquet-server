@@ -104,7 +104,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		return service.getUserContext().getToken().getOid();
 	}
 
-	private void createHTMLtitle(StringBuilder html, String title, String BBID, URI backLink) {
+	private void createHTMLtitle(StringBuilder html, String title, String BBID, URI backLink, String docAnchor) {
 		html.append("<div class=\"logo\"><span>Analytics Rest <b style='color:white;'>API</b> Viewer / STYLE=HTML</span>");
 		html.append("<hr style='margin:0px;'></div>");
 		html.append("<h3>");
@@ -116,12 +116,13 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			html.append("&nbsp;[ID="+BBID+"]");
 		}
 		if (backLink!=null) html.append("&nbsp;<a href=\""+backLink+"\">back to parent</a>");
+		html.append("&nbsp;(open <a target='_blank' href='https://openbouquet.github.io/slate/"+(docAnchor!=null?docAnchor:"")+"' >Documentation</a>)</span><hr/></div>");
 		html.append("</h3>");
 		html.append("<hr>");
 	}
 	
 	private StringBuilder createHTMLHeader(String title) {
-		StringBuilder html = new StringBuilder("<!DOCTYPE html><html xmlns=\"http://www.w3.org/1999/xhtml\" xml:lang=\"en\"><title>"+title+"</title>");
+		StringBuilder html = new StringBuilder("<!DOCTYPE html><html xmlns=\"http://www.w3.org/1999/xhtml\" xml:lang=\"en\"><head><meta charset='utf-8'><title>"+title+"</title>");
 		// bootstrap & jquery
 		html.append("<!-- Latest compiled and minified CSS -->\n" + 
 				"<link rel=\"stylesheet\" href=\"https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css\">\n" + 
@@ -273,7 +274,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 				"    ev.target.value = data;\n" +
 				"}\n" + 
 				"</script>");
-		html.append("<body>");
+		html.append("</head><body>");
 		return html;
 	}
 	
@@ -416,7 +417,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 	public Response createHTMLPageList(AppContext ctx, NavigationQuery query, NavigationResult result) {
 		String title = (query.getParent()!=null && query.getParent().length()>0)?query.getParent():"Root";
 		StringBuilder html = createHTMLHeader("List: "+title);
-		createHTMLtitle(html, title, null, result.getParent().getUpLink());
+		createHTMLtitle(html, title, null, result.getParent().getUpLink(),"#list-available-content");
 		// form
 		html.append("<form><table>");
 		html.append("<tr><td><input size=50 class='q' type='text' name='q' placeholder='filter the list' value='"+(query.getQ()!=null?query.getQ():"")+"'></td>"
@@ -479,7 +480,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 	public Response createHTMLPageTable(AppContext userContext, Space space, AnalyticsQuery query, DataTable data) {
 		String title = space!=null?getPageTitle(space):null;
 		StringBuilder html = createHTMLHeader("Query: "+title);
-		createHTMLtitle(html, title, query.getBBID(), getParentLink(space));
+		createHTMLtitle(html, title, query.getBBID(), getParentLink(space),"#query-a-bookmark-or-domain");
 		createHTMLproblems(html, query.getProblems());
 		html.append("<form>");
 		if (data!=null) {
@@ -602,7 +603,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		StringBuilder html = createHTMLHeader("View: "+title);
 		html.append("<script src=\"https://d3js.org/d3.v3.min.js\" charset=\"utf-8\"></script>\r\n<script src=\"https://vega.github.io/vega/vega.js\" charset=\"utf-8\"></script>\r\n<script src=\"https://vega.github.io/vega-lite/vega-lite.js\" charset=\"utf-8\"></script>\r\n<script src=\"https://vega.github.io/vega-editor/vendor/vega-embed.js\" charset=\"utf-8\"></script>\r\n\r\n");
 		html.append("<body>");
-		createHTMLtitle(html, title, view.getBBID(), getParentLink(space));
+		createHTMLtitle(html, title, view.getBBID(), getParentLink(space),"#view-a-bookmark-or-domain");
 		createHTMLproblems(html, reply.getQuery().getProblems());
 		// vega lite preview
 		html.append("<div>");
@@ -852,7 +853,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 	public Response createHTMLPageScope(Space space, ExpressionSuggestion suggestions, String BBID, String value, ObjectType[] types, ValueType[] values) {
 		String title = getPageTitle(space);
 		StringBuilder html = createHTMLHeader("Scope: "+title);
-		createHTMLtitle(html, title, BBID, getParentLink(space));
+		createHTMLtitle(html, title, BBID, getParentLink(space),null);
 		if (value!=null && value.length()>0 && suggestions.getValidateMessage()!=null && suggestions.getValidateMessage().length()>0) {
 			createHTMLproblems(html, Collections.singletonList(new Problem(Severity.WARNING, value, suggestions.getValidateMessage())));
 		}
