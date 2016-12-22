@@ -116,8 +116,8 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			html.append("&nbsp;[ID="+BBID+"]");
 		}
 		if (backLink!=null) html.append("&nbsp;<a href=\""+backLink+"\">back to parent</a>");
-		html.append("&nbsp;(open <a target='_blank' href='https://openbouquet.github.io/slate/"+(docAnchor!=null?docAnchor:"")+"' >Documentation</a>)</span><hr/></div>");
 		html.append("</h3>");
+		html.append("<a target='OB API DOC' href='https://openbouquet.github.io/slate/"+(docAnchor!=null?docAnchor:"")+"' ><span class=\"label label-info\">API doc</span></a>");
 		html.append("<hr>");
 	}
 	
