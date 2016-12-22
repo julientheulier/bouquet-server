@@ -47,7 +47,7 @@ import io.swagger.annotations.ApiModelProperty;
 @XmlSeeAlso( {Customer.class, Attribute.class, Dimension.class, Domain.class, Metric.class,
         Project.class})
 @Entity()
-public abstract class PersistentBaseImpl<PK extends GenericPK> implements Persistent<PK>, Cloneable {
+public abstract class PersistentBaseImpl<PK extends GenericPK> implements Persistent<PK>, Cloneable, HasVersionControl {
 
     /**
      * An internal object id.<br>
@@ -63,6 +63,8 @@ public abstract class PersistentBaseImpl<PK extends GenericPK> implements Persis
     private Set<AccessRight> accessRights;
     
     private Role userRole;
+    
+    private Integer versionControl;
 
 	public PersistentBaseImpl(PK id) {
         setId(id);
@@ -183,4 +185,15 @@ public abstract class PersistentBaseImpl<PK extends GenericPK> implements Persis
 	public void setUserRole(Role role) {
 		this.userRole = role;
 	}
+
+    @ApiModelProperty(value = "Internal version control value. (used by optimistic-locking mechanism)")
+    @JsonProperty("_vctrl")
+	public Integer getVersionControl() {
+		return versionControl;
+	}
+
+	public void setVersionControl(Integer versionControl) {
+		this.versionControl = versionControl;
+	}
+
 }

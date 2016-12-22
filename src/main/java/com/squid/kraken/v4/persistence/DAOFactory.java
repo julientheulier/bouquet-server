@@ -96,7 +96,7 @@ public class DAOFactory {
             daoCache = new HashMap<Class<?>, GenericDAO<?, ? extends GenericPK>>();
         }
         this.baseDataStore = new GenericDataStoreDecorator(baseDataStore);
-        this.rootDataStore = new LocalizationDataStoreDecorator(
+        this.rootDataStore = new VersionControlDataStoreDecorator(
                 this.baseDataStore);
         // decorated DS
         this.defaultDataStore = new CustomerDataStoreDecorator(rootDataStore);
