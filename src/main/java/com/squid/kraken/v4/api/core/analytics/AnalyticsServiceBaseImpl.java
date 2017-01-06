@@ -41,6 +41,8 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeoutException;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.zip.GZIPOutputStream;
 
 import javax.ws.rs.WebApplicationException;
@@ -179,6 +181,7 @@ import com.squid.kraken.v4.model.ProjectAnalysisJob;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.Direction;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.Index;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.OrderBy;
+import com.squid.kraken.v4.model.ProjectAnalysisJob.Position;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.RollUp;
 import com.squid.kraken.v4.model.ProjectAnalysisJobPK;
 import com.squid.kraken.v4.model.ProjectFacetJob;
@@ -1949,8 +1952,10 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		}
 		// handle rollup - fix indexes
 		pos = 1;
+		List<RollUp> rollups = new ArrayList<>();
 		if (query.getRollups() != null) {
-			for (RollUp rollup : query.getRollups()) {
+			for (String value : query.getRollups()) {
+				RollUp rollup = parseRollup(value, pos);
 				if (rollup!=null && rollup.getCol() > -1) {// ignore grand-total
 					// can't rollup on metric
 					if (metricSet.contains(rollup.getCol())) {
@@ -1965,6 +1970,9 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 					int legacy = lookup.get(rollup.getCol());
 					rollup.setCol(legacy);
 				}
+				if (rollup!=null) {
+					rollups.add(rollup);
+				}
 			}
 		}
 
@@ -1977,7 +1985,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		analysisJob.setFacets(facets);
 		analysisJob.setOrderBy(orderBy);
 		analysisJob.setSelection(selection);
-		analysisJob.setRollups(query.getRollups());
+		analysisJob.setRollups(rollups);
 		analysisJob.setAutoRun(true);
 
 		// automatic limit?
@@ -2014,6 +2022,55 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			analysisJob.setBeyondLimit(indexes);
 		}
 		return analysisJob;
+	}
+	
+	private RollUp parseRollup(String value, int pos) throws ScopeException {
+		if (value!=null && !value.equals("")) {
+			RollUp rollup = new RollUp();
+			Position position = Position.FIRST;// default
+			Pattern lastPattern = Pattern.compile("(\\w+)\\((-?\\d+)\\)", Pattern.CASE_INSENSITIVE);
+			value = value.trim().toLowerCase();
+			Matcher matcher = lastPattern.matcher(value);
+			if (matcher.matches()) {
+				String op = matcher.group(1).toUpperCase();
+				if (op.equals("LAST")) {
+					position = Position.LAST;
+				} else if (op.equals("FIRST")) {
+					position = Position.FIRST;
+				} else {
+					throw new ScopeException("invalid rollup expression at position " + pos
+							+ ": must be a valid indexe N or the expression FIRST(N) or LAST(N) to set the rollup position");
+				}
+				value = matcher.group(2);
+			}
+			try {
+				int index = Integer.parseInt(value);
+				if (index<-1) {
+					throw new ScopeException("invalid rollup expression at position " + pos
+							+ ": the index specified (" + rollup.getCol() + ") is out of bounds, must be -1 for grand total or a valid groupBy column index");
+				}
+				rollup.setCol(index);
+				rollup.setPosition(position);
+			} catch (NumberFormatException e) {
+				throw new ScopeException("invalid rollup expression at position " + pos
+						+ ": must be a valid indexe N or the expression FIRST(N) or LAST(N) to set the rollup position");
+			}
+			return rollup;
+		}
+		// else return null, it's not an error
+		return null;
+	}
+	
+	private List<RollUp> parseRollups(List<String> values) throws ScopeException {
+		List<RollUp> rollups = new ArrayList<>();
+		int pos = 1;
+		for (String value : values) {
+			RollUp rollup = parseRollup(value, pos++);
+			if (rollup!=null) {
+				rollups.add(rollup);
+			}
+		}
+		return rollups;
 	}
 	
 	private Integer getIntegerValue(String value) {
@@ -2107,7 +2164,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		}
 		//
 		if (query.getRollups() != null) {
-			config.setRollups(query.getRollups());
+			config.setRollups(parseRollups(query.getRollups()));
 		}
 		// add the selection
 		FacetSelection selection = createFacetSelection(space, query);
@@ -2368,8 +2425,11 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			}
 		}
 		if (query.getRollups() == null) {
-			if (config!=null) {
-				query.setRollups(config.getRollups());
+			if (config!=null && config.getRollups()!=null & !config.getRollups().isEmpty()) {
+				query.setRollups(new ArrayList<>());
+				for (RollUp rollup : config.getRollups()) {
+					query.getRollups().add(rollup.toString());
+				}
 			}
 		}
 		//
@@ -3157,8 +3217,8 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		}
 		// rollup
 		if (query.getRollups()!=null && !query.getRollups().isEmpty()) {
-			for (RollUp rollup : query.getRollups()) {
-				builder.queryParam(ROLLUP_PARAM, rollup.toString());
+			for (String rollup : query.getRollups()) {
+				builder.queryParam(ROLLUP_PARAM, rollup);
 			}
 		}
 		// limit override
