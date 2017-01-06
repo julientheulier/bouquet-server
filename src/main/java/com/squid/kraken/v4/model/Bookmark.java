@@ -55,8 +55,6 @@ public class Bookmark extends DynamicObject<BookmarkPK> implements HasConfig {
 		SHARED, USER
 	};
 
-	private String name;
-	private String description;
 	private String path;
 
 	@JsonRawValue
@@ -81,22 +79,6 @@ public class Bookmark extends DynamicObject<BookmarkPK> implements HasConfig {
 	public String getReference() {
 		if (getId()==null) return "";
 		return "@'"+id.getProjectId()+"'.@bookmark:'"+id.getBookmarkId()+"'";
-	}
-
-	public String getName() {
-		return name;
-	}
-
-	public void setName(String name) {
-		this.name = name;
-	}
-
-	public String getDescription() {
-		return description;
-	}
-
-	public void setDescription(String description) {
-		this.description = description;
 	}
 
 	/**
