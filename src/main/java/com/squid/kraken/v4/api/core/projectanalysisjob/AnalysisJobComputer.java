@@ -32,13 +32,12 @@ import org.slf4j.LoggerFactory;
 
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.ExpressionRef;
+import com.squid.core.expression.Operator;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.core.sql.model.SQLScopeException;
 import com.squid.core.sql.render.IOrderByPiece.ORDERING;
 import com.squid.core.sql.render.RenderingException;
-import com.squid.kraken.v4.api.core.AccessRightsUtils;
 import com.squid.kraken.v4.api.core.EngineUtils;
-import com.squid.kraken.v4.api.core.InvalidCredentialsAPIException;
 import com.squid.kraken.v4.api.core.JobComputer;
 import com.squid.kraken.v4.api.core.JobStats;
 import com.squid.kraken.v4.api.core.PerfDB;
@@ -46,7 +45,6 @@ import com.squid.kraken.v4.api.core.domain.DomainServiceBaseImpl;
 import com.squid.kraken.v4.api.core.project.ProjectServiceBaseImpl;
 import com.squid.kraken.v4.caching.NotInCacheException;
 import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
-import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainHierarchy;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingService;
@@ -59,15 +57,12 @@ import com.squid.kraken.v4.core.analysis.universe.Measure;
 import com.squid.kraken.v4.core.analysis.universe.Property;
 import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
-import com.squid.kraken.v4.core.expression.visitor.ExtractReferences;
 import com.squid.kraken.v4.export.ExportSourceWriter;
-import com.squid.kraken.v4.model.AccessRight.Role;
 import com.squid.kraken.v4.model.DataTable;
 import com.squid.kraken.v4.model.Dimension;
 import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.DomainPK;
 import com.squid.kraken.v4.model.Expression;
-import com.squid.kraken.v4.model.ExpressionObject;
 import com.squid.kraken.v4.model.FacetExpression;
 import com.squid.kraken.v4.model.FacetSelection;
 import com.squid.kraken.v4.model.Metric;
@@ -414,22 +409,13 @@ public class AnalysisJobComputer implements JobComputer<ProjectAnalysisJob, Proj
 					Expression expr = orderby.getExpression();
 					if (expr.getValue() != null) {
 						try {
-
-							String val = expr.getValue();
-							// T1699
-							if (val.startsWith("growth(") && val.endsWith(")")) {
-								val = val.substring(7, val.length() - 1);
-								ExpressionAST value = universe.expression(val);
-								dash.orderByGrowth(value, getOrderByDirection(orderby.getDirection()), expr);
+							// T1699 & T2511
+							ExpressionAST value = universe.expression(expr.getValue());
+							if (checkCompareToOperator(value)) {
+								ExpressionAST unwrap = ((Operator)value).getArguments().get(0); // check() validates that there is a single parameter
+								dash.orderByGrowth(unwrap, getOrderByDirection(orderby.getDirection()), orderby.getExpression());
 							} else {
-								if (val.startsWith("compareTo(") && val.endsWith(")")) {
-									val = val.substring(10, val.length() - 1);
-									ExpressionAST value = universe.expression(val);
-									dash.orderByGrowth(value, getOrderByDirection(orderby.getDirection()), expr);
-								} else {
-									ExpressionAST value = universe.expression(val);
-									dash.orderBy(value, getOrderByDirection(orderby.getDirection()));
-								}
+								dash.orderBy(value, getOrderByDirection(orderby.getDirection()));
 							}
 						} catch (ScopeException e) {
 
@@ -516,6 +502,27 @@ public class AnalysisJobComputer implements JobComputer<ProjectAnalysisJob, Proj
 		PerfDB.INSTANCE.save(queryLog);
 
 		return dash;
+	}
+	
+	/**
+	 * check if the expression is a compareTo() or a growth()
+	 * T2511
+	 * @param value
+	 * @return
+	 */
+	private static boolean checkCompareToOperator(ExpressionAST value) {
+		if (value instanceof Operator) {
+			Operator op = (Operator)value;
+			if (op.getArguments().size()==1) {
+				if (op.getOperatorDefinition().getName().equals("COMPARETO")) {
+					return true;
+				} else if (op.getOperatorDefinition().getName().equals("GROWTH")) {
+					return true;
+				}
+			}
+		}
+		// else
+		return false;
 	}
 
 	private static Axis readAxis(AppContext ctx, Universe universe, Expression expr)
