@@ -380,7 +380,7 @@ public class Universe extends Physics {
 		    if (adapter!=null && adapter instanceof Domain) {
 		        Domain domain = (Domain)adapter;
 		        IDomain image = expression.getImageDomain();
-		        if (image.isInstanceOf(IDomain.INTRINSIC)) {
+		        if (!image.isInstanceOf(IDomain.OBJECT)) {// cannot create a measure for an object
 		            return new Measure(S(domain), expression);
 		        }
 		    }
