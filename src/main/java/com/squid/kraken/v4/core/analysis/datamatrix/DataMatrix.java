@@ -431,7 +431,7 @@ public class DataMatrix {
 				for (MeasureValues v : getKPIs()) {
 
 					if (item instanceof OrderByGrowth) {
-						if (v.getMeasure().prettyPrint().equals(((OrderByGrowth) item).expr.getValue())) {
+						if (v.getMeasure().prettyPrint().equalsIgnoreCase(((OrderByGrowth) item).expr.getValue())) {
 							ordering.add(pos);
 							direction.add(item.getOrdering());
 							v.setOrdering(item.getOrdering());
