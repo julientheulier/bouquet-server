@@ -18,6 +18,8 @@ public class BookmarkConfig {
 	
 	private Long limit;
 	
+	private String project;
+	
 	private String domain;
 	
 	private FacetSelection selection;
@@ -67,6 +69,20 @@ public class BookmarkConfig {
 
 	public void setLimit(Long limit) {
 		this.limit = limit;
+	}
+	
+	/**
+	 * @return the project
+	 */
+	public String getProject() {
+		return project;
+	}
+	
+	/**
+	 * @param project the project to set
+	 */
+	public void setProject(String project) {
+		this.project = project;
 	}
 
 	public String getDomain() {
