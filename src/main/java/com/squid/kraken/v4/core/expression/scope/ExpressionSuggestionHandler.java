@@ -48,6 +48,7 @@ import com.squid.core.expression.UndefinedExpression;
 import com.squid.core.expression.parser.ParseException;
 import com.squid.core.expression.parser.TokenMgrError;
 import com.squid.core.expression.reference.ColumnReference;
+import com.squid.core.expression.reference.ForeignKeyReference;
 import com.squid.core.expression.reference.TableReference;
 import com.squid.core.expression.scope.ExpressionDiagnostic;
 import com.squid.core.expression.scope.ExpressionScope;
@@ -161,11 +162,14 @@ public class ExpressionSuggestionHandler {
             if (validation == ExpressionDiagnostic.IS_VALID) {
                 // just set empty string when the expression is valid
                 result.setValidateMessage("");
+                result.setValueType(computeValueType(parsed));
             } else {
                 result.setValidateMessage(validation.getErrorMessage());
+                result.setValueType(ValueType.ERROR);
             }
         } catch (ScopeException e) {
             result.setValidateMessage(e.getLocalizedMessage() + (e.getCause() != null ? (" caused by " + e.getCause().getLocalizedMessage()) : ""));
+            result.setValueType(ValueType.ERROR);
             return e;
         }
         // else
@@ -400,6 +404,8 @@ public class ExpressionSuggestionHandler {
             return ObjectType.TABLE;
         } else if (expr instanceof ColumnReference) {
             return ObjectType.COLUMN;
+        } else if (expr instanceof ForeignKeyReference) {
+            return ObjectType.FOREIGNKEY;
         } else if (expr instanceof DomainReference) {
             return ObjectType.DOMAIN;
         } else if (expr instanceof RelationReference) {
@@ -470,7 +476,6 @@ public class ExpressionSuggestionHandler {
         {
             return ValueType.OBJECT;
         } else if (image.isInstanceOf(IDomain.UNKNOWN))
-
         {
             return ValueType.ERROR;
         } else return ValueType.OTHER;
