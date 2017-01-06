@@ -72,7 +72,13 @@ public class VegaliteSpecs {
 		public TimeUnit timeUnit;
 		
 		public Sort sort;
+		
+		public Aggregate aggregate;
 
+	}
+	
+	public enum Aggregate {
+		count, valid, missing, distinct, mean, median, variance, variancep, stdev, stdevp, q1, q3, modeskew, sum, min, max
 	}
 	
 	public static class Sort {

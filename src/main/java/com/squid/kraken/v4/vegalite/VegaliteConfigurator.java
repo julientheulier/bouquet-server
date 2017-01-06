@@ -36,6 +36,7 @@ import com.squid.kraken.v4.core.analysis.scope.SpaceScope;
 import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.model.AnalyticsQuery;
 import com.squid.kraken.v4.model.AnalyticsQueryImpl;
+import com.squid.kraken.v4.vegalite.VegaliteSpecs.Aggregate;
 import com.squid.kraken.v4.vegalite.VegaliteSpecs.ChannelDef;
 import com.squid.kraken.v4.vegalite.VegaliteSpecs.DataType;
 import com.squid.kraken.v4.vegalite.VegaliteSpecs.TimeUnit;
@@ -180,6 +181,7 @@ public class VegaliteConfigurator {
 				channel = new ChannelDef();
 				channel.type = DataType.quantitative;
 				channel.field = expr;
+				channel.aggregate = Aggregate.sum;// add the sum in order so that VGL correctly stack values
 				required.getMetrics().addAll(query.getMetrics());// add all query metrics
 			} else {
 				channel = parseChannelDef(channelName, expr);
@@ -216,6 +218,7 @@ public class VegaliteConfigurator {
 		channel.field = name;
 		String namedExpression = ast.prettyPrint(options) + " as '" + name +"'";
 		if (channel.type==DataType.quantitative) {
+			channel.aggregate = Aggregate.sum;// add the sum in order so that VGL correctly stack values
 			if (!hasMetricSeries && !hasMetricValue) {// series get precedence
 				// it's a metric
 				required.getMetrics().add(namedExpression);
