@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.squid.kraken.v4.model.NavigationQuery.Style;
-import com.squid.kraken.v4.model.ProjectAnalysisJob.RollUp;
 
 public class AnalyticsQueryImpl extends AnalyticsSelectionImpl implements AnalyticsQuery {
 	
@@ -18,7 +17,7 @@ public class AnalyticsQueryImpl extends AnalyticsSelectionImpl implements Analyt
 	
 	private List<String> orderBy;
 	
-	private List<RollUp> rollups;
+	private List<String> rollups;
 
 	private Long offset;
 
@@ -116,7 +115,7 @@ public class AnalyticsQueryImpl extends AnalyticsSelectionImpl implements Analyt
 	 * @see com.squid.kraken.v4.model.Analysis#getRollups()
 	 */
 	@Override
-	public List<RollUp> getRollups() {
+	public List<String> getRollups() {
 		return rollups;
 	}
 
@@ -124,7 +123,7 @@ public class AnalyticsQueryImpl extends AnalyticsSelectionImpl implements Analyt
 	 * @see com.squid.kraken.v4.model.Analysis#setRollups(java.util.List)
 	 */
 	@Override
-	public void setRollups(List<RollUp> rollups) {
+	public void setRollups(List<String> rollups) {
 		this.rollups = rollups;
 	}
 

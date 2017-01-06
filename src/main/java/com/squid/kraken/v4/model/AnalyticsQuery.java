@@ -5,7 +5,6 @@ import java.util.List;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.squid.kraken.v4.model.AnalyticsQueryImpl.AnalysisFacetImpl;
 import com.squid.kraken.v4.model.NavigationQuery.Style;
-import com.squid.kraken.v4.model.ProjectAnalysisJob.RollUp;
 
 @JsonDeserialize(as = AnalyticsQueryImpl.class)
 public interface AnalyticsQuery extends AnalyticsSelection {
@@ -30,9 +29,9 @@ public interface AnalyticsQuery extends AnalyticsSelection {
 
 	public void setOrderBy(List<String> orderBy);
 
-	public List<RollUp> getRollups();
+	public List<String> getRollups();
 
-	public void setRollups(List<RollUp> rollups);
+	public void setRollups(List<String> rollups);
 
 	public Long getOffset();
 
