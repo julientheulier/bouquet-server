@@ -519,12 +519,14 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 				html.append("<p>"+message+"</p>");
 			}
 			html.append("<div style='max-height:200px;overflow:scroll;'>");
-			html.append("<table class='data'><tr>");
+			html.append("<table class='data'>");
+			html.append("<table class='data'><thead><tr>");
 			html.append("<th></th>");
 			for (Col col : data.getCols()) {
 				html.append("<th>"+col.getName()+"</th>");
 			}
 			html.append("</tr>");
+			html.append("</thead><tbody>");
 			int i=1;
 			if (query.getStartIndex()!=null) {
 				i=query.getStartIndex()+1;
@@ -549,7 +551,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 				}
 				html.append("</tr>");
 			}
-			html.append("</table>");
+			html.append("</tbody></table>");
 			html.append("</div>");
 			html.append("<div style='float:left;padding:5px'><button type='submit' value='Query'><i class=\"fa fa-refresh\" aria-hidden=\"true\"></i>&nbsp;Query</button></div>");
 			{ // for View
