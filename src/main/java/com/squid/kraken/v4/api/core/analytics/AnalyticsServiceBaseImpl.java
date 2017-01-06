@@ -75,6 +75,7 @@ import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.Operator;
 import com.squid.core.expression.PrettyPrintOptions;
 import com.squid.core.expression.PrettyPrintOptions.ReferenceStyle;
+import com.squid.core.expression.scope.DefaultScope;
 import com.squid.core.expression.scope.ExpressionMaker;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.core.poi.ExcelFile;
@@ -131,11 +132,11 @@ import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.kraken.v4.core.expression.reference.DomainReference;
 import com.squid.kraken.v4.core.expression.scope.DomainExpressionScope;
 import com.squid.kraken.v4.core.expression.scope.ExpressionSuggestionHandler;
+import com.squid.kraken.v4.core.expression.scope.RelationExpressionScope;
 import com.squid.kraken.v4.core.model.domain.DomainDomain;
 import com.squid.kraken.v4.export.ExportSourceWriter;
 import com.squid.kraken.v4.export.ExportSourceWriterCSV;
 import com.squid.kraken.v4.export.ExportSourceWriterXLSX;
-import com.squid.kraken.v4.model.AccessRight;
 import com.squid.kraken.v4.model.AccessRight.Role;
 import com.squid.kraken.v4.model.AnalyticsQuery;
 import com.squid.kraken.v4.model.AnalyticsQueryImpl;
@@ -792,19 +793,37 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	 * @param parent2 
 	 * @return
 	 */
-	public Bookmark createBookmark(AppContext userContext, AnalyticsQuery query, String BBID, String name, String parent) {
+	public Bookmark createBookmark(AppContext userContext, AnalyticsQuery query, String BBID, String stateId, String name, String parent) {
 		try {
 			Space space = getSpace(userContext, BBID);
 			if (query==null) {
 				throw new APIException("undefined query");
 			}
-			if (query.getDomain()==null || query.getDomain()=="") {
-				throw new APIException("undefined domain");
-			}
 			String domainID = "@'"+space.getDomain().getOid()+"'";
-			if (!query.getDomain().equals(domainID)) {
+			if (query.getDomain()==null || query.getDomain()=="") {
+				query.setDomain(domainID);
+			}
+			else if (!query.getDomain().equals(domainID)) {
 				throw new APIException("invalid domain definition for the query, doesn't not match the REFERENCE");
 			}
+			//
+			//
+			Bookmark original = space.getBookmark();
+			BookmarkConfig originalConfig = BookmarkManager.INSTANCE.readConfig(original);
+			// check the state
+			if (stateId!=null && !stateId.equals("")) {
+				// read the state
+				StatePK pk = new StatePK(userContext.getCustomerId(), stateId);
+				State state = StateServiceBaseImpl.getInstance().read(userContext, pk);
+				BookmarkConfig stateConfig = BookmarkManager.INSTANCE.readConfig(state);
+				if (stateConfig!=null) {
+					originalConfig = stateConfig;
+				}
+			}
+			//
+			// merge the bookmark config with the query
+			mergeBoomarkConfig(space, query, originalConfig);
+			//
 			Bookmark bookmark = new Bookmark();
 			BookmarkPK bookmarkPK = new BookmarkPK(space.getUniverse().getProject().getId());
 			bookmark.setId(bookmarkPK);
@@ -815,8 +834,12 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			JsonNode tree = mapper.readTree(json);
 			bookmark.setConfig(tree);
 			bookmark.setDescription("created using the super cool new Bookmark API");
+			if (name==null || name.equals("")) {
+				name = space.getDomain().getName()+"'s Bookmark";
+			}
 			bookmark.setName(name);
 			String path = "";
+			if (parent==null) parent="";
 			if (parent.startsWith(MYBOOKMARKS_FOLDER.getSelfRef())) {
 				path = parent.substring(MYBOOKMARKS_FOLDER.getSelfRef().length());
 				path = BookmarkManager.INSTANCE.getMyBookmarkPath(userContext)+path;
@@ -832,8 +855,8 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			//
 			BookmarkServiceBaseImpl.getInstance().store(userContext, bookmark);
 			return bookmark;
-		} catch (IOException e) {
-			throw new APIException("cannot create the bookmark: JSON error: "+e.getMessage());
+		} catch (IOException | InterruptedException | ComputingException e) {
+			throw new APIException("cannot create the bookmark: "+e.getMessage());
 		} catch (ScopeException e) {
 			throw new ObjectNotFoundAPIException("invalid REFERENCE :" + e.getMessage(), true);
 		}
@@ -963,7 +986,8 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	public Response scopeAnalysis(
 			AppContext userContext, 
 			String BBID,
-			String value,
+			String targetID,
+			String value, 
 			Integer offset,
 			ObjectType[] types,
 			ValueType[] values, 
@@ -973,8 +997,19 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		if (value==null) value="";
 		Space space = getSpace(userContext, BBID);
 		//
-		DomainExpressionScope scope = new DomainExpressionScope(space.getUniverse(), space.getDomain());
-		//SpaceScope scope = new SpaceScope(space);
+		Space target = null;
+		if (targetID!=null && !targetID.equals("")) target = getSpace(userContext, targetID);
+		//
+		DefaultScope scope = null;
+		if (target==null) {
+			scope = new DomainExpressionScope(space.getUniverse(), space.getDomain());
+		} else {
+			// check if the target is valid
+			if (!target.getUniverse().equals(space.getUniverse())) {
+				throw new APIException("invalid target parameter, the Domain does not belong to the space Universe.");
+			}
+			scope = new RelationExpressionScope(space.getUniverse(), space.getDomain(), target.getDomain());
+		}
 		//
 		ExpressionSuggestionHandler handler = new ExpressionSuggestionHandler(
 				scope);
@@ -999,7 +1034,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		}
 		ExpressionSuggestion suggestions = handler.getSuggestion(value, offset, typeFilters, valueFilters);
 		if (style==Style.HTML) {
-			return generator.createHTMLPageScope(space, suggestions, BBID, value, types, values);
+			return generator.createHTMLPageScope(space, target, suggestions, BBID, value, types, values);
 		} else {
 			return Response.ok(suggestions).build();
 		}
@@ -1048,7 +1083,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			// create the facet selection
 			FacetSelection selection = createFacetSelection(space, query);
 			// create the job
-			final ProjectAnalysisJob job = createAnalysisJob(space.getUniverse(), query, selection, OutputFormat.JSON);
+			final ProjectAnalysisJob job = createAnalysisJob(space, query, selection, OutputFormat.JSON);
 			// applyFormatting
 			if (applyFormatting) {
 				HashMap<String, Object> optionKeys = new HashMap<>();
@@ -1148,7 +1183,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			if (query.getStyle()==Style.HTML && data==DataLayout.SQL) {
 				return generator.createHTMLsql(reply.getResult().toString());
 			} else if (query.getStyle()==Style.HTML && data==DataLayout.LEGACY) {
-				return generator.createHTMLPageTable(userContext, space, query, (DataTable)reply.getResult());
+				return generator.createHTMLPageTable(userContext, space, reply, (DataTable)reply.getResult());
 			} else if (envelope.equalsIgnoreCase("ALL")) {
 				return Response.ok(reply).build();
 			} else if (envelope.equalsIgnoreCase("RESULT")) {
@@ -1168,7 +1203,9 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		} catch (DatabaseServiceException | ComputingException | InterruptedException | ScopeException | SQLScopeException | RenderingException e) {
 			if (query.getStyle()==Style.HTML) {
 				query.add(new Problem(Severity.ERROR, "query", "unable to run the query, fatal error: " + e.getMessage(), e));
-				return generator.createHTMLPageTable(userContext, space, query, null);
+				AnalyticsReply reply = new AnalyticsReply();
+				reply.setQuery(query);
+				return generator.createHTMLPageTable(userContext, space, reply, null);
 			} else {
 				throw new APIException(e.getMessage(), true);
 			}
@@ -1355,22 +1392,15 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		PrettyPrintOptions localOptions = new PrettyPrintOptions(prettyStyle, space.getTop().getImageDomain());
 		for (Facet facet : actual.getFacets()) {
 			if (facet.getSelectedItems()!=null && !facet.getSelectedItems().isEmpty()) {
-				try {
-					Axis axis = space.getUniverse().axis(facet.getId());
-					String local = axis.prettyPrint(localOptions);
-					if (query.getPeriod()!=null && query.getPeriod().equals(local)) {
-						selection.setPeriod(query.getPeriod());
-						for (FacetMember member : facet.getSelectedItems()) {
-							if (member instanceof FacetMemberInterval) {
-								selection.setTimeframe(extractIntervalRange((FacetMemberInterval)member));
-							}
+				if (query.getPeriod()!=null && checkFacetIsPeriod(query.getPeriod(), facet, space)) {
+					selection.setPeriod(query.getPeriod());
+					for (FacetMember member : facet.getSelectedItems()) {
+						if (member instanceof FacetMemberInterval) {
+							selection.setTimeframe(extractIntervalRange((FacetMemberInterval)member));
 						}
-					} else {
-						// this is a filter
 					}
-				} catch (ScopeException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
+				} else {
+					// this is a filter
 				}
 			}
 		}
@@ -1397,6 +1427,19 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			}
 		}
 		return selection;
+	}
+	
+	boolean checkFacetIsPeriod(String period, Facet facet, Space space) {
+		try {
+			// we must parse the period
+			SpaceScope scope = new SpaceScope(space);
+			ExpressionAST expr = scope.parseExpression(period);
+			Axis axis = space.getUniverse().axis(facet.getId());
+			ExpressionAST check = scope.createReferringExpression(axis);
+			return check.equals(expr);
+		} catch (ScopeException e) {
+			return false;
+		}
 	}
 	
 	/**
@@ -1508,7 +1551,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			mergeBoomarkConfig(space, query, config);
 			// create the facet selection
 			FacetSelection selection = createFacetSelection(space, query);
-			final ProjectAnalysisJob job = createAnalysisJob(space.getUniverse(), query, selection, OutputFormat.JSON);
+			final ProjectAnalysisJob job = createAnalysisJob(space, query, selection, OutputFormat.JSON);
 			//
 			final OutputFormat outFormat;
 			if (fileext == null) {
@@ -1695,6 +1738,13 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 				if (value instanceof ConstantValue) {
 					Facet facet = new Facet();
 					facet.setId(dim.prettyPrint());
+					if (expr instanceof AxisExpression) {
+						Axis axis = ((AxisExpression)expr).getAxis();
+						facet.setDimension(axis.getDimension());
+					} else {
+						Dimension fake = new Dimension();
+						fake.setType(Type.CATEGORICAL);
+					}
 					Object constant = ((ConstantValue)value).getValue();
 					if (constant!=null) {
 						facet.getSelectedItems().add(new FacetMemberString(constant.toString(), constant.toString()));
@@ -1709,6 +1759,13 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 					if (vector.getOperatorDefinition().getExtendedID().equals(VectorOperatorDefinition.ID)) {
 						Facet facet = new Facet();
 						facet.setId(dim.prettyPrint());
+						if (expr instanceof AxisExpression) {
+							Axis axis = ((AxisExpression)expr).getAxis();
+							facet.setDimension(axis.getDimension());
+						} else {
+							Dimension fake = new Dimension();
+							fake.setType(Type.CATEGORICAL);
+						}
 						for (ExpressionAST value : vector.getArguments()) {
 							Object constant = ((ConstantValue)value).getValue();
 							if (constant!=null) {
@@ -1730,6 +1787,13 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	private Facet createFacetInterval(Space space, ExpressionAST expr, List<String> values) throws ScopeException {
 		Facet facet = new Facet();
 		facet.setId(rewriteExpressionToGlobalScope(expr, space));
+		if (expr instanceof AxisExpression) {
+			Axis axis = ((AxisExpression)expr).getAxis();
+			facet.setDimension(axis.getDimension());
+		} else {
+			Dimension fake = new Dimension();
+			fake.setType(Type.CONTINUOUS);
+		}
 		String lowerbound = values.get(0);
 		String upperbound = values.size()==2?values.get(1):lowerbound;
 		FacetMemberInterval member = new FacetMemberInterval(lowerbound, upperbound);
@@ -1737,16 +1801,14 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		return facet;
 	}
 
-	private ProjectAnalysisJob createAnalysisJob(Universe universe, AnalyticsQuery query, FacetSelection selection, OutputFormat format) throws ScopeException {
+	private ProjectAnalysisJob createAnalysisJob(Space root, AnalyticsQuery query, FacetSelection selection, OutputFormat format) throws ScopeException {
 		// read the domain reference
 		if (query.getDomain() == null) {
 			throw new ScopeException("incomplete specification, you must specify the data domain expression");
 		}
-		Domain domain = getDomain(universe, query.getDomain());
-		AccessRightsUtils.getInstance().checkRole(universe.getContext(), domain, AccessRight.Role.READ);
-		// the rest of the ACL is delegated to the AnalysisJob
-		Space root = universe.S(domain);
-
+		Universe universe = root.getUniverse();
+		Domain domain = root.getDomain();
+		//AccessRightsUtils.getInstance().checkRole(universe.getContext(), domain, AccessRight.Role.READ);
 		// handle the columns
 		List<Metric> metrics = new ArrayList<Metric>();
 		List<FacetExpression> facets = new ArrayList<FacetExpression>();
@@ -1762,11 +1824,10 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		HashSet<Integer> metricSet = new HashSet<>();// mark metrics
 		if ((query.getGroupBy() == null || query.getGroupBy().isEmpty())
 		&& (query.getMetrics() == null || query.getMetrics().isEmpty())) {
-			throw new ScopeException("there is no defined facet, can't run the analysis");
+			throw new ScopeException("this is an empty query (not column provided), can't run the analysis: try setting the groupBy or metrics parameters");
 		}
 		// now we are going to use the domain Space scope
-		// -- note that it won't limit the actual expression scope to the bookmark scope - but let's keep that for latter
-		SpaceScope scope = new SpaceScope(universe.S(domain));
+		SpaceScope scope = new SpaceScope(root);
 		// add the period parameter if available
 		if (query.getPeriod()!=null && !query.getPeriod().equals("")) {
 			try {
@@ -1874,16 +1935,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 							// it's an expression which is now scoped into the bookmark
 							// but job is expecting it to be scoped in the universe... (OMG)
 							// also we must remove the sort operator to avoid nasty SQL error when generating the SQL
-							if (expr.getImageDomain().isInstanceOf(DomainSort.DOMAIN) && expr instanceof Operator) {
-								// remove the first operator
-								Operator op = (Operator)expr;
-								if (op.getArguments().size()==1 
-										&& (op.getOperatorDefinition().getExtendedID().equals(SortOperatorDefinition.ASC_ID)
-										|| op.getOperatorDefinition().getExtendedID().equals(SortOperatorDefinition.DESC_ID))) 
-								{
-									expr = op.getArguments().get(0);
-								}
-							}
+							expr = unwrapOrderByExpression(expr);
 							String universalExpression = rewriteExpressionToGlobalScope(expr, root);
 							orderBy.add(new OrderBy(new Expression(universalExpression), direction));
 						}
@@ -2012,10 +2064,17 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	private BookmarkConfig createBookmarkConfig(Space space, AnalyticsQuery query) throws ScopeException {
 		SpaceScope scope = new SpaceScope(space);
 		BookmarkConfig config = new BookmarkConfig();
+		// set the project ID
+		config.setProject(space.getUniverse().getProject().getOid());
 		// config use the Domain OID
 		config.setDomain(space.getDomain().getOid());
 		//config.setSelection();
 		config.setLimit(query.getLimit());
+		//
+		if (query.getPeriod()!=null && !query.getPeriod().equals("")) {
+			config.setPeriod(null);
+		}
+		//
 		if (query.getGroupBy() != null) {
 			List<String> chosenDimensions = new ArrayList<>();
 			for (String facet : query.getGroupBy()) {
@@ -2029,9 +2088,8 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		if (query.getMetrics() != null) {
 			List<String> choosenMetrics = new ArrayList<>();
 			for (String facet : query.getMetrics()) {
-				// add the domain scope
 				ExpressionAST expr = scope.parseExpression(facet);
-				choosenMetrics.add(rewriteExpressionToGlobalScope(expr, space));
+				choosenMetrics.add(rewriteChoosenMetric(expr));
 			}
 			String[] toArray = new String[choosenMetrics.size()];
 			config.setChosenMetrics(choosenMetrics.toArray(toArray));
@@ -2042,6 +2100,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			for (String orderBy : query.getOrderBy()) {
 				ExpressionAST expr = scope.parseExpression(orderBy);
 				Direction direction = getDirection(expr.getImageDomain());
+				expr = unwrapOrderByExpression(expr);
 				OrderBy copy = new OrderBy(new Expression(rewriteExpressionToGlobalScope(expr, space)), direction);
 				config.getOrderBy().add(copy);
 			}
@@ -2053,7 +2112,49 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		// add the selection
 		FacetSelection selection = createFacetSelection(space, query);
 		config.setSelection(selection);
+		// period and compareTo
+		if (query.getPeriod()!=null && !query.getPeriod().equals("")) {
+			// add the period into the hashMap....
+			HashMap<String, String> map = new HashMap<>();
+			ExpressionAST expr = scope.parseExpression(query.getPeriod());
+			map.put(config.getDomain(), rewriteExpressionToGlobalScope(expr, space));
+			config.setPeriod(map);
+		}
+		//
+		config.setCurrentAnalysis(BookmarkConfig.TABLE_ANALYSIS);
 		return config;
+	}
+	
+	/**
+	 * if the orderBy expression is DESC(x) or ASC(x), just unwrap and return x
+	 * else do nothing
+	 * @param orderBy
+	 * @return
+	 */
+	private ExpressionAST unwrapOrderByExpression(ExpressionAST expr) {
+		if (expr.getImageDomain().isInstanceOf(DomainSort.DOMAIN) && expr instanceof Operator) {
+			// remove the first operator
+			Operator op = (Operator)expr;
+			if (op.getArguments().size()==1 
+					&& (op.getOperatorDefinition().getExtendedID().equals(SortOperatorDefinition.ASC_ID)
+					|| op.getOperatorDefinition().getExtendedID().equals(SortOperatorDefinition.DESC_ID))) 
+			{
+				return op.getArguments().get(0);
+			}
+		}	
+		// else do nothing
+		return expr;
+	}
+	
+	private String rewriteChoosenMetric(ExpressionAST expr) {
+		if (expr instanceof MeasureExpression) {
+			MeasureExpression measure = (MeasureExpression)expr;
+			if (measure.getMeasure().getMetric()!=null) {
+				return measure.getMeasure().getMetric().getOid();
+			}
+		}
+		// else
+		return expr.prettyPrint(PrettyPrintOptions.ROBOT_GLOBAL);
 	}
 	
 	/**
@@ -2214,10 +2315,16 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 				for (String chosenMetric : config.getChosenMetrics()) {
 					// parse to validate and reprint
 					try {
+						// this is for legacy compatibility...
 						ExpressionAST expr = localScope.parseExpression("@'" + chosenMetric + "'");
 						metrics.add(expr.prettyPrint(localOptions));
 					} catch (ScopeException e) {
-						query.add(new Problem(Severity.WARNING, chosenMetric, "failed to parse bookmark metric: " + e.getMessage(), e));
+						try {
+							ExpressionAST expr = globalScope.parseExpression(chosenMetric);
+							metrics.add(expr.prettyPrint(localOptions));
+						} catch (ScopeException ee) {
+							query.add(new Problem(Severity.WARNING, chosenMetric, "failed to parse bookmark metric: " + ee.getMessage(), ee));
+						}
 					}
 				}
 			} else if (config.getAvailableMetrics()!=null && (query.getGroupBy()==null || query.getGroupBy().isEmpty())) {
@@ -2780,12 +2887,14 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		specs.encoding.column = outputConfig.createChannelDef("column", view.getColumn());
 		specs.encoding.row = outputConfig.createChannelDef("row", view.getRow());
 		//
-		if (specs.encoding.x.type==DataType.nominal && specs.encoding.y.type==DataType.quantitative) {
-			// auto sort
-			specs.encoding.x.sort = new Sort(specs.encoding.y.field, Operation.max, Order.descending);
-		} else if (specs.encoding.y.type==DataType.nominal && specs.encoding.x.type==DataType.quantitative) {
-			// auto sort
-			specs.encoding.y.sort = new Sort(specs.encoding.x.field, Operation.max, Order.descending);
+		if (specs.encoding.x!=null && specs.encoding.y!=null) {
+			if (specs.encoding.x.type==DataType.nominal && specs.encoding.y.type==DataType.quantitative) {
+				// auto sort
+				specs.encoding.x.sort = new Sort(specs.encoding.y.field, Operation.max, Order.descending);
+			} else if (specs.encoding.y.type==DataType.nominal && specs.encoding.x.type==DataType.quantitative) {
+				// auto sort
+				specs.encoding.y.sort = new Sort(specs.encoding.x.field, Operation.max, Order.descending);
+			}
 		}
 		//
 		// force using required
@@ -2856,7 +2965,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		//
 		// create the facet selection
 		FacetSelection selection = createFacetSelection(space, query);
-		final ProjectAnalysisJob job = createAnalysisJob(space.getUniverse(), query, selection, OutputFormat.JSON);
+		final ProjectAnalysisJob job = createAnalysisJob(space, query, selection, OutputFormat.JSON);
 		//
 		// handling data
 		ResultInfo info = null;
@@ -2965,6 +3074,14 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		addAnalyticsQueryParams(builder, query, null, null);
 		builder.queryParam("access_token", userContext.getToken().getOid());
 		return builder.build(BBID, filename);
+	}
+	
+	protected URI buildBookmarkURI(AppContext userContext, String BBID) {
+		UriBuilder builder = getPublicBaseUriBuilder().
+			path("/analytics/{"+BBID_PARAM_NAME+"}/bookmark");
+		//addAnalyticsQueryParams(builder, query, null, null);
+		//builder.queryParam("access_token", userContext.getToken().getOid());
+		return builder.build(BBID);
 	}
 	
 	protected URI buildAnalyticsViewURI(AppContext userContext, ViewQuery query, String data, String envelope, Style style, HashMap<String, Object> override) {
