@@ -60,8 +60,6 @@ import com.squid.kraken.v4.model.NavigationQuery.HierarchyMode;
 import com.squid.kraken.v4.model.NavigationQuery.Style;
 import com.squid.kraken.v4.model.NavigationQuery.Visibility;
 import com.squid.kraken.v4.model.ObjectType;
-import com.squid.kraken.v4.model.ProjectAnalysisJob.Position;
-import com.squid.kraken.v4.model.ProjectAnalysisJob.RollUp;
 import com.squid.kraken.v4.model.ValueType;
 import com.squid.kraken.v4.model.ViewQuery;
 import com.squid.kraken.v4.persistence.AppContext;
@@ -689,32 +687,12 @@ public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implemen
 			}
 		}
 		if ((rollupExpressions != null) && (rollupExpressions.length > 0)) {
-			List<RollUp> rollups = new ArrayList<RollUp>();
-			int pos = 1;
+			List<String> rollups = new ArrayList<>();
 			for (int i = 0; i < rollupExpressions.length; i++) {
-				// ok, do it quick...
-				RollUp rollup = new RollUp();
-				String expr = rollupExpressions[i].toLowerCase();
+				// do not check for integrity here
+				String expr = rollupExpressions[i];
 				if (expr!=null && !expr.equals("")) {
-					Position position = Position.FIRST;// default
-					if (expr.startsWith("last(")) {
-						position = Position.LAST;
-					}
-					expr = expr.replaceAll("", "");
-					try {
-						int index = Integer.parseInt(expr);
-						// rollup can use -1 to compute grand-total
-						if (index < -1 || index >= groupByLength) {
-							throw new ScopeException("invalid rollup expression at position " + pos
-									+ ": the index specified (" + index + ") is not defined");
-						}
-						rollup.setCol(index);
-						rollup.setPosition(position);
-					} catch (NumberFormatException e) {
-						throw new ScopeException("invalid rollup expression at position " + pos
-								+ ": must be a valid indexe N or the expression FIRST(N) or LAST(N) to set the rollup position");
-					}
-					rollups.add(rollup);
+					rollups.add(expr);
 				}
 			}
 			query.setRollups(rollups);
