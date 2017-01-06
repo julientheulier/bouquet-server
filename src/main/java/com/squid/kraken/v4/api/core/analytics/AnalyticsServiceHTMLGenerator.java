@@ -62,6 +62,8 @@ import com.squid.kraken.v4.core.analysis.universe.Measure;
 import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.core.expression.scope.ExpressionSuggestionHandler;
 import com.squid.kraken.v4.model.AnalyticsQuery;
+import com.squid.kraken.v4.model.AnalyticsReply;
+import com.squid.kraken.v4.model.AnalyticsSelection;
 import com.squid.kraken.v4.model.Bookmark;
 import com.squid.kraken.v4.model.DataTable;
 import com.squid.kraken.v4.model.ExpressionSuggestion;
@@ -104,19 +106,24 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		return service.getUserContext().getToken().getOid();
 	}
 
-	private void createHTMLtitle(StringBuilder html, String title, String BBID, URI backLink, String docAnchor) {
+	private void createHTMLtitle(StringBuilder html, String title, String BBID, Space space, URI backLink, String docAnchor) {
 		html.append("<div class=\"logo\"><span>Analytics Rest <b style='color:white;'>API</b> Viewer / STYLE=HTML</span>");
 		html.append("<hr style='margin:0px;'></div>");
 		html.append("<h3>");
 		if (title!=null) {
 			html.append("<i class=\"fa fa-folder-open-o\" aria-hidden=\"true\"></i>\n" + 
 					title);
-		} 
-		if (BBID!=null) {
-			html.append("&nbsp;[ID="+BBID+"]");
 		}
-		if (backLink!=null) html.append("&nbsp;<a href=\""+backLink+"\">back to parent</a>");
+		if (backLink!=null) html.append("&nbsp;<a href=\""+backLink+"\"><i class=\"fa fa-arrow-left\" aria-hidden=\"true\"></i>&nbsp;back to parent</a>");
 		html.append("</h3>");
+		if (space!=null) {
+			html.append("<p>project:&nbsp;<kbd>'"+space.getUniverse().getProject().getName()+"'</kbd>&nbsp;(id=<kbd>@'"+space.getUniverse().getProject().getOid()+"'</kbd>)");
+			html.append("&nbsp;/&nbsp;domain:&nbsp;<kbd>'"+space.getDomain().getName()+"'</kbd>&nbsp;(id=<kbd>@'"+space.getDomain().getOid()+"'</kbd>)");
+			if (space.getBookmark()!=null) {
+				html.append("&nbsp;/&nbsp;bookmark:&nbsp;<kbd>'"+space.getBookmark().getName()+"'</kbd>&nbsp;(id=<kbd>@'"+space.getBookmark().getOid()+"'</kbd>)");
+			}
+			html.append("</p>");
+		}
 		html.append("<a target='OB API DOC' href='https://openbouquet.github.io/slate/"+(docAnchor!=null?docAnchor:"")+"' ><span class=\"label label-info\">API doc</span></a>");
 		html.append("<hr>");
 	}
@@ -154,7 +161,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 				"    border-radius: 4px;\n" + 
 				"    box-sizing: border-box;\n" + 
 				"}\n" + 
-				"button[type=submit] {\n" + 
+				"button[type=submit], .btn {\n" + 
 			    "	 font-size: 1.3em;" +
 				"    width: 200px;\n" + 
 				"    background-color: #ee7914;\n" + 
@@ -166,7 +173,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 				"    border-radius: 4px;\n" + 
 				"    cursor: pointer;\n" + 
 				"}\n" +
-				"button[type=submit]:hover {\n" + 
+				"button[type=submit]:hover, .btn:hover {\n" + 
 				"    background-color: #ab570e;\n" + 
 				"}\n" +
 				"input[type=submit] {\n" + 
@@ -417,7 +424,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 	public Response createHTMLPageList(AppContext ctx, NavigationQuery query, NavigationResult result) {
 		String title = (query.getParent()!=null && query.getParent().length()>0)?query.getParent():"Root";
 		StringBuilder html = createHTMLHeader("List: "+title);
-		createHTMLtitle(html, title, null, result.getParent().getUpLink(),"#list-available-content");
+		createHTMLtitle(html, title, null, null, result.getParent().getUpLink(),"#list-available-content");
 		// form
 		html.append("<form><table>");
 		html.append("<tr><td><input size=50 class='q' type='text' name='q' placeholder='filter the list' value='"+(query.getQ()!=null?query.getQ():"")+"'></td>"
@@ -477,14 +484,40 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 	 * @param dataTable 
 	 * @return
 	 */
-	public Response createHTMLPageTable(AppContext userContext, Space space, AnalyticsQuery query, DataTable data) {
+	public Response createHTMLPageTable(AppContext userContext, Space space, AnalyticsReply reply, DataTable data) {
 		String title = space!=null?getPageTitle(space):null;
 		StringBuilder html = createHTMLHeader("Query: "+title);
-		createHTMLtitle(html, title, query.getBBID(), getParentLink(space),"#query-a-bookmark-or-domain");
+		AnalyticsQuery query = reply.getQuery();
+		createHTMLtitle(html, title, query.getBBID(), space, getParentLink(space), "#query-a-bookmark-or-domain");
 		createHTMLproblems(html, query.getProblems());
 		html.append("<form>");
 		if (data!=null) {
 			html.append("<h4 style='font-family:Helvetica Neue,Helvetica,Arial,sans-serif;'>Query Result</h4><hr>");
+			// display selection
+			if (reply.getSelection()!=null) {
+				AnalyticsSelection selection = reply.getSelection();
+				String message = "";
+				if (selection.getPeriod()!=null) {
+					message += "results for the period <kbd>"+selection.getPeriod()+"</kbd> ";
+				}
+				if (selection.getTimeframe()!=null && selection.getTimeframe().size()==2) {
+					message += "<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;from the <kbd>"+selection.getTimeframe().get(0)+"</kbd>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;to the <kbd>"+selection.getTimeframe().get(1)+"</kbd> ";
+					if (query.getTimeframe()!=null && query.getTimeframe().size()==1) {
+						message += "("+query.getTimeframe().get(0)+") ";
+					}
+				} else if (selection.getTimeframe()!=null && selection.getTimeframe().size()==1) {
+					message += " for the <kbd>"+selection.getTimeframe().get(0)+"</kbd> ";
+				}
+				if (selection.getCompareTo()!=null && selection.getCompareTo().size()==2) {
+					message += "<br>compare to the <kbd>"+selection.getCompareTo().get(0)+"</kbd> up to the <kbd>"+selection.getCompareTo().get(1)+"</kbd> ";
+					if (query.getCompareTo()!=null && query.getCompareTo().size()==1) {
+						message += "("+query.getCompareTo().get(0)+") ";
+					}
+				} else if (selection.getCompareTo()!=null && selection.getCompareTo().size()==1) {
+					message += " compare to the <kbd>"+selection.getCompareTo().get(0)+"</kbd> ";
+				}
+				html.append("<p>"+message+"</p>");
+			}
 			html.append("<div style='max-height:200px;overflow:scroll;'>");
 			html.append("<table class='data'><tr>");
 			html.append("<th></th>");
@@ -526,6 +559,40 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 				URI link = service.buildAnalyticsViewURI(service.getUserContext(), new ViewQuery(query), null, "ALL", Style.HTML, override);//(userContext, query, "SQL", null, Style.HTML, null);
 				html.append("<div style='float:left;padding:5px'><button type='submit' value='Visualize' formaction=\""+StringEscapeUtils.escapeHtml4(link.toString())+"\"><i class=\"fa fa-bar-chart\" aria-hidden=\"true\"></i>&nbsp;Visualize</button></div>");
 			}
+			// save as bookmark using a modal
+			{
+				URI link = service.buildBookmarkURI(service.getUserContext(), query.getBBID());
+				html.append("<!-- Button trigger modal -->\n" + 
+						"<div style='padding:5px' class='pull-right'><button type=\"button\" class=\"btn btn-primary btn-lg\" data-toggle=\"modal\" data-target=\"#myModal\">\n" + 
+						"<i class=\"fa fa-cloud-upload\" aria-hidden=\"true\"></i> Save Bookmark\n" + 
+						"</button></div>\n" + 
+						"<!-- Modal -->\n" + 
+						"<div class=\"modal fade\" id=\"myModal\" tabindex=\"-1\" role=\"dialog\" aria-labelledby=\"myModalLabel\" aria-hidden=\"true\">\n" + 
+						"  <div class=\"modal-dialog modal-lg\" role=\"document\">\n" + 
+						"    <div class=\"modal-content\">\n" + 
+						"      <div class=\"modal-header\">\n" + 
+						"        <button type=\"button\" class=\"close\" data-dismiss=\"modal\" aria-label=\"Close\">\n" + 
+						"          <span aria-hidden=\"true\">&times;</span>\n" + 
+						"        </button>\n" + 
+						"        <h4 class=\"modal-title\" id=\"myModalLabel\">Save as new bookmark</h4>\n" + 
+						"      </div>\n" + 
+						"      <div class=\"modal-body\">\n");
+				// body
+				html.append("<label for=\"bookmark-name\" class=\"form-control-label\">Name:</label>\n" + 
+						"              <input type=\"text\" class=\"form-control\" id=\"bookmark-name\" name=\"name\" value=\""+getBookmarkName(space)+"\">");
+				html.append("<label for=\"bookmark-path\" class=\"form-control-label\">Path:</label>\n" + 
+						"              <input type=\"text\" class=\"form-control\" id=\"bookmark-path\" name=\"path\" value=\""+getBookmarkPath(space)+"\">");
+				// footer
+				html.append("      </div>\n" + 
+						"      <div class=\"modal-footer\">\n" + 
+						"        &nbsp;<button style='margin-left:10px;' type=\"submit\" class=\"btn btn-primary pull-right\" formaction=\""+StringEscapeUtils.escapeHtml4(link.toString())+"\">Save changes</button>&nbsp;\n" + 
+						"        &nbsp;<button style='margin-left:10px;' type=\"button\" class=\"btn btn-secondary pull-right\" data-dismiss=\"modal\">Close</button>&nbsp;\n" + 
+						"      </div>\n" + 
+						"    </div>\n" + 
+						"  </div>\n" + 
+						"</div>");
+			}
+			//
 			createHTMLpagination(html, query, data);
 		} else {
 			html.append("<i>Result is not available, it's probably due to an error</i>");
@@ -561,19 +628,19 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		html.append("</td></tr>");
 		html.append("<tr><td valign='top'><a href=\"#\" data-toggle=\"tooltip\" data-placement=\"right\" title=\""+LIMIT_DOC+"\">limit:</a>");
 		html.append("</td><td>");
-		html.append("<input type=\"text\" name=\"limit\" value=\""+getFieldValue(query.getLimit(),0)+"\">");
+		html.append("<input type=\"number\" required name=\"limit\" value=\""+getFieldValue(query.getLimit(),0)+"\">");
 		html.append("</td></tr>");
 		html.append("<tr><td valign='top'><a href=\"#\" data-toggle=\"tooltip\" data-placement=\"right\" title=\""+OFFSET_DOC+"\">offset:</a>");
 		html.append("</td><td>");
-		html.append("<input type=\"text\" name=\"offset\" value=\""+getFieldValue(query.getOffset(),0)+"\">");
+		html.append("<input type=\"number\" required name=\"offset\" value=\""+getFieldValue(query.getOffset(),0)+"\">");
 		html.append("</td></tr>");
 		html.append("<tr><td valign='top'><a href=\"#\" data-toggle=\"tooltip\" data-placement=\"right\" title=\""+MAX_RESULTS_DOC+"\">maxResults:</a>");
 		html.append("</td><td>");
-		html.append("<input type=\"text\" name=\"maxResults\" value=\""+getFieldValue(query.getMaxResults(),100)+"\">");
+		html.append("<input type=\"number\" required name=\"maxResults\" value=\""+getFieldValue(query.getMaxResults(),100)+"\">");
 		html.append("</td></tr>");
 		html.append("<tr><td valign='top'><a href=\"#\" data-toggle=\"tooltip\" data-placement=\"right\" title=\""+START_INDEX_DOC+"\">startIndex:</a>");
 		html.append("</td><td>");
-		html.append("<input type=\"text\" name=\"startIndex\" value=\""+getFieldValue(query.getStartIndex(),0)+"\">");
+		html.append("<input type=\"number\" required name=\"startIndex\" value=\""+getFieldValue(query.getStartIndex(),0)+"\">");
 		html.append("</td></tr>");
 		html.append("</table>"
 				+ "<input type=\"hidden\" name=\"style\" value=\"HTML\">"
@@ -587,6 +654,22 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		createHTMLAPIpanel(html, "runAnalysis");
 		html.append("</body></html>");
 		return Response.ok(html.toString(),"text/html").build();
+	}
+	
+	private String getBookmarkName(Space space) {
+		if (space.getBookmark()!=null) {
+			return space.getBookmark().getName()+" (copy)";
+		} else {
+			return space.getDomain().getName()+"'s bookmark";
+		}
+	}
+	
+	private String getBookmarkPath(Space space) {
+		if (space.getBookmark()!=null) {
+			return space.getBookmark().getPath();
+		} else {
+			return "/";
+		}
 	}
 	
 	/**
@@ -603,7 +686,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		StringBuilder html = createHTMLHeader("View: "+title);
 		html.append("<script src=\"https://d3js.org/d3.v3.min.js\" charset=\"utf-8\"></script>\r\n<script src=\"https://vega.github.io/vega/vega.js\" charset=\"utf-8\"></script>\r\n<script src=\"https://vega.github.io/vega-lite/vega-lite.js\" charset=\"utf-8\"></script>\r\n<script src=\"https://vega.github.io/vega-editor/vendor/vega-embed.js\" charset=\"utf-8\"></script>\r\n\r\n");
 		html.append("<body>");
-		createHTMLtitle(html, title, view.getBBID(), getParentLink(space),"#view-a-bookmark-or-domain");
+		createHTMLtitle(html, title, view.getBBID(), space, getParentLink(space),"#view-a-bookmark-or-domain");
 		createHTMLproblems(html, reply.getQuery().getProblems());
 		// vega lite preview
 		html.append("<div>");
@@ -844,40 +927,56 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 	
 	/**
 	 * @param space
+	 * @param target 
 	 * @param suggestions
 	 * @param values 
 	 * @param types 
 	 * @param expression 
 	 * @return
 	 */
-	public Response createHTMLPageScope(Space space, ExpressionSuggestion suggestions, String BBID, String value, ObjectType[] types, ValueType[] values) {
+	public Response createHTMLPageScope(Space space, Space target, ExpressionSuggestion suggestions, String BBID, String value, ObjectType[] types, ValueType[] values) {
 		String title = getPageTitle(space);
 		StringBuilder html = createHTMLHeader("Scope: "+title);
-		createHTMLtitle(html, title, BBID, getParentLink(space),null);
+		createHTMLtitle(html, title, BBID, target, getParentLink(space),null);
+		html.append("<form>");
+		String value_value = getFieldValue(value);
+		html.append("<p>Expression:<input type='text' id='value-param' name='value' size=100 value='"+value_value+"' placeholder='type expression to validate it or to filter the suggestion list'>&nbsp;offset=<input type='text' id='offset-param' name='offset' value='"+value_value.length()+"'</p>");
+		//
+		if (suggestions.getValueType()!=null) {
+			if (suggestions.getValueType().equals(ValueType.ERROR)) {
+				html.append("<p><span class=\"label label-danger\">Invalid Expression</span> the scope provides suggestions based on the partial evaluation and offset position</p>");
+			} else {
+				html.append("<p><span class=\"label label-success\">Valid Expression</span> "+suggestions.getValueType().toString()+"</p>");
+			}
+		}
 		if (value!=null && value.length()>0 && suggestions.getValidateMessage()!=null && suggestions.getValidateMessage().length()>0) {
 			createHTMLproblems(html, Collections.singletonList(new Problem(Severity.WARNING, value, suggestions.getValidateMessage())));
 		}
-		html.append("<form>");
-		html.append("<p>Expression:<input type='text' name='value' size=100 value='"+getFieldValue(value)+"' placeholder='type expression to validate it or to filter the suggestion list'></p>");
+		//
 		html.append("<div class=\"clearfix\">");
 		html.append("<div style='float:left;padding:5px'>");
 		html.append("<input type=\"hidden\" name=\"style\" value=\"HTML\">"
 		+ "<input type=\"hidden\" name=\"access_token\" value=\""+space.getUniverse().getContext().getToken().getOid()+"\">"
 		+ "<input type=\"submit\" value=\"Refresh\">");
+		if (target!=null) {
+			html.append("<input type=\"hidden\" name=\"target\" value=\""+target.getBBID(Style.ROBOT)+"\">");
+		}
 		html.append("</div>");
 		html.append("<p style='padding:5px'>Filter by expression type:");
-		html.append("&nbsp;<input type='checkbox' name='types' value='"+ObjectType.DIMENSION+"'"+(checkObjectType(types,ObjectType.DIMENSION))+">&nbsp;"+ObjectType.DIMENSION);
-		html.append("&nbsp;<input type='checkbox' name='types' value='"+ObjectType.COLUMN+"'"+(checkObjectType(types,ObjectType.COLUMN))+">&nbsp;"+ObjectType.COLUMN);
-		html.append("&nbsp;<input type='checkbox' name='types' value='"+ObjectType.RELATION+"'"+(checkObjectType(types,ObjectType.RELATION))+">&nbsp;"+ObjectType.RELATION);
-		html.append("&nbsp;<input type='checkbox' name='types' value='"+ObjectType.METRIC+"'"+(checkObjectType(types,ObjectType.METRIC))+">&nbsp;"+ObjectType.METRIC);
-		html.append("&nbsp;<input type='checkbox' name='types' value='"+ObjectType.FUNCTION+"'"+(checkObjectType(types,ObjectType.FUNCTION))+">&nbsp;"+ObjectType.FUNCTION);
+		html.append("&nbsp;&nbsp;<input type='checkbox' name='types' value='"+ObjectType.DIMENSION+"'"+(checkObjectType(types,ObjectType.DIMENSION))+">&nbsp;"+ObjectType.DIMENSION);
+		html.append("&nbsp;&nbsp;<input type='checkbox' name='types' value='"+ObjectType.COLUMN+"'"+(checkObjectType(types,ObjectType.COLUMN))+">&nbsp;"+ObjectType.COLUMN);
+		html.append("&nbsp;&nbsp;<input type='checkbox' name='types' value='"+ObjectType.RELATION+"'"+(checkObjectType(types,ObjectType.RELATION))+">&nbsp;"+ObjectType.RELATION);
+		html.append("&nbsp;&nbsp;<input type='checkbox' name='types' value='"+ObjectType.METRIC+"'"+(checkObjectType(types,ObjectType.METRIC))+">&nbsp;"+ObjectType.METRIC);
+		html.append("&nbsp;&nbsp;<input type='checkbox' name='types' value='"+ObjectType.EXPRESSION+"'"+(checkObjectType(types,ObjectType.EXPRESSION))+">&nbsp;"+ObjectType.EXPRESSION);
+		html.append("&nbsp;&nbsp;<input type='checkbox' name='types' value='"+ObjectType.FOREIGNKEY+"'"+(checkObjectType(types,ObjectType.FOREIGNKEY))+">&nbsp;"+ObjectType.FOREIGNKEY);
+		html.append("&nbsp;&nbsp;<input type='checkbox' name='types' value='"+ObjectType.FUNCTION+"'"+(checkObjectType(types,ObjectType.FUNCTION))+">&nbsp;"+ObjectType.FUNCTION);
 		html.append("<br>");
 		html.append("Filter by expression value:");
-		html.append("&nbsp;<input type='checkbox' name='values' value='"+ValueType.DATE+"'"+(checkValueType(values,ValueType.DATE))+">&nbsp;"+ValueType.DATE);
-		html.append("&nbsp;<input type='checkbox' name='values' value='"+ValueType.STRING+"'"+(checkValueType(values,ValueType.STRING))+">&nbsp;"+ValueType.STRING);
-		html.append("&nbsp;<input type='checkbox' name='values' value='"+ValueType.CONDITION+"'"+(checkValueType(values,ValueType.CONDITION))+">&nbsp;"+ValueType.CONDITION);
-		html.append("&nbsp;<input type='checkbox' name='values' value='"+ValueType.NUMERIC+"'"+(checkValueType(values,ValueType.NUMERIC))+">&nbsp;"+ValueType.NUMERIC);
-		html.append("&nbsp;<input type='checkbox' name='values' value='"+ValueType.AGGREGATE+"'"+(checkValueType(values,ValueType.AGGREGATE))+">&nbsp;"+ValueType.AGGREGATE);
+		html.append("&nbsp;&nbsp;<input type='checkbox' name='values' value='"+ValueType.DATE+"'"+(checkValueType(values,ValueType.DATE))+">&nbsp;"+ValueType.DATE);
+		html.append("&nbsp;&nbsp;<input type='checkbox' name='values' value='"+ValueType.STRING+"'"+(checkValueType(values,ValueType.STRING))+">&nbsp;"+ValueType.STRING);
+		html.append("&nbsp;&nbsp;<input type='checkbox' name='values' value='"+ValueType.CONDITION+"'"+(checkValueType(values,ValueType.CONDITION))+">&nbsp;"+ValueType.CONDITION);
+		html.append("&nbsp;&nbsp;<input type='checkbox' name='values' value='"+ValueType.NUMERIC+"'"+(checkValueType(values,ValueType.NUMERIC))+">&nbsp;"+ValueType.NUMERIC);
+		html.append("&nbsp;&nbsp;<input type='checkbox' name='values' value='"+ValueType.AGGREGATE+"'"+(checkValueType(values,ValueType.AGGREGATE))+">&nbsp;"+ValueType.AGGREGATE);
 		html.append("</p>");
 		html.append("</div>");
 		html.append("</form>");
@@ -893,7 +992,11 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			if (item.getObjectType()==ObjectType.FUNCTION) style = func_style;
 			html.append("<span style='"+style+"'>&nbsp;"+item.getDisplay()+"&nbsp;</span>");
 			if (item.getSuggestion()!=null) {
-				URI link = service.getPublicBaseUriBuilder().path("/analytics/{reference}/scope").queryParam("value", value+item.getSuggestion()).queryParam("style", Style.HTML).queryParam("access_token", getToken()).build(BBID);
+				UriBuilder builder = service.getPublicBaseUriBuilder().path("/analytics/{reference}/scope").queryParam("value", value+item.getSuggestion()).queryParam("style", Style.HTML).queryParam("access_token", getToken());
+				if (target!=null) {
+					builder.queryParam("target", target.getBBID(Style.ROBOT));
+				}
+				URI link = builder.build(BBID);
 				html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(link.toASCIIString())+"\">+</a>]");
 			}
 			if (item.getExpression()!=null && item.getExpression() instanceof AxisExpression) {
@@ -914,6 +1017,13 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		}
 		html.append("</table>");
 		createHTMLAPIpanel(html, "scopeAnalysis");
+		// caret
+		html.append("<script>\n" + 
+				"$(\"#value-param\").bind(\"keydown keypress mousemove\", function() {\n" + 
+				"  $(\"#offset-param\").get(0).value = $(\"#value-param\").get(0).selectionStart;\n" + 
+				"});"
+				+ 
+				"</script>");
 		html.append("</body></html>");
 		return Response.ok(html.toString(),"text/html").build();
 	}
@@ -1028,6 +1138,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 	private SimpleDateFormat htmlDateFormat = new SimpleDateFormat("yyyy-MM-dd");
 	
 	private String formatDateForWeb(String jsonFormat) {
+		if (jsonFormat.startsWith("__")) return jsonFormat;// it's a shortcut
 		try {
 			Date date = ServiceUtils.getInstance().toDate(jsonFormat);
 			return htmlDateFormat.format(date);
