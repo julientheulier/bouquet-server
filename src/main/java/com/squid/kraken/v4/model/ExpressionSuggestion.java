@@ -63,6 +63,11 @@ public class ExpressionSuggestion implements Serializable {
     private String filter;
     
     /**
+     * the value type of the expression
+     */
+    private ValueType valueType;
+    
+    /**
      * Constructor
      */
     public ExpressionSuggestion() {
@@ -155,6 +160,19 @@ public class ExpressionSuggestion implements Serializable {
     public void setFilter(String filter) {
         this.filter = filter;
     }
+    
+    /**
+	 * @return the valueType
+	 */
+	public ValueType getValueType() {
+		return valueType;
+	}
 
+	/**
+	 * @param valueType the valueType to set
+	 */
+	public void setValueType(ValueType valueType) {
+		this.valueType = valueType;
+	}
     
 }
