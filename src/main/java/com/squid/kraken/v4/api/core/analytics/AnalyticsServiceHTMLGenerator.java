@@ -26,6 +26,8 @@ package com.squid.kraken.v4.api.core.analytics;
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URLEncoder;
+import java.text.DateFormat;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -56,7 +58,9 @@ import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.api.core.APIException;
 import com.squid.kraken.v4.api.core.ServiceUtils;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex;
+import com.squid.kraken.v4.core.analysis.engine.hierarchy.FacetBuilder;
 import com.squid.kraken.v4.core.analysis.scope.AxisExpression;
+import com.squid.kraken.v4.core.analysis.scope.SpaceScope;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
 import com.squid.kraken.v4.core.analysis.universe.Measure;
 import com.squid.kraken.v4.core.analysis.universe.Space;
@@ -139,6 +143,9 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 				"\n" + 
 				"<!-- Latest compiled JavaScript -->\n" + 
 				"<script src=\"https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js\"></script>\n");
+		// datepicker
+		html.append("<script src=\"https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.6.4/css/bootstrap-datepicker.css\"></script>\n");
+		html.append("<script src=\"https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.6.4/js/bootstrap-datepicker.min.js\"></script>\n");
 		// font
 		html.append("<link rel=\"stylesheet\" href=\"https://use.fontawesome.com/1ea8d4d975.css\">");
 		// style
@@ -477,6 +484,23 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		html.append("</body></html>");
 		return Response.ok(html.toString(),"text/html").build();
 	}
+	
+	private static final DateFormat ISO8601_full = FacetBuilder.createUTCDateFormat(FacetBuilder.ISO8601_FULL_FORMAT);
+	private static final DateFormat ISO8601_date = FacetBuilder.createUTCDateFormat("yyyy-MM-dd");
+	
+	private String formatDate(IDomain image, String iso8601) {
+		if (image.isInstanceOf(IDomain.DATE)) {
+			// reformat to a simple date
+			try {
+				Date date = ISO8601_full.parse(iso8601);
+				return ISO8601_date.format(date);
+			} catch (ParseException e) {
+				return iso8601;
+			}
+		} else {
+			return iso8601;
+		}
+	}
 
 	/**
 	 * The query view
@@ -498,23 +522,19 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 				AnalyticsSelection selection = reply.getSelection();
 				String message = "";
 				if (selection.getPeriod()!=null) {
+					SpaceScope scope = new SpaceScope(space);
+					IDomain image = scope.parseExpressionSafe(selection.getPeriod()).getImageDomain();
 					message += "results for the period <kbd>"+selection.getPeriod()+"</kbd> ";
-				}
-				if (selection.getTimeframe()!=null && selection.getTimeframe().size()==2) {
-					message += "<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;from the <kbd>"+selection.getTimeframe().get(0)+"</kbd>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;to the <kbd>"+selection.getTimeframe().get(1)+"</kbd> ";
-					if (query.getTimeframe()!=null && query.getTimeframe().size()==1) {
-						message += "("+query.getTimeframe().get(0)+") ";
+					if (selection.getTimeframe()!=null && selection.getTimeframe().size()==2) {
+						message += "<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;from the <kbd>"+formatDate(image, selection.getTimeframe().get(0))+"</kbd>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;to the <kbd>"+formatDate(image, selection.getTimeframe().get(1))+"</kbd> ";
+					} else if (selection.getTimeframe()!=null && selection.getTimeframe().size()==1) {
+						message += " for the <kbd>"+formatDate(image, selection.getTimeframe().get(0))+"</kbd> ";
 					}
-				} else if (selection.getTimeframe()!=null && selection.getTimeframe().size()==1) {
-					message += " for the <kbd>"+selection.getTimeframe().get(0)+"</kbd> ";
-				}
-				if (selection.getCompareTo()!=null && selection.getCompareTo().size()==2) {
-					message += "<br>compare to the <kbd>"+selection.getCompareTo().get(0)+"</kbd> up to the <kbd>"+selection.getCompareTo().get(1)+"</kbd> ";
-					if (query.getCompareTo()!=null && query.getCompareTo().size()==1) {
-						message += "("+query.getCompareTo().get(0)+") ";
+					if (selection.getCompareTo()!=null && selection.getCompareTo().size()==2) {
+						message += "<br>compare to the <kbd>"+formatDate(image, selection.getCompareTo().get(0))+"</kbd> up to the <kbd>"+formatDate(image, selection.getCompareTo().get(1))+"</kbd> ";
+					} else if (selection.getCompareTo()!=null && selection.getCompareTo().size()==1) {
+						message += " compare to the <kbd>"+formatDate(image, selection.getCompareTo().get(0))+"</kbd> ";
 					}
-				} else if (selection.getCompareTo()!=null && selection.getCompareTo().size()==1) {
-					message += " compare to the <kbd>"+selection.getCompareTo().get(0)+"</kbd> ";
 				}
 				html.append("<p>"+message+"</p>");
 			}
@@ -789,17 +809,21 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		html.append("<tr><td>");
 		html.append("<a href=\"#\" data-toggle=\"tooltip\" data-placement=\"right\" title=\""+TIMEFRAME_DOC+"\">timeframe:</a>");
 		html.append("</td><td>");
-		html.append("from:&nbsp;<input type='text' style='width:100%;' name='timeframe' value='"+getDate(query.getTimeframe(),0)+"'>");
+		html.append("from:&nbsp;<input type='text' id='timeframe-lower' style='width:100%;' name='timeframe' value='"+getDate(query.getTimeframe(),0)+"'>");
+		html.append("<script type=\"text/javascript\">$('#timeframe-lower').datepicker({format: \"yyyy-mm-dd\", forceParse: false});</script>");
 		html.append("</td><td>");
-		html.append("to:&nbsp;<input type='text' style='width:100%;' name='timeframe' value='"+getDate(query.getTimeframe(),1)+"'>");
+		html.append("to:&nbsp;<input type='text' id='timeframe-upper' style='width:100%;' name='timeframe' value='"+getDate(query.getTimeframe(),1)+"'>");
+		html.append("<script type=\"text/javascript\">$('#timeframe-upper').datepicker({format: \"yyyy-mm-dd\", forceParse: false});</script>");
 		html.append("</td></tr>");
 		// compare
 		html.append("<tr><td>");
 		html.append("<a href=\"#\" data-toggle=\"tooltip\" data-placement=\"right\" title=\""+COMPARETO_DOC+"\">compareTo:</a>");
 		html.append("</td><td>");
-		html.append("from:&nbsp;<input type='text' style='width:100%;' name='compareTo' value='"+getDate(query.getCompareTo(),0)+"'>");
+		html.append("from:&nbsp;<input type='text' id='compareTo-lower' style='width:100%;' name='compareTo' value='"+getDate(query.getCompareTo(),0)+"'>");
+		html.append("<script type=\"text/javascript\">$('#compareTo-lower').datepicker({format: \"yyyy-mm-dd\", forceParse: false});</script>");
 		html.append("</td><td>");
-		html.append("to:&nbsp;<input type='text' style='width:100%;' name='compareTo' value='"+getDate(query.getCompareTo(),1)+"'>");
+		html.append("to:&nbsp;<input type='text'  id='compareTo-upper' style='width:100%;' name='compareTo' value='"+getDate(query.getCompareTo(),1)+"'>");
+		html.append("<script type=\"text/javascript\">$('#compareTo-upper').datepicker({format: \"yyyy-mm-dd\", forceParse: false});</script>");
 		html.append("</td></tr>");
 		// filters
 		html.append("<tr><td>");
