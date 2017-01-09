@@ -50,10 +50,12 @@ import com.squid.kraken.v4.model.FacetMemberString;
  * 
  */
 public class FacetBuilder {
+	
+	public static final String ISO8601_FULL_FORMAT = "yyyy-MM-dd'T'HH:mm:ss.SSSZ";
 
-	private static final String ISO8601 = "yyyy-MM-dd'T'HH:mm:ss.SSSZ";
-
-	private static final DateFormat ISO8601_df = createISO8601DateFormat();
+	// note: no need to sync since the FacetBuilder is created by a given thread and not shared
+	// so keep it private, we don't want to share it
+	private static final DateFormat ISO8601_full = createUTCDateFormat(ISO8601_FULL_FORMAT);
 
 	/**
 	 * Build a paged Facet.
@@ -166,9 +168,9 @@ public class FacetBuilder {
     }
     
 	private FacetMember toFacet(Intervalle interval) {
-		if (interval.getLowerBound() instanceof Date) {
-			String lowerTime = toISO8601((Date) interval.getLowerBound());
-			String upperTime = toISO8601((Date) interval.getUpperBound());
+		if (interval.getLowerBound() instanceof Date && interval.getUpperBound() instanceof Date) {
+			String lowerTime = ISO8601_full.format((Date) interval.getLowerBound());
+			String upperTime = ISO8601_full.format((Date) interval.getUpperBound());
 			return new FacetMemberInterval(lowerTime, upperTime);
 		} else {
 			// todo: format number ?
@@ -177,21 +179,10 @@ public class FacetBuilder {
 		}
 	}
 
-	private static DateFormat createISO8601DateFormat() {
-		DateFormat df = new SimpleDateFormat(ISO8601);
+	public static DateFormat createUTCDateFormat(String format) {
+		DateFormat df = new SimpleDateFormat(format);
 		df.setTimeZone(TimeZone.getTimeZone("UTC"));
 		return df;
-	}
-
-	/**
-	 * Convert Date to ISO 8601 String.
-	 * 
-	 * @param date
-	 * @return
-	 */
-	private String toISO8601(Date date) {
-		String formatted = ISO8601_df.format(date);
-		return formatted;
 	}
 
 }
