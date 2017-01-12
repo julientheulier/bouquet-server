@@ -56,6 +56,7 @@ import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.core.analysis.scope.AxisExpression;
 import com.squid.kraken.v4.core.analysis.scope.MeasureExpression;
 import com.squid.kraken.v4.core.analysis.scope.SpaceExpression;
+import com.squid.kraken.v4.core.analysis.universe.Axis;
 import com.squid.kraken.v4.core.expression.reference.DomainReference;
 import com.squid.kraken.v4.core.expression.reference.ParameterReference;
 import com.squid.kraken.v4.core.expression.reference.RelationReference;
@@ -345,7 +346,6 @@ public class ExpressionSuggestionHandler {
     }
 
     private ExpressionSuggestionItem createItem(String suggestion, ExpressionAST expr) {
-        //TODO handle description escpaially for domain's suggestion.
         if (expr instanceof ExpressionRef && !(expr instanceof ParameterReference)) {
             if (expr instanceof TableReference) {
                 return new ExpressionSuggestionItem(expr,
@@ -372,6 +372,14 @@ public class ExpressionSuggestionHandler {
                 return new ExpressionSuggestionItem(expr,
                         ((ExpressionRef) expr).getReferenceName(),
                         ((ColumnReference) expr).getDescription(),
+                        suggestion,
+                        computeObjectType(expr),
+                        computeValueType(expr));
+            } else if (expr instanceof AxisExpression) {
+            	Axis axis = ((AxisExpression)expr).getAxis();
+                return new ExpressionSuggestionItem(expr,
+                        axis.getName(),
+                        axis.getDescription(),
                         suggestion,
                         computeObjectType(expr),
                         computeValueType(expr));

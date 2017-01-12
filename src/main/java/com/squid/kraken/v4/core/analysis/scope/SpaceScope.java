@@ -38,6 +38,7 @@ import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
 import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.core.expression.reference.ColumnDomainReference;
+import com.squid.kraken.v4.core.expression.reference.ParameterReference;
 import com.squid.kraken.v4.model.Dimension;
 import com.squid.kraken.v4.model.Metric;
 import com.squid.kraken.v4.model.Relation;
@@ -83,6 +84,12 @@ public class SpaceScope extends AnalysisScope {
 
     @Override
     public Object lookupObject(IdentifierType identifierType, String name) throws ScopeException {
+		//
+		// SELF
+		if (getSpace()!=null && identifierType.equals(IdentifierType.PARAMETER) && name.equalsIgnoreCase("SELF")) {
+			return new ParameterReference("SELF", getSpace().getImageDomain());
+		}
+		//
         // lookup a subdoain
         if (identifierType == IdentifierType.DEFAULT || identifierType == DOMAIN) {
             Relation relation = space.findRelation(name);
@@ -191,6 +198,22 @@ public class SpaceScope extends AnalysisScope {
 		}
         // else
         throw new ScopeException("identifier not found in '"+space.getDomain().getName()+"': " + name);
+    }
+    
+    @Override
+    public void buildDefinitionList(List<Object> definitions) {
+    	super.buildDefinitionList(definitions);
+    	//
+    	for (Axis axis : space.A(true)) {// only print the visible scope
+			try {
+				IDomain image = axis.getDefinitionSafe().getImageDomain();
+				if (!image.isInstanceOf(IDomain.OBJECT)) {
+					definitions.add(axis);
+				}
+			} catch (Exception e) {
+				// ignore
+			}
+		}
     }
 
 }

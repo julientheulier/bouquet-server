@@ -122,6 +122,7 @@ import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
 import com.squid.kraken.v4.core.analysis.model.DashboardAnalysis;
 import com.squid.kraken.v4.core.analysis.model.DashboardSelection;
 import com.squid.kraken.v4.core.analysis.scope.AxisExpression;
+import com.squid.kraken.v4.core.analysis.scope.AxisScope;
 import com.squid.kraken.v4.core.analysis.scope.GlobalExpressionScope;
 import com.squid.kraken.v4.core.analysis.scope.MeasureExpression;
 import com.squid.kraken.v4.core.analysis.scope.SpaceExpression;
@@ -1005,7 +1006,8 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		//
 		DefaultScope scope = null;
 		if (target==null) {
-			scope = new DomainExpressionScope(space.getUniverse(), space.getDomain());
+			scope = new SpaceScope(space);
+			//scope = new DomainExpressionScope(space.getUniverse(), space.getDomain());
 		} else {
 			// check if the target is valid
 			if (!target.getUniverse().equals(space.getUniverse())) {
