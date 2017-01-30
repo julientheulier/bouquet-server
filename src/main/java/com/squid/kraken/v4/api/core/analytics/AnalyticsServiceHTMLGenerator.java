@@ -59,6 +59,7 @@ import com.squid.kraken.v4.api.core.APIException;
 import com.squid.kraken.v4.api.core.ServiceUtils;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.FacetBuilder;
+import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
 import com.squid.kraken.v4.core.analysis.scope.AxisExpression;
 import com.squid.kraken.v4.core.analysis.scope.SpaceScope;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
@@ -86,6 +87,8 @@ import com.squid.kraken.v4.model.DataTable.Row;
 import com.squid.kraken.v4.model.Dimension.Type;
 import com.squid.kraken.v4.model.NavigationQuery.Style;
 import com.squid.kraken.v4.model.Problem.Severity;
+import com.squid.kraken.v4.model.Project;
+import com.squid.kraken.v4.model.ProjectPK;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.vegalite.VegaliteSpecs;
 import com.squid.kraken.v4.vegalite.VegaliteSpecs.Encoding;
@@ -110,7 +113,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		return service.getUserContext().getToken().getOid();
 	}
 
-	private void createHTMLtitle(StringBuilder html, String title, String BBID, Space space, URI backLink, String docAnchor) {
+	private void createHTMLtitle(AppContext ctx, StringBuilder html, String title, String BBID, Project project, Space space, URI backLink, String docAnchor) {
 		html.append("<div class=\"logo\"><span>Analytics Rest <b style='color:white;'>API</b> Viewer / STYLE=HTML</span>");
 		html.append("<hr style='margin:0px;'></div>");
 		html.append("<h3>");
@@ -126,6 +129,10 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			if (space.getBookmark()!=null) {
 				html.append("&nbsp;/&nbsp;bookmark:&nbsp;<kbd>'"+space.getBookmark().getName()+"'</kbd>&nbsp;(id=<kbd>@'"+space.getBookmark().getOid()+"'</kbd>)");
 			}
+			html.append("</p>");
+		} else if (project!=null) {
+			// just display the project
+			html.append("<p>project:&nbsp;<kbd>'"+project.getName()+"'</kbd>&nbsp;(id=<kbd>@'"+project.getOid()+"'</kbd>)");
 			html.append("</p>");
 		}
 		html.append("<a target='OB API DOC' href='https://openbouquet.github.io/slate/"+(docAnchor!=null?docAnchor:"")+"' ><span class=\"label label-info\">API doc</span></a>");
@@ -431,7 +438,19 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 	public Response createHTMLPageList(AppContext ctx, NavigationQuery query, NavigationResult result) {
 		String title = (query.getParent()!=null && query.getParent().length()>0)?query.getParent():"Root";
 		StringBuilder html = createHTMLHeader("List: "+title);
-		createHTMLtitle(html, title, null, null, result.getParent().getUpLink(),"#list-available-content");
+		// check if the parent is a project
+		if (result.getParent()!=null && result.getParent().getType().equals(NavigationItem.PROJECT_TYPE) && result.getParent().getObjectID() instanceof ProjectPK) {
+			ProjectPK id = (ProjectPK)result.getParent().getObjectID();
+			try {
+				Project project = ProjectManager.INSTANCE.getProject(ctx, id);
+				createHTMLtitle(ctx, html, title, null, project, null, result.getParent().getUpLink(),"#list-available-content");
+			} catch (ScopeException e) {
+				// ignore
+				createHTMLtitle(ctx, html, title, null, null, null, result.getParent().getUpLink(),"#list-available-content");
+			}
+		} else {
+			createHTMLtitle(ctx, html, title, null, null, null, result.getParent().getUpLink(),"#list-available-content");
+		}
 		// form
 		html.append("<form><table>");
 		html.append("<tr><td><input size=50 class='q' type='text' name='q' placeholder='filter the list' value='"+(query.getQ()!=null?query.getQ():"")+"'></td>"
@@ -512,7 +531,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		String title = space!=null?getPageTitle(space):null;
 		StringBuilder html = createHTMLHeader("Query: "+title);
 		AnalyticsQuery query = reply.getQuery();
-		createHTMLtitle(html, title, query.getBBID(), space, getParentLink(space), "#query-a-bookmark-or-domain");
+		createHTMLtitle(userContext, html, title, query.getBBID(), null, space, getParentLink(space), "#query-a-bookmark-or-domain");
 		createHTMLproblems(html, query.getProblems());
 		html.append("<form>");
 		if (data!=null) {
@@ -708,7 +727,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		StringBuilder html = createHTMLHeader("View: "+title);
 		html.append("<script src=\"https://d3js.org/d3.v3.min.js\" charset=\"utf-8\"></script>\r\n<script src=\"https://vega.github.io/vega/vega.js\" charset=\"utf-8\"></script>\r\n<script src=\"https://vega.github.io/vega-lite/vega-lite.js\" charset=\"utf-8\"></script>\r\n<script src=\"https://vega.github.io/vega-editor/vendor/vega-embed.js\" charset=\"utf-8\"></script>\r\n\r\n");
 		html.append("<body>");
-		createHTMLtitle(html, title, view.getBBID(), space, getParentLink(space),"#view-a-bookmark-or-domain");
+		createHTMLtitle(userContext, html, title, view.getBBID(), null, space, getParentLink(space),"#view-a-bookmark-or-domain");
 		createHTMLproblems(html, reply.getQuery().getProblems());
 		// vega lite preview
 		html.append("<div>");
@@ -960,10 +979,10 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 	 * @param expression 
 	 * @return
 	 */
-	public Response createHTMLPageScope(Space space, Space target, ExpressionSuggestion suggestions, String BBID, String value, ObjectType[] types, ValueType[] values) {
+	public Response createHTMLPageScope(AppContext ctx, Space space, Space target, ExpressionSuggestion suggestions, String BBID, String value, ObjectType[] types, ValueType[] values) {
 		String title = getPageTitle(space);
 		StringBuilder html = createHTMLHeader("Scope: "+title);
-		createHTMLtitle(html, title, BBID, target, getParentLink(space),null);
+		createHTMLtitle(ctx, html, title, BBID, null, target, getParentLink(space), null);
 		html.append("<form>");
 		String value_value = getFieldValue(value);
 		html.append("<p>Expression:<input type='text' id='value-param' name='value' size=100 value='"+value_value+"' placeholder='type expression to validate it or to filter the suggestion list'>&nbsp;offset=<input type='text' id='offset-param' name='offset' value='"+value_value.length()+"'</p>");
@@ -972,7 +991,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			if (suggestions.getValueType().equals(ValueType.ERROR)) {
 				html.append("<p><span class=\"label label-danger\">Invalid Expression</span> the scope provides suggestions based on the partial evaluation and offset position</p>");
 			} else {
-				html.append("<p><span class=\"label label-success\">Valid Expression</span> "+suggestions.getValueType().toString()+"</p>");
+				html.append("<p><span class=\"label label-success\">Valid Expression</span> Expression Type: "+suggestions.getValueType().toString()+"</p>");
 			}
 		}
 		if (value!=null && value.length()>0 && suggestions.getValidateMessage()!=null && suggestions.getValidateMessage().length()>0) {

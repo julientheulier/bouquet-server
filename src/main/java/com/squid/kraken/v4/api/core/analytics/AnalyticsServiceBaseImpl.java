@@ -122,7 +122,6 @@ import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
 import com.squid.kraken.v4.core.analysis.model.DashboardAnalysis;
 import com.squid.kraken.v4.core.analysis.model.DashboardSelection;
 import com.squid.kraken.v4.core.analysis.scope.AxisExpression;
-import com.squid.kraken.v4.core.analysis.scope.AxisScope;
 import com.squid.kraken.v4.core.analysis.scope.GlobalExpressionScope;
 import com.squid.kraken.v4.core.analysis.scope.MeasureExpression;
 import com.squid.kraken.v4.core.analysis.scope.SpaceExpression;
@@ -133,7 +132,6 @@ import com.squid.kraken.v4.core.analysis.universe.Measure;
 import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.kraken.v4.core.expression.reference.DomainReference;
-import com.squid.kraken.v4.core.expression.scope.DomainExpressionScope;
 import com.squid.kraken.v4.core.expression.scope.ExpressionSuggestionHandler;
 import com.squid.kraken.v4.core.expression.scope.RelationExpressionScope;
 import com.squid.kraken.v4.core.model.domain.DomainDomain;
@@ -1039,7 +1037,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		}
 		ExpressionSuggestion suggestions = handler.getSuggestion(value, offset, typeFilters, valueFilters);
 		if (style==Style.HTML) {
-			return generator.createHTMLPageScope(space, target, suggestions, BBID, value, types, values);
+			return generator.createHTMLPageScope(userContext, space, target, suggestions, BBID, value, types, values);
 		} else {
 			return Response.ok(suggestions).build();
 		}
