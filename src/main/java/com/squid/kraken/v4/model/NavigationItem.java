@@ -61,6 +61,8 @@ public class NavigationItem {
 	
 	private URI viewLink;// link to the /view API
 	
+	private Object objectID;//
+	
 	/**
 	 * 
 	 */
@@ -86,6 +88,7 @@ public class NavigationItem {
 			this.selfRef = parentRef+"/@"+project.getOid();
 		}
 		this.type = PROJECT_TYPE;
+		this.objectID = project.getId();
 	}
 	
 	/**
@@ -107,6 +110,7 @@ public class NavigationItem {
 			this.selfRef = "@'"+project.getOid()+"'.@'"+domain.getOid()+"'";
 		}
 		this.type = DOMAIN_TYPE;
+		this.objectID = domain.getId();
 	}
 	
 	/**
@@ -130,6 +134,7 @@ public class NavigationItem {
 			this.selfRef =  "@'"+project.getOid()+"'.@bookmark:'"+bookmark.getOid()+"'";
 		}
 		this.type = BOOKMARK_TYPE;
+		this.objectID = bookmark.getId();
 	}
 	
 	public NavigationItem(CustomerPK id, String name, String description, String parentRef, String selfRef, String type) {
@@ -159,6 +164,7 @@ public class NavigationItem {
 		this.parentRef = copy.parentRef;
 		this.selfRef = copy.selfRef;
 		this.type = copy.type;
+		this.objectID = copy.objectID;
 	}
 
 	public CustomerPK getId() {
@@ -235,6 +241,14 @@ public class NavigationItem {
 
 	public URI getObjectLink() {
 		return objectLink;
+	}
+	
+	public Object getObjectID() {
+		return objectID;
+	}
+	
+	public void setObjectID(Object objectID) {
+		this.objectID = objectID;
 	}
 
 	public void setObjectLink(URI objectLink) {
