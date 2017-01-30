@@ -23,6 +23,8 @@
  *******************************************************************************/
 package com.squid.kraken.v4.api.core.dimension;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -41,6 +43,7 @@ import com.squid.kraken.v4.api.core.attribute.AttributeServiceRest;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.model.AccessRight;
 import com.squid.kraken.v4.model.Dimension;
+import com.squid.kraken.v4.model.DimensionOption;
 import com.squid.kraken.v4.model.DimensionPK;
 import com.squid.kraken.v4.model.DomainPK;
 import com.squid.kraken.v4.model.ExpressionSuggestion;
@@ -99,6 +102,35 @@ public class DimensionServiceRest extends BaseServiceRest {
 		return delegate.read(userContext,
 				new DimensionPK(userContext.getCustomerId(), projectId,
 						domainId, dimensionId));
+	}
+
+	@GET
+	@Path("{"+PARAM_NAME+"}/options")
+	@ApiOperation(value = "Gets a dimension options")
+	public List<DimensionOption> readOptions(@PathParam("projectId") String projectId,
+			@PathParam("domainId") String domainId,
+			@PathParam(PARAM_NAME) String dimensionId) {
+		Dimension dimension =  delegate.read(userContext,
+				new DimensionPK(userContext.getCustomerId(), projectId,
+						domainId, dimensionId));
+		return dimension.getOptions()!=null?dimension.getOptions():Collections.emptyList();
+	}
+
+	@POST
+	@Path("{"+PARAM_NAME+"}/options")
+	@ApiOperation(value = "Adds a dimension options")
+	public List<DimensionOption> addOptions(@PathParam("projectId") String projectId,
+			@PathParam("domainId") String domainId,
+			@PathParam(PARAM_NAME) String dimensionId,
+			@ApiParam(required = true) DimensionOption option) {
+		Dimension dimension =  delegate.read(userContext,
+				new DimensionPK(userContext.getCustomerId(), projectId,
+						domainId, dimensionId));
+		List<DimensionOption> options = dimension.getOptions()!=null?dimension.getOptions():new ArrayList<>();
+		options.add(option);
+		dimension.setOptions(options);
+		Dimension check = delegate.store(userContext, dimension);
+		return check.getOptions()!=null?check.getOptions():Collections.emptyList();
 	}
 
 	@POST

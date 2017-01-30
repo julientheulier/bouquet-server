@@ -45,9 +45,11 @@ import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.kraken.v4.core.expression.scope.AttributeExpressionScope;
+import com.squid.kraken.v4.core.expression.scope.DimensionDefaultValueScope;
 import com.squid.kraken.v4.core.expression.scope.ExpressionSuggestionHandler;
 import com.squid.kraken.v4.model.AccessRight.Role;
 import com.squid.kraken.v4.model.Dimension;
+import com.squid.kraken.v4.model.DimensionOption;
 import com.squid.kraken.v4.model.DimensionPK;
 import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.DomainPK;
@@ -260,6 +262,20 @@ public class DimensionServiceBaseImpl extends
 	        ExpressionAST expr = universe.getParser().parse(domain, dimension);
 	        Collection<ExpressionObject<?>> references = universe.getParser().analyzeExpression(dimension.getId(), dimension.getExpression(), expr);
 	        universe.getParser().saveReferences(references);
+	        //
+	        // check the options
+	        if (dimension.getOptions()!=null) {
+	        	for (DimensionOption option : dimension.getOptions()) {
+	        		if (option.getDefaultSelection()!=null && option.getDefaultSelection().getValue()!=null) {
+	        			DimensionDefaultValueScope scope = new DimensionDefaultValueScope(ctx, dimension, expr.getImageDomain());
+	        			try {
+	        				scope.parseExpression(option.getDefaultSelection().getValue());
+	        			} catch (ScopeException e) {
+	        				throw new ScopeException("Invalid Option definition: unable to parse the default selection: "+e.getLocalizedMessage(), e);
+	        			}
+	        		}
+	        	}
+	        }
 	        // ok
 			return super.store(ctx, dimension);
 		} catch (ScopeException | ComputingException | InterruptedException e) {

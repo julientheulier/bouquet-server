@@ -41,6 +41,7 @@ import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex.Status;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionMember;
 import com.squid.kraken.v4.core.analysis.model.Intervalle;
 import com.squid.kraken.v4.core.expression.reference.ParameterReference;
+import com.squid.kraken.v4.model.Dimension;
 import com.squid.kraken.v4.model.Dimension.Type;
 import com.squid.kraken.v4.persistence.AppContext;
 
@@ -48,18 +49,34 @@ public class DimensionDefaultValueScope extends DefaultScope {
 
 	private AppContext ctx;
 	private DimensionIndex index;
+	private Dimension dimension;
+	private IDomain image = IDomain.UNKNOWN;
 
 	private HashMap<String, IDomain> params = new HashMap<>();
 
+	/**
+	 * 
+	 * @param ctx
+	 * @param index: the dimension index or null if it may not yet have been defined (validation only)
+	 */
 	public DimensionDefaultValueScope(AppContext ctx, DimensionIndex index) {
 		super();
 		this.ctx = ctx;
 		this.index = index;
+		this.dimension = index.getDimension();
+		this.image = index.getAxis().getDefinitionSafe().getImageDomain();
+	}
+
+	public DimensionDefaultValueScope(AppContext ctx, Dimension dimension, IDomain image) {
+		super();
+		this.ctx = ctx;
+		this.dimension = dimension;
+		this.image = image;
 	}
 	
 	/**
 	 * allow this param to be use in the expression (note that some params are always available)
-	 * @param param
+	 * @param param is the name of the parameter
 	 * @param type == the param type
 	 */
 	public void addParam(String param, IDomain type) {
@@ -72,7 +89,7 @@ public class DimensionDefaultValueScope extends DefaultScope {
 		if (expression instanceof ParameterReference) {
 			ParameterReference ref = (ParameterReference)expression;
 			if (ref.getParameterName().equals("USER")) {
-				return new UserContextScope(ctx);
+				return new UserContextScope(ctx, index!=null);
 			}
 		} 
 		//else
@@ -99,8 +116,8 @@ public class DimensionDefaultValueScope extends DefaultScope {
 				return new ParameterReference("USER",IDomain.OBJECT);
 			}
 			if (name.equalsIgnoreCase("MAX")) {
-				if (index.getDimension().getType() == Type.CONTINUOUS) {
-					if (index.getStatus()==Status.DONE) {
+				if (dimension.getType() == Type.CONTINUOUS) {
+					if (index!=null && index.getStatus()==Status.DONE) {
 						List<DimensionMember> members = index.getMembers();
 						if (!members.isEmpty()) {
 							DimensionMember member = members.get(0);
@@ -113,10 +130,10 @@ public class DimensionDefaultValueScope extends DefaultScope {
 					}
 				}
 				// else - cannot evaluate but it's OK to try
-				return new ParameterReference("MAX",index.getAxis().getDefinition().getImageDomain());
+				return new ParameterReference("MAX",image);
 			} else if (name.equalsIgnoreCase("MIN")) {
-				if (index.getDimension().getType() == Type.CONTINUOUS) {
-					if (index.getStatus()==Status.DONE) {
+				if (dimension.getType() == Type.CONTINUOUS) {
+					if (index!=null && index.getStatus()==Status.DONE) {
 						List<DimensionMember> members = index.getMembers();
 						if (!members.isEmpty()) {
 							DimensionMember member = members.get(0);
@@ -129,7 +146,7 @@ public class DimensionDefaultValueScope extends DefaultScope {
 					}
 				}
 				// else - cannot evaluate but it's OK to try
-				return new ParameterReference("MIN",index.getAxis().getDefinitionSafe().getImageDomain());
+				return new ParameterReference("MIN",image);
 			} else if (params.containsKey(name.toUpperCase())) {
 				return new ParameterReference(name.toUpperCase(), params.get(name.toUpperCase()));
 			}

@@ -42,9 +42,11 @@ import com.squid.kraken.v4.persistence.AppContext;
 public class UserContextScope extends DefaultScope {
 
 	private AppContext ctx;
+	private boolean checkParameter;
 
-	public UserContextScope(AppContext ctx) {
+	public UserContextScope(AppContext ctx, boolean checkParameter) {
 		this.ctx = ctx;
+		this.checkParameter = checkParameter;
 	}
 	
 	@Override
@@ -58,7 +60,11 @@ public class UserContextScope extends DefaultScope {
 			}
 			//
 		} else {
-			throw new ScopeException("the attribute '"+name+"' is not defined for user '"+ctx.getUser().getLogin()+"'");
+			if (checkParameter) {
+				throw new ScopeException("the attribute '"+name+"' is not defined for user '"+ctx.getUser().getLogin()+"'");
+			} else {
+				return ExpressionMaker.NULL();
+			}
 		}
 	}
 	
