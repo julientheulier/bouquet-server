@@ -30,6 +30,8 @@ import java.util.List;
 import com.fasterxml.jackson.annotation.JsonInclude;
 
 public class DimensionOption implements Serializable {
+	
+	private DimensionOptionPK id;
 
 	/**
 	 * 
@@ -69,6 +71,20 @@ public class DimensionOption implements Serializable {
 		this.hidden = merge.hidden || option.hidden;
 		if (option.defaultSelection!=null) this.defaultSelection = option.defaultSelection;
 		// ignore the filters
+	}
+	
+	/**
+	 * @return the id
+	 */
+	public DimensionOptionPK getId() {
+		return id;
+	}
+	
+	/**
+	 * @param id the id to set
+	 */
+	public void setId(DimensionOptionPK id) {
+		this.id = id;
 	}
 
 	public boolean isMandatorySelection() {

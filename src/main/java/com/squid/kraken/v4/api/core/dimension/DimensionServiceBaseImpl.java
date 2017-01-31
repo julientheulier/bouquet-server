@@ -27,6 +27,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
+import org.bson.types.ObjectId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -50,6 +51,7 @@ import com.squid.kraken.v4.core.expression.scope.ExpressionSuggestionHandler;
 import com.squid.kraken.v4.model.AccessRight.Role;
 import com.squid.kraken.v4.model.Dimension;
 import com.squid.kraken.v4.model.DimensionOption;
+import com.squid.kraken.v4.model.DimensionOptionPK;
 import com.squid.kraken.v4.model.DimensionPK;
 import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.DomainPK;
@@ -266,6 +268,21 @@ public class DimensionServiceBaseImpl extends
 	        // check the options
 	        if (dimension.getOptions()!=null) {
 	        	for (DimensionOption option : dimension.getOptions()) {
+	        		// enforce ID
+	        		if (option.getId()==null) {
+	        			DimensionOptionPK id = new DimensionOptionPK(dimensionPk);
+	        			id.setObjectId(ObjectId.get().toString());
+	        			option.setId(id);
+	        		} else {
+	        			DimensionOptionPK id = new DimensionOptionPK(dimensionPk);
+	        			if (option.getId().getObjectId()==null || option.getId().getObjectId().equals("")) {
+	        				id.setObjectId(ObjectId.get().toString());
+	        			} else {
+	        				id.setObjectId(option.getId().getObjectId());
+	        			}
+	        			option.setId(id);
+	        		}
+	        		// check default selection definition
 	        		if (option.getDefaultSelection()!=null && option.getDefaultSelection().getValue()!=null) {
 	        			DimensionDefaultValueScope scope = new DimensionDefaultValueScope(ctx, dimension, expr.getImageDomain());
 	        			try {

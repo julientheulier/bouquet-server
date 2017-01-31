@@ -39,6 +39,7 @@ import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MediaType;
 
 import com.squid.kraken.v4.api.core.BaseServiceRest;
+import com.squid.kraken.v4.api.core.ObjectNotFoundAPIException;
 import com.squid.kraken.v4.api.core.attribute.AttributeServiceRest;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.model.AccessRight;
@@ -106,7 +107,7 @@ public class DimensionServiceRest extends BaseServiceRest {
 
 	@GET
 	@Path("{"+PARAM_NAME+"}/options")
-	@ApiOperation(value = "Gets a dimension options")
+	@ApiOperation(value = "Gets all dimension options")
 	public List<DimensionOption> readOptions(@PathParam("projectId") String projectId,
 			@PathParam("domainId") String domainId,
 			@PathParam(PARAM_NAME) String dimensionId) {
@@ -118,7 +119,7 @@ public class DimensionServiceRest extends BaseServiceRest {
 
 	@POST
 	@Path("{"+PARAM_NAME+"}/options")
-	@ApiOperation(value = "Adds a dimension options")
+	@ApiOperation(value = "Adds a dimension option")
 	public List<DimensionOption> addOptions(@PathParam("projectId") String projectId,
 			@PathParam("domainId") String domainId,
 			@PathParam(PARAM_NAME) String dimensionId,
@@ -131,6 +132,87 @@ public class DimensionServiceRest extends BaseServiceRest {
 		dimension.setOptions(options);
 		Dimension check = delegate.store(userContext, dimension);
 		return check.getOptions()!=null?check.getOptions():Collections.emptyList();
+	}
+
+	@POST
+	@PUT
+	@Path("{"+PARAM_NAME+"}/options/{optionId}")
+	@ApiOperation(value = "Updates a dimension option")
+	public List<DimensionOption> updateOptions(@PathParam("projectId") String projectId,
+			@PathParam("domainId") String domainId,
+			@PathParam(PARAM_NAME) String dimensionId,
+			@PathParam("optionId") String optionId,
+			@ApiParam(required = true) DimensionOption update) {
+		Dimension dimension =  delegate.read(userContext,
+				new DimensionPK(userContext.getCustomerId(), projectId,
+						domainId, dimensionId));
+		if (dimension.getOptions()!=null) {
+			DimensionOption found = null;
+			ArrayList<DimensionOption> options = new ArrayList<>();
+			for (DimensionOption option : dimension.getOptions()) {
+				if (!option.getId().getObjectId().equals(optionId)) {
+					options.add(option);
+				} else {
+					found = option;
+					options.add(update);
+				}
+			}
+			if (found!=null) {
+				dimension.setOptions(options);
+				Dimension check = delegate.store(userContext, dimension);
+				return check.getOptions();
+			}
+		}
+		throw new ObjectNotFoundAPIException("cannot find the Dimension Option with ID="+optionId, false);
+	}
+
+	@GET
+	@Path("{"+PARAM_NAME+"}/options/{optionId}")
+	@ApiOperation(value = "Gets a dimension option")
+	public DimensionOption readOption(@PathParam("projectId") String projectId,
+			@PathParam("domainId") String domainId,
+			@PathParam(PARAM_NAME) String dimensionId,
+			@PathParam("optionId") String optionId) {
+		Dimension dimension =  delegate.read(userContext,
+				new DimensionPK(userContext.getCustomerId(), projectId,
+						domainId, dimensionId));
+		if (dimension.getOptions()!=null) {
+			for (DimensionOption option : dimension.getOptions()) {
+				if (option.getId().getObjectId().equals(optionId)) {
+					return option;
+				}
+			}
+		}
+		throw new ObjectNotFoundAPIException("cannot find the Dimension Option with ID="+optionId, false);
+	}
+
+	@DELETE
+	@Path("{"+PARAM_NAME+"}/options/{optionId}")
+	@ApiOperation(value = "Delete a dimension option")
+	public List<DimensionOption> deleteOption(@PathParam("projectId") String projectId,
+			@PathParam("domainId") String domainId,
+			@PathParam(PARAM_NAME) String dimensionId,
+			@PathParam("optionId") String optionId) {
+		Dimension dimension =  delegate.read(userContext,
+				new DimensionPK(userContext.getCustomerId(), projectId,
+						domainId, dimensionId));
+		if (dimension.getOptions()!=null) {
+			DimensionOption found = null;
+			ArrayList<DimensionOption> options = new ArrayList<>();
+			for (DimensionOption option : dimension.getOptions()) {
+				if (!option.getId().getObjectId().equals(optionId)) {
+					options.add(option);
+				} else {
+					found = option;
+				}
+			}
+			if (found!=null) {
+				dimension.setOptions(options);
+				Dimension check = delegate.store(userContext, dimension);
+				return check.getOptions();
+			}
+		}
+		throw new ObjectNotFoundAPIException("cannot find the Dimension Option with ID="+optionId, false);
 	}
 
 	@POST
