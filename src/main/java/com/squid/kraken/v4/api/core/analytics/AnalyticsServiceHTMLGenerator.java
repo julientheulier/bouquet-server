@@ -124,15 +124,18 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		if (backLink!=null) html.append("&nbsp;<a href=\""+backLink+"\"><i class=\"fa fa-arrow-left\" aria-hidden=\"true\"></i>&nbsp;back to parent</a>");
 		html.append("</h3>");
 		if (space!=null) {
-			html.append("<p>project:&nbsp;<kbd>'"+space.getUniverse().getProject().getName()+"'</kbd>&nbsp;(id=<kbd>@'"+space.getUniverse().getProject().getOid()+"'</kbd>)");
-			html.append("&nbsp;/&nbsp;domain:&nbsp;<kbd>'"+space.getDomain().getName()+"'</kbd>&nbsp;(id=<kbd>@'"+space.getDomain().getOid()+"'</kbd>)");
+			URI projectLink = service.buildGenericObjectURI(ctx, space.getUniverse().getProject().getId());
+			html.append("<p>project:&nbsp;<kbd>'"+space.getUniverse().getProject().getName()+"'</kbd>&nbsp;(id=<a href=\""+StringEscapeUtils.escapeHtml4(projectLink.toString())+"\"><kbd>@'"+space.getUniverse().getProject().getOid()+"'</kbd></a>)");
+			URI domainLink = service.buildGenericObjectURI(ctx, space.getDomain().getId());
+			html.append("&nbsp;/&nbsp;domain:&nbsp;<kbd>'"+space.getDomain().getName()+"'</kbd>&nbsp;(id=<a href=\""+StringEscapeUtils.escapeHtml4(domainLink.toString())+"\"><kbd>@'"+space.getDomain().getOid()+"'</kbd></a>)");
 			if (space.getBookmark()!=null) {
 				html.append("&nbsp;/&nbsp;bookmark:&nbsp;<kbd>'"+space.getBookmark().getName()+"'</kbd>&nbsp;(id=<kbd>@'"+space.getBookmark().getOid()+"'</kbd>)");
 			}
 			html.append("</p>");
 		} else if (project!=null) {
 			// just display the project
-			html.append("<p>project:&nbsp;<kbd>'"+project.getName()+"'</kbd>&nbsp;(id=<kbd>@'"+project.getOid()+"'</kbd>)");
+			URI projectLink = service.buildGenericObjectURI(ctx, project.getId());
+			html.append("<p>project:&nbsp;<kbd>'"+project.getName()+"'</kbd>&nbsp;(id=<a href=\""+StringEscapeUtils.escapeHtml4(projectLink.toString())+"\"><kbd>@'"+project.getOid()+"'</kbd></a>)");
 			html.append("</p>");
 		}
 		html.append("<a target='OB API DOC' href='https://openbouquet.github.io/slate/"+(docAnchor!=null?docAnchor:"")+"' ><span class=\"label label-info\">API doc</span></a>");

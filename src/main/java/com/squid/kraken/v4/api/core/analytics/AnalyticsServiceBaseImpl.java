@@ -156,6 +156,7 @@ import com.squid.kraken.v4.model.DataTable;
 import com.squid.kraken.v4.model.Dimension;
 import com.squid.kraken.v4.model.Dimension.Type;
 import com.squid.kraken.v4.model.Domain;
+import com.squid.kraken.v4.model.DomainPK;
 import com.squid.kraken.v4.model.Expression;
 import com.squid.kraken.v4.model.ExpressionSuggestion;
 import com.squid.kraken.v4.model.Facet;
@@ -164,6 +165,7 @@ import com.squid.kraken.v4.model.FacetMember;
 import com.squid.kraken.v4.model.FacetMemberInterval;
 import com.squid.kraken.v4.model.FacetMemberString;
 import com.squid.kraken.v4.model.FacetSelection;
+import com.squid.kraken.v4.model.GenericPK;
 import com.squid.kraken.v4.model.Metric;
 import com.squid.kraken.v4.model.NavigationItem;
 import com.squid.kraken.v4.model.NavigationQuery;
@@ -3117,6 +3119,23 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		info.setTotalSize(matrix.getRows().size());
 		info.setComplete(matrix.isFullset());
 		return info;
+	}
+
+
+	/**
+	 * @param id
+	 */
+	public URI buildGenericObjectURI(AppContext userContext, GenericPK id) {
+		String path = "/rs";
+		if (id instanceof ProjectPK) {
+			path += "/projects/" + ((ProjectPK)id).getProjectId();
+		}
+		if (id instanceof DomainPK) {
+			path += "/domains/" + ((DomainPK)id).getDomainId();
+		}
+		UriBuilder builder = getPublicBaseUriBuilder().path(path);
+		builder.queryParam("access_token", userContext.getToken().getOid());
+		return builder.build();
 	}
 	
 	/**
