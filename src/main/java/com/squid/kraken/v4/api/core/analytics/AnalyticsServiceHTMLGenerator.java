@@ -113,8 +113,11 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		return service.getUserContext().getToken().getOid();
 	}
 
-	private void createHTMLtitle(AppContext ctx, StringBuilder html, String title, String BBID, Project project, Space space, URI backLink, String docAnchor) {
+	private void createHTMLtitle(AppContext userContext, StringBuilder html, String title, String BBID, Project project, Space space, URI backLink, String docAnchor, String method) {
 		html.append("<div class=\"logo\"><span>Analytics Rest <b style='color:white;'>API</b> Viewer / STYLE=HTML</span>");
+		// adding the user
+		String fullname = userContext.getUser().getEmail()!=null?userContext.getUser().getEmail():userContext.getUser().getLogin();
+		html.append("<div class='pull-right'>"+fullname+"</div>");
 		html.append("<hr style='margin:0px;'></div>");
 		html.append("<h3>");
 		if (title!=null) {
@@ -124,9 +127,9 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		if (backLink!=null) html.append("&nbsp;<a href=\""+backLink+"\"><i class=\"fa fa-arrow-left\" aria-hidden=\"true\"></i>&nbsp;back to parent</a>");
 		html.append("</h3>");
 		if (space!=null) {
-			URI projectLink = service.buildGenericObjectURI(ctx, space.getUniverse().getProject().getId());
+			URI projectLink = service.buildGenericObjectURI(userContext, space.getUniverse().getProject().getId());
 			html.append("<p>project:&nbsp;<kbd>'"+space.getUniverse().getProject().getName()+"'</kbd>&nbsp;(id=<a href=\""+StringEscapeUtils.escapeHtml4(projectLink.toString())+"\"><kbd>@'"+space.getUniverse().getProject().getOid()+"'</kbd></a>)");
-			URI domainLink = service.buildGenericObjectURI(ctx, space.getDomain().getId());
+			URI domainLink = service.buildGenericObjectURI(userContext, space.getDomain().getId());
 			html.append("&nbsp;/&nbsp;domain:&nbsp;<kbd>'"+space.getDomain().getName()+"'</kbd>&nbsp;(id=<a href=\""+StringEscapeUtils.escapeHtml4(domainLink.toString())+"\"><kbd>@'"+space.getDomain().getOid()+"'</kbd></a>)");
 			if (space.getBookmark()!=null) {
 				html.append("&nbsp;/&nbsp;bookmark:&nbsp;<kbd>'"+space.getBookmark().getName()+"'</kbd>&nbsp;(id=<kbd>@'"+space.getBookmark().getOid()+"'</kbd>)");
@@ -134,11 +137,14 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			html.append("</p>");
 		} else if (project!=null) {
 			// just display the project
-			URI projectLink = service.buildGenericObjectURI(ctx, project.getId());
+			URI projectLink = service.buildGenericObjectURI(userContext, project.getId());
 			html.append("<p>project:&nbsp;<kbd>'"+project.getName()+"'</kbd>&nbsp;(id=<a href=\""+StringEscapeUtils.escapeHtml4(projectLink.toString())+"\"><kbd>@'"+project.getOid()+"'</kbd></a>)");
 			html.append("</p>");
 		}
 		html.append("<a target='OB API DOC' href='https://openbouquet.github.io/slate/"+(docAnchor!=null?docAnchor:"")+"' ><span class=\"label label-info\">API doc</span></a>");
+		//
+		createHTMLAPIpanel(html, "scopeAnalysis");
+		//
 		html.append("<hr>");
 	}
 	
@@ -446,13 +452,13 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			ProjectPK id = (ProjectPK)result.getParent().getObjectID();
 			try {
 				Project project = ProjectManager.INSTANCE.getProject(ctx, id);
-				createHTMLtitle(ctx, html, title, null, project, null, result.getParent().getUpLink(),"#list-available-content");
+				createHTMLtitle(ctx, html, title, null, project, null, result.getParent().getUpLink(),"#list-available-content","listContent");
 			} catch (ScopeException e) {
 				// ignore
-				createHTMLtitle(ctx, html, title, null, null, null, result.getParent().getUpLink(),"#list-available-content");
+				createHTMLtitle(ctx, html, title, null, null, null, result.getParent().getUpLink(),"#list-available-content","listContent");
 			}
 		} else {
-			createHTMLtitle(ctx, html, title, null, null, null, result.getParent().getUpLink(),"#list-available-content");
+			createHTMLtitle(ctx, html, title, null, null, null, result.getParent().getUpLink(),"#list-available-content","listContent");
 		}
 		// form
 		html.append("<form><table>");
@@ -503,6 +509,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		}
 		html.append("</table>");
 		createHTMLAPIpanel(html, "listContent");
+		createFooter(html);
 		html.append("</body></html>");
 		return Response.ok(html.toString(),"text/html").build();
 	}
@@ -530,11 +537,11 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 	 * @param dataTable 
 	 * @return
 	 */
-	public Response createHTMLPageTable(AppContext userContext, Space space, AnalyticsReply reply, DataTable data) {
+	public Response createHTMLPageTable(AppContext ctx, Space space, AnalyticsReply reply, DataTable data) {
 		String title = space!=null?getPageTitle(space):null;
 		StringBuilder html = createHTMLHeader("Query: "+title);
 		AnalyticsQuery query = reply.getQuery();
-		createHTMLtitle(userContext, html, title, query.getBBID(), null, space, getParentLink(space), "#query-a-bookmark-or-domain");
+		createHTMLtitle(ctx, html, title, query.getBBID(), null, space, getParentLink(space), "#query-a-bookmark-or-domain", "runAnalysis");
 		createHTMLproblems(html, query.getProblems());
 		html.append("<form>");
 		if (data!=null) {
@@ -688,14 +695,15 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		html.append("</td></tr>");
 		html.append("</table>"
 				+ "<input type=\"hidden\" name=\"style\" value=\"HTML\">"
-				+ "<input type=\"hidden\" name=\"access_token\" value=\""+userContext.getToken().getOid()+"\">");
+				+ "<input type=\"hidden\" name=\"access_token\" value=\""+ctx.getToken().getOid()+"\">");
 		html.append("</form>");
-		// the scope pannel
+		// the scope panel
 		html.append("</div></div><div style='width:50%;float:left;'>");
-		if (space!=null) createHTMLscope(userContext, html, space, query);
+		if (space!=null) createHTMLscope(ctx, html, space, query);
 		html.append("</div>");
 		html.append("</div>");
 		createHTMLAPIpanel(html, "runAnalysis");
+		createFooter(html);
 		html.append("</body></html>");
 		return Response.ok(html.toString(),"text/html").build();
 	}
@@ -725,12 +733,12 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 	 * @param reply
 	 * @return
 	 */
-	public Response createHTMLPageView(AppContext userContext, Space space, ViewQuery view, ResultInfo info, ViewReply reply) {
+	public Response createHTMLPageView(AppContext ctx, Space space, ViewQuery view, ResultInfo info, ViewReply reply) {
 		String title = getPageTitle(space);
 		StringBuilder html = createHTMLHeader("View: "+title);
 		html.append("<script src=\"https://d3js.org/d3.v3.min.js\" charset=\"utf-8\"></script>\r\n<script src=\"https://vega.github.io/vega/vega.js\" charset=\"utf-8\"></script>\r\n<script src=\"https://vega.github.io/vega-lite/vega-lite.js\" charset=\"utf-8\"></script>\r\n<script src=\"https://vega.github.io/vega-editor/vendor/vega-embed.js\" charset=\"utf-8\"></script>\r\n\r\n");
 		html.append("<body>");
-		createHTMLtitle(userContext, html, title, view.getBBID(), null, space, getParentLink(space),"#view-a-bookmark-or-domain");
+		createHTMLtitle(ctx, html, title, view.getBBID(), null, space, getParentLink(space),"#view-a-bookmark-or-domain", "viewAnalysis");
 		createHTMLproblems(html, reply.getQuery().getProblems());
 		// vega lite preview
 		html.append("<div>");
@@ -806,11 +814,12 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		html.append("</div>");
 		// scope
 		html.append("<div style='width:50%;float:left;'>");
-		createHTMLscope(userContext, html, space, reply.getQuery());
+		createHTMLscope(ctx, html, space, reply.getQuery());
 		html.append("</div>");
 		html.append("</div>");
 		html.append("<div style='clear:both;'></div>");
 		createHTMLAPIpanel(html, "viewAnalysis");
+		createFooter(html);
 		html.append("</body>\r\n</html>");
 		return Response.ok(html.toString(), "text/html; charset=UTF-8").build();
 	}
@@ -974,6 +983,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 	}
 	
 	/**
+	 * @param userContext 
 	 * @param space
 	 * @param target 
 	 * @param suggestions
@@ -985,7 +995,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 	public Response createHTMLPageScope(AppContext ctx, Space space, Space target, ExpressionSuggestion suggestions, String BBID, String value, ObjectType[] types, ValueType[] values) {
 		String title = getPageTitle(space);
 		StringBuilder html = createHTMLHeader("Scope: "+title);
-		createHTMLtitle(ctx, html, title, BBID, null, target, getParentLink(space), null);
+		createHTMLtitle(ctx, html, title, BBID, null, target, getParentLink(space), null, "scopeAnalysis");
 		html.append("<form>");
 		String value_value = getFieldValue(value);
 		html.append("<p>Expression:<input type='text' id='value-param' name='value' size=100 value='"+value_value+"' placeholder='type expression to validate it or to filter the suggestion list'>&nbsp;offset=<input type='text' id='offset-param' name='offset' value='"+value_value.length()+"'</p>");
@@ -1065,6 +1075,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		}
 		html.append("</table>");
 		createHTMLAPIpanel(html, "scopeAnalysis");
+		createFooter(html);
 		// caret
 		html.append("<script>\n" + 
 				"$(\"#value-param\").bind(\"keydown keypress mousemove\", function() {\n" + 
@@ -1108,7 +1119,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 
 	private void createHTMLAPIpanel(StringBuilder html, String method) {
 		html.append("<div style='clear:both;padding-top:30px;'>");
-		html.append("<h4 style='font-family:Helvetica Neue,Helvetica,Arial,sans-serif;'>Query Reference</h4><hr>");
+		//html.append("<h4 style='font-family:Helvetica Neue,Helvetica,Arial,sans-serif;'>Query Reference</h4><hr>");
 		// compute the raw URI
 		UriBuilder builder = service.getPublicBaseUriBuilder().path(service.getUriInfo().getPath());
 		MultivaluedMap<String, String> parameters = service.getUriInfo().getQueryParameters();
@@ -1126,6 +1137,9 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		String curlURL = "\""+(StringEscapeUtils.escapeHtml4(builder.build().toString()).replace("'", "'"))+"\"";
 		html.append("<p>CURL: <i>the command is authorized with the current token</i></p><div style='display:block;max-width: 999%; overflow-y: auto;'><pre>curl -X GET --header 'Accept: application/json' --header 'Authorization: Bearer "+getToken()+"' "+curlURL+"</pre></div>");
 		html.append("</div>");
+	}
+
+	private void createFooter(StringBuilder html) {
 		html.append("<div class=\"footer\"><p>Powered by <a href=\"http://openbouquet.io/\">Open Bouquet</a> <i style='color:white;'>the Analytics Rest API</i></p></div>\n");
 		html.append("\n" + 
 				"<script>\n" + 
