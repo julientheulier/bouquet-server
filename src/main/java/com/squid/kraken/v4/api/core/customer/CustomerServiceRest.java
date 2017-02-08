@@ -235,7 +235,7 @@ public class CustomerServiceRest extends CoreAuthenticatedServiceRest {
 					redirectUri, refreshToken);
 		} else if (assertion != null) {
 			// JWT
-			return authService.getTokenFromJWT(userContext, assertion);
+			return authService.getTokenFromJWT(userContext, clientPk, assertion);
 		} else {
 			throw new APIException(
 					"Invalid request. Either 'code' or 'refresh_token' or 'assertion' should be set",
