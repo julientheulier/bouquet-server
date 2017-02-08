@@ -2427,7 +2427,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			}
 		}
 		if (query.getRollups() == null) {
-			if (config!=null && config.getRollups()!=null & !config.getRollups().isEmpty()) {
+			if (config!=null && config.getRollups()!=null && !config.getRollups().isEmpty()) {
 				query.setRollups(new ArrayList<>());
 				for (RollUp rollup : config.getRollups()) {
 					query.getRollups().add(rollup.toString());
