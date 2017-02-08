@@ -365,7 +365,7 @@ public class AuthServiceImpl extends
 		return token;
 	}
 	
-	public AccessToken getTokenFromJWT(AppContext ctx, String jwt) {
+	public AccessToken getTokenFromJWT(AppContext ctx, ClientPK requestor, String jwt) {
 		try {
 			// first pass to read the issuer (client Id)
 			JwtConsumer firstPassJwtConsumer = new JwtConsumerBuilder()
@@ -378,6 +378,9 @@ public class AuthServiceImpl extends
 			String issuer = claims.getIssuer();
 			String customerId = claims.getStringClaimValue("customerId");
 			ClientPK clientId = new ClientPK(claims.getStringClaimValue("customerId"), issuer);
+			if (requestor.getClientId()!=null && !clientId.equals(requestor)) {
+				throw new InvalidCredentialsAPIException("the requesting client does not match the assertion", false);
+			}
 			
 			// load the client using superuser to get the key
 			AppContext rootUserContext = ServiceUtils.getInstance().getRootUserContext(customerId);
