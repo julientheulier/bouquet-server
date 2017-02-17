@@ -118,12 +118,8 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		// adding the user
 		String fullname = userContext.getUser().getEmail()!=null?userContext.getUser().getEmail():userContext.getUser().getLogin();
 		html.append("<div class='pull-right'>"+fullname+"</div>");
-<<<<<<< HEAD
-		html.append("<hr style='margin:0px;'></div>");
-=======
 		html.append("</div>");
 		html.append("<div class='overview' style='background-color:#E0E0E0;padding:5px;'>");
->>>>>>> release/4.2.38
 		html.append("<h3>");
 		if (title!=null) {
 			html.append("<i class=\"fa fa-folder-open-o\" aria-hidden=\"true\"></i>\n" + 
@@ -147,18 +143,11 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			html.append("<p>project:&nbsp;<kbd>'"+project.getName()+"'</kbd>&nbsp;(id=<a href=\""+StringEscapeUtils.escapeHtml4(projectLink.toString())+"\"><kbd>@'"+project.getOid()+"'</kbd></a>)");
 			html.append("</p>");
 		}
-<<<<<<< HEAD
-		html.append("<a target='OB API DOC' href='https://openbouquet.github.io/slate/"+(docAnchor!=null?docAnchor:"")+"' ><span class=\"label label-info\">API doc</span></a>");
-		//
-		createHTMLAPIpanel(html, "scopeAnalysis");
-		//
-		html.append("<hr>");
-=======
+
 		//
 		createHTMLAPIpanel(html, "scopeAnalysis");
 		//
 		html.append("</div>");//overview
->>>>>>> release/4.2.38
 	}
 	
 	private StringBuilder createHTMLHeader(String title) {
@@ -1131,11 +1120,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 	}
 
 	private void createHTMLAPIpanel(StringBuilder html, String method) {
-<<<<<<< HEAD
-		html.append("<div style='clear:both;padding-top:30px;'>");
-=======
 		html.append("<div style='clear:both;padding-top:15px;'>");
->>>>>>> release/4.2.38
 		//html.append("<h4 style='font-family:Helvetica Neue,Helvetica,Arial,sans-serif;'>Query Reference</h4><hr>");
 		// compute the raw URI
 		UriBuilder builder = service.getPublicBaseUriBuilder().path(service.getUriInfo().getPath());
