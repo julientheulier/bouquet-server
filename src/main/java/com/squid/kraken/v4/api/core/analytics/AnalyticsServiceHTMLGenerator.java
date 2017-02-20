@@ -902,7 +902,26 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		html.append("<div class=\"tab-content\">");
 		html.append("<div id=\"dimensions\" class=\"tab-pane fade in active\">");
 		//html.append("<div style='max-height:300px;overflow:scroll;'>");
-		for (Axis axis : space.A(true)) {// only print the visible scope
+		List<Axis> axisList = space.A(true);
+		int pageSize = 25;
+		int pages = 1+axisList.size()/pageSize;
+		if (pages>1) {
+			html.append("<ul class='pagination'>");
+			html.append("<li class='active'><a data-toggle='tab' href='#axis1'>1</a></li>");
+			for (int i=2;i<=pages;i++) {
+				html.append("<li><a data-toggle='tab' href='#axis"+i+"'>"+i+"</a></li>");
+			}
+			html.append("</ul>");
+			html.append("<div class='tab-content'>");
+		}
+		int count = 0;
+		int page = 1;
+		for (Axis axis : axisList) {// only print the visible scope
+			if (pages>1 && count % pageSize == 0) {
+				if (page>1) html.append("</div>");
+				html.append("<div id='axis"+page+"' class='tab-pane fade "+(page==1?"in active'>":"'>"));
+				page++;
+			}
 			try {
 				IDomain image = axis.getDefinitionSafe().getImageDomain();
 				if (!image.isInstanceOf(IDomain.OBJECT)) {
@@ -925,10 +944,15 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 						html.append("&nbsp;"+axis.getDescription());
 					}
 					html.append("<br>");
+					count++;
 				}
 			} catch (Exception e) {
 				// ignore
 			}
+		}
+		if (pages>1) {
+			if (page>1) html.append("</div>");// closing last page
+			html.append("</div>");// closing pages
 		}
 		html.append("</div>");
 		html.append("<div id=\"metrics\" class=\"tab-pane fade\">");
