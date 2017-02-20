@@ -2,12 +2,12 @@
  * Copyright © Squid Solutions, 2016
  *
  * This file is part of Open Bouquet software.
- *  
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
  * published by the Free Software Foundation (version 3 of the License).
  *
- * There is a special FOSS exception to the terms and conditions of the 
+ * There is a special FOSS exception to the terms and conditions of the
  * licenses as they are applied to this program. See LICENSE.txt in
  * the directory of this program distribution.
  *
@@ -29,7 +29,6 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.codec.digest.DigestUtils;
@@ -98,7 +97,7 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 	private HashMap<String, ESMapping> mappingCorrelations = null;
 
 	private String idName_mapping = idName;// this is the actual name we will
-											// use to lookup the ID
+	// use to lookup the ID
 
 	public DimensionStoreES(ESIndexFacade master, String indexES, DimensionIndex index) throws ESIndexFacadeException {
 		super(index);
@@ -112,7 +111,7 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 
 	/**
 	 * setup ES type
-	 * 
+	 *
 	 * @param index
 	 * @param indexES
 	 * @throws ESIndexFacadeException
@@ -226,7 +225,7 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 
 	/**
 	 * return the fieldName for the given Dimension
-	 * 
+	 *
 	 * @param dimension
 	 * @return
 	 */
@@ -250,7 +249,7 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 	/**
 	 * create the mapping for the dimension type - note that the mapping is not
 	 * written to ES
-	 * 
+	 *
 	 * @param index
 	 * @return
 	 */
@@ -326,7 +325,7 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 		} else if (type.isInstanceOf(IDomain.DATE)) {
 			return ESTypeMapping.DATE;
 		} else if (type.isInstanceOf(IDomain.CONDITIONAL)) {// works for BOOLEAN
-															// too
+			// too
 			return ESTypeMapping.BOOLEAN;
 		} else {
 			return ESTypeMapping.STRING;
@@ -475,14 +474,14 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 					Date lower_date = ServiceUtils.getInstance().toDate((String) lower_bound);
 					Date upper_date = ServiceUtils.getInstance().toDate((String) upper_bound);
 					IntervalleObject interval = new IntervalleObject(lower_date, upper_date);
-					return new DimensionMember(-1, interval, 0);
+					return new DimensionMember(-1, interval, getAttributeCount());
 				} catch (ParseException e) {
 					IntervalleObject interval = new IntervalleObject(lower_bound, upper_bound);
-					return new DimensionMember(-1, interval, 0);
+					return new DimensionMember(-1, interval, getAttributeCount());
 				}
 			} else {
 				IntervalleObject interval = new IntervalleObject(lower_bound, upper_bound);
-				return new DimensionMember(-1, interval, 0);
+				return new DimensionMember(-1, interval, getAttributeCount());
 			}
 		}
 		return null;
@@ -496,11 +495,11 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 			ID = element.get(idName_mapping);
 		}
 		if (ID != null) {
-			return new DimensionMember(-1, ID, 0);
+			return new DimensionMember(-1, ID, getAttributeCount());
 		} else {
 			ID = element.get(idName);
 			if (ID != null) {
-				return new DimensionMember(-1, ID, 0);
+				return new DimensionMember(-1, ID, getAttributeCount());
 			}
 			return null;
 		}
@@ -565,7 +564,7 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 
 	protected List<DimensionMember> getMembersFilterByParents(DimensionStoreES target,
 			Map<DimensionIndex, List<DimensionMember>> selections, String filter, int offset, int size)
-			throws ESIndexFacadeException {
+					throws ESIndexFacadeException {
 
 		if ((this.rootStore == this) && (this.correlationMappingInitialized)) {
 			HashMap<String, ArrayList<String>> filters = createFilterByParents(selections);
@@ -630,8 +629,8 @@ public class DimensionStoreES extends DimensionStoreAbstract {
 		HashMap<String, ArrayList<String>> filters = new HashMap<>();
 		for (DimensionIndex index : selections.keySet()) {
 			if (index.getDimension().getType() == Type.CATEGORICAL) {// only
-																		// handles
-																		// categorical
+				// handles
+				// categorical
 				ArrayList<String> values = new ArrayList<>();
 				filters.put(index.getDimension().getId().toUUID(), values);
 				for (DimensionMember member : selections.get(index)) {
