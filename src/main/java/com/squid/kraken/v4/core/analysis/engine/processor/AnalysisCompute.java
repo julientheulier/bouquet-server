@@ -1271,6 +1271,8 @@ public class AnalysisCompute {
 		if (subAnalysisWithLimit.getGrouping().isEmpty()) {//
 			// just unset the limit
 			analysis.noLimit();
+			analysis.noOffset();
+
 			return genAnalysisQueryWithSoftFiltering(analysis, group, cachable, optimize);
 		}
 		// copy metrics
@@ -1317,6 +1319,8 @@ public class AnalysisCompute {
 				// => we need to define the join condition explicitly for
 				// SmartCache to correctly pick it
 				analysis.noLimit();
+				analysis.noOffset();
+
 				analysis.getSelection().add(join, values);
 				SimpleQuery mainquery = genAnalysisQueryWithSoftFiltering(analysis, group, cachable, optimize);
 				// analysis.limit(limit);// restore the limit in case we need it
@@ -1334,6 +1338,8 @@ public class AnalysisCompute {
 			//
 			// get the original query without limit
 			analysis.noLimit();
+			analysis.noOffset();
+
 			SimpleQuery mainquery = genAnalysisQueryWithSoftFiltering(analysis, group, cachable, optimize);
 			//
 			mainquery.join(joins, subquery);
