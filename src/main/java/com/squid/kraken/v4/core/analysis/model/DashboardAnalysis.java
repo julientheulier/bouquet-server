@@ -123,6 +123,10 @@ public class DashboardAnalysis extends Dashboard {
     public void limit(long limit) {
         this.limit = limit;
     }
+
+	public void noOffset() {
+		this.offset = null;
+	}
     
     public Long getLimit() {
         return limit;
