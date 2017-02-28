@@ -49,6 +49,7 @@ import com.squid.kraken.v4.caching.redis.datastruct.RawRow;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionMember;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
+import com.squid.kraken.v4.core.analysis.engine.processor.DateExpressionAssociativeTransformationExtractor;
 import com.squid.kraken.v4.core.analysis.engine.query.mapping.AxisMapping;
 import com.squid.kraken.v4.core.analysis.engine.query.mapping.MeasureMapping;
 import com.squid.kraken.v4.core.analysis.engine.query.mapping.QueryMapper;
@@ -78,9 +79,9 @@ import com.squid.kraken.v4.persistence.AppContext;
  */
 public class DataMatrix {
 	static final Logger logger = LoggerFactory.getLogger(DataMatrix.class);
-	
+
 	public static final String APPLY_FORMAT_OPTION = "applyFormat";
-	
+
 	// private int size = 0;
 	private boolean fullset = false;// only true if we read all the data
 	private boolean isSorted = false;// true when sorted
@@ -415,14 +416,27 @@ public class DataMatrix {
 			int pos = 0;
 			boolean check = false;
 			for (AxisValues axis : this.axes) {
-				if ((!(item instanceof OrderByGrowth)) && axis.getAxis().getReference().equals(itemExpr)) {
-					ordering.add(pos);
-					direction.add(item.getOrdering());
-					// T1890: update the axis too
-					axis.setOrdering(item.getOrdering());
-					check = true;
-					pos++;
-					break;
+				if ((!(item instanceof OrderByGrowth))) {
+					boolean ok = false;
+					if (axis.getAxis().getReference().equals(itemExpr)) {
+						ok = true;
+					} else {
+						// check if there are the same after transformation
+						DateExpressionAssociativeTransformationExtractor ex = new DateExpressionAssociativeTransformationExtractor();
+						ExpressionAST naked1 = ex.eval(axis.getAxis().getDefinitionSafe());
+						ExpressionAST naked2 = ex.eval(itemExpr);
+						ok = naked1.equals(naked2);
+					}
+
+					if (ok) {
+						ordering.add(pos);
+						direction.add(item.getOrdering());
+						// T1890: update the axis too
+						axis.setOrdering(item.getOrdering());
+						check = true;
+						pos++;
+						break;
+					}
 				}
 				pos++;
 			}
@@ -518,7 +532,8 @@ public class DataMatrix {
 	 * 
 	 * @param selection
 	 * @return
-	 * @throws ScopeException if cannot apply the filter on this matrix
+	 * @throws ScopeException
+	 *             if cannot apply the filter on this matrix
 	 */
 	public DataMatrix filter(DashboardSelection selection, boolean nullIsValid) throws ScopeException {
 		// first issue: the meta-data are not set
@@ -547,7 +562,8 @@ public class DataMatrix {
 						item.add(member);
 					}
 				} else {
-					throw new ScopeException("unable to apply the soft-filter on '"+axis.getName()+"' on this matrix");
+					throw new ScopeException(
+							"unable to apply the soft-filter on '" + axis.getName() + "' on this matrix");
 				}
 			}
 		}
@@ -932,9 +948,10 @@ public class DataMatrix {
 			throws ComputingException {
 		return toDataTable(ctx, maxResults, startIndex, replaceNullValues, null);
 	}
-	
+
 	/**
 	 * compute the table header definition
+	 * 
 	 * @return
 	 */
 	public List<Col> getTableHeader() {
@@ -1037,7 +1054,7 @@ public class DataMatrix {
 				for (int i = 0; i < axes_count; i++) {
 					AxisValues m = axes.get(i);
 					if (m.isVisible()) {
-						nbAxesVisibles+=1;
+						nbAxesVisibles += 1;
 						String format = header.get(colIdx).getFormat();
 
 						Object value = getAxisValue(i, row);
@@ -1057,12 +1074,12 @@ public class DataMatrix {
 						}
 					}
 				}
-				int nbKPIVisibles=-1;
+				int nbKPIVisibles = -1;
 				for (int i = 0; i < kpi_count; i++) {
 					MeasureValues m = kpis.get(i);
-					
+
 					if (m.isVisible()) {
-						nbKPIVisibles+=1;
+						nbKPIVisibles += 1;
 						String format = header.get(colIdx).getFormat();
 						Object value = getDataValue(i, row);
 						if ((value == null) && replaceNullValues) {
@@ -1072,7 +1089,8 @@ public class DataMatrix {
 								try {
 									value = String.format(format, value);
 								} catch (IllegalFormatException e) {
-									IDomain image = header.get(nbAxesVisibles + nbKPIVisibles).getExtendedType().getDomain();
+									IDomain image = header.get(nbAxesVisibles + nbKPIVisibles).getExtendedType()
+											.getDomain();
 									if (image.isInstanceOf(IDomain.NUMERIC)) {
 										if (value instanceof Number) {
 											// try to cast to a primitive value
