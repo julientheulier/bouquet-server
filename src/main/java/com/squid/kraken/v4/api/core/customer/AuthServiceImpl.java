@@ -377,7 +377,7 @@ public class AuthServiceImpl extends
 			JwtClaims claims = jwtContext.getJwtClaims();
 			String issuer = claims.getIssuer();
 			String customerId = claims.getStringClaimValue("customerId");
-			ClientPK clientId = new ClientPK(claims.getStringClaimValue("customerId"), issuer);
+			ClientPK clientId = new ClientPK(claims.getStringClaimValue("clientId"), issuer);
 			if (requestor.getClientId()!=null && !clientId.equals(requestor)) {
 				throw new InvalidCredentialsAPIException("the requesting client does not match the assertion", false);
 			}
