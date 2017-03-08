@@ -126,7 +126,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 					title);
 		}
 		if (backLink!=null) html.append("&nbsp;<a href=\""+backLink+"\"><i class=\"fa fa-arrow-left\" aria-hidden=\"true\"></i>&nbsp;back to parent</a>");
-		html.append("<div class='pull-right'><a target='OB API DOC' href='https://openbouquet.github.io/slate/"+(docAnchor!=null?docAnchor:"")+"' ><span class=\"label label-info\"><i class=\"fa fa-book\" aria-hidden=\"true\"></i>&nbsp;API doc</span></a></div>");
+		html.append("<div class='pull-right'><a target='OB API DOC' href='https://api.doc.openbouquet.io/"+(docAnchor!=null?docAnchor:"")+"' ><span class=\"label label-info\"><i class=\"fa fa-book\" aria-hidden=\"true\"></i>&nbsp;API doc</span></a></div>");
 		html.append("</h3>");
 		if (space!=null) {
 			URI projectLink = service.buildGenericObjectURI(userContext, space.getUniverse().getProject().getId());
