@@ -65,6 +65,17 @@ public class KrakenConfigV2 {
 
 	public String publicBaseUri;
 
+	
+	public String  localAdminPass;
+
+	public String getLocalAdminPass() {
+		return localAdminPass;
+	}
+
+	public void setLocalAdminPass(String localAdminPass) {
+		this.localAdminPass = localAdminPass;
+	}
+	
 	public KrakenConfigV2() {
 
 	}
@@ -141,7 +152,7 @@ public class KrakenConfigV2 {
 				+ ", WSHost=" + wsHost + ", mongodb=" + mongodb + ", mail=" + mail + ", featureDynamic="
 				+ featureDynamic + ", elasticLocal=" + elasticLocal + ", defaultClientURL=" + defaultClientURL
 				+ ", krakenWSAPI=" + krakenWSAPI + ", krakenWSVersion=" + krakenWSVersion + ", krakenOAuthEndpoint="
-				+ krakenOAuthEndpoint + "EHCawche path" + EHCachePath + "]";
+				+ krakenOAuthEndpoint + ", EHCache path" + EHCachePath +", localAdminPass= "+localAdminPass  +"]";
 	}
 
 	public boolean getFeatureDynamic() {

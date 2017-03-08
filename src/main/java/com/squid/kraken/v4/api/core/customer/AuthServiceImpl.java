@@ -378,7 +378,8 @@ public class AuthServiceImpl extends
 			String issuer = claims.getIssuer();
 			String customerId = claims.getStringClaimValue("customerId");
 			ClientPK clientId = new ClientPK(claims.getStringClaimValue("customerId"), issuer);
-			if (requestor.getClientId()!=null && !clientId.equals(requestor)) {
+			//T2812 compare only clientId on OSS
+			if (requestor.getClientId()!=null && !clientId.getClientId().equals(requestor.getClientId())) {
 				throw new InvalidCredentialsAPIException("the requesting client does not match the assertion", false);
 			}
 			
