@@ -737,7 +737,10 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 	public Response createHTMLPageView(AppContext ctx, Space space, ViewQuery view, ResultInfo info, ViewReply reply) {
 		String title = getPageTitle(space);
 		StringBuilder html = createHTMLHeader("View: "+title);
-		html.append("<script src=\"https://d3js.org/d3.v3.min.js\" charset=\"utf-8\"></script>\r\n<script src=\"https://vega.github.io/vega/vega.js\" charset=\"utf-8\"></script>\r\n<script src=\"https://vega.github.io/vega-lite/vega-lite.js\" charset=\"utf-8\"></script>\r\n<script src=\"https://vega.github.io/vega-editor/vendor/vega-embed.js\" charset=\"utf-8\"></script>\r\n\r\n");
+		html.append("<script src=\"//d3js.org/d3.v3.min.js\" charset=\"utf-8\"></script>\n" + 
+				"<script src=\"https://cdnjs.cloudflare.com/ajax/libs/vega/2.5.0/vega.min.js\"></script>\n" + 
+				"  <script src=\"https://cdnjs.cloudflare.com/ajax/libs/vega-lite/1.0.7/vega-lite.min.js\"></script>\n" + 
+				"<script src=\"https://cdnjs.cloudflare.com/ajax/libs/vega-embed/2.2.0/vega-embed.min.js\" charset=\"utf-8\"></script>");
 		html.append("<body>");
 		createHTMLtitle(ctx, html, title, view.getBBID(), null, space, getParentLink(space),"#view-a-bookmark-or-domain", "viewAnalysis");
 		createHTMLproblems(html, reply.getQuery().getProblems());
