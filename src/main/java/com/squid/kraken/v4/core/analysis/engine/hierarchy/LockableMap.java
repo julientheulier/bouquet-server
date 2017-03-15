@@ -28,6 +28,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 
+import com.squid.core.expression.scope.ScopeException;
+
 /**
  * A map that can lock access by Key
  * @author sergefantino
@@ -69,12 +71,14 @@ public class LockableMap<KEY, VALUE>  extends ConcurrentHashMap<KEY, VALUE> {
 		// TODO Auto-generated constructor stub
 	}
 	
-	public ReentrantLock lock(KEY key) {
+	public ReentrantLock lock(KEY key) throws ScopeException {
 		try {
 			return lock(key, 0);
 		} catch (InterruptedException e) {
-			// we never get there
-			throw new CyclicDependencyException("Cyclic dependency detected", e);
+			// we may getting here when initializing a domain
+			// if some expression are contains invalid column reference for instance
+			// check T2100
+			throw new ScopeException("Cyclic dependency detected", e);
 		}
 	}
 	

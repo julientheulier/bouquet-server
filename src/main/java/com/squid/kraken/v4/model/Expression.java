@@ -29,7 +29,7 @@ import java.util.Collection;
 import org.mongodb.morphia.annotations.Embedded;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.wordnik.swagger.annotations.ApiModelProperty;
+import io.swagger.annotations.ApiModelProperty;
 
 @SuppressWarnings("serial")
 @Embedded

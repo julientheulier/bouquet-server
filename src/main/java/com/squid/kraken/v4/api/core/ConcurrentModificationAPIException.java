@@ -21,28 +21,18 @@
  * you and Squid Solutions (above licenses and LICENSE.txt included).
  * See http://www.squidsolutions.com/EnterpriseBouquet/
  *******************************************************************************/
-package com.squid.kraken.v4.api.core.bb;
+package com.squid.kraken.v4.api.core;
 
-/**
- * @author sergefantino
- *
- */
-public interface BookmarkAnalysisServiceConstants {
+@SuppressWarnings("serial")
+public class ConcurrentModificationAPIException extends APIException {
 
-	public static final String LAZY_PARAM = "lazy";
-	public static final String START_INDEX_PARAM = "startIndex";
-	public static final String MAX_RESULTS_PARAM = "maxResults";
-	public static final String FORMAT_PARAM = "format";
-	public static final String LIMIT_PARAM = "limit";
-	public static final String ROLLUP_PARAM = "rollup";
-	public static final String ORDERBY_PARAM = "orderby";
-	public static final String COMPAREFRAME_PARAM = "compareframe";
-	public static final String TIMEFRAME_PARAM = "timeframe";
-	public static final String PERIOD_PARAM = "period";
-	public static final String METRICS_PARAM = "metrics";
-	public static final String GROUP_BY_PARAM = "groupBy";
-	public static final String TIMEOUT_PARAM = "timeout";
-	public static final String FILTERS_PARAM = "filters";
-	public static final String STYLE_PARAM = "style";
+	public ConcurrentModificationAPIException(boolean noError) {
+		super("Version Check Failed", noError, ApiError.CONCURRENT_MODIFICATION);
+	}
+
+	@Override
+	protected Integer getErrorCode() {
+		return 409;
+	}
 
 }

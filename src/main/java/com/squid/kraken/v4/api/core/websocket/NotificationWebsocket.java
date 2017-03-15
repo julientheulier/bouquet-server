@@ -50,6 +50,7 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 import com.squid.kraken.v4.api.core.InvalidCredentialsAPIException;
+import com.squid.kraken.v4.api.core.InvalidTokenAPIException;
 import com.squid.kraken.v4.api.core.ServiceUtils;
 import com.squid.kraken.v4.api.core.customer.TokenExpiredException;
 import com.squid.kraken.v4.model.AccessToken;
@@ -95,7 +96,7 @@ public class NotificationWebsocket {
 			sessions.add(session);
 			Multimaps.synchronizedSetMultimap(sessionsByToken).put(tokenId, session);
 			logger.info("Session added with ID : " + session.getId() + " uuid : " + bouquetSessionId);
-		} catch (TokenExpiredException | InvalidCredentialsAPIException e) {
+		} catch (InvalidTokenAPIException | TokenExpiredException | InvalidCredentialsAPIException e) {
 			// send a logout message
 			logger.info("Invalid or expired token : " + tokenId);
 			session.getBasicRemote().sendObject(new SessionMessage(bouquetSessionId, true, true));

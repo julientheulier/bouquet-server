@@ -24,12 +24,13 @@
 
 package com.squid.kraken.v4.core.analysis.engine.query;
 
-import java.util.ArrayList;
+import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.squid.core.expression.scope.ScopeException;
+import com.squid.core.sql.model.SQLScopeException;
 import com.squid.core.sql.render.RenderingException;
 import com.squid.kraken.v4.caching.NotInCacheException;
 import com.squid.kraken.v4.caching.redis.RedisCacheManager;
@@ -37,6 +38,9 @@ import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
 import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValue;
 import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValuesList;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
+import com.squid.kraken.v4.core.analysis.engine.processor.DataMatrixTransformOrderBy;
+import com.squid.kraken.v4.core.analysis.engine.processor.DataMatrixTransformTruncate;
+import com.squid.kraken.v4.core.sql.script.SQLScript;
 import com.squid.kraken.v4.model.Project;
 import com.squid.kraken.v4.model.ProjectPK;
 import com.squid.kraken.v4.persistence.AppContext;
@@ -60,24 +64,29 @@ public class QueryRunner {
 		this.jobId = jobId;
 	}
 
-	public void run() throws ComputingException {
+	public void run() throws ComputingException, NotInCacheException {
 		try {
 
 			Project project = query.getUniverse().asRootUserContext().getProject();
 			//
-			ArrayList<String> deps = new ArrayList<String>();
-			deps.add(project.getId().toUUID());
-			query.setDependencies(deps);// to override
+			List<String> deps = query.computeDependencies();// to override
 			//
 			String url = project.getDbUrl();
 			String user = project.getDbUser();
 			String pwd = project.getDbPassword();
 			//
-			String sql = query.render();
+			SQLScript script = query.generateScript();
+			String sql = script.render();
 			String sqlNoLimitNoOrder = null;// Optionally the "full" version
-			boolean checkFullVersion = query.getSelect().getStatement().hasLimitValue()
+			boolean noRollups = true;
+			if (query instanceof SimpleQuery) {
+				SimpleQuery sq = (SimpleQuery) query;
+				noRollups = !sq.hasRollups();
+			}
+
+			boolean checkFullVersion = (query.getSelect().getStatement().hasLimitValue()
 					|| query.getSelect().getStatement().hasOffsetValue()
-					|| query.getSelect().getStatement().hasOrderByPieces();
+					|| query.getSelect().getStatement().hasOrderByPieces()) && noRollups;
 			RedisCacheValue result;
 			// first check if the original query is in cache (lazy)
 			result = RedisCacheManager.getInstance().getRedisCacheValueLazy(sql, deps, url, user, pwd, -2);
@@ -93,7 +102,15 @@ public class QueryRunner {
 					result = null;
 				}
 				if (result != null) {
-					writer.setNeedPostProcessing(true);
+					if (!query.getOrderBy().isEmpty()) {
+						query.addPostProcessing(new DataMatrixTransformOrderBy(query.getOrderBy()));
+					}
+					if (query.getSelect().getStatement().hasLimitValue()
+							|| query.getSelect().getStatement().hasOffsetValue()) {
+						query.addPostProcessing(
+								new DataMatrixTransformTruncate(query.getSelect().getStatement().getLimitValue(),
+										query.getSelect().getStatement().getOffsetValue()));
+					}
 				}
 			}
 			if (result != null) {
@@ -105,8 +122,10 @@ public class QueryRunner {
 			} else {
 				// compute
 				ProjectPK projectPK = project.getId();
-				result = RedisCacheManager.getInstance().getRedisCacheValue(ctx.getUser().getOid(), projectPK, sql, deps, jobId, url, user, pwd, -2,
-						query.getSelect().getStatement().getLimitValue());
+				result = RedisCacheManager.getInstance().getRedisCacheValue(ctx.getUser().getOid(),
+						ctx.getUser().getLogin(), // T2324
+						projectPK, sql,
+						deps, jobId, url, user, pwd, -2, query.getSelect().getStatement().getLimitValue());
 				if (result == null) {
 					throw new ComputingException("Failed to compute or retrieve the matrix for job " + jobId);
 				} else {
@@ -118,25 +137,22 @@ public class QueryRunner {
 							String refKey = RedisCacheManager.getInstance().addCacheReference(sqlNoLimitNoOrder, deps,
 									rm.getRedisKey());
 							if (refKey != null) {
-								logger.info("Analysis " + jobId + " full result set.\nCreating  new Cache Reference "
-										+ refKey + " to " + rm.getRedisKey());
-							} else {
 								logger.info("Analysis " + jobId
-										+ " full result set.\nFailed to create a  new Cache Reference to "
-										+ rm.getRedisKey());
-
+										+ " full result set: Creating new Cache Reference to NO-LIMIT version: "
+										+ refKey + " to " + rm.getRedisKey());
 							}
 						}
 					}
 				}
 			}
 			writer.setSource(result);
-			writer.setMapper(query.getMapper());
+			writer.setMapper(script.getMapper());
 			writer.setDatabase(query.getDatasource().getDBManager().getDatabase());
 			writer.write();
 
-		} catch (InterruptedException | RenderingException | ScopeException e) {
-			throw new ComputingException("Failed to compute or retrieve the matrix for job " + jobId);
+		} catch (InterruptedException | RenderingException | ScopeException | SQLScopeException e) {
+			throw new ComputingException(
+					"Failed to compute or retrieve the matrix for job " + jobId + ": " + e.getMessage(), e);
 		}
 
 	}

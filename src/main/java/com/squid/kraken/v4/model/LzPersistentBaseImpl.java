@@ -26,7 +26,7 @@ package com.squid.kraken.v4.model;
 import org.mongodb.morphia.annotations.Property;
 
 import com.squid.kraken.v4.persistence.AppContext;
-import com.wordnik.swagger.annotations.ApiModelProperty;
+import io.swagger.annotations.ApiModelProperty;
 
 /**
  * A Localized {@link PersistentBaseImpl}.
@@ -82,7 +82,7 @@ public abstract class LzPersistentBaseImpl<PK extends GenericPK> extends Persist
      * The localized version of the name (localized according to {@link AppContext}'s locale).
      */
     
-    @ApiModelProperty(position = 0)
+    @ApiModelProperty
     public String getLName() {
         return name;
     }

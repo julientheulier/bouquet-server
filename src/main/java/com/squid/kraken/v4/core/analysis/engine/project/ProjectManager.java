@@ -117,12 +117,45 @@ public class ProjectManager {
 	 * @throws ScopeException
 	 */
 	public Project getProject(AppContext ctx, ProjectPK projectPk) throws ScopeException {
-		Optional<Project> project = ((ProjectDAO) factory.getDAO(Project.class)).read(
+		Optional<Project> option = ((ProjectDAO) factory.getDAO(Project.class)).read(
 				ctx, projectPk);
-		if (project.isPresent()) {
-			return project.get();
+		if (option.isPresent()) {
+			return option.get();
 		} else {
 			throw new ScopeException("cannot find project with PK = "+projectPk);
+		}
+	}
+	
+	public Project getProject(AppContext ctx, String projectId) throws ScopeException {
+		ProjectPK projectPk = new ProjectPK(ctx.getCustomerId(), projectId);
+		return getProject(ctx, projectPk);
+	}
+	
+	public Project findProjectByName(AppContext ctx, String projectName) throws ScopeException {
+		// using name
+		List<Project> projects = ((ProjectDAO) DAOFactory.getDAOFactory().getDAO(Project.class))
+				.findByCustomer(ctx, ctx.getCustomerPk());
+		for (Project project : projects) {
+			if (project.getName()!=null && project.getName().equals(projectName)) {
+				//upgradeUserAccess(ctx, project);
+				return project;
+			}
+		}
+		throw new ScopeException("cannot find project with name='"+projectName+"'");
+	}
+	
+	/**
+	 * if user has EXECUTE access to the project, upgrade user to be part of the guest group for the duration of the transaction.
+	 * This is performing a side effect on the user.getGroups() list of groups
+	 * T2121
+	 * @param ctx
+	 * @param project
+	 */
+	public void upgradeUserAccess(AppContext ctx, Project project) {
+		Role check = AccessRightsUtils.getInstance().getRole(ctx.getUser(), project);
+		if (check==Role.EXECUTE) {
+			// grant GUEST access to this user
+			ctx.getUser().getUpgrades().add("guest_"+project.getId().getProjectId());
 		}
 	}
 
@@ -137,7 +170,7 @@ public class ProjectManager {
 	 * @throws ScopeException
 	 */
 	public List<Domain> getDomains(AppContext ctx, ProjectPK projectPk) throws ScopeException {
-		ProjectDynamicContent domains = getProjectContent(ctx, projectPk);
+		ProjectDynamicContent domains = getProjectContent(ctx, projectPk, false);
 		return filterDomains(ctx, projectPk, domains.getDomains());
 	}
 
@@ -154,7 +187,7 @@ public class ProjectManager {
 		if (domainPk.getCustomerId()==null) {
 			domainPk.setCustomerId(ctx.getCustomerId());// why ???
 		}
-		ProjectDynamicContent domains = getProjectContent(ctx, domainPk.getParent());
+		ProjectDynamicContent domains = getProjectContent(ctx, domainPk.getParent(), true);
 		Domain domain = domains.get(domainPk);
 		if (domain!=null) {
 			checkRole(ctx, domain);
@@ -162,6 +195,14 @@ public class ProjectManager {
 		}
 		// else
 		throw new ScopeException("cannot find Domain with PK="+domainPk);
+	}
+	
+	public boolean isVisible(AppContext ctx, Domain domain) {
+		if (!domain.isDynamic()) {
+			return true;
+		} else {
+			return AccessRightsUtils.getInstance().hasRole(ctx, domain, Role.WRITE);
+		}
 	}
 	
 	/**
@@ -220,7 +261,7 @@ public class ProjectManager {
 	 * @throws ScopeException if the project does not exist
 	 */
 	public Domain findDomainByName(AppContext ctx, ProjectPK projectPk, String name) throws ScopeException {
-		ProjectDynamicContent content = getProjectContent(ctx, projectPk);
+		ProjectDynamicContent content = getProjectContent(ctx, projectPk, true);
 		return content.findDomainByName(name);
 	}
 
@@ -236,7 +277,7 @@ public class ProjectManager {
 		if (domainPK.getParent()==null) {
 			throw new ScopeException("invalid domain PK, parent cannot be null");
 		}
-		ProjectDynamicContent content = getProjectContent(ctx, domainPK.getParent());
+		ProjectDynamicContent content = getProjectContent(ctx, domainPK.getParent(), true);
 		return content.findDomainByID(domainPK);
 	}
 
@@ -248,7 +289,7 @@ public class ProjectManager {
 	 * @throws ScopeException
 	 */
 	public List<Relation> getRelations(AppContext ctx, ProjectPK projectPk) throws ScopeException {
-		ProjectDynamicContent domains = getProjectContent(ctx, projectPk);
+		ProjectDynamicContent domains = getProjectContent(ctx, projectPk, false);
 		List<Relation> rels = domains.getRelations();
 		if (rels==null) {
 			// handle the race-condition
@@ -273,7 +314,7 @@ public class ProjectManager {
 	 * @throws ScopeException 
 	 */
 	public List<Relation> getRelation(AppContext ctx, DomainPK domainPK) throws ScopeException {
-		ProjectDynamicContent domains = getProjectContent(ctx, domainPK.getParent());
+		ProjectDynamicContent domains = getProjectContent(ctx, domainPK.getParent(), false);
 		List<Relation> rels = domains.getRelations();
 		List<Relation> filter = new ArrayList<Relation>();
 		if (rels!=null) {
@@ -304,7 +345,7 @@ public class ProjectManager {
 	 * @throws ScopeException
 	 */
 	public Relation getRelation(AppContext ctx, DomainPK domainPK, String name) throws ScopeException {
-		ProjectDynamicContent domains = getProjectContent(ctx, domainPK.getParent());
+		ProjectDynamicContent domains = getProjectContent(ctx, domainPK.getParent(), true);
 		List<Relation> rels = domains.getRelations();
 		if (rels!=null) {
 			for (Relation rel : rels) {
@@ -352,7 +393,7 @@ public class ProjectManager {
 		if (relationPk.getCustomerId()==null) {
 			relationPk.setCustomerId(ctx.getCustomerId());// why ???
 		}
-		ProjectDynamicContent domains = getProjectContent(ctx, relationPk.getParent());
+		ProjectDynamicContent domains = getProjectContent(ctx, relationPk.getParent(), true);
 		Relation rel = domains.get(relationPk);
 		if (rel!=null) {
 			checkRole(ctx, rel);
@@ -373,7 +414,7 @@ public class ProjectManager {
 		if (relationPk.getCustomerId()==null) {
 			relationPk.setCustomerId(ctx.getCustomerId());// why ???
 		}
-		ProjectDynamicContent domains = getProjectContent(ctx, relationPk.getParent());
+		ProjectDynamicContent domains = getProjectContent(ctx, relationPk.getParent(), true);
 		Relation rel = domains.get(relationPk);
 		if (rel!=null) {
 			checkRole(ctx, rel);
@@ -417,7 +458,7 @@ public class ProjectManager {
 	 * @throws ScopeException
 	 */
 	public Cartography getCartography(AppContext ctx, ProjectPK projectPk) throws ScopeException {
-		ProjectDynamicContent content = getProjectContent(ctx, projectPk);
+		ProjectDynamicContent content = getProjectContent(ctx, projectPk, false);
 		if (content.getCartography()==null) {
 			throw new ScopeException("failed to compute the cartography");
 		}
@@ -425,7 +466,8 @@ public class ProjectManager {
 	}
 	
 	public DomainContent getDomainContent(Space space) throws ScopeException {
-		ProjectDynamicContent content = getProjectContent(space.getUniverse());
+		Universe universe = space.getUniverse();
+		ProjectDynamicContent content = getProjectContent(universe.getContext(), universe.getProject().getId(), true);
 		return content.getDomainContent(space);
 	}
 	
@@ -530,6 +572,11 @@ public class ProjectManager {
 	protected ProjectDynamicContent getProjectContent(Universe universe) throws ScopeException {
 		return getProjectContent(universe.getContext(), universe.getProject().getId());
 	}
+	
+	// internal - default is to not upgrade
+	private ProjectDynamicContent getProjectContent(AppContext ctx, ProjectPK projectPk) throws ScopeException {
+		return getProjectContent(ctx, projectPk, false);
+	}
 
 	/**
 	 * get the content for the given project
@@ -538,7 +585,13 @@ public class ProjectManager {
 	 * @return
 	 * @throws ScopeException
 	 */
-	protected ProjectDynamicContent getProjectContent(AppContext ctx, ProjectPK projectPk) throws ScopeException {
+	protected ProjectDynamicContent getProjectContent(AppContext ctx, ProjectPK projectPk, boolean upgrade) throws ScopeException {
+		// T2121 - call it to upgrade
+		if (upgrade) {
+			Project project = getProject(ctx, projectPk);
+			upgradeUserAccess(ctx, project);
+		}
+		//
 		ProjectDynamicContent content = projects.get(projectPk);
 		// we use a special key to invalidate the project's domain, which in turn depend on the project key
 		String genkey = getProjectContentGenkey(projectPk);
@@ -633,7 +686,7 @@ public class ProjectManager {
 		}
 	}
 
-	private List<Domain> filterDomains(AppContext ctx, ProjectPK projectPk, List<Domain> domains) {
+	private List<Domain> filterDomains(AppContext ctx, ProjectPK projectPk, List<Domain> domains) throws ScopeException {
 		List<Domain> filteredDomains = new ArrayList<Domain>();
 		for (Domain domain : domains) {
 			if (hasRole(ctx, domain)) {

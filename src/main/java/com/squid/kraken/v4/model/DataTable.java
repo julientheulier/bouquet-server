@@ -25,7 +25,7 @@ package com.squid.kraken.v4.model;
 
 // Inspired from google's DataTables (http://code.google.com/apis/chart/interactive/docs/roles.html))
 
-import java.io.Serializable; 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
@@ -55,6 +55,8 @@ public class DataTable extends JobResultBaseImpl {
     private String objectType = "DataTable";
     
     private boolean fromCache = false;// true if the data comes from the cache
+    
+    private boolean fromSmartCache = false;
     
     private String executionDate = null;
 
@@ -286,6 +288,20 @@ public class DataTable extends JobResultBaseImpl {
     public void setFromCache(boolean fromCache) {
         this.fromCache = fromCache;
     }
+    
+    /**
+	 * @return the fromSmartCache
+	 */
+	public boolean isFromSmartCache() {
+		return fromSmartCache;
+	}
+	
+	/**
+	 * @param fromSmartCache the fromSmartCache to set
+	 */
+	public void setFromSmartCache(boolean fromSmartCache) {
+		this.fromSmartCache = fromSmartCache;
+	}
     
     public String getExecutionDate() {
         return executionDate;

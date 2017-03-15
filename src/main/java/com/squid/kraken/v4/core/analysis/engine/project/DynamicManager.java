@@ -184,8 +184,10 @@ public class DynamicManager {
 						// normalizeObjectName(table.getName());
 						String tableRef = table.getSchema().isNullSchema() ? table.getName()
 								: (table.getSchema().getName() + ":" + table.getName());
-						DomainPK domainPk = new DomainPK(project.getId(), checkUniqueId(tableRef, checkIDs));
+						String ID = normalizePK(tableRef);
+						DomainPK domainPk = new DomainPK(project.getId(), checkUniqueId(ID, checkIDs));
 						Domain domain = new Domain(domainPk, domainName, new Expression("'" + tableRef + "'"), true);
+						if (table.getDescription()!=null) domain.setDescription(table.getDescription());
 						domain.setAccessRights(accessRights);
 						AccessRightsUtils.getInstance().setAccessRights(root.getContext(), domain, project);
 						domains.add(domain);
@@ -230,6 +232,24 @@ public class DynamicManager {
 
 		}
 		return domains;
+	}
+
+	/**
+	 * Make sure the ID conforms to the storage layer rules: must match pattern: [a-zA-Z_\-\:0-9]
+	 * @param tableRef
+	 * @return
+	 */
+	private String normalizePK(String ID) {
+		String normalize = "";
+		for (int i=0;i<ID.length();i++) {
+			char c = ID.charAt(i);
+			if (Character.isLetterOrDigit(c) || c=='_' || c=='-' || c==':') {
+				normalize += c;
+			} else {
+				normalize += "_";
+			}
+		}
+		return normalize;
 	}
 
 	class DomainComparator implements Comparator<Domain> {
@@ -482,6 +502,15 @@ public class DynamicManager {
 		//
 		return relations;
 	}
+	
+	// T1771: make the id independent from customer/project ID
+	private String genRelationLinkId(Project project, Domain source, Domain target) {
+		if (project.getInternalVersion()>=Project.VERSION_1) {
+			return "rel/" + source.getOid() + "-" + target.getOid();
+		} else {
+			return "rel/" + source.getId().toUUID() + "-" + target.getId().toUUID();
+		}
+	}
 
 	private List<ForeignKey> getForeignKeys(Table table) {
 		try {
@@ -556,7 +585,7 @@ public class DynamicManager {
 		HashSet<String> checkName = new HashSet<String>();
 		boolean isPeriodDefined = false;
 		//
-		String prefix = null;
+		String prefix = genDomainPrefixID(space.getUniverse().getProject(), domain);
 		//
 		// evaluate the concrete objects
 		HashSet<String> ids = new HashSet<String>();
@@ -754,6 +783,7 @@ public class DynamicManager {
 					Type type = Type.INDEX;
 					String name = checkName(normalizeObjectName(col.getName()), state.checkName);
 					Dimension dim = new Dimension(id, name, type, new Expression(expr), domainInternalDefautDynamic);
+					if (col.getDescription()!=null) dim.setDescription(col.getDescription());
 					dim.setImageDomain(col.getTypeDomain());
 					dim.setValueType(computeValueType(col.getTypeDomain()));
 					AccessRightsUtils.getInstance().setAccessRights(univ.getContext(), dim, domain);
@@ -797,6 +827,7 @@ public class DynamicManager {
 							}
 							Dimension dim = new Dimension(id, name, Type.INDEX, new Expression(expr),
 									domainInternalDefautDynamic);
+							dim.setDescription("relation to "+neighbor.getDomain().getName());
 							dim.setValueType(ValueType.OBJECT);
 							dim.setImageDomain(ref.getImageDomain());
 							AccessRightsUtils.getInstance().setAccessRights(univ.getContext(), dim, domain);
@@ -822,7 +853,8 @@ public class DynamicManager {
 																// definition
 				String name = "COUNT " + domain.getName();
 				name = checkName(name, state.checkName);
-				Metric metric = new Metric(metricId, name, expr, true);
+				Metric metric = new Metric(metricId, name, expr, domainInternalDefautDynamic);
+				metric.setDescription(domain.getName() + " count");
 				AccessRightsUtils.getInstance().setAccessRights(univ.getContext(), metric, domain);
 				content.add(metric);
 				state.checkName.add(name);
@@ -842,7 +874,8 @@ public class DynamicManager {
 																			// definition
 							String name = "SUM " + normalizeObjectName(col.getName());
 							name = checkName(name, state.checkName);
-							Metric metric = new Metric(metricId, name, expr, true);
+							Metric metric = new Metric(metricId, name, expr, domainInternalDefautDynamic);
+							if (col.getDescription()!=null) metric.setDescription(col.getDescription());
 							AccessRightsUtils.getInstance().setAccessRights(univ.getContext(), metric, domain);
 							content.add(metric);
 							state.checkName.add(name);
@@ -1346,6 +1379,15 @@ public class DynamicManager {
 		}
 		//
 		return materialized;
+	}
+	
+	// T1771: generate a prefix ID independent from the customer/project ID
+	private String genDomainPrefixID(Project project, Domain domain) {
+		if (project.getInternalVersion()>=Project.VERSION_1) {
+			return "dyn_" + domain.getOid() + "_dimension:";
+		} else {
+			return "dyn_" + domain.getId().toUUID() + "_dimension:";
+		}
 	}
 
 	private boolean includeColumnAsDimension(Column col) {

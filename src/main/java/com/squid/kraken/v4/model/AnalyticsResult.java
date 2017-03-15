@@ -21,66 +21,52 @@
  * you and Squid Solutions (above licenses and LICENSE.txt included).
  * See http://www.squidsolutions.com/EnterpriseBouquet/
  *******************************************************************************/
-package com.squid.kraken.v4.api.core.bb;
-
-import com.squid.kraken.v4.api.core.bb.BookmarkAnalysisServiceRest.HierarchyMode;
+package com.squid.kraken.v4.model;
 
 /**
- * This is a simple pojo that wraps the navigation parameters
  * @author sergefantino
  *
  */
-public class NavigationQuery {
+public class AnalyticsResult {
+
+	private DataHeader header = null;
 	
-	public enum Style {
-		HUMAN, LEGACY, MACHINE
+	private Object data = null;
+	
+	private ResultInfo info = null;
+	
+	private DataLayout dataLayout = null;
+
+	public DataHeader getHeader() {
+		return header;
+	}
+
+	public void setHeader(DataHeader header) {
+		this.header = header;
+	}
+
+	public Object getData() {
+		return data;
+	}
+
+	public void setData(Object data) {
+		this.data = data;
+	}
+
+	public ResultInfo getInfo() {
+		return info;
+	}
+
+	public void setInfo(ResultInfo info) {
+		this.info = info;
 	}
 	
-	private String parent;
+	public DataLayout getDataLayout() {
+		return dataLayout;
+	}
 	
-	private String q;
-	
-	private HierarchyMode hiearchy;
-	
-	private Style style;
-	
-	/**
-	 * 
-	 */
-	public NavigationQuery() {
-		// TODO Auto-generated constructor stub
-	}
-
-	public String getParent() {
-		return parent;
-	}
-
-	public void setParent(String parent) {
-		this.parent = parent;
-	}
-
-	public String getQ() {
-		return q;
-	}
-
-	public void setQ(String q) {
-		this.q = q;
-	}
-
-	public HierarchyMode getHiearchy() {
-		return hiearchy;
-	}
-
-	public void setHiearchy(HierarchyMode hiearchy) {
-		this.hiearchy = hiearchy;
-	}
-
-	public Style getStyle() {
-		return style;
-	}
-
-	public void setStyle(Style style) {
-		this.style = style;
+	public void setDataLayout(DataLayout dataLayout) {
+		this.dataLayout = dataLayout;
 	}
 
 }

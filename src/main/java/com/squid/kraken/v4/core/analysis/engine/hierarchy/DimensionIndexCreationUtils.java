@@ -38,8 +38,8 @@ import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
 import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.core.expression.visitor.ExtractOutcomes;
-import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.Dimension.Type;
+import com.squid.kraken.v4.model.Domain;
 
 public class DimensionIndexCreationUtils {
 

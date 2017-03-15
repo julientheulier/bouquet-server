@@ -23,14 +23,13 @@
  *******************************************************************************/
 package com.squid.kraken.v4.model;
 
-import java.io.Serializable; 
+import java.io.Serializable;
 
 import javax.xml.bind.annotation.XmlTransient;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-
 import org.mongodb.morphia.annotations.Embedded;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.squid.kraken.v4.api.core.ServiceUtils;
 
 @Embedded

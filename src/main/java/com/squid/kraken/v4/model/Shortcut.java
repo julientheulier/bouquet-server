@@ -36,7 +36,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.squid.kraken.v4.model.visitor.ModelVisitor;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DAOFactory;
-import com.wordnik.swagger.annotations.ApiModelProperty;
+import io.swagger.annotations.ApiModelProperty;
 
 /**
  * A Shortcut to a State.
@@ -86,7 +86,7 @@ public class Shortcut extends PersistentBaseImpl<ShortcutPK> {
 				.readNotNull(ctx, new CustomerPK(ctx.getCustomerId()));
 	}
 
-	@ApiModelProperty(position = 1)
+	@ApiModelProperty
 	public String getName() {
 		return name;
 	}
@@ -95,7 +95,7 @@ public class Shortcut extends PersistentBaseImpl<ShortcutPK> {
 		this.name = name;
 	}
 
-	@ApiModelProperty(position = 2)
+	@ApiModelProperty
 	public String getDescription() {
 		return description;
 	}

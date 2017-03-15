@@ -23,20 +23,20 @@
  *******************************************************************************/
 package com.squid.kraken.v4.core.expression.reference;
 
-import com.squid.core.domain.IDomain; 
+import com.squid.core.domain.IDomain;
 import com.squid.core.domain.operators.ExtendedType;
 import com.squid.core.domain.set.SetDomain;
 import com.squid.core.expression.ExpressionRef;
 import com.squid.core.expression.PrettyPrintConstant;
+import com.squid.core.expression.reference.Cardinality;
 import com.squid.core.expression.reference.RelationDirection;
 import com.squid.core.expression.scope.IdentifierType;
 import com.squid.core.expression.scope.ScopeException;
-import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.core.sql.render.SQLSkin;
+import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.kraken.v4.core.model.domain.ProxyDomainDomain;
 import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.Relation;
-import com.squid.core.expression.reference.Cardinality;
 
 public class RelationReference extends ExpressionRef {
 	

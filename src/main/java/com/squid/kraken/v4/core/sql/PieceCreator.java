@@ -28,7 +28,6 @@ import java.util.LinkedList;
 import java.util.List;
 
 import com.squid.core.database.impl.DatabaseServiceException;
-import com.squid.kraken.v4.core.database.impl.DatabaseServiceImpl;
 import com.squid.core.database.model.Column;
 import com.squid.core.database.model.Database;
 import com.squid.core.database.model.ForeignKey;
@@ -49,6 +48,7 @@ import com.squid.core.expression.reference.ColumnReference;
 import com.squid.core.expression.reference.ForeignKeyReference;
 import com.squid.core.expression.scope.ExpressionMaker;
 import com.squid.core.expression.scope.ScopeException;
+import com.squid.core.sql.Context;
 import com.squid.core.sql.ISelect;
 import com.squid.core.sql.db.render.ColumnPiece;
 import com.squid.core.sql.db.templates.SkinFactory;
@@ -65,8 +65,8 @@ import com.squid.core.sql.render.SimpleConstantValuePiece;
 import com.squid.kraken.v4.core.analysis.scope.AxisExpression;
 import com.squid.kraken.v4.core.analysis.scope.MeasureExpression;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
+import com.squid.kraken.v4.core.database.impl.DatabaseServiceImpl;
 import com.squid.kraken.v4.model.Domain;
-import com.squid.core.sql.Context;
 
 /**
  * This is the base class for generating IPiece out of ExpressionAST
@@ -201,7 +201,7 @@ public abstract class PieceCreator implements ISelect {
 		}
 		if (expression instanceof ConstantValue) {
 			ConstantValue cst = (ConstantValue)expression;
-			return new SimpleConstantValuePiece(cst.getValue(),cst.getImageDomain());
+			return new SimpleConstantValuePiece(cst.getValue(),cst.computeType(getSkin()));
 		}
 		// else	
 		throw new SQLScopeException("expression not supported: " + expression.prettyPrint());

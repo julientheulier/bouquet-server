@@ -63,15 +63,15 @@ import com.squid.kraken.v4.model.DataTable;
 import com.squid.kraken.v4.model.ProjectAnalysisJob;
 import com.squid.kraken.v4.model.ProjectAnalysisJobPK;
 import com.squid.kraken.v4.persistence.AppContext;
-import com.wordnik.swagger.annotations.Api;
-import com.wordnik.swagger.annotations.ApiOperation;
-import com.wordnik.swagger.annotations.ApiParam;
-import com.wordnik.swagger.annotations.Authorization;
-import com.wordnik.swagger.annotations.AuthorizationScope;
+import io.swagger.annotations.Api;
+import io.swagger.annotations.ApiOperation;
+import io.swagger.annotations.ApiParam;
+import io.swagger.annotations.Authorization;
+import io.swagger.annotations.AuthorizationScope;
 
 @Produces({ MediaType.APPLICATION_JSON })
-@Api(value = "analysisjobs", hidden = true, authorizations = {
-		@Authorization(value = "kraken_auth", type = "oauth2", scopes = {
+@Api(hidden=true, value = "analysisjobs", authorizations = {
+		@Authorization(value = "kraken_auth", scopes = {
 				@AuthorizationScope(scope = "access", description = "Access") }) })
 public class AnalysisJobServiceRest extends BaseServiceRest {
 

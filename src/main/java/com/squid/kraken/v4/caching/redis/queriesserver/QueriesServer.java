@@ -38,9 +38,9 @@ import com.squid.kraken.v4.caching.redis.RedisCacheConfig;
 import com.squid.kraken.v4.caching.redis.RedisCacheException;
 import com.squid.kraken.v4.caching.redis.ServerID;
 import com.squid.kraken.v4.caching.redis.queryworkerserver.IQueryWorkerServer;
-import com.squid.kraken.v4.caching.redis.queryworkerserver.QueryWorkerJobStatus;
 import com.squid.kraken.v4.caching.redis.queryworkerserver.QueryWorkerFactory;
 import com.squid.kraken.v4.caching.redis.queryworkerserver.QueryWorkerJobRequest;
+import com.squid.kraken.v4.caching.redis.queryworkerserver.QueryWorkerJobStatus;
 
 public class QueriesServer implements IQueriesServer {
 

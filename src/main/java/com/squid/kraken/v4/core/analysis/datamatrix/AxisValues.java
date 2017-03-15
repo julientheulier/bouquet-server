@@ -23,55 +23,31 @@
  *******************************************************************************/
 package com.squid.kraken.v4.core.analysis.datamatrix;
 
-import com.squid.core.sql.render.IOrderByPiece.ORDERING;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
 
 /**
- * A list of values (members) for an Axis in the DataMatrix
+ * Simple wrapper for Axis in a DataMatrix
  * @author sfantino
  *
  */
-public class AxisValues {
+public class AxisValues extends PropertyValues<Axis> {
 	
-	private Axis axis;
-	private boolean isVisible = true;
-	private ORDERING ordering;
+
+	public AxisValues(Axis property) {
+		super(property);
+	}
 
 	public AxisValues(AxisValues copy) {
-		this.axis = copy.axis;
-		this.isVisible = copy.isVisible;
-		this.ordering = copy.ordering;
-		// don't set values
-	}
-	
-	public AxisValues(Axis axis) {
-		super();
-		this.axis = axis;
+		super(copy);
 	}
 
 	public Axis getAxis() {
-		return axis;
-	}
-	
-	public boolean isVisible() {
-		return isVisible;
-	}
-
-	public void setOrdering(ORDERING ordering) {
-		this.ordering = ordering;
-	}
-	
-	public ORDERING getOrdering() {
-		return ordering;
-	}
-
-	public void setVisible(boolean isVisible) {
-		this.isVisible = isVisible;
+		return getProperty();
 	}
 
 	@Override
 	public String toString() {
-		return "AxisValues:{axis="+axis.toString()+";"+ordering+";visible="+isVisible;
+		return "AxisValues:{axis="+getProperty().toString()+";"+getOrdering()+";visible="+isVisible();
 	}
 	
 }

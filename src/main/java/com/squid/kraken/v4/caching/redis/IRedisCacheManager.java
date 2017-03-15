@@ -38,7 +38,7 @@ public interface IRedisCacheManager {
 
 	public void startCacheManager();
 
-	public RawMatrix getData(String userID, ProjectPK projectPK, String SQLQuery, List<String> dependencies, String jobId, String RSjdbcURL,
+	public RawMatrix getData(String userID, String login, ProjectPK projectPK, String SQLQuery, List<String> dependencies, String jobId, String RSjdbcURL,
 			String username, String pwd, int TTLinSec, long limit) throws InterruptedException;
 
 	public RawMatrix getDataLazy(String SQLQuery, List<String> dependencies, String RSjdbcURL, String username,
@@ -57,7 +57,7 @@ public interface IRedisCacheManager {
 	public RedisCacheValue getRedisCacheValueLazy(String SQLQuery, List<String> dependencies, String RSjdbcURL,
 			String username, String pwd, int TTLinSec);
 
-	public RedisCacheValue getRedisCacheValue(String userID, ProjectPK projectPK, String SQLQuery, List<String> dependencies, String jobId,
+	public RedisCacheValue getRedisCacheValue(String userID, String login, ProjectPK projectPK, String SQLQuery, List<String> dependencies, String jobId,
 			String RSjdbcURL, String username, String pwd, int TTLinSec, long limit) throws InterruptedException;
 
 	public RedisKey getKey(String key, Collection<String> dependencies);
@@ -66,6 +66,8 @@ public interface IRedisCacheManager {
 
 	public RedisKey getKey(RedisKey key);
 
+	public String buildCacheKey(String SQLQuery, List<String> dependencies);
+	
 	public boolean isValid(RedisKey key);
 
 	public boolean inCache(RedisKey key);

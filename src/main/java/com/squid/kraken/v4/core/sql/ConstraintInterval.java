@@ -27,7 +27,6 @@ import java.util.Collection;
 
 import com.squid.core.database.model.Column;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionMember;
-import com.squid.kraken.v4.core.analysis.model.Intervalle;
 
 public class ConstraintInterval extends Constraint {	
 	public DimensionMember interval;

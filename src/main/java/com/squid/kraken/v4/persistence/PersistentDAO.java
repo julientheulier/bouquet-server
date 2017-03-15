@@ -28,15 +28,14 @@ import java.util.Collection;
 import java.util.List;
 
 import com.google.common.base.Optional;
-import com.squid.kraken.v4.api.core.InvalidCredentialsAPIException;
 import com.squid.kraken.v4.api.core.ObjectNotFoundAPIException;
 import com.squid.kraken.v4.caching.Cache;
 import com.squid.kraken.v4.caching.CacheFactoryEHCache;
 import com.squid.kraken.v4.model.AccessRight.Role;
-import com.squid.kraken.v4.model.visitor.DeepReadVisitor;
 import com.squid.kraken.v4.model.CustomerPK;
 import com.squid.kraken.v4.model.GenericPK;
 import com.squid.kraken.v4.model.Persistent;
+import com.squid.kraken.v4.model.visitor.DeepReadVisitor;
 
 /**
  * DAO base abstract implementation.<br>
@@ -215,7 +214,8 @@ public abstract class PersistentDAO<T extends Persistent<PK>, PK extends Generic
                 	}
                     pList.add(object);
                 }
-            } catch (InvalidCredentialsAPIException e) {
+            } catch (Exception e) {
+            	// T2455: generalize the catch to any exception
                 // no read right, ignore this item
             }
         }

@@ -21,37 +21,55 @@
  * you and Squid Solutions (above licenses and LICENSE.txt included).
  * See http://www.squidsolutions.com/EnterpriseBouquet/
  *******************************************************************************/
-package com.squid.kraken.v4.api.core.bb;
+package com.squid.kraken.v4.model;
 
-import com.squid.kraken.v4.model.AnalysisQuery;
-import com.squid.kraken.v4.vegalite.VegaliteSpecs;
+import io.swagger.annotations.ApiModelProperty;
 
 /**
+ * This is the result of an analysis
  * @author sergefantino
  *
  */
-public class VegaliteReply {
+public class AnalyticsReply {
 	
-	private AnalysisQuery query;
+	// this is the query that generated this analysis
+	private AnalyticsQuery query;
 	
-	private VegaliteSpecs result;
+	// the analysis selection
+	private AnalyticsSelection selection;
 	
-	public VegaliteReply() {
+	// the resulting dataTable
+	private Object result;// this may depend on the output format
+	
+	/**
+	 * 
+	 */
+	public AnalyticsReply() {
+		// TODO Auto-generated constructor stub
 	}
 
-	public AnalysisQuery getQuery() {
+	public AnalyticsQuery getQuery() {
 		return query;
 	}
 
-	public void setQuery(AnalysisQuery query) {
+	public void setQuery(AnalyticsQuery query) {
 		this.query = query;
 	}
 
-	public VegaliteSpecs getResult() {
+	@ApiModelProperty(hidden=true)// only used for LEGACY mode, so don't mess user with it
+	public AnalyticsSelection getSelection() {
+		return selection;
+	}
+
+	public void setSelection(AnalyticsSelection selection) {
+		this.selection = selection;
+	}
+
+	public Object getResult() {
 		return result;
 	}
 
-	public void setResult(VegaliteSpecs result) {
+	public void setResult(Object result) {
 		this.result = result;
 	}
 

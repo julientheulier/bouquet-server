@@ -23,9 +23,16 @@
  *******************************************************************************/
 package com.squid.kraken.v4.core.expression.scope;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Set;
 
 import javax.swing.text.BadLocationException;
+
+import org.eclipse.xtext.ide.editor.contentassist.ContentAssistEntry;
 
 import com.squid.core.database.domain.TableDomain;
 import com.squid.core.database.model.Table;
@@ -36,12 +43,13 @@ import com.squid.core.domain.operators.OperatorDefinition;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.ExpressionRef;
 import com.squid.core.expression.PrettyPrintOptions;
-import com.squid.core.expression.UndefinedExpression;
 import com.squid.core.expression.PrettyPrintOptions.ReferenceStyle;
+import com.squid.core.expression.UndefinedExpression;
 import com.squid.core.expression.parser.ParseException;
 import com.squid.core.expression.parser.Token;
 import com.squid.core.expression.parser.TokenMgrError;
 import com.squid.core.expression.reference.ColumnReference;
+import com.squid.core.expression.reference.ForeignKeyReference;
 import com.squid.core.expression.reference.TableReference;
 import com.squid.core.expression.scope.ExpressionDiagnostic;
 import com.squid.core.expression.scope.ExpressionScope;
@@ -49,6 +57,7 @@ import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.core.analysis.scope.AxisExpression;
 import com.squid.kraken.v4.core.analysis.scope.MeasureExpression;
 import com.squid.kraken.v4.core.analysis.scope.SpaceExpression;
+import com.squid.kraken.v4.core.analysis.universe.Axis;
 import com.squid.kraken.v4.core.expression.reference.DomainReference;
 import com.squid.kraken.v4.core.expression.reference.ParameterReference;
 import com.squid.kraken.v4.core.expression.reference.RelationReference;
@@ -57,7 +66,6 @@ import com.squid.kraken.v4.model.ExpressionSuggestion;
 import com.squid.kraken.v4.model.ExpressionSuggestionItem;
 import com.squid.kraken.v4.model.ObjectType;
 import com.squid.kraken.v4.model.ValueType;
-import org.eclipse.xtext.ide.editor.contentassist.ContentAssistEntry;
 
 public class ExpressionSuggestionHandler {
 
@@ -149,24 +157,6 @@ public class ExpressionSuggestionHandler {
         return result;
     }
 	
-	private Exception parseExpression(String expression, ExpressionSuggestion result) {
-		try {
-			ExpressionAST parsed = expression!=""?scope.parseExpression(expression):new UndefinedExpression("");
-			ExpressionDiagnostic validation = scope.validateExpression(parsed);
-			if (validation==ExpressionDiagnostic.IS_VALID) {
-			    // just set empty string when the expression is valid
-				result.setValidateMessage("");
-			} else {
-				result.setValidateMessage(validation.getErrorMessage());
-			}
-		} catch (ScopeException e) {
-			result.setValidateMessage(e.getLocalizedMessage()+(e.getCause()!=null?(" caused by "+e.getCause().getLocalizedMessage()):""));
-			return e;
-		}
-		// else
-		return null;
-	}
-	
 	private boolean isComposableToken(Token token) {
 		if (token==null || token.kind==0) return false;
 		return true;
@@ -183,7 +173,29 @@ public class ExpressionSuggestionHandler {
 		*/
 	}
 
-    private void updateProposal(ExpressionSuggestion exSuggestion, String text, Collection<ObjectType> objectTypes, Collection<ValueType> valueTypes, Token currentToken) {
+
+    private Exception parseExpression(String expression, ExpressionSuggestion result) {
+        try {
+            ExpressionAST parsed = expression != "" ? scope.parseExpression(expression) : new UndefinedExpression("");
+            ExpressionDiagnostic validation = scope.validateExpression(parsed);
+            if (validation == ExpressionDiagnostic.IS_VALID) {
+                // just set empty string when the expression is valid
+                result.setValidateMessage("");
+                result.setValueType(computeValueType(parsed));
+            } else {
+                result.setValidateMessage(validation.getErrorMessage());
+                result.setValueType(ValueType.ERROR);
+            }
+        } catch (ScopeException e) {
+            result.setValidateMessage(e.getLocalizedMessage() + (e.getCause() != null ? (" caused by " + e.getCause().getLocalizedMessage()) : ""));
+            result.setValueType(ValueType.ERROR);
+            return e;
+        }
+        // else
+        return null;
+    }
+
+private void updateProposal(ExpressionSuggestion exSuggestion, String text, Collection<ObjectType> objectTypes, Collection<ValueType> valueTypes, Token currentToken) {
         //
         ExpressionScope actualScope = this.scope;
         String filter = "";
@@ -293,31 +305,35 @@ public class ExpressionSuggestionHandler {
             		//test if it is a function
 	                Set<OperatorDefinition> opDefs = this.scope.looseLookup(text);
 	                for (OperatorDefinition opDef : opDefs) {
-	                    List<List> poly = opDef.getParametersTypes();
-	                    ListContentAssistEntry listContentAssistEntry = opDef.getListContentAssistEntry();
-	                    if (listContentAssistEntry != null) {
-	                        if (listContentAssistEntry.getContentAssistEntries() != null) {
-	                            for (ContentAssistEntry contentAssistEntry : listContentAssistEntry.getContentAssistEntries()) {
-	                                //TODO this code should disappear when we get to XTEXT
-	                                ExpressionSuggestionItem item =
-	                                        new ExpressionSuggestionItem(
-	                                                opDef.getSymbol() + "(" + contentAssistEntry.getLabel() + ")",
-	                                                contentAssistEntry.getDescription(),
-	                                                opDef.getSymbol() + "(" + contentAssistEntry.getLabel() + ")",
-	                                                opDef.getSymbol() + "(" + contentAssistEntry.getProposal() + ")",
-	                                                ObjectType.FUNCTION,
-	                                                computeValueTypeFromImage(opDef.computeImageDomain(poly.get(listContentAssistEntry.getContentAssistEntries().indexOf(contentAssistEntry)))),
-	                                                0);//computeValueTypeFromImage(opDef.computeImageDomain(type)));
-	                                if (item.getValueType() != ValueType.ERROR) {
-	                                    if(valueTypes == null || valueTypes.contains(item.getValueType())) {
-	                                        if (proposals.size() < PROPOSAL_MAX_SIZE) {
-	                                            proposals.add(item);
-	                                        }
-	                                    }
-	                                }
-	                            }
-	                        }
-	                    }
+	                	if (opDef.getPosition()!=OperatorDefinition.INFIX_POSITION) {
+		                    List<List> poly = opDef.getParametersTypes();
+		                    ListContentAssistEntry listContentAssistEntry = opDef.getListContentAssistEntry();
+		                    if (listContentAssistEntry != null) {
+		                        if (listContentAssistEntry.getContentAssistEntries() != null) {
+		                            for (ContentAssistEntry contentAssistEntry : listContentAssistEntry.getContentAssistEntries()) {
+		                                //TODO this code should disappear when we get to XTEXT
+		                                ExpressionSuggestionItem item =
+		                                        new ExpressionSuggestionItem(null,
+		                                                opDef.getSymbol() + "(" + contentAssistEntry.getLabel() + ")",
+		                                                contentAssistEntry.getDescription(),
+		                                                opDef.getSymbol() + "(" + contentAssistEntry.getLabel() + ")",
+		                                                opDef.getSymbol() + "(" + contentAssistEntry.getProposal() + ")",
+		                                                ObjectType.FUNCTION,
+		                                                computeValueTypeFromImage(opDef.computeImageDomain(poly.get(listContentAssistEntry.getContentAssistEntries().indexOf(contentAssistEntry)))),
+		                                                0);//computeValueTypeFromImage(opDef.computeImageDomain(type)));
+		                                if (item.getValueType() != ValueType.ERROR) {
+		                                    if(valueTypes == null || valueTypes.contains(item.getValueType())) {
+		                                        if (proposals.size() < PROPOSAL_MAX_SIZE) {
+		                                            proposals.add(item);
+		                                        }
+		                                    }
+		                                }
+		                                String folder = opDef.getCategoryTypeName();
+		                                if (folder!=null) item.setFolder(folder);
+		                            }
+		                        }
+		                    }
+	                	}
 	                }
             	}
             } catch (ScopeException e) {
@@ -351,45 +367,52 @@ public class ExpressionSuggestionHandler {
     }
 
     private ExpressionSuggestionItem createItem(String suggestion, ExpressionAST expr) {
-        //TODO handle description escpaially for domain's suggestion.
         if (expr instanceof ExpressionRef && !(expr instanceof ParameterReference)) {
             if (expr instanceof TableReference) {
-                return new ExpressionSuggestionItem(
+                return new ExpressionSuggestionItem(expr,
                         ((ExpressionRef) expr).getReferenceName(),
                         ((TableReference) expr).getDescription(),
                         suggestion,
                         computeObjectType(expr),
                         computeValueType(expr));
             } else if (expr instanceof DomainReference) {
-                return new ExpressionSuggestionItem(
+                return new ExpressionSuggestionItem(expr,
                         ((ExpressionRef) expr).getReferenceName(),
                         ((DomainReference) expr).getDescription(),
                         suggestion,
                         computeObjectType(expr),
                         computeValueType(expr));
             } else if (expr instanceof RelationReference) {
-                return new ExpressionSuggestionItem(
+                return new ExpressionSuggestionItem(expr,
                         ((ExpressionRef) expr).getReferenceName(),
                         ((RelationReference) expr).getDescription(),
                         suggestion,
                         computeObjectType(expr),
                         computeValueType(expr));
             } else if (expr instanceof ColumnReference) {
-                return new ExpressionSuggestionItem(
+                return new ExpressionSuggestionItem(expr,
                         ((ExpressionRef) expr).getReferenceName(),
                         ((ColumnReference) expr).getDescription(),
                         suggestion,
                         computeObjectType(expr),
                         computeValueType(expr));
+            } else if (expr instanceof AxisExpression) {
+            	Axis axis = ((AxisExpression)expr).getAxis();
+                return new ExpressionSuggestionItem(expr,
+                        axis.getName(),
+                        axis.getDescription(),
+                        suggestion,
+                        computeObjectType(expr),
+                        computeValueType(expr));
             } else {
-                return new ExpressionSuggestionItem(
+                return new ExpressionSuggestionItem(expr,
                         ((ExpressionRef) expr).getReferenceName(),
                         suggestion,
                         computeObjectType(expr),
                         computeValueType(expr));
             }
         } else {
-            return new ExpressionSuggestionItem(
+            return new ExpressionSuggestionItem(expr,
                     suggestion,
                     computeObjectType(expr),
                     computeValueType(expr));
@@ -410,6 +433,8 @@ public class ExpressionSuggestionHandler {
             return ObjectType.TABLE;
         } else if (expr instanceof ColumnReference) {
             return ObjectType.COLUMN;
+        } else if (expr instanceof ForeignKeyReference) {
+            return ObjectType.FOREIGNKEY;
         } else if (expr instanceof DomainReference) {
             return ObjectType.DOMAIN;
         } else if (expr instanceof RelationReference) {
@@ -435,7 +460,7 @@ public class ExpressionSuggestionHandler {
         return computeValueTypeFromImage(image);
     }
 
-    private ValueType computeValueTypeFromImage(IDomain image) {
+    public static ValueType computeValueTypeFromImage(IDomain image) {
 
         if (image.isInstanceOf(IDomain.AGGREGATE))
 
@@ -480,7 +505,6 @@ public class ExpressionSuggestionHandler {
         {
             return ValueType.OBJECT;
         } else if (image.isInstanceOf(IDomain.UNKNOWN))
-
         {
             return ValueType.ERROR;
         } else return ValueType.OTHER;

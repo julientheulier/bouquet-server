@@ -105,19 +105,25 @@ public class ProjectDAO extends AccessRightsPersistentDAO<Project, ProjectPK> {
 		super.delete(ctx, id);
 	}
 
+	/**
+	 * Do not update dbPassword if null
+	 */
 	@Override
     public void update(AppContext ctx, Project projectData) {
         if (projectData.getDbPassword() == null) {
-            // do not update
+            // do not update dbPassword
             Project existingProject = ds.readNotNull(ctx, type, projectData.getId());
             projectData.setDbPassword(existingProject.getDbPassword());
+            super.update(ctx, projectData);
+            projectData.setDbPassword(null);
+        } else {
+        	super.update(ctx, projectData);
         }
-        super.update(ctx, projectData);
     }
 
 	private void checkReadRights(AppContext ctx, Project project) {
 		// check the access rights
-		AccessRightsUtils.getInstance().checkRole(ctx, project, Role.READ);
+		AccessRightsUtils.getInstance().checkRole(ctx, project, Role.EXECUTE);// T2121
 		boolean hasWriteRole = AccessRightsUtils.getInstance().hasRole(
 				ctx.getUser(), project.getAccessRights(), Role.WRITE);
 		if (project.getDbPassword() != null) {

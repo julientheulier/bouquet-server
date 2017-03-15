@@ -28,7 +28,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 
-import com.squid.kraken.v4.model.*;
 import org.bson.types.ObjectId;
 import org.mongodb.morphia.Datastore;
 import org.mongodb.morphia.query.Query;
@@ -55,7 +54,26 @@ import com.squid.kraken.v4.core.database.impl.SimpleDatabaseManager;
 import com.squid.kraken.v4.core.expression.scope.ExpressionSuggestionHandler;
 import com.squid.kraken.v4.core.expression.scope.ProjectExpressionScope;
 import com.squid.kraken.v4.core.expression.scope.RelationExpressionScope;
+import com.squid.kraken.v4.model.AccessRight;
 import com.squid.kraken.v4.model.AccessRight.Role;
+import com.squid.kraken.v4.model.visitor.DeepReadVisitor;
+import com.squid.kraken.v4.model.visitor.InvalidationVisitor;
+import com.squid.kraken.v4.model.Annotation;
+import com.squid.kraken.v4.model.AnnotationList;
+import com.squid.kraken.v4.model.AnnotationPK;
+import com.squid.kraken.v4.model.Customer;
+import com.squid.kraken.v4.model.Domain;
+import com.squid.kraken.v4.model.DomainPK;
+import com.squid.kraken.v4.model.ExpressionSuggestion;
+import com.squid.kraken.v4.model.GenericPK;
+import com.squid.kraken.v4.model.Persistent;
+import com.squid.kraken.v4.model.Project;
+import com.squid.kraken.v4.model.ProjectPK;
+import com.squid.kraken.v4.model.ProjectUser;
+import com.squid.kraken.v4.model.ProjectUserPK;
+import com.squid.kraken.v4.model.UserGroup;
+import com.squid.kraken.v4.model.UserGroupPK;
+import com.squid.kraken.v4.model.ValueType;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DAOFactory;
 import com.squid.kraken.v4.persistence.MongoDBHelper;
@@ -104,13 +122,18 @@ public class ProjectServiceBaseImpl extends GenericServiceImpl<Project, ProjectP
             // generate a new oid
             id.setObjectId(ObjectId.get().toString());
             newProject.setId(id);
+            // set the internal version to latest (T1771)
+            newProject.copyInternalVersion(null);
             updateMode = false;
         } else {
         	// check if this is a creation or an update
         	Optional<Project> read = DAOFactory.getDAOFactory().getDAO(Project.class).read(ctx, id);
         	if (read.isPresent()) {
+        		// T1771 - copy the internal version because it is read-only
+        		newProject.copyInternalVersion(read.get());
         		updateMode = true;
         	} else {
+        		// T1771 - if internalVersion is not set, it's going to be a legacy - so no need to change
         		updateMode = false;
         	}
         }
@@ -157,8 +180,45 @@ public class ProjectServiceBaseImpl extends GenericServiceImpl<Project, ProjectP
 	}
 
 	public List<Project> readAll(AppContext ctx) {
-		return ((ProjectDAO) DAOFactory.getDAOFactory().getDAO(Project.class))
+		List<Project> projects = ((ProjectDAO) DAOFactory.getDAOFactory().getDAO(Project.class))
 				.findByCustomer(ctx, ctx.getCustomerPk());
+		// T2121 : filter project with role execute
+		ArrayList<Project> filter = new ArrayList<>(projects.size());
+		for (Project project : projects) {
+			if (AccessRightsUtils.getInstance().hasRole(ctx, project, Role.READ)) {
+				filter.add(project);
+			}
+		}
+		return filter;
+	}
+	
+	/* (non-Javadoc)
+	 * @see com.squid.kraken.v4.api.core.GenericServiceImpl#read(com.squid.kraken.v4.persistence.AppContext, com.squid.kraken.v4.model.GenericPK, boolean)
+	 */
+	@Override
+	public Project read(AppContext ctx, ProjectPK objectId, boolean deepRead) {
+		// T2121
+		try {
+	        Project object = ProjectManager.INSTANCE.getProject(ctx, objectId);
+	        if (ctx.isRefresh()) {
+	            // check for owner role
+	            AccessRightsUtils.getInstance().checkRole(ctx, object, Role.WRITE);
+	            // perform recursive invalidation
+	            DeepReadVisitor v1 = new DeepReadVisitor(ctx);
+	            object.accept(v1);
+	            InvalidationVisitor invalidationVisitor = new InvalidationVisitor(ctx, object);
+	            object.accept(invalidationVisitor);
+	            invalidationVisitor.commit();
+	        } else if (deepRead) {
+	        	// T2121
+	        	ProjectManager.INSTANCE.upgradeUserAccess(ctx, object);
+	        	DeepReadVisitor v1 = new DeepReadVisitor(ctx);
+	            object.accept(v1);
+	        }
+			return object;
+		} catch (ScopeException e) {
+			throw new ObjectNotFoundAPIException(e, true);
+		}
 	}
     
     /**

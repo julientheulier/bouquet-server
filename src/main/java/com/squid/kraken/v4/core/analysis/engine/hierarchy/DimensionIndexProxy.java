@@ -23,7 +23,7 @@
  *******************************************************************************/
 package com.squid.kraken.v4.core.analysis.engine.hierarchy;
 
-import java.util.List; 
+import java.util.List;
 
 import com.squid.kraken.v4.core.analysis.engine.index.IDimensionStore;
 import com.squid.kraken.v4.core.analysis.universe.Axis;

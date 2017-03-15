@@ -55,8 +55,6 @@ public class Bookmark extends DynamicObject<BookmarkPK> implements HasConfig {
 		SHARED, USER
 	};
 
-	private String name;
-	private String description;
 	private String path;
 
 	@JsonRawValue
@@ -74,25 +72,13 @@ public class Bookmark extends DynamicObject<BookmarkPK> implements HasConfig {
 		super(id);
 	}
 	
-	public String getBBID() {
+	/**
+	 * return the expression that reference this bookmark. You can use the reference with the /analytics API and in un-scoped expression.
+	 * @return
+	 */
+	public String getReference() {
 		if (getId()==null) return "";
-		return id.getProjectId()+":"+id.getBookmarkId();
-	}
-
-	public String getName() {
-		return name;
-	}
-
-	public void setName(String name) {
-		this.name = name;
-	}
-
-	public String getDescription() {
-		return description;
-	}
-
-	public void setDescription(String description) {
-		this.description = description;
+		return "@'"+id.getProjectId()+"'.@bookmark:'"+id.getBookmarkId()+"'";
 	}
 
 	/**

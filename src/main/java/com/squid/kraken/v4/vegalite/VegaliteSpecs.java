@@ -23,6 +23,9 @@
  *******************************************************************************/
 package com.squid.kraken.v4.vegalite;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
+
 /**
  * Java mapping of the Vegalite specs, cf.
  * https://vega.github.io/vega-lite/docs/spec.html
@@ -30,7 +33,28 @@ package com.squid.kraken.v4.vegalite;
  * @author sergefantino
  *
  */
+@JsonInclude(Include.NON_NULL)
 public class VegaliteSpecs {
+	
+
+	public static class Cell {
+		
+		public Cell(int width, int height) {
+			this.width = width;
+			this.height = height;
+		}
+
+		public int width;
+		
+		public int height;
+		
+	}
+	
+	public static class Config {
+		
+		public Cell cell;
+		
+	}
 
 	public static class Encoding {
 
@@ -46,7 +70,40 @@ public class VegaliteSpecs {
 		public DataType type;
 		
 		public TimeUnit timeUnit;
+		
+		public Sort sort;
+		
+		public Aggregate aggregate;
 
+	}
+	
+	public enum Aggregate {
+		count, valid, missing, distinct, mean, median, variance, variancep, stdev, stdevp, q1, q3, modeskew, sum, min, max
+	}
+	
+	public static class Sort {
+		
+		public String field;
+		
+		public Operation op;
+		
+		public Order order;
+
+		public Sort(String field, Operation op, Order order) {
+			super();
+			this.field = field;
+			this.op = op;
+			this.order = order;
+		}
+		
+	}
+	
+	public enum Operation {
+		mean, median, sum, min, max
+	}
+	
+	public enum Order {
+		ascending, descending
 	}
 	
 	public enum TimeUnit {
@@ -87,6 +144,9 @@ public class VegaliteSpecs {
 
 	public Mark mark;
 
-	public Encoding encoding;
+	public Encoding encoding = new Encoding();
+	
+	
+	public Config config = new Config();
 
 }

@@ -43,7 +43,7 @@ import com.squid.kraken.v4.model.Customer.AUTH_MODE;
  * property.<br>
  * If property if not found, it'll try to get it from System properties.
  */
-public class KrakenConfig {
+public class KrakenConfig implements KrakenConfigConstants {
 
 	private static final Logger logger = LoggerFactory.getLogger(KrakenConfig.class);
 
@@ -132,6 +132,10 @@ public class KrakenConfig {
 					if (confV2.getWsHost() != null) {
 						props.setProperty("kraken.ws.host", confV2.getWsHost());
 					}
+					
+					if (confV2.getPublicBaseUri() != null) {
+						props.setProperty(publicBaseUri, confV2.getPublicBaseUri());
+					}
 
 					if (confV2.getMongodb().getHost() != null) {
 						props.setProperty("kraken.mongodb.host", confV2.getMongodb().getHost());
@@ -183,6 +187,11 @@ public class KrakenConfig {
 						props.setProperty("kraken.ws.version", confV2.getKrakenWSVersion());
 
 					}
+					
+					if (confV2.getLocalAdminPass()!=null){
+						props.setProperty("localAdminPass", confV2.getLocalAdminPass());
+					}
+					
 
 					props.setProperty("elastic.local", Boolean.toString(confV2.getElasticLocal()));
 					props.setProperty("feature.dynamic", Boolean.toString(confV2.getFeatureDynamic()));
@@ -193,7 +202,7 @@ public class KrakenConfig {
 					}
 
 				} catch (IOException e) {
-					logger.error("Could not load config file : " + filePathV2);
+					logger.error("Could not load config file : " + filePathV2, e);
 				}
 
 			} else {
@@ -209,7 +218,7 @@ public class KrakenConfig {
 						InputStream in = KrakenConfig.class.getClassLoader().getResourceAsStream(filePath);
 						load(in, props);
 					} catch (Exception e1) {
-						logger.error("Could not load config file : " + filePath);
+						logger.error("Could not load config file : " + filePath, e1);
 					}
 				}
 			}

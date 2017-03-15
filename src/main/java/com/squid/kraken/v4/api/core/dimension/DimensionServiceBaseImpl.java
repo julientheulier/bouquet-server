@@ -27,7 +27,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
-import com.squid.kraken.v4.model.*;
+import org.bson.types.ObjectId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,8 +46,21 @@ import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.kraken.v4.core.expression.scope.AttributeExpressionScope;
+import com.squid.kraken.v4.core.expression.scope.DimensionDefaultValueScope;
 import com.squid.kraken.v4.core.expression.scope.ExpressionSuggestionHandler;
 import com.squid.kraken.v4.model.AccessRight.Role;
+import com.squid.kraken.v4.model.Dimension;
+import com.squid.kraken.v4.model.DimensionOption;
+import com.squid.kraken.v4.model.DimensionOptionPK;
+import com.squid.kraken.v4.model.DimensionPK;
+import com.squid.kraken.v4.model.Domain;
+import com.squid.kraken.v4.model.DomainPK;
+import com.squid.kraken.v4.model.DynamicObject;
+import com.squid.kraken.v4.model.ExpressionObject;
+import com.squid.kraken.v4.model.ExpressionSuggestion;
+import com.squid.kraken.v4.model.Project;
+import com.squid.kraken.v4.model.ProjectPK;
+import com.squid.kraken.v4.model.ValueType;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DAOFactory;
 import com.squid.kraken.v4.persistence.dao.DimensionDAO;
@@ -251,6 +264,35 @@ public class DimensionServiceBaseImpl extends
 	        ExpressionAST expr = universe.getParser().parse(domain, dimension);
 	        Collection<ExpressionObject<?>> references = universe.getParser().analyzeExpression(dimension.getId(), dimension.getExpression(), expr);
 	        universe.getParser().saveReferences(references);
+	        //
+	        // check the options
+	        if (dimension.getOptions()!=null) {
+	        	for (DimensionOption option : dimension.getOptions()) {
+	        		// enforce ID
+	        		if (option.getId()==null) {
+	        			DimensionOptionPK id = new DimensionOptionPK(dimensionPk);
+	        			id.setObjectId(ObjectId.get().toString());
+	        			option.setId(id);
+	        		} else {
+	        			DimensionOptionPK id = new DimensionOptionPK(dimensionPk);
+	        			if (option.getId().getObjectId()==null || option.getId().getObjectId().equals("")) {
+	        				id.setObjectId(ObjectId.get().toString());
+	        			} else {
+	        				id.setObjectId(option.getId().getObjectId());
+	        			}
+	        			option.setId(id);
+	        		}
+	        		// check default selection definition
+	        		if (option.getDefaultSelection()!=null && option.getDefaultSelection().getValue()!=null) {
+	        			DimensionDefaultValueScope scope = new DimensionDefaultValueScope(ctx, dimension, expr.getImageDomain());
+	        			try {
+	        				scope.parseExpression(option.getDefaultSelection().getValue());
+	        			} catch (ScopeException e) {
+	        				throw new ScopeException("Invalid Option definition: unable to parse the default selection: "+e.getLocalizedMessage(), e);
+	        			}
+	        		}
+	        	}
+	        }
 	        // ok
 			return super.store(ctx, dimension);
 		} catch (ScopeException | ComputingException | InterruptedException e) {

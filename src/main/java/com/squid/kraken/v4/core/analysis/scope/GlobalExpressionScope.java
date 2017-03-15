@@ -21,21 +21,17 @@
  * you and Squid Solutions (above licenses and LICENSE.txt included).
  * See http://www.squidsolutions.com/EnterpriseBouquet/
  *******************************************************************************/
-package com.squid.kraken.v4.api.core.bb;
-
-import java.util.List;
+package com.squid.kraken.v4.core.analysis.scope;
 
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.scope.DefaultScope;
 import com.squid.core.expression.scope.ExpressionScope;
 import com.squid.core.expression.scope.IdentifierType;
 import com.squid.core.expression.scope.ScopeException;
-import com.squid.kraken.v4.core.analysis.scope.UniverseScope;
+import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.kraken.v4.model.Project;
 import com.squid.kraken.v4.persistence.AppContext;
-import com.squid.kraken.v4.persistence.DAOFactory;
-import com.squid.kraken.v4.persistence.dao.ProjectDAO;
 
 /**
  * @author sergefantino
@@ -89,17 +85,11 @@ extends DefaultScope
 	@Override
 	public Object lookupObject(IdentifierType identifierType, String identifier) throws ScopeException {
 		// lookup for a Project in the user scope
-		List<Project> projects = ((ProjectDAO) DAOFactory.getDAOFactory().getDAO(Project.class))
-				.findByCustomer(ctx, ctx.getCustomerPk());
-		for (Project project : projects) {
-			if (identifierType.equals(IdentifierType.IDENTIFIER) && project.getId().getProjectId().equals(identifier)) {
-				return project;
-			} else if (project.getName()!=null && project.getName().equals(identifier)) {
-				return project;
-			}
+		if (identifierType.equals(IdentifierType.IDENTIFIER)) {
+			return ProjectManager.INSTANCE.getProject(ctx, identifier);
+		} else {
+			return ProjectManager.INSTANCE.findProjectByName(ctx, identifier);
 		}
-		// else
-		return super.lookupObject(identifierType, identifier);
 	}
 
 }

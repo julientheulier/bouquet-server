@@ -25,11 +25,12 @@ package com.squid.kraken.v4.core.analysis.engine.processor;
 
 import com.squid.core.domain.DomainConstant;
 import com.squid.core.domain.IDomain;
-import com.squid.core.domain.extensions.date.AddMonthsOperatorDefinition;
 import com.squid.core.domain.extensions.cast.CastOperatorDefinition;
-import com.squid.core.domain.extensions.date.operator.DateOperatorDefinition;
+import com.squid.core.domain.extensions.date.AddMonthsOperatorDefinition;
 import com.squid.core.domain.extensions.date.DateTruncateOperatorDefinition;
 import com.squid.core.domain.extensions.date.DateTruncateShortcutsOperatorDefinition;
+import com.squid.core.domain.extensions.date.extract.ExtractOperatorDefinition;
+import com.squid.core.domain.extensions.date.operator.DateOperatorDefinition;
 import com.squid.core.domain.operators.IntrinsicOperators;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.ExpressionLeaf;
@@ -126,6 +127,10 @@ public class DateExpressionAssociativeTransformationExtractor {
 		}
 		// DATE TRUNCATE shortcuts
 		else if (extendedID.toUpperCase().startsWith(DateTruncateShortcutsOperatorDefinition.SHORTCUT_BASE.toUpperCase()) && op.getArguments().size()==1) {
+			return eval(op.getArguments().get(0));
+		}
+		// DAY_OF_WEEK, DAY_OF_YEAR, DAY, MONTH, YEAR, HOUR, ...
+		else if (extendedID.toUpperCase().startsWith(ExtractOperatorDefinition.EXTRACT_BASE.toUpperCase()) && op.getArguments().size()==1) {
 			return eval(op.getArguments().get(0));
 		}
 		return op;

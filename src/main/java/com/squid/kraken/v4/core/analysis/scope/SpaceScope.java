@@ -23,6 +23,7 @@
  *******************************************************************************/
 package com.squid.kraken.v4.core.analysis.scope;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 
@@ -37,6 +38,7 @@ import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
 import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.core.expression.reference.ColumnDomainReference;
+import com.squid.kraken.v4.core.expression.reference.ParameterReference;
 import com.squid.kraken.v4.model.Dimension;
 import com.squid.kraken.v4.model.Metric;
 import com.squid.kraken.v4.model.Relation;
@@ -50,6 +52,17 @@ public class SpaceScope extends AnalysisScope {
         super();
         this.space = space;
     }
+
+	private HashMap<String, ExpressionAST> params = new HashMap<>();
+	
+	/**
+	 * allow this param to be use in the expression (note that some params are always available)
+	 * @param param
+	 * @param type == the param type
+	 */
+	public void addParam(String param, ExpressionAST definition) {
+		params.put(param, definition);
+	}
     
     /**
 	 * @return the space
@@ -71,9 +84,15 @@ public class SpaceScope extends AnalysisScope {
 
     @Override
     public Object lookupObject(IdentifierType identifierType, String name) throws ScopeException {
+		//
+		// SELF
+		if (getSpace()!=null && identifierType.equals(IdentifierType.PARAMETER) && name.equalsIgnoreCase("SELF")) {
+			return new ParameterReference("SELF", getSpace().getImageDomain());
+		}
+		//
         // lookup a subdoain
         if (identifierType == IdentifierType.DEFAULT || identifierType == DOMAIN) {
-            Relation relation = space.getUniverse().getRelation(space.getDomain(), name);
+            Relation relation = space.findRelation(name);
             if (relation != null) {
                 return new Space(space, relation);
             }
@@ -175,8 +194,30 @@ public class SpaceScope extends AnalysisScope {
             	// ignore
             }
         }
+		// parameters ?
+		if (identifierType==IdentifierType.PARAMETER) {
+			if (params.containsKey(name)) {
+				return params.get(name);
+			}
+		}
         // else
         throw new ScopeException("identifier not found in '"+space.getDomain().getName()+"': " + name);
+    }
+    
+    @Override
+    public void buildDefinitionList(List<Object> definitions) {
+    	super.buildDefinitionList(definitions);
+    	//
+    	for (Axis axis : space.A(true)) {// only print the visible scope
+			try {
+				IDomain image = axis.getDefinitionSafe().getImageDomain();
+				if (!image.isInstanceOf(IDomain.OBJECT)) {
+					definitions.add(axis);
+				}
+			} catch (Exception e) {
+				// ignore
+			}
+		}
     }
 
 }

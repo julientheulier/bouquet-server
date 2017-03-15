@@ -55,6 +55,7 @@ import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
 import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionMember;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
+import com.squid.kraken.v4.core.analysis.engine.processor.DataMatrixTransform;
 import com.squid.kraken.v4.core.analysis.engine.processor.DateExpressionAssociativeTransformationExtractor;
 import com.squid.kraken.v4.core.analysis.engine.query.mapping.AxisMapping;
 import com.squid.kraken.v4.core.analysis.engine.query.mapping.MeasureMapping;
@@ -83,6 +84,8 @@ public class BaseQuery implements IQuery {
 	protected SelectUniversal select;
 
 	private QueryMapper mapper = new QueryMapper();
+	
+	private List<DataMatrixTransform> postProcessing = new ArrayList<>();
 
 	public BaseQuery() {
 		//
@@ -103,6 +106,22 @@ public class BaseQuery implements IQuery {
 	public BaseQuery(Universe universe, Domain subject) throws SQLScopeException, ScopeException {
 		this(universe);
 		this.select.from(universe.S(subject));
+	}
+
+	/**
+	 * Add a postProcessing step for latter use
+	 * @param dataMatrixTransformOrderBy
+	 */
+	public void addPostProcessing(DataMatrixTransform dataMatrixTransform) {
+		this.postProcessing.add(dataMatrixTransform);
+	}
+	
+	/**
+	 * Get all the defined postProcessing steps
+	 * @return the postProcessing
+	 */
+	public List<DataMatrixTransform> getPostProcessing() {
+		return postProcessing;
 	}
 
 	public SelectUniversal getSelect() {
@@ -245,7 +264,7 @@ public class BaseQuery implements IQuery {
 				&& select.getSkin().getFeatureSupport(QualifySupport.ID) == ISkinFeatureSupport.IS_NOT_SUPPORTED) {
 			return generateQualifyScript();
 		} else {
-			return new SQLScript(select);
+			return new SQLScript(select, getMapper());
 		}
 	}
 
@@ -277,19 +296,19 @@ public class BaseQuery implements IQuery {
 		throw new RuntimeException("QUALIFY clause is not supported for that request");
 	}
 
-
-
 	/**
-	 * override to add more dependencies
+	 * compute the dependencies for the query
 	 * 
 	 * @param deps
 	 */
-	protected void setDependencies(List<String> deps) {
-		// nothing for now
+	public List<String> computeDependencies() {
+		List<String> deps = new ArrayList<>();
+		deps.add(getUniverse().getProject().getId().toUUID());
+		return deps;
 	}
-
+	
 	protected DataMatrix computeDataMatrix(Database database, RawMatrix rawMatrix) throws ScopeException {
-		return new DataMatrix(database, rawMatrix, mapper.getMeasureMapping(), mapper.getAxisMapping());
+		return new DataMatrix( database,  rawMatrix, mapper);
 	}
 
 	//

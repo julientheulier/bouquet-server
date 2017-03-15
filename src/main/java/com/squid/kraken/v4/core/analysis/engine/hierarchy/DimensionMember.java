@@ -23,7 +23,7 @@
  *******************************************************************************/
 package com.squid.kraken.v4.core.analysis.engine.hierarchy;
 
-import java.io.Serializable; 
+import java.io.Serializable;
 
 import javax.xml.bind.annotation.XmlRootElement;
 

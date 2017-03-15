@@ -23,26 +23,10 @@
  *******************************************************************************/
 package com.squid.kraken.v4.core.sql;
 
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.LinkedList;
-import java.util.List;
 
 import com.squid.core.database.model.Column;
-import com.squid.core.expression.ExpressionAST;
-import com.squid.core.expression.reference.ColumnReference;
-import com.squid.core.expression.scope.ExpressionMaker;
-import com.squid.core.expression.scope.ScopeException;
-import com.squid.core.sql.AnalyzerMapping;
-import com.squid.core.sql.Context;
-import com.squid.core.sql.model.SQLScopeException;
-import com.squid.core.sql.model.Scope;
-import com.squid.core.sql.render.IFromPiece;
-import com.squid.core.sql.render.IPiece;
-import com.squid.core.sql.render.JoinDecorator;
-import com.squid.core.sql.render.WherePiece;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionMember;
-import com.squid.kraken.v4.core.analysis.model.Intervalle;
 
 public class Constraint {
 	public Column subject;

@@ -70,12 +70,15 @@ public class IntervalleObject extends IntervalleAbstract implements Comparable<I
 		return lower_bound;
 	}
 
+	
+
 	/* (non-Javadoc)
 	 * @see com.squid.kraken.v4.core.analysis.model.Intervalle#getUpperBound()
 	 */
 	public Object getUpperBound() {
 		return upper_bound;
 	}
+	
 
     /**
      * create a new interval that merges the given intervals
@@ -113,7 +116,7 @@ public class IntervalleObject extends IntervalleAbstract implements Comparable<I
 		} else if (o2==null) {
 			return 1;
 		}
-		else if (o1.getClass().equals(o2.getClass()) && o1 instanceof Comparable<?>) {
+		else if (o1.getClass().isAssignableFrom(o2.getClass()) && o1 instanceof Comparable<?>) {
     		return ((Comparable<T>)o1).compareTo((T)o2);
     	} else {
     		return o1.toString().compareTo(o2.toString());
@@ -175,7 +178,7 @@ public class IntervalleObject extends IntervalleAbstract implements Comparable<I
 	
 	@Override
 	public String toString() {
-		return "[ "+lower_bound.toString()+" | "+upper_bound.toString()+" ]";
+		return "[ "+lower_bound+" | "+upper_bound+" ]";
 	}
 	
 

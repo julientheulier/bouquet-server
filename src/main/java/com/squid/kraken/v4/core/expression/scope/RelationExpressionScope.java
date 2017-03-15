@@ -23,8 +23,8 @@
  *******************************************************************************/
 package com.squid.kraken.v4.core.expression.scope;
 
-import java.util.HashSet; 
-import java.util.List; 
+import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 
@@ -34,18 +34,17 @@ import com.squid.core.database.model.Table;
 import com.squid.core.domain.IDomain;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.PrettyPrintOptions;
-import com.squid.kraken.v4.core.expression.reference.DomainReference;
-import com.squid.kraken.v4.core.expression.reference.ParameterReference;
 import com.squid.core.expression.reference.ColumnReference;
 import com.squid.core.expression.reference.ForeignKeyReference;
 import com.squid.core.expression.scope.DefaultScope;
-import com.squid.kraken.v4.core.expression.scope.DomainExpressionScope;
 import com.squid.core.expression.scope.ExpressionDiagnostic;
 import com.squid.core.expression.scope.ExpressionMaker;
 import com.squid.core.expression.scope.ExpressionScope;
 import com.squid.core.expression.scope.IdentifierType;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
+import com.squid.kraken.v4.core.expression.reference.DomainReference;
+import com.squid.kraken.v4.core.expression.reference.ParameterReference;
 import com.squid.kraken.v4.core.model.domain.DomainDomain;
 import com.squid.kraken.v4.core.model.domain.ProxyDomainDomain;
 import com.squid.kraken.v4.model.Domain;

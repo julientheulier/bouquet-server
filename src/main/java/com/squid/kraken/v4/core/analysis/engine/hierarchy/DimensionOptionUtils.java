@@ -33,8 +33,8 @@ import com.squid.kraken.v4.core.analysis.model.IntervalleObject;
 import com.squid.kraken.v4.core.expression.scope.DimensionDefaultValueScope;
 import com.squid.kraken.v4.core.expression.scope.ExpressionEvaluator;
 import com.squid.kraken.v4.model.Dimension;
-import com.squid.kraken.v4.model.DimensionOption;
 import com.squid.kraken.v4.model.Dimension.Type;
+import com.squid.kraken.v4.model.DimensionOption;
 import com.squid.kraken.v4.persistence.AppContext;
 
 /**
@@ -145,9 +145,10 @@ public class DimensionOptionUtils {
 								values.add(member);
 							} else {
 								// create a temporary member
-								values.add(new DimensionMember(-1, defaultValues.get(0), index.getAttributeCount()));
+								values.add(new DimensionMember(-1, value, index.getAttributeCount()));
 							}
 						}
+						return values;
 					}
 				}
 			}

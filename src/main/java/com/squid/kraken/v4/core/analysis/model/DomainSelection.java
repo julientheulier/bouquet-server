@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 
 import com.squid.core.domain.IDomain;
@@ -49,7 +50,7 @@ public class DomainSelection {
     private Domain root = null;
     
     private List<ExpressionInput> conditions = null;
-    private HashMap<Axis, List<DimensionMember>> selections = null;
+    private HashMap<Axis, Collection<DimensionMember>> selections = null;
     
     public DomainSelection(Domain root) {
         this.root = root;
@@ -99,7 +100,7 @@ public class DomainSelection {
         if (selections==null) {
             return Collections.emptyList();
         } else {
-            List<DimensionMember> members = selections.get(axis);
+            Collection<DimensionMember> members = selections.get(axis);
             if (members==null) {
                 return Collections.emptyList();
             } else {
@@ -135,9 +136,9 @@ public class DomainSelection {
         if (selections==null) {
             selections = new HashMap<>();
         }
-        List<DimensionMember> members = selections.get(axis);
+        Collection<DimensionMember> members = selections.get(axis);
         if (members==null) {
-            members = new ArrayList<>();
+            members = new LinkedHashSet<>();
             selections.put(axis,  members);
         }
         members.add(member);
@@ -151,9 +152,9 @@ public class DomainSelection {
         if (selections==null) {
             selections = new HashMap<>();
         }
-        List<DimensionMember> members = selections.get(axis);
+        Collection<DimensionMember> members = selections.get(axis);
         if (members==null) {
-            members = new ArrayList<>();
+            members = new LinkedHashSet<>();
             selections.put(axis,  members);
         }
         members.addAll(filters);

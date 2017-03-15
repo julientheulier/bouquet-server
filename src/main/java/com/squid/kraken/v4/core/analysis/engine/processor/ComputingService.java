@@ -85,7 +85,7 @@ public class ComputingService {
 		final AnalysisCompute compute = new AnalysisCompute(analysis.getUniverse());
 		try {
 			return compute.computeAnalysis(analysis);
-		} catch (ScopeException | SQLScopeException e) {
+		} catch (ScopeException | SQLScopeException | RenderingException e) {
 			throw new ComputingException(e.getLocalizedMessage(), e);
 		}
 	}

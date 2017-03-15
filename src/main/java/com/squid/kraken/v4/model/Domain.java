@@ -39,7 +39,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.squid.kraken.v4.model.visitor.ModelVisitor;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DAOFactory;
-import com.wordnik.swagger.annotations.ApiModelProperty;
+import io.swagger.annotations.ApiModelProperty;
 
 /**
  * Domain is a structure defining available Dimensions and Metrics which can be
@@ -59,8 +59,10 @@ public class Domain extends DynamicObject<DomainPK> implements Cloneable, HasChi
 	
     private Expression subject;
 
-    @JsonIgnore
-	private Integer internalVersion = null;// internal only, client cannot use this property
+	// the version is now visible, but cannot be modified (the store method won't allow it)
+	// - we need to export the domain version if we want to re-create the domain in a new instance, so the behavior is compliant
+	// - if we hide the internalVerion, we won't be able to move an old project/domain
+	private Integer internalVersion = null;
     
     @Transient
     transient private List<Metric> metrics;
@@ -108,7 +110,7 @@ public class Domain extends DynamicObject<DomainPK> implements Cloneable, HasChi
     /**
      * An Expression relative to the parent Project, and used to define the Domain mapping.
      */
-    @ApiModelProperty(position = 1)
+    @ApiModelProperty
     public Expression getSubject() {
         return subject;
     }

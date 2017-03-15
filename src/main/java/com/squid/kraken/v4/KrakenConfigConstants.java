@@ -21,66 +21,23 @@
  * you and Squid Solutions (above licenses and LICENSE.txt included).
  * See http://www.squidsolutions.com/EnterpriseBouquet/
  *******************************************************************************/
-package com.squid.kraken.v4.model;
-
-import com.wordnik.swagger.annotations.ApiModelProperty;
+package com.squid.kraken.v4;
 
 /**
- * This is the result of an analysis
  * @author sergefantino
  *
  */
-public class AnalysisResult {
-	
-	// this is the query that generated this analysis
-	private AnalysisQuery query;
-	
-	// the analysis selection
-	private FacetSelection selection;
-	
-	// the resulting dataTable
-	private DataTable data;
-	// the sql code
-	private String sql;
+public interface KrakenConfigConstants {
 	
 	/**
+	 * this is the public URI for the server API, for example: https://bouquet.yourcompany.com/eu/release
 	 * 
 	 */
-	public AnalysisResult() {
-		// TODO Auto-generated constructor stub
-	}
-
-	public AnalysisQuery getQuery() {
-		return query;
-	}
-
-	public void setQuery(AnalysisQuery query) {
-		this.query = query;
-	}
-
-	@ApiModelProperty(hidden=true)// only used for LEGACY mode, so don't mess user with it
-	public FacetSelection getSelection() {
-		return selection;
-	}
-
-	public void setSelection(FacetSelection selection) {
-		this.selection = selection;
-	}
-
-	public DataTable getData() {
-		return data;
-	}
-
-	public void setData(DataTable data) {
-		this.data = data;
-	}
-
-	public String getSQL() {
-		return sql;
-	}
+	public static final String publicBaseUri = "publicBaseUri";
 	
-	public void setSQL(String sql) {
-		this.sql = sql;
-	}
+	/**
+	 * URL of the Auth webapp, which Bouquet Server will redirect to when requesting authentication
+	 */
+	public static final String krakenOAuthEndpoint = "kraken.oauth.endpoint";
 
 }

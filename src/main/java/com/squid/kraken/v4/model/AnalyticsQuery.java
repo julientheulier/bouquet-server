@@ -3,13 +3,11 @@ package com.squid.kraken.v4.model;
 import java.util.List;
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import com.squid.kraken.v4.api.core.bb.NavigationQuery.Style;
-import com.squid.kraken.v4.model.AnalysisQueryImpl.AnalysisFacetImpl;
-import com.squid.kraken.v4.model.ProjectAnalysisJob.OrderBy;
-import com.squid.kraken.v4.model.ProjectAnalysisJob.RollUp;
+import com.squid.kraken.v4.model.AnalyticsQueryImpl.AnalysisFacetImpl;
+import com.squid.kraken.v4.model.NavigationQuery.Style;
 
-@JsonDeserialize(as = AnalysisQueryImpl.class)
-public interface AnalysisQuery {
+@JsonDeserialize(as = AnalyticsQueryImpl.class)
+public interface AnalyticsQuery extends AnalyticsSelection {
 	
 	public String getBBID();
 	
@@ -26,35 +24,14 @@ public interface AnalysisQuery {
 	public List<String> getMetrics();
 
 	public void setMetrics(List<String> facets);
-	
-	/**
-	 * get the period expression, used to filter the timeframe.
-	 * This must be a valid date or timestamp expression.
-	 * @return
-	 */
-	public String getPeriod();
-	
-	public void setPeriod(String expression);
-	
-	public String[] getTimeframe();
-	
-	public void setTimeframe(String[] timeframe);
-	
-	public String[] getCompareframe();
-	
-	public void setCompareframe(String[] compareframe);
 
-	public List<String> getFilters();
+	public List<String> getOrderBy();
 
-	public void setFilters(List<String> filters);
+	public void setOrderBy(List<String> orderBy);
 
-	public List<OrderBy> getOrderBy();
+	public List<String> getRollups();
 
-	public void setOrderBy(List<OrderBy> orderBy);
-
-	public List<RollUp> getRollups();
-
-	public void setRollups(List<RollUp> rollups);
+	public void setRollups(List<String> rollups);
 
 	public Long getOffset();
 
@@ -83,10 +60,24 @@ public interface AnalysisQuery {
 	void setMaxResults(Integer maxResults);
 
 	Integer getMaxResults();
+	
+	// temporary support for beyondLimit
+	
+	List<String> getBeyondLimit();
+	
+	void setBeyondLimit(List<String> cols);
 
-	void setFormat(String format);
-
-	String getFormat();
+	/**
+	 * return an unique identifier based on the query value, i.e. two identical queries will have the same ID.
+	 * @return
+	 */
+	String getQueryID();
+	
+	List<Problem> getProblems();
+	
+	void setProblems(List<Problem> problems);
+	
+	void add(Problem problem);
 
 	@JsonDeserialize(as = AnalysisFacetImpl.class)
 	static public interface AnalysisFacet {

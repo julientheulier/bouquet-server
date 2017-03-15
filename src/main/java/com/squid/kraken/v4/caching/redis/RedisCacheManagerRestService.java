@@ -52,6 +52,7 @@ public class RedisCacheManagerRestService {
 	@Path("/getData")
 	public Object getData(
 			@QueryParam("user") String userID,
+			@QueryParam("login") String login,
 			@QueryParam("project") ProjectPK projectPK,
 			@QueryParam("sqlquery") String SQLQuery, 
 			@QueryParam("deps") ArrayList<String> dependencies, 
@@ -61,7 +62,7 @@ public class RedisCacheManagerRestService {
 			@QueryParam("pwd") String pwd,
 			@QueryParam("ttl") int TTLinSec,
 			@QueryParam("limit") long limit) throws InterruptedException{
-		return RedisCacheManager.getInstance().getData(userID, projectPK, SQLQuery, dependencies, jobId, RSjdbcURL, username, pwd,
+		return RedisCacheManager.getInstance().getData(userID, login, projectPK, SQLQuery, dependencies, jobId, RSjdbcURL, username, pwd,
 				TTLinSec, limit);
 	}
 }

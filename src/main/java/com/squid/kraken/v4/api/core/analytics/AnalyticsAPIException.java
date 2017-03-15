@@ -21,32 +21,47 @@
  * you and Squid Solutions (above licenses and LICENSE.txt included).
  * See http://www.squidsolutions.com/EnterpriseBouquet/
  *******************************************************************************/
-package com.squid.kraken.v4.api.core.bb;
+package com.squid.kraken.v4.api.core.analytics;
 
-import com.squid.kraken.v4.model.ProjectPK;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.squid.kraken.v4.api.core.APIException;
 
 /**
- * a dummy object to mimic PK for bookmark folders
+ * A custom version of the APIException in order to be able to return a information object and to be able to set the error code
  * @author sergefantino
  *
  */
-public class BookmarkFolderPK extends ProjectPK {
-
-	private static final long serialVersionUID = 6282495450897385099L;
+public class AnalyticsAPIException extends APIException {
 	
-	private String bookmarkFolderId;
-    
-	public BookmarkFolderPK(ProjectPK parent, String oid) {
-		super(parent.getCustomerId(), parent.getProjectId());
-		this.bookmarkFolderId = oid;
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 170479236484610673L;
+
+	private Object query;
+	
+	private int errorCode;
+	
+	/**
+	 * 
+	 */
+	public AnalyticsAPIException(Throwable cause, int errorCode, Object query) {
+		super(cause.getMessage(), cause, false);
+		this.query = query;
+		this.errorCode = errorCode;
 	}
 
-	public String getBookmarkFolderId() {
-		return bookmarkFolderId;
+	@Override
+	protected Integer getErrorCode() {
+		return errorCode;
 	}
-
-	public void setBookmarkFolderId(String bookmarkFolderId) {
-		this.bookmarkFolderId = bookmarkFolderId;
+	
+	/**
+	 * @return the query
+	 */
+	@JsonProperty
+	public Object getQuery() {
+		return query;
 	}
-
+	
 }

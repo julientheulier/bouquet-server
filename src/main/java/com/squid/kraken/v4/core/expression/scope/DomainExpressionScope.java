@@ -36,11 +36,9 @@ import com.squid.core.domain.IDomain;
 import com.squid.core.domain.operators.OperatorDefinition;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.PrettyPrintOptions;
-import com.squid.kraken.v4.core.expression.reference.ColumnDomainReference;
-import com.squid.kraken.v4.core.expression.reference.ParameterReference;
-import com.squid.kraken.v4.core.expression.reference.RelationReference;
+import com.squid.core.expression.reference.ColumnReference;
+import com.squid.core.expression.reference.RelationDirection;
 import com.squid.core.expression.scope.DefaultScope;
-import com.squid.kraken.v4.core.expression.scope.DomainExpressionScope;
 import com.squid.core.expression.scope.ExpressionScope;
 import com.squid.core.expression.scope.IdentifierType;
 import com.squid.core.expression.scope.ScopeException;
@@ -55,6 +53,9 @@ import com.squid.kraken.v4.core.analysis.universe.Axis;
 import com.squid.kraken.v4.core.analysis.universe.Measure;
 import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
+import com.squid.kraken.v4.core.expression.reference.ColumnDomainReference;
+import com.squid.kraken.v4.core.expression.reference.ParameterReference;
+import com.squid.kraken.v4.core.expression.reference.RelationReference;
 import com.squid.kraken.v4.core.model.domain.DomainDomain;
 import com.squid.kraken.v4.core.model.domain.DomainDomainImp;
 import com.squid.kraken.v4.model.Dimension;
@@ -63,8 +64,6 @@ import com.squid.kraken.v4.model.ExpressionObject;
 import com.squid.kraken.v4.model.Metric;
 import com.squid.kraken.v4.model.Relation;
 import com.squid.kraken.v4.model.RelationPK;
-import com.squid.core.expression.reference.ColumnReference;
-import com.squid.core.expression.reference.RelationDirection;
 
 /**
  * Expression Scope for a Domain object

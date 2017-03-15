@@ -24,6 +24,7 @@
 package com.squid.kraken.v4.core.sql.script;
 
 import com.squid.core.sql.render.RenderingException;
+import com.squid.kraken.v4.core.analysis.engine.query.mapping.QueryMapper;
 import com.squid.kraken.v4.core.sql.SelectUniversal;
 
 /**
@@ -39,16 +40,21 @@ public class SQLScript {
 	private String sql = null;
 	private SelectUniversal select = null;
 	
+	// T2033: because we can have side effects into the mapping, must be part of the result
+	private QueryMapper mapper = null;
+	
 	/**
 	 * create a very simple SQLScript which will only execute the given select
 	 * @param select
 	 */
-	public SQLScript(SelectUniversal select) {
+	public SQLScript(SelectUniversal select, QueryMapper mapper) {
 		this.select = select;
+		this.mapper = mapper;
 	}
 	
-	public SQLScript(String sql) {
+	public SQLScript(String sql, QueryMapper mapper) {
 		this.sql = sql;
+		this.mapper = mapper;
 	}
 	
 	public SelectUniversal getSelect() {
@@ -65,6 +71,13 @@ public class SQLScript {
 			throw new RenderingException("Empty SQL script");
 		}
 		return render;
+	}
+	
+	/**
+	 * @return the mapper
+	 */
+	public QueryMapper getMapper() {
+		return mapper;
 	}
 
 }

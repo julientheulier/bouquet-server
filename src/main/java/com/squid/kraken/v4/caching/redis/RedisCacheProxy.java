@@ -188,7 +188,7 @@ public class RedisCacheProxy implements IRedisCacheProxy {
 						pastKeys.add(currKey);
 						currKey = ref.getReferenceKey();
 						if (pastKeys.contains(currKey)){
-							throw new RuntimeException();
+							throw new RedisCacheException("detected cyclic cache reference, cannot read cache value");
 						}
 
 					}else{
@@ -205,7 +205,7 @@ public class RedisCacheProxy implements IRedisCacheProxy {
 
 		} catch (RuntimeException | ClassNotFoundException | IOException e ) {
 			logger.error("failed to getRawMatrix() on key="+key);
-			throw new RuntimeException("Jedis: getRawMatrix() failed on key="+key, e);
+			throw new RedisCacheException("Jedis: getRawMatrix() failed on key="+key+": "+e.getMessage(), e);
 		} 
 	}
 	

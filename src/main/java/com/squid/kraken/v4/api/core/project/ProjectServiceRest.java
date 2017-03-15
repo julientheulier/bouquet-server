@@ -43,7 +43,6 @@ import javax.ws.rs.core.Response;
 import com.google.common.base.Optional;
 import com.squid.core.database.impl.DatabaseServiceException;
 import com.squid.core.database.model.Database;
-import com.squid.core.domain.OperatorUndefinedType;
 import com.squid.core.domain.operators.IntrinsicOperators;
 import com.squid.core.domain.operators.ListContentAssistEntry;
 import com.squid.core.domain.operators.OperatorDefinition;
@@ -59,20 +58,32 @@ import com.squid.kraken.v4.api.core.domain.DomainServiceRest;
 import com.squid.kraken.v4.api.core.projectanalysisjob.AnalysisJobServiceRest;
 import com.squid.kraken.v4.api.core.projectfacetjob.FacetJobServiceRest;
 import com.squid.kraken.v4.api.core.relation.RelationServiceRest;
-import com.squid.kraken.v4.api.core.simpleanalysisjob.SimpleAnalysisJobServiceRest;
 import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
 import com.squid.kraken.v4.core.database.impl.DatabaseServiceImpl;
-import com.squid.kraken.v4.model.*;
+import com.squid.kraken.v4.model.AccessRight;
+import com.squid.kraken.v4.model.Annotation;
+import com.squid.kraken.v4.model.AnnotationList;
+import com.squid.kraken.v4.model.AnnotationPK;
+import com.squid.kraken.v4.model.Domain;
+import com.squid.kraken.v4.model.DomainOption;
+import com.squid.kraken.v4.model.DomainPK;
+import com.squid.kraken.v4.model.ExpressionSuggestion;
+import com.squid.kraken.v4.model.GenericPK;
+import com.squid.kraken.v4.model.Persistent;
+import com.squid.kraken.v4.model.Project;
+import com.squid.kraken.v4.model.ProjectPK;
+import com.squid.kraken.v4.model.ValueType;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DAOFactory;
 import com.squid.kraken.v4.persistence.dao.ProjectDAO;
-import com.wordnik.swagger.annotations.Api;
-import com.wordnik.swagger.annotations.ApiOperation;
-import com.wordnik.swagger.annotations.ApiParam;
-import com.wordnik.swagger.annotations.Authorization;
-import com.wordnik.swagger.annotations.AuthorizationScope;
+import io.swagger.annotations.Api;
+import io.swagger.annotations.ApiOperation;
+import io.swagger.annotations.ApiParam;
+import io.swagger.annotations.Authorization;
+import io.swagger.annotations.AuthorizationScope;
 
-@Api(value = "projects", hidden = true, authorizations = { @Authorization(value = "kraken_auth", type = "oauth2", scopes = { @AuthorizationScope(scope = "access", description = "Access")}) })
+@Path("/rs/projects")
+@Api(value = "projects", authorizations = { @Authorization(value = "kraken_auth", scopes = { @AuthorizationScope(scope = "access", description = "Access")}) })
 @Produces({ MediaType.APPLICATION_JSON })
 public class ProjectServiceRest extends BaseServiceRest {
 
@@ -119,7 +130,7 @@ public class ProjectServiceRest extends BaseServiceRest {
 	
 	@GET
     @Path("{"+PARAM_NAME+"}"+"/validate")
-	@ApiOperation(value = "Validate the Project connection")
+	@ApiOperation(hidden=true, value = "Validate the Project connection")
 	public boolean validate(@PathParam(PARAM_NAME) String objectId) {
 		ProjectPK projectPK = new ProjectPK(userContext.getCustomerId(),
 				objectId);
@@ -221,12 +232,13 @@ public class ProjectServiceRest extends BaseServiceRest {
 	 */
 	@Path("{"+PARAM_NAME+"}"+"/refreshDatabase")
 	@GET
-	@ApiOperation(value = "Refresh database operation")
+	@ApiOperation(hidden=true, value = "Refresh database operation")
 	public boolean refreshDatabase(@PathParam(PARAM_NAME) String projectId) {
 		return delegate.refreshDatabase(userContext, projectId);
 	}
 
 	@Path("{"+PARAM_NAME+"}"+"/cache")
+	@ApiOperation(value="Display cache information for this project")
 	@GET
 	public Object readCacheInfo(
 			@PathParam(PARAM_NAME) String objectId) {
@@ -235,6 +247,7 @@ public class ProjectServiceRest extends BaseServiceRest {
 	}
 
 	@Path("{"+PARAM_NAME+"}"+"/cache")
+	@ApiOperation(value="Refresh cache information for this project, including the database mapping")
 	@DELETE
 	public Object deleteCache(
 			@PathParam(PARAM_NAME) String objectId) {
@@ -243,6 +256,7 @@ public class ProjectServiceRest extends BaseServiceRest {
 	}
 
 	@Path("{"+PARAM_NAME+"}"+"/cache/refresh")
+	@ApiOperation(value="Refresh cache information for this project, including the database mapping")
 	@GET
 	public Object refreshCache(
 			@PathParam(PARAM_NAME) String objectId) {
@@ -252,7 +266,7 @@ public class ProjectServiceRest extends BaseServiceRest {
 
 	@Path("{"+PARAM_NAME+"}"+"/access")
 	@GET
-	@ApiOperation(value = "Gets a Project's access rights")
+	@ApiOperation(hidden=true, value = "Gets a Project's access rights")
 	public Set<AccessRight> readAccessRights(
 			@PathParam(PARAM_NAME) String objectId) {
 		return delegate.readAccessRights(userContext,
@@ -261,7 +275,7 @@ public class ProjectServiceRest extends BaseServiceRest {
 
 	@Path("{"+PARAM_NAME+"}"+"/access")
 	@POST
-	@ApiOperation(value = "Sets a Project's access rights")
+	@ApiOperation(hidden=true, value = "Sets a Project's access rights")
 	public Set<AccessRight> storeAccessRights(
 			@PathParam(PARAM_NAME) String objectId,
 			@ApiParam(required = true) Set<AccessRight> accessRights) {
@@ -278,7 +292,7 @@ public class ProjectServiceRest extends BaseServiceRest {
 
 	@GET
 	@Path("{" + PARAM_NAME + "}" + "/move")
-	@ApiOperation(value = "Gets an domain and save it to an other domain/db")
+	@ApiOperation(hidden=true, value = "Gets an domain and save it to an other domain/db")
 	public Response linkDomain(
 			@PathParam(PARAM_NAME) String sourceProjectId,
 			@ApiParam(value = "domain name for the source") @QueryParam("sourceDomainId") String sourceDomainId,
@@ -370,7 +384,7 @@ public class ProjectServiceRest extends BaseServiceRest {
 
 	@Path("{"+PARAM_NAME+"}"+"/domains-suggestion")
 	@GET
-	@ApiOperation(value = "Gets suggestions for Domain")
+	@ApiOperation(hidden=true, value = "Gets suggestions for Domain")
 	public ExpressionSuggestion getDomainSuggestion(
 			@PathParam("projectId") String projectId,
 			@QueryParam("expression") String expression,
@@ -382,7 +396,7 @@ public class ProjectServiceRest extends BaseServiceRest {
 
 	@Path("{"+PARAM_NAME+"}"+"/schemas-suggestion")
 	@GET
-	@ApiOperation(value = "DEPRECATED: Gets suggestions for DB Schemas")
+	@ApiOperation(hidden=true, value = "DEPRECATED: Gets suggestions for DB Schemas")
 	public ExpressionSuggestion getSchemaSuggestion(
 			@PathParam("projectId") String projectId) {
 		return delegate.getSchemaSuggestion(userContext, projectId);
@@ -411,7 +425,7 @@ public class ProjectServiceRest extends BaseServiceRest {
 
 	@Path("{"+PARAM_NAME+"}"+"/relations-suggestion")
 	@GET
-	@ApiOperation(value = "Gets suggestions for Relations")
+	@ApiOperation(hidden=true, value = "Gets suggestions for Relations")
 	public ExpressionSuggestion getRelationSuggestion(
             @PathParam("projectId") String projectId,
             @QueryParam("leftDomainId") String leftDomainId,
@@ -431,6 +445,7 @@ public class ProjectServiceRest extends BaseServiceRest {
 	 * @return AnnotationServiceRest
 	 */
 	@Path("{"+PARAM_NAME+"}"+"/annotations/{annotationId}")
+	@ApiOperation(hidden=true, value="Annotation API")
 	public AnnotationServiceRest getAnnotationService() {
 		return new AnnotationServiceRest(userContext);
 	}
@@ -448,6 +463,7 @@ public class ProjectServiceRest extends BaseServiceRest {
 	 * @return annotation list
 	 */
 	@Path("{"+PARAM_NAME+"}"+"/annotations")
+	@ApiOperation(hidden=true, value="Annotation API")
 	@GET
 	public AnnotationList readAnnotations(
 			@PathParam(PARAM_NAME) String projectId,
@@ -466,6 +482,7 @@ public class ProjectServiceRest extends BaseServiceRest {
 	 * @return created object
 	 */
 	@Path("{"+PARAM_NAME+"}"+"/annotations")
+	@ApiOperation(hidden=true, value="Annotation API")
 	@POST
 	public AnnotationPK addAnnotation(@PathParam(PARAM_NAME) String projectId,
 			Annotation annotation) {
@@ -484,13 +501,6 @@ public class ProjectServiceRest extends BaseServiceRest {
 	public BookmarkServiceRest getBookmarkService(
 			@Context HttpServletRequest request) {
 		return new BookmarkServiceRest(userContext);
-	}
-	
-	// simple analysisjobs
-	@Path("{"+PARAM_NAME+"}"+"/analyses")
-	@ApiOperation(value = "Simple Analysis Service")
-	public SimpleAnalysisJobServiceRest getSimpleAnalysisJobService() {
-		return new SimpleAnalysisJobServiceRest(userContext);
 	}
 	
 }

@@ -28,17 +28,18 @@ import javax.xml.bind.annotation.XmlType;
 
 import org.mongodb.morphia.annotations.Field;
 import org.mongodb.morphia.annotations.Index;
+import org.mongodb.morphia.annotations.IndexOptions;
 import org.mongodb.morphia.annotations.Indexes;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.squid.kraken.v4.model.visitor.ModelVisitor;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DAOFactory;
-import com.wordnik.swagger.annotations.ApiModelProperty;
+import io.swagger.annotations.ApiModelProperty;
 
 @XmlType(namespace = "http://model.v4.kraken.squid.com")
 @SuppressWarnings("serial")
-@Indexes({ @Index(fields = { @Field(value = "id.customerId"),
+@Indexes({ @Index(options = @IndexOptions(name = "metric_index"), fields = { @Field(value = "id.customerId"),
 		@Field(value = "id.projectId"), @Field(value = "id.domainId"),
 		@Field(value = "id.metricId") }) })
 public class Metric extends ExpressionObject<MetricPK> implements Cloneable {
@@ -74,7 +75,7 @@ public class Metric extends ExpressionObject<MetricPK> implements Cloneable {
 	 * An expression relative to the Domain, used to define the Analysis.
 	 */
 	@Override
-	@ApiModelProperty(position = 1)
+	@ApiModelProperty
 	public Expression getExpression() {
 		return expression;
 	}
@@ -99,7 +100,7 @@ public class Metric extends ExpressionObject<MetricPK> implements Cloneable {
 	}
 
 	@Override
-	@ApiModelProperty(position = 0)
+	@ApiModelProperty
 	public String toString() {
 		return "Metric [expression=" + expression + ", id=" + id
 				+ ", getName()=" + getName() + "]";

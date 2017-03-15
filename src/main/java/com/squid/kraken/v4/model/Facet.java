@@ -30,8 +30,9 @@ import java.util.List;
 import javax.xml.bind.annotation.XmlTransient;
 import javax.xml.bind.annotation.XmlType;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.mongodb.morphia.annotations.Transient;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 /**
  * A Facet describes Dimension values as a list of {@link FacetMember}s (items) and a list of selected items.<br>

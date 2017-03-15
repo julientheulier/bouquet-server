@@ -23,13 +23,12 @@
  *******************************************************************************/
 package com.squid.kraken.v4.export;
 
-import com.google.common.primitives.Ints;
-
-import org.apache.avro.Schema;
-
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
+import org.apache.avro.Schema;
+
+import com.google.common.primitives.Ints;
 import com.squid.core.export.IRawExportSource;
 import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
 
@@ -100,7 +99,7 @@ public class RawMatrixExportSource implements IRawExportSource {
 		@Override
 		public Object[] next() {
 			 if(this.hasNext()) {
-				 Object[] res =matrix.getRows().get(cursor).getData();
+				 Object[] res =matrix.getRows().get(cursor).data;
 				 cursor+=1;
 				 return res;
 			}else{

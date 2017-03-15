@@ -34,20 +34,20 @@ import java.util.Map;
 
 import javax.management.MBeanServer;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.squid.kraken.v4.model.GenericPK;
+
 import net.sf.ehcache.CacheManager;
 import net.sf.ehcache.config.CacheConfiguration;
 import net.sf.ehcache.config.Configuration;
 import net.sf.ehcache.config.Configuration.Monitoring;
 import net.sf.ehcache.config.DiskStoreConfiguration;
+import net.sf.ehcache.config.PersistenceConfiguration;
 import net.sf.ehcache.config.SizeOfPolicyConfiguration;
 import net.sf.ehcache.management.ManagementService;
-import net.sf.ehcache.config.PersistenceConfiguration;
 import net.sf.ehcache.store.MemoryStoreEvictionPolicy;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.squid.kraken.v4.model.GenericPK;
 
 public class CacheFactoryEHCache extends CacheFactory {
 

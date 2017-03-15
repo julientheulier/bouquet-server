@@ -40,12 +40,12 @@ import com.squid.core.domain.IDomain;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex;
+import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex.Status;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionMember;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionOptionUtils;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainFacetCompute;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainHierarchy;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.SegmentManager;
-import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex.Status;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.core.analysis.model.DashboardSelection;
 import com.squid.kraken.v4.core.analysis.model.DomainSelection;
@@ -75,7 +75,7 @@ import com.squid.kraken.v4.persistence.AppContext;
  */
 public class EngineUtils {
 
-    enum Bound {
+	public    enum Bound {
     	LOWER, UPPER
     }
     
@@ -181,9 +181,11 @@ public class EngineUtils {
      * @throws ScopeException
      * @throws ComputingException 
      */
-	public Date convertToDate(Universe universe, DimensionIndex index, Bound bound, String value, IntervalleObject compareFromInterval)
-			throws ParseException, ScopeException, ComputingException {
-		if (value.startsWith("__")) {
+    static public Date convertToDate(Universe universe, DimensionIndex index, Bound bound, String value, IntervalleObject compareFromInterval)
+			throws ScopeException, ComputingException {
+		if (value.equals("")) {
+			return null;
+		} else if (value.startsWith("__")) {
 			//
 			// support hard-coded shortcuts
 			if (value.toUpperCase().startsWith("__COMPARE_TO_")) {
@@ -348,11 +350,17 @@ public class EngineUtils {
 				throw new ComputingException("failed to retrieve period interval");
 			}
 		} else {
-			return ServiceUtils.getInstance().toDate(value);
+			Date date = ServiceUtils.getInstance().toDate(value);
+			if (bound==Bound.UPPER && !index.getAxis().getDefinitionSafe().getImageDomain().isInstanceOf(IDomain.TIME)) {
+				// clear the timestamp
+				return new LocalDate(date.getTime()).toDate();
+			} else {
+				return date;
+			}
 		}
 	}
 	
-	private Object evaluateExpression(Universe universe, DimensionIndex index, String expr, IntervalleObject compareFromInterval) throws ScopeException {
+    static private Object evaluateExpression(Universe universe, DimensionIndex index, String expr, IntervalleObject compareFromInterval) throws ScopeException {
 		try {
 			DimensionDefaultValueScope scope = new DimensionDefaultValueScope(universe.getContext(), index);
 			if (compareFromInterval!=null) {
@@ -363,7 +371,9 @@ public class EngineUtils {
 			ExpressionEvaluator evaluator = new ExpressionEvaluator(universe.getContext());
 			// provide sensible default for MIN & MAX -- we don't want the parser to fail is not set
 			Calendar calendar = Calendar.getInstance();
-			evaluator.setParameterValue("MAX", calendar.getTime());
+			Date current = calendar.getTime();
+			current = new java.sql.Date(current.getTime());// in order to serialize as iso8601
+			evaluator.setParameterValue("MAX", current);
 			// there is no sensible default for MIN
 			evaluator.setParameterValue("MIN", null);
 			// handle compareFrom interval values if available
@@ -507,15 +517,11 @@ public class EngineUtils {
                         		}
                         	}
                             FacetMemberInterval fmi = (FacetMemberInterval) selectedItem;
-                            try {
-                                Date lowerDate = convertToDate(universe, index, Bound.LOWER, fmi.getLowerBound(), compareFromInterval);
-                                Date upperDate = convertToDate(universe, index, Bound.UPPER, fmi.getUpperBound(), compareFromInterval);
-                                // add as a Date Interval
-                                // T1769: if lower&upper are null, this is no-op
-                                ds.add(axis, IntervalleObject.createInterval(lowerDate, upperDate));
-                            } catch (java.text.ParseException e) {
-                                throw new ComputingException(e);
-                            }
+                            Date lowerDate = convertToDate(universe, index, Bound.LOWER, fmi.getLowerBound(), compareFromInterval);
+                            Date upperDate = convertToDate(universe, index, Bound.UPPER, fmi.getUpperBound(), compareFromInterval);
+                            // add as a Date Interval
+                            // T1769: if lower&upper are null, this is no-op
+                            ds.add(axis, IntervalleObject.createInterval(lowerDate, upperDate));
                         } else if (selectedItem instanceof FacetMemberString) {
                         	FacetMemberString fmember = (FacetMemberString) selectedItem;
                         	if (fmember.getId()!=null && !fmember.getId().equals("") 

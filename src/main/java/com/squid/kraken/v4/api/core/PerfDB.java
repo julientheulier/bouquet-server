@@ -23,10 +23,11 @@
  *******************************************************************************/
 package com.squid.kraken.v4.api.core;
 
-import com.squid.kraken.v4.model.ProjectAnalysisJob;
-import com.squid.kraken.v4.persistence.MongoDBHelper;
 import org.mongodb.morphia.Datastore;
 import org.slf4j.Logger;
+
+import com.squid.kraken.v4.model.ProjectAnalysisJob;
+import com.squid.kraken.v4.persistence.MongoDBHelper;
 
 /**
  * Created by lrabiet on 02/11/15.

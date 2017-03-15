@@ -24,37 +24,36 @@
 package com.squid.kraken.v4.model;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 
 public class DimensionOption implements Serializable {
+	
+	private DimensionOptionPK id;
 
 	/**
 	 * 
 	 */
 	private static final long serialVersionUID = 7203859790416372462L;
 
-	@JsonInclude(JsonInclude.Include.NON_DEFAULT)
 	public boolean mandatorySelection = false;
 
-	@JsonInclude(JsonInclude.Include.NON_DEFAULT)
 	public boolean singleSelection = false;
 
-	@JsonInclude(JsonInclude.Include.NON_DEFAULT)
+	@JsonInclude(JsonInclude.Include.ALWAYS)
 	public Expression defaultSelection = null;
 
-	@JsonInclude(JsonInclude.Include.NON_DEFAULT)
 	public boolean unmodifiableSelection = false;
 
-	@JsonInclude(JsonInclude.Include.NON_DEFAULT)
 	public boolean hidden = false;
 
-	@JsonInclude(JsonInclude.Include.NON_DEFAULT)
-	public List<String> groupFilter = null;
+	@JsonInclude(JsonInclude.Include.ALWAYS)
+	public List<String> groupFilter = new ArrayList<>();
 
-	@JsonInclude(JsonInclude.Include.NON_DEFAULT)
-	public List<String> userFilter = null;
+	@JsonInclude(JsonInclude.Include.ALWAYS)
+	public List<String> userFilter = new ArrayList<>();
 	
 	public DimensionOption() {
 		// TODO Auto-generated constructor stub
@@ -72,6 +71,20 @@ public class DimensionOption implements Serializable {
 		this.hidden = merge.hidden || option.hidden;
 		if (option.defaultSelection!=null) this.defaultSelection = option.defaultSelection;
 		// ignore the filters
+	}
+	
+	/**
+	 * @return the id
+	 */
+	public DimensionOptionPK getId() {
+		return id;
+	}
+	
+	/**
+	 * @param id the id to set
+	 */
+	public void setId(DimensionOptionPK id) {
+		this.id = id;
 	}
 
 	public boolean isMandatorySelection() {

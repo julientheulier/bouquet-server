@@ -38,13 +38,13 @@ import com.squid.kraken.v4.model.DomainPK;
 import com.squid.kraken.v4.model.ProjectPK;
 import com.squid.kraken.v4.model.Relation;
 import com.squid.kraken.v4.persistence.AppContext;
-import com.wordnik.swagger.annotations.Api;
-import com.wordnik.swagger.annotations.ApiOperation;
-import com.wordnik.swagger.annotations.Authorization;
-import com.wordnik.swagger.annotations.AuthorizationScope;
+import io.swagger.annotations.Api;
+import io.swagger.annotations.ApiOperation;
+import io.swagger.annotations.Authorization;
+import io.swagger.annotations.AuthorizationScope;
 
 @Produces({ MediaType.APPLICATION_JSON })
-@Api(value = "relations", hidden = true, authorizations = { @Authorization(value = "kraken_auth", type = "oauth2", scopes = { @AuthorizationScope(scope = "access", description = "Access")}) })
+@Api(value = "relations", authorizations = { @Authorization(value = "kraken_auth", scopes = { @AuthorizationScope(scope = "access", description = "Access")}) })
 public class DomainRelationServiceRest  extends BaseServiceRest {
 
 

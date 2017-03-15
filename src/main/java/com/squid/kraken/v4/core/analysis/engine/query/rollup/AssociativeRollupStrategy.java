@@ -26,13 +26,11 @@ package com.squid.kraken.v4.core.analysis.engine.query.rollup;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.squid.core.database.model.DatabaseProduct;
 import com.squid.core.domain.associative.AssociativeDomainInformation;
 import com.squid.core.domain.operators.OperatorDefinition;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.scope.ExpressionMaker;
 import com.squid.core.expression.scope.ScopeException;
-import com.squid.core.sql.db.templates.DefaultJDBCSkin;
 import com.squid.core.sql.model.IAlias;
 import com.squid.core.sql.model.SQLScopeException;
 import com.squid.core.sql.render.IPiece;
@@ -91,6 +89,11 @@ public class AssociativeRollupStrategy extends BaseRollupStrategy {
             //
             renderSubQuery(skin, main, sql, tempTableName);
             //
+            // T2430: check if Oracle and Limit
+            boolean T2430 = (getSelect().getStatement().hasLimitValue() && skin.getProduct().getProductName().equals("Oracle"));
+            if (T2430) {
+            	sql.append("SELECT * from\n(\n");
+            }
             // copy raw level
             sql.append("SELECT\n");
             boolean first = true;
@@ -143,8 +146,11 @@ public class AssociativeRollupStrategy extends BaseRollupStrategy {
             sql.append("\n");
             sql.append(renderOrderBy(prepareOrderBy(main, levels, orderByMapper)));
             // add the regular limit
-            if (getSelect().getStatement().hasLimitValue()) {
-                sql.append("\nLIMIT "+getSelect().getStatement().getLimitValue());
+            if (T2430) {
+            	sql.append(")\n");
+            	sql.append("WHERE ROWNUM <= "+getSelect().getStatement().getLimitValue());
+            } else if (getSelect().getStatement().hasLimitValue()) {
+        		sql.append("\nLIMIT "+getSelect().getStatement().getLimitValue());
             }
             
 			sql.append(skin.quoteEndOfStatement("\n"));
@@ -154,7 +160,7 @@ public class AssociativeRollupStrategy extends BaseRollupStrategy {
 			//
             // add rollup metadata mapping (at the end to avoid side-effect)
             addLevelMapping(levelIDPiece);
-			return new SQLScript(sql.toString());
+			return new SQLScript(sql.toString(), getMapper());
 		} catch (Exception e) {
             throw new SQLScopeException("cannot create a rollup statement", e);
 		}

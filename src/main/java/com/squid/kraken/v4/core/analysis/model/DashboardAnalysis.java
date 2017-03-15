@@ -54,7 +54,7 @@ public class DashboardAnalysis extends Dashboard {
 
 	private List<GroupByAxis> beyondLimit = new ArrayList<>();
 	// T0126 & T1042: in case of beyondLimit + compareTo we need to use a different selection for computing the limit subquery
-	private DashboardSelection beyodLimitSelection = null;
+	private DashboardSelection beyondLimitSelection = null;
 	
 	private Map<String, Object> optionKeys = null;
 	public static final String COMPUTE_GROWTH_OPTION_KEY = "computeGrowth";// true|false flag to enable computing the growth percentage when performing a compareTo analysis
@@ -123,6 +123,10 @@ public class DashboardAnalysis extends Dashboard {
     public void limit(long limit) {
         this.limit = limit;
     }
+
+	public void noOffset() {
+		this.offset = null;
+	}
     
     public Long getLimit() {
         return limit;
@@ -147,13 +151,30 @@ public class DashboardAnalysis extends Dashboard {
     public boolean hasBeyondLimit() {
     	return beyondLimit!=null && !beyondLimit.isEmpty();
     }
-    
-    public void setBeyodLimitSelection(DashboardSelection beyodLimitSelection) {
-		this.beyodLimitSelection = beyodLimitSelection;
+
+	/**
+	 * reset the beyondLimit property
+	 */
+	public void resetBeyondLimit() {
+		beyondLimit = null;
 	}
     
-    public DashboardSelection getBeyodLimitSelection() {
-		return beyodLimitSelection;
+    /**
+     * this is the alternative selection to use to compute the beyondLimit analysis. This analysis will define a sub segment of values
+     * where to execute the original analysis. This option is use by the compareTo feature to make sure that the application is computing
+     * the result on comparable population (for example if we compare evolution of the top 10 series on present period, we want to compare in the past from the very same series, not the top 10 from the past)
+     * 
+     * @return
+     */
+    public DashboardSelection getBeyondLimitSelection() {
+		return beyondLimitSelection;
+	}
+    
+	/**
+	 * @param beyodLimitSelection
+	 */
+    public void setBeyondLimitSelection(DashboardSelection beyondLimitSelection) {
+		this.beyondLimitSelection = beyondLimitSelection;
 	}
     
     public void offset(long offset) {

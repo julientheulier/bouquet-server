@@ -34,13 +34,15 @@ import java.util.Properties;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData.Record;
 import org.apache.avro.generic.GenericRecord;
+/*
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
+*/
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.squid.core.export.IRawExportSource;
+//import com.squid.core.export.IRawExportSource;
 import com.squid.core.jdbc.engine.IExecutionItem;
 import com.squid.kraken.v4.KrakenConfig;
 import com.squid.kraken.v4.api.core.NotYetImplementedException;
@@ -49,6 +51,13 @@ import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValuesList;
 import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
 import com.squid.kraken.v4.model.DataTable;
 
+/**
+ * export to kafka.
+ * NOTE: this code must be moved in a external pluging
+ * 
+ * @author sergefantino
+ *
+ */
 public class ExportSourceWriterKafka implements ExportSourceWriter {
 
     private static final Logger logger = LoggerFactory
@@ -58,7 +67,7 @@ public class ExportSourceWriterKafka implements ExportSourceWriter {
     public static final String SCHEMA_URL = new String(KrakenConfig.getProperty("feature.spark.schema_url", "spark:8081"));
 
     private static final int SPLIT_SIZE = 0;
-    KafkaProducer<Object, Object> producer;
+    //KafkaProducer<Object, Object> producer;
     String topicName;
     private boolean computeStatistics = false;
     private boolean insertHeader = true;
@@ -70,6 +79,7 @@ public class ExportSourceWriterKafka implements ExportSourceWriter {
     public ExportSourceWriterKafka() {
         topicName = "bouquet";
         Properties props = new Properties();
+        /*
         props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, KAFKA_URL);
         props.put(ProducerConfig.RETRIES_CONFIG, "3");
         props.put(ProducerConfig.ACKS_CONFIG, "all");
@@ -81,6 +91,7 @@ public class ExportSourceWriterKafka implements ExportSourceWriter {
                 io.confluent.kafka.serializers.KafkaAvroSerializer.class);
         props.put("schema.registry.url", "http://"+SCHEMA_URL);
         this.producer = new KafkaProducer<Object, Object>(props);
+        */
     }
 
 
@@ -153,11 +164,12 @@ public class ExportSourceWriterKafka implements ExportSourceWriter {
     }
 
     public long write(DataMatrix matrix) {
-        return write(matrix,producer);
+        //return write(matrix,producer);
+    	return -1;
     }
 
 
-
+    /*
     public long write(DataMatrix matrix,  KafkaProducer<Object, Object> producer) {
 
     	IRawExportSource source = new DataMatrixExportSource(matrix);
@@ -196,6 +208,7 @@ public class ExportSourceWriterKafka implements ExportSourceWriter {
 
         return this.linesWritten;
     }
+    */
 
     @Override
     public long write(RawMatrix matrix, OutputStream out){

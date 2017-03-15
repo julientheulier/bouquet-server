@@ -21,33 +21,29 @@
  * you and Squid Solutions (above licenses and LICENSE.txt included).
  * See http://www.squidsolutions.com/EnterpriseBouquet/
  *******************************************************************************/
-package com.squid.kraken.v4.api.core.bb;
+package com.squid.kraken.v4.core.analysis.engine.processor;
 
-import java.util.List;
+import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
 
 /**
- *  This is a simple pojo that wraps the navigation reply
+ * truncate the matrix given limit & offset
  * @author sergefantino
  *
  */
-public class NavigationReply {
+public class DataMatrixTransformTruncate implements DataMatrixTransform {
 	
-	private NavigationQuery query;
+	private Long limit;
+	private Long offset;
+
+	public DataMatrixTransformTruncate(Long limit, Long offset) {
+		this.limit = limit;
+		this.offset = offset;
+	}
 	
-	private List<NavigationItem> result;
-
-	public NavigationReply(NavigationQuery query, List<NavigationItem> result) {
-		super();
-		this.query = query;
-		this.result = result;
-	}
-
-	public NavigationQuery getQuery() {
-		return query;
-	}
-
-	public List<NavigationItem> getResult() {
-		return result;
+	@Override
+	public DataMatrix apply(DataMatrix input) {
+		input.truncate(limit, offset);
+		return input;
 	}
 
 }

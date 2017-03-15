@@ -21,7 +21,7 @@
  * you and Squid Solutions (above licenses and LICENSE.txt included).
  * See http://www.squidsolutions.com/EnterpriseBouquet/
  *******************************************************************************/
-package com.squid.kraken.v4.api.core.bb;
+package com.squid.kraken.v4.core.analysis.scope;
 
 import com.squid.core.domain.IDomain;
 import com.squid.core.domain.operators.ExtendedType;

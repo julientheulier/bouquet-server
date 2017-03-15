@@ -57,16 +57,16 @@ import com.squid.kraken.v4.model.Project;
 import com.squid.kraken.v4.model.ProjectPK;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DAOFactory;
-import com.wordnik.swagger.annotations.Api;
-import com.wordnik.swagger.annotations.ApiOperation;
-import com.wordnik.swagger.annotations.ApiParam;
-import com.wordnik.swagger.annotations.Authorization;
-import com.wordnik.swagger.annotations.AuthorizationScope;
+import io.swagger.annotations.Api;
+import io.swagger.annotations.ApiOperation;
+import io.swagger.annotations.ApiParam;
+import io.swagger.annotations.Authorization;
+import io.swagger.annotations.AuthorizationScope;
 
 /**
  * handles connections management
  */
-@Api(value = "connections", hidden = true, authorizations = { @Authorization(value = "kraken_auth", type = "oauth2", scopes = { @AuthorizationScope(scope = "access", description = "Access")}) })
+@Api(value = "connections", authorizations = { @Authorization(value = "kraken_auth", scopes = { @AuthorizationScope(scope = "access", description = "Access")}) })
 @Produces({ MediaType.APPLICATION_JSON })
 public class ConnectionServiceRest extends BaseServiceRest {
 	
@@ -154,7 +154,8 @@ public class ConnectionServiceRest extends BaseServiceRest {
 	@Path("/validate")
 	@ApiOperation(value = "Validate connection definition and return a list of available schemas as a suggestion")
 	public ConnectionInfo validatePost(
-			@ApiParam(value = "the project connection information") Project project
+			@ApiParam(value = "the project connection information") Project project,
+			@ApiParam(value = "if noError is true, do not raise an error but return an error status as part of the reply", defaultValue = "false") @QueryParam("noError") boolean noError
 			) {
 		//
 		// check user role
@@ -218,8 +219,14 @@ public class ConnectionServiceRest extends BaseServiceRest {
 	        	}
 	        }
 	        return new ConnectionInfo(vendorId, url, schemaNames);
-		} catch (ExecutionException | ScopeException e) {
-			throw new APIException(e.getMessage(), e, false);
+		} catch (Throwable e) {
+			if (noError) {
+				String vendorId = project.getDbVendorId();
+				String url = project.getDbUrl();
+				return new ConnectionInfo(vendorId, url, e);
+			} else {
+				throw new APIException(e.getMessage(), e, false);
+			}
 		} finally {
 			if (manager!=null) {
 				manager.close();

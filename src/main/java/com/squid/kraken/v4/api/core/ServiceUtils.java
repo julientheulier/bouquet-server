@@ -53,6 +53,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Optional;
+import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.KrakenConfig;
 import com.squid.kraken.v4.api.core.customer.AuthServiceImpl;
 import com.squid.kraken.v4.api.core.customer.StateServiceBaseImpl;
@@ -62,15 +63,15 @@ import com.squid.kraken.v4.api.core.projectfacetjob.FacetJobServiceBaseImpl;
 import com.squid.kraken.v4.api.core.user.UserServiceBaseImpl;
 import com.squid.kraken.v4.core.analysis.engine.cache.MetaModelObserver;
 import com.squid.kraken.v4.model.AccessRight;
+import com.squid.kraken.v4.model.AccessRight.Role;
 import com.squid.kraken.v4.model.AccessToken;
 import com.squid.kraken.v4.model.AccessTokenPK;
 import com.squid.kraken.v4.model.ClientPK;
 import com.squid.kraken.v4.model.Customer;
+import com.squid.kraken.v4.model.Customer.AUTH_MODE;
 import com.squid.kraken.v4.model.CustomerPK;
 import com.squid.kraken.v4.model.User;
 import com.squid.kraken.v4.model.UserPK;
-import com.squid.kraken.v4.model.AccessRight.Role;
-import com.squid.kraken.v4.model.Customer.AUTH_MODE;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DAOFactory;
 import com.squid.kraken.v4.persistence.DataStoreEventBus;
@@ -85,6 +86,9 @@ public class ServiceUtils {
 	private static final Logger loggerAPI = LoggerFactory.getLogger("API");
 
 	private static final String ISO8601 = "yyyy-MM-dd'T'HH:mm:ss.SSSZ";
+	private static final String ISO8601short = "yyyy-MM-dd";
+	// next one is actually the format used by the Date.toString()...
+	private static final String JavaDateToStringFormat = "EEE MMM dd HH:mm:ss zzz yyyy";
 
 	private static final String SQUIDAPILOCALE = "squidapilocale";
 
@@ -152,11 +156,11 @@ public class ServiceUtils {
 		for (AppContext ctx : rootUsers.values()){
 			List<User> users = UserServiceBaseImpl.getInstance().readAll(ctx);
 			for(User user : users){
-						if (user.getGroups() == null) {
-							return (false || user.isSuperUser());
-						}else{
-							return (user.getGroups().contains("superuser") || user.isSuperUser());
-						}
+				if (user.getGroups() == null) {
+					return (false || user.isSuperUser());
+				}else{
+					return (user.getGroups().contains("superuser") || user.isSuperUser());
+				}
 			}
 		}
 
@@ -492,7 +496,7 @@ public class ServiceUtils {
 	/**
 	 * Convert ISO 8601 (javascript) string to Date.
 	 */
-	public Date toDate(String iso8601string) throws ParseException {
+	public Date toDate(String iso8601string) throws ScopeException {
 		if (iso8601string == null) {
 			return null;
 		}
@@ -503,8 +507,25 @@ public class ServiceUtils {
 		if (z > 0) {
 			iso8601string = iso8601string.substring(0, z) + "+0000";
 		}
-		Date date = df.parse(iso8601string);
-		return date;
+		try {
+			Date date = df.parse(iso8601string);
+			return date;
+		} catch (ParseException e) {
+			// try the short version
+			DateFormat dfshort = new SimpleDateFormat(ISO8601short);
+			dfshort.setTimeZone(TimeZone.getTimeZone("UTC"));
+			try {
+				return dfshort.parse(iso8601string);
+			} catch (ParseException ee) {
+				DateFormat lastChance = new SimpleDateFormat(JavaDateToStringFormat);
+				lastChance.setTimeZone(TimeZone.getTimeZone("UTC"));
+				try {
+					return lastChance.parse(iso8601string);
+				} catch (ParseException eee) {
+					throw new ScopeException("unable to parse date: \""+iso8601string+"\", supported formats are ISO8601 (\""+ISO8601+"\" or \""+ISO8601short+"\") or Java format (\""+JavaDateToStringFormat+"\")", eee);
+				}
+			}
+		}
 	}
 
 	/**
