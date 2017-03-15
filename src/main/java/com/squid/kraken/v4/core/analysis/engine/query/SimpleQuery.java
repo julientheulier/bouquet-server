@@ -27,7 +27,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
-import com.squid.core.database.model.Column;
 import com.squid.core.database.model.ForeignKey;
 import com.squid.core.database.model.KeyPair;
 import com.squid.core.database.model.Table;

@@ -49,6 +49,7 @@ import com.squid.kraken.v4.core.model.domain.DomainDomain;
 import com.squid.kraken.v4.model.Dimension;
 import com.squid.kraken.v4.model.DimensionPK;
 import com.squid.kraken.v4.model.Domain;
+import com.squid.kraken.v4.model.DomainPK;
 import com.squid.kraken.v4.model.Metric;
 import com.squid.kraken.v4.model.Project;
 import com.squid.kraken.v4.persistence.AppContext;
