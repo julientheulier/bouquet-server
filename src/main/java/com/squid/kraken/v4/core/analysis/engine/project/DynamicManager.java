@@ -585,7 +585,7 @@ public class DynamicManager {
 		HashSet<String> checkName = new HashSet<String>();
 		boolean isPeriodDefined = false;
 		//
-		String prefix = genDomainPrefixID(space.getUniverse().getProject(), domain);
+		String prefix = "";
 		//
 		// evaluate the concrete objects
 		HashSet<String> ids = new HashSet<String>();
@@ -602,7 +602,7 @@ public class DynamicManager {
 			// domainInternalDefautDynamic flag: if legacy mode, hide dynamic object is the default
 			this.domainInternalDefautDynamic = isDomainLegacyMode ? true : false;
 			//
-			prefix = "dyn_"+space.getDomain().getId().toUUID()+"_dimension:";
+			prefix = genDomainPrefixID(space.getUniverse().getProject(), domain);//"dyn_"+space.getDomain().getId().toUUID()+"_dimension:";
 		}
 		
 		// failed List : keep track of failed evaluation, will try again latter
