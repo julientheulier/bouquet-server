@@ -26,8 +26,8 @@ package com.squid.kraken.v4.api.core;
 @SuppressWarnings("serial")
 public class ConcurrentModificationAPIException extends APIException {
 
-	public ConcurrentModificationAPIException(boolean noError) {
-		super("Version Check Failed", noError, ApiError.CONCURRENT_MODIFICATION);
+	public ConcurrentModificationAPIException(String message, boolean noError) {
+		super(message, noError, ApiError.CONCURRENT_MODIFICATION);
 	}
 
 	@Override
