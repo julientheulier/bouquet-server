@@ -76,7 +76,7 @@ public class DomainServiceRest extends BaseServiceRest {
 	@DELETE
 	@Path("{" + PARAM_NAME + "}")
 	@ApiOperation(value = "Deletes a domain")
-	public boolean delete(@PathParam("projectId") String projectId,
+	public boolean deleteDomain(@PathParam("projectId") String projectId,
 			@PathParam(PARAM_NAME) String domainId) {
 		return delegate.delete(userContext,
 				new DomainPK(userContext.getCustomerId(), projectId, domainId));
@@ -85,7 +85,7 @@ public class DomainServiceRest extends BaseServiceRest {
 	@GET
 	@Path("{" + PARAM_NAME + "}")
 	@ApiOperation(value = "Gets a domain")
-	public Domain read(@PathParam("projectId") String projectId,
+	public Domain readDomain(@PathParam("projectId") String projectId,
 			@PathParam(PARAM_NAME) String domainId, @QueryParam("deepread") Boolean deepread) {
 		return delegate.read(userContext,
 				new DomainPK(userContext.getCustomerId(), projectId, domainId));
@@ -94,7 +94,7 @@ public class DomainServiceRest extends BaseServiceRest {
 	@POST
 	@Path("")
 	@ApiOperation(value = "Creates a domain")
-	public Domain store(@PathParam("projectId") String projectId,
+	public Domain storeDomain(@PathParam("projectId") String projectId,
 			@ApiParam(required = true) Domain domain) {
 		return delegate.store(userContext, domain);
 	}
@@ -102,7 +102,7 @@ public class DomainServiceRest extends BaseServiceRest {
 	@POST
 	@Path("{" + PARAM_NAME + "}")
 	@ApiOperation(value = "Creates a domain")
-	public Domain store(@PathParam("projectId") String projectId,
+	public Domain storeDomain2(@PathParam("projectId") String projectId,
 			@PathParam(PARAM_NAME) String domainId,
 			@ApiParam(required = true) Domain domain) {
 		domain.setId(new DomainPK(userContext.getCustomerId(), projectId, domainId));
@@ -112,7 +112,7 @@ public class DomainServiceRest extends BaseServiceRest {
 	@PUT
 	@Path("{" + PARAM_NAME + "}")
 	@ApiOperation(value = "Updates a domain")
-	public Domain update(@PathParam("projectId") String projectId,
+	public Domain updateDomain(@PathParam("projectId") String projectId,
 			@PathParam(PARAM_NAME) String domainId,
 			@ApiParam(required = true) Domain domain) {
 		domain.setId(new DomainPK(userContext.getCustomerId(), projectId, domainId));
@@ -122,7 +122,7 @@ public class DomainServiceRest extends BaseServiceRest {
 	@Path("{" + PARAM_NAME + "}" + "/access")
 	@GET
 	@ApiOperation(value = "Gets a domain's access rights")
-	public Set<AccessRight> readAccessRights(
+	public Set<AccessRight> readAccessRightsDomain(
 			@PathParam("projectId") String projectId,
 			@PathParam(PARAM_NAME) String domainId) {
 		return delegate.readAccessRights(userContext,
@@ -132,7 +132,7 @@ public class DomainServiceRest extends BaseServiceRest {
 	@Path("{" + PARAM_NAME + "}" + "/access")
 	@POST
 	@ApiOperation(value = "Sets a domain's access rights")
-	public Set<AccessRight> storeAccessRights(
+	public Set<AccessRight> storeAccessRightsDomain(
 			@PathParam("projectId") String projectId,
 			@PathParam(PARAM_NAME) String domainId,
 			@ApiParam(required = true) Set<AccessRight> accessRights) {
@@ -196,7 +196,7 @@ public class DomainServiceRest extends BaseServiceRest {
 	@Path("{" + PARAM_NAME + "}" + "/cache")
 	@GET
 	@ApiOperation(value = "Gets cache status for this domain")
-	public Object readCacheInfo(@PathParam("projectId") String projectId,
+	public Object readCacheInfoDomain(@PathParam("projectId") String projectId,
 			@PathParam(PARAM_NAME) String domainId) {
 		return delegate.readCacheInfo(userContext,
 				new DomainPK(userContext.getCustomerId(), projectId, domainId));
@@ -205,7 +205,7 @@ public class DomainServiceRest extends BaseServiceRest {
 	@Path("{" + PARAM_NAME + "}" + "/cache/refresh")
 	@GET
 	@ApiOperation(value = "Force a cache refresh for this domain")
-	public Object refreshCache(@PathParam("projectId") String projectId,
+	public Object refreshCacheDomain(@PathParam("projectId") String projectId,
 			@PathParam(PARAM_NAME) String domainId) {
 		return delegate.refreshCache(userContext, new ProjectPK(userContext.getCustomerId(), projectId),
 				new DomainPK(userContext.getCustomerId(), projectId, domainId));

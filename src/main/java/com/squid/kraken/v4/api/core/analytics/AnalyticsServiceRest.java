@@ -165,7 +165,7 @@ public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implemen
 	@GET
 	@Path("/analytics/{" + BBID_PARAM_NAME + "}/bookmark")
 	@ApiOperation(value = "Create a new bookmark based on a query")
-	public Bookmark createBookmark(
+	public Bookmark createBookmarkFromQuery(
 			@Context HttpServletRequest request, 
 			@PathParam(BBID_PARAM_NAME) String BBID,
 			// bookmark info

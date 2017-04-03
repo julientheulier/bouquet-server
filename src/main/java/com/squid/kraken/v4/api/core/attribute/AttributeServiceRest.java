@@ -75,7 +75,7 @@ public class AttributeServiceRest extends BaseServiceRest {
 	@DELETE
 	@Path("{" + PARAM_NAME + "}")
 	@ApiOperation(value = "Deletes an Attribute")
-	public boolean delete(@PathParam("projectId") String projectId,
+	public boolean deleteAttribute(@PathParam("projectId") String projectId,
 			@PathParam("domainId") String domainId,
 			@PathParam("dimensionId") String dimensionId,
 			@PathParam(PARAM_NAME) String attributeId) {
@@ -87,7 +87,7 @@ public class AttributeServiceRest extends BaseServiceRest {
 	@GET
 	@Path("{" + PARAM_NAME + "}")
 	@ApiOperation(value = "Gets an Attribute")
-	public Attribute read(@PathParam("projectId") String projectId,
+	public Attribute readAttribute(@PathParam("projectId") String projectId,
 			@PathParam("domainId") String domainId,
 			@PathParam("dimensionId") String dimensionId,
 			@PathParam(PARAM_NAME) String attributeId) {
@@ -99,7 +99,7 @@ public class AttributeServiceRest extends BaseServiceRest {
 	@POST
 	@Path("{" + PARAM_NAME + "}")
 	@ApiOperation(value = "Creates an Attribute")
-	public Attribute store(@PathParam("projectId") String projectId,
+	public Attribute storeAttribute2(@PathParam("projectId") String projectId,
 			@PathParam("domainId") String domainId,
 			@PathParam("dimensionId") String dimensionId,
 			@PathParam(PARAM_NAME) String attributeId,
@@ -110,7 +110,7 @@ public class AttributeServiceRest extends BaseServiceRest {
 	@PUT
 	@Path("{" + PARAM_NAME + "}")
 	@ApiOperation(value = "Updates an Attribute")
-	public Attribute update(@PathParam("projectId") String projectId,
+	public Attribute updateAttribute(@PathParam("projectId") String projectId,
 			@PathParam("domainId") String domainId,
 			@PathParam("dimensionId") String dimensionId,
 			@PathParam(PARAM_NAME) String attributeId,
@@ -121,7 +121,7 @@ public class AttributeServiceRest extends BaseServiceRest {
 	@POST
 	@Path("")
 	@ApiOperation(value = "Creates an Attribute")
-	public Attribute store(@PathParam("projectId") String projectId,
+	public Attribute storeAttribute(@PathParam("projectId") String projectId,
 			@PathParam("domainId") String domainId,
 			@PathParam("dimensionId") String dimensionId,
 			@ApiParam(required = true) Attribute attribute) {
@@ -131,7 +131,7 @@ public class AttributeServiceRest extends BaseServiceRest {
 	@Path("{" + PARAM_NAME + "}"+"/access")
 	@GET
 	@ApiOperation(value = "Gets an Attribute's access rights")
-	public Set<AccessRight> readAccessRights(
+	public Set<AccessRight> readAccessRightsAttribute(
 			@PathParam("projectId") String projectId,
 			@PathParam("domainId") String domainId,
 			@PathParam("dimensionId") String dimensionId,

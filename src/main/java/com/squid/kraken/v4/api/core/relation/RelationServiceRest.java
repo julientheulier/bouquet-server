@@ -62,14 +62,14 @@ public class RelationServiceRest extends BaseServiceRest {
 	@GET
 	@Path("")
 	@ApiOperation(value = "Gets All Relations")
-	public List<Relation> readAll(@PathParam("projectId") String projectId) {
+	public List<Relation> readAllRelations(@PathParam("projectId") String projectId) {
 		return delegate.readAll(userContext, projectId);
 	}
 
 	@DELETE
 	@Path("{" + PARAM_NAME + "}")
 	@ApiOperation(value = "Deletes a Relation")
-	public boolean delete(@PathParam("projectId") String projectId,
+	public boolean deleteRelation(@PathParam("projectId") String projectId,
 			@PathParam(PARAM_NAME) String relationId) {
 		return delegate.delete(userContext,
 				new RelationPK(userContext.getCustomerId(), projectId,
@@ -79,7 +79,7 @@ public class RelationServiceRest extends BaseServiceRest {
 	@GET
 	@Path("{" + PARAM_NAME + "}")
 	@ApiOperation(value = "Gets a Relation")
-	public Relation read(@PathParam("projectId") String projectId,
+	public Relation readRelation(@PathParam("projectId") String projectId,
 			@PathParam(PARAM_NAME) String relationId) {
 		return delegate.read(userContext,
 				new RelationPK(userContext.getCustomerId(), projectId,
@@ -89,7 +89,7 @@ public class RelationServiceRest extends BaseServiceRest {
 	@POST
 	@Path("")
 	@ApiOperation(value = "Creates a Relation")
-	public Relation store(@PathParam("projectId") String projectId,
+	public Relation storeRelation(@PathParam("projectId") String projectId,
 			@ApiParam(required = true) Relation relation) {
 		return delegate.store(userContext, relation);
 	}
@@ -97,7 +97,7 @@ public class RelationServiceRest extends BaseServiceRest {
 	@POST
 	@Path("{" + PARAM_NAME + "}")
 	@ApiOperation(value = "Creates a Relation")
-	public Relation store(@PathParam("projectId") String projectId,
+	public Relation storeRelation2(@PathParam("projectId") String projectId,
 			@PathParam(PARAM_NAME) String relationId,
 			@ApiParam(required = true) Relation relation) {
 		return delegate.store(userContext, relation);
@@ -106,7 +106,7 @@ public class RelationServiceRest extends BaseServiceRest {
 	@PUT
 	@Path("{" + PARAM_NAME + "}")
 	@ApiOperation(value = "Updates a Relation")
-	public Relation update(@PathParam("projectId") String projectId,
+	public Relation updateRelation(@PathParam("projectId") String projectId,
 			@PathParam(PARAM_NAME) String relationId,
 			@ApiParam(required = true) Relation relation) {
 		return delegate.store(userContext, relation);
@@ -115,7 +115,7 @@ public class RelationServiceRest extends BaseServiceRest {
 	@Path("{" + PARAM_NAME + "}" + "/access")
 	@GET
 	@ApiOperation(value = "Gets a Relation's access rights")
-	public Set<AccessRight> readAccessRights(
+	public Set<AccessRight> readAccessRightsRelation(
 			@PathParam("projectId") String projectId,
 			@PathParam(PARAM_NAME) String relationId) {
 		return delegate.readAccessRights(userContext, new RelationPK(
@@ -125,7 +125,7 @@ public class RelationServiceRest extends BaseServiceRest {
 	@Path("{" + PARAM_NAME + "}" + "/access")
 	@POST
 	@ApiOperation(value = "Sets a Relation's access rights")
-	public Set<AccessRight> storeAccessRights(
+	public Set<AccessRight> storeAccessRightsRelation(
 			@PathParam("projectId") String projectId,
 			@PathParam(PARAM_NAME) String relationId,
 			@ApiParam(required = true) Set<AccessRight> accessRights) {
