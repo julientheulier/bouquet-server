@@ -77,7 +77,7 @@ public class DimensionServiceRest extends BaseServiceRest {
 	@GET
 	@Path("")
 	@ApiOperation(value = "Get all Dimensions for the Domain (including child dimensions).")
-	public List<Dimension> readAll(@PathParam("projectId") String projectId,
+	public List<Dimension> readAllDimensions(@PathParam("projectId") String projectId,
 			@PathParam("domainId") String domainId) throws ComputingException, InterruptedException {
 		return delegate.readAll(userContext,
 				new DomainPK(userContext.getCustomerId(), projectId, domainId));
@@ -86,7 +86,7 @@ public class DimensionServiceRest extends BaseServiceRest {
 	@DELETE
 	@Path("{"+PARAM_NAME+"}")
 	@ApiOperation(value = "Deletes a dimension")
-	public boolean delete(@PathParam("projectId") String projectId,
+	public boolean deleteDimension(@PathParam("projectId") String projectId,
 			@PathParam("domainId") String domainId,
 			@PathParam(PARAM_NAME) String dimensionId) {
 		return delegate.delete(userContext,
@@ -97,7 +97,7 @@ public class DimensionServiceRest extends BaseServiceRest {
 	@GET
 	@Path("{"+PARAM_NAME+"}")
 	@ApiOperation(value = "Gets a dimension")
-	public Dimension read(@PathParam("projectId") String projectId,
+	public Dimension readDimension(@PathParam("projectId") String projectId,
 			@PathParam("domainId") String domainId,
 			@PathParam(PARAM_NAME) String dimensionId, @QueryParam("deepread") Boolean deepread) {
 		return delegate.read(userContext,
@@ -218,7 +218,7 @@ public class DimensionServiceRest extends BaseServiceRest {
 	@POST
 	@Path("")
 	@ApiOperation(value = "Creates a dimension")
-	public Dimension store(@PathParam("projectId") String projectId,
+	public Dimension storeDimension(@PathParam("projectId") String projectId,
 			@PathParam("domainId") String domainId,@ApiParam(required = true) Dimension dimension) {
 		return delegate.store(userContext, dimension);
 	}
@@ -226,7 +226,7 @@ public class DimensionServiceRest extends BaseServiceRest {
 	@POST
 	@Path("{"+PARAM_NAME+"}")
 	@ApiOperation(value = "Creates a dimension")
-	public Dimension store(@PathParam("projectId") String projectId,
+	public Dimension storeDimension2(@PathParam("projectId") String projectId,
 			@PathParam("domainId") String domainId,
 			@PathParam(PARAM_NAME) String dimensionId,@ApiParam(required = true) Dimension dimension) {
 		return delegate.store(userContext, dimension);
@@ -235,7 +235,7 @@ public class DimensionServiceRest extends BaseServiceRest {
 	@PUT
 	@Path("{"+PARAM_NAME+"}")
 	@ApiOperation(value = "Updates a dimension")
-	public Dimension update(@PathParam("projectId") String projectId,
+	public Dimension updateDimension(@PathParam("projectId") String projectId,
 			@PathParam("domainId") String domainId,
 			@PathParam(PARAM_NAME) String dimensionId,@ApiParam(required = true) Dimension dimension) {
 		return delegate.store(userContext, dimension);
@@ -245,7 +245,7 @@ public class DimensionServiceRest extends BaseServiceRest {
 	@Path("{"+PARAM_NAME+"}"+"/access")
 	@GET
 	@ApiOperation(value = "Gets a dimension's access rights")
-	public Set<AccessRight> readAccessRights(
+	public Set<AccessRight> readAccessRightsDimension(
 			@PathParam("projectId") String projectId,
 			@PathParam("domainId") String domainId,
 			@PathParam(PARAM_NAME) String dimensionId) {
@@ -256,7 +256,7 @@ public class DimensionServiceRest extends BaseServiceRest {
 	@Path("{"+PARAM_NAME+"}"+"/access")
 	@POST
 	@ApiOperation(value = "Sets a dimension's access rights")
-	public Set<AccessRight> storeAccessRights(
+	public Set<AccessRight> storeAccessRightsDimension(
 			@PathParam("projectId") String projectId,
 			@PathParam("domainId") String domainId,
 			@PathParam(PARAM_NAME) String dimensionId,

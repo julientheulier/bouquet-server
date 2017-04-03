@@ -75,7 +75,7 @@ public class MetricServiceRest extends BaseServiceRest {
 	@DELETE
 	@Path("{" + PARAM_NAME + "}")
 	@ApiOperation(value = "Deletes a Metric")
-	public boolean delete(@PathParam("projectId") String projectId,
+	public boolean deleteMetric(@PathParam("projectId") String projectId,
 			@PathParam("domainId") String domainId,
 			@PathParam(PARAM_NAME) String metricId) {
 		return delegate.delete(userContext,
@@ -86,7 +86,7 @@ public class MetricServiceRest extends BaseServiceRest {
 	@GET
 	@Path("{" + PARAM_NAME + "}")
 	@ApiOperation(value = "Gets a Metric")
-	public Metric read(@PathParam("projectId") String projectId,
+	public Metric readMetric(@PathParam("projectId") String projectId,
 			@PathParam("domainId") String domainId,
 			@PathParam(PARAM_NAME) String metricId, @QueryParam("deepread") Boolean deepread) throws ComputingException, InterruptedException {
 		return delegate.read(userContext,
@@ -97,7 +97,7 @@ public class MetricServiceRest extends BaseServiceRest {
 	@POST
 	@Path("{" + PARAM_NAME + "}")
 	@ApiOperation(value = "Creates a Metric")
-	public Metric store(@PathParam("projectId") String projectId,
+	public Metric storeMetric(@PathParam("projectId") String projectId,
 			@PathParam("domainId") String domainId,
 			@PathParam(PARAM_NAME) String metricId,
 			@ApiParam(required = true) Metric metric) {
@@ -107,7 +107,7 @@ public class MetricServiceRest extends BaseServiceRest {
 	@POST
 	@Path("")
 	@ApiOperation(value = "Creates a Metric")
-	public Metric store(@PathParam("projectId") String projectId,
+	public Metric storeMetric2(@PathParam("projectId") String projectId,
 			@PathParam("domainId") String domainId,
 			@ApiParam(required = true) Metric metric) {
 		return delegate.store(userContext, metric);
@@ -116,7 +116,7 @@ public class MetricServiceRest extends BaseServiceRest {
 	@PUT
 	@Path("{" + PARAM_NAME + "}")
 	@ApiOperation(value = "Updates a Metric")
-	public Metric update(@PathParam("projectId") String projectId,
+	public Metric updateMetric(@PathParam("projectId") String projectId,
 			@PathParam("domainId") String domainId,
 			@PathParam(PARAM_NAME) String metricId,
 			@ApiParam(required = true) Metric metric) {
@@ -126,7 +126,7 @@ public class MetricServiceRest extends BaseServiceRest {
 	@Path("{" + PARAM_NAME + "}"+"/access")
 	@GET
 	@ApiOperation(value = "Gets a Metric's access rights")
-	public Set<AccessRight> readAccessRights(
+	public Set<AccessRight> readAccessRightsMetric(
 			@PathParam("projectId") String projectId,
 			@PathParam("domainId") String domainId,
 			@PathParam(PARAM_NAME) String metricId) {
@@ -138,7 +138,7 @@ public class MetricServiceRest extends BaseServiceRest {
 	@Path("{" + PARAM_NAME + "}"+"/access")
 	@POST
 	@ApiOperation(value = "Sets a Metric's access rights")
-	public Set<AccessRight> storeAccessRights(
+	public Set<AccessRight> storeAccessRightsMetric(
 			@PathParam("projectId") String projectId,
 			@PathParam("domainId") String domainId,
 			@PathParam(PARAM_NAME) String metricId,

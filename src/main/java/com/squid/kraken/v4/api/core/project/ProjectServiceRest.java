@@ -192,7 +192,7 @@ public class ProjectServiceRest extends BaseServiceRest {
 	@POST
 	@Path("")
 	@ApiOperation(value = "Creates a Project")
-	public Project store(@ApiParam(required = true) Project project) {
+	public Project storeProject(@ApiParam(required = true) Project project) {
 		ProjectPK id = project.getId();
 		if (id == null) {
 			id = new ProjectPK(userContext.getCustomerId(), null);
@@ -204,7 +204,7 @@ public class ProjectServiceRest extends BaseServiceRest {
 	@POST
     @Path("{"+PARAM_NAME+"}")
 	@ApiOperation(value = "Creates a Project")
-	public Project store(@PathParam(PARAM_NAME) String objectId, @ApiParam(required = true) Project project) {
+	public Project storeProject2(@PathParam(PARAM_NAME) String objectId, @ApiParam(required = true) Project project) {
 		ProjectPK id = new ProjectPK(userContext.getCustomerId(), objectId);
 		project.setId(id);
 		return delegate.store(userContext, project);
@@ -220,7 +220,7 @@ public class ProjectServiceRest extends BaseServiceRest {
 	@PUT
     @Path("{"+PARAM_NAME+"}")
 	@ApiOperation(value = "Updates a Project")
-    public Project update(@PathParam(PARAM_NAME) String objectId, @ApiParam(required = true) Project project) {
+    public Project updateProject(@PathParam(PARAM_NAME) String objectId, @ApiParam(required = true) Project project) {
 		project.setId(new ProjectPK(userContext.getCustomerId(), objectId));
 		return delegate.store(userContext, project);
     }
