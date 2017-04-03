@@ -90,14 +90,12 @@ public class VersionControlDataStoreDecorator implements DataStore {
 			}else{
 				// compare old with new version
 				if (oldVersion != null) {						
-					if (newVersion!=null && (!newVersion.equals(oldVersion))) {
+					if (!newVersion.equals(oldVersion)) {
 						String message = "Version Check Failed: _VCTRL property equals to "+  newVersion ;
 						message+= " but current object version is "  + oldVersion  +"." ;
 						message+= "The two must be equal to allow object update, or _VCTRL must be null" ;
 						throw new ConcurrentModificationAPIException(message, ctx.isNoError());
-					}else{
-
-					}
+					}				
 				} else {
 					// initialize version
 					oldVersion = 0;
