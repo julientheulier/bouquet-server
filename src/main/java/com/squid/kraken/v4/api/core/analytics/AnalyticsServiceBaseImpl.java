@@ -28,6 +28,7 @@ import java.io.OutputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.sql.Types;
+import java.text.DateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -83,6 +84,7 @@ import com.squid.core.expression.scope.ScopeException;
 import com.squid.core.poi.ExcelFile;
 import com.squid.core.poi.ExcelSettingsBean;
 import com.squid.core.sql.model.SQLScopeException;
+import com.squid.core.sql.render.IWherePiece;
 import com.squid.core.sql.render.RenderingException;
 import com.squid.core.sql.render.SQLSkin;
 import com.squid.kraken.v4.KrakenConfig;
@@ -113,14 +115,19 @@ import com.squid.kraken.v4.core.analysis.datamatrix.TransposeConverter;
 import com.squid.kraken.v4.core.analysis.engine.bookmark.BookmarkManager;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex.Status;
+import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionMember;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainHierarchy;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainHierarchyManager;
+import com.squid.kraken.v4.core.analysis.engine.hierarchy.FacetBuilder;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.SegmentManager;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingService;
 import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
 import com.squid.kraken.v4.core.analysis.model.DashboardAnalysis;
 import com.squid.kraken.v4.core.analysis.model.DashboardSelection;
+import com.squid.kraken.v4.core.analysis.model.DomainSelection;
+import com.squid.kraken.v4.core.analysis.model.ExpressionInput;
+import com.squid.kraken.v4.core.analysis.model.Intervalle;
 import com.squid.kraken.v4.core.analysis.scope.AxisExpression;
 import com.squid.kraken.v4.core.analysis.scope.GlobalExpressionScope;
 import com.squid.kraken.v4.core.analysis.scope.MeasureExpression;
@@ -135,6 +142,7 @@ import com.squid.kraken.v4.core.expression.reference.DomainReference;
 import com.squid.kraken.v4.core.expression.scope.ExpressionSuggestionHandler;
 import com.squid.kraken.v4.core.expression.scope.RelationExpressionScope;
 import com.squid.kraken.v4.core.model.domain.DomainDomain;
+import com.squid.kraken.v4.core.sql.SelectUniversal;
 import com.squid.kraken.v4.export.ExportSourceWriter;
 import com.squid.kraken.v4.export.ExportSourceWriterCSV;
 import com.squid.kraken.v4.export.ExportSourceWriterXLSX;
@@ -220,6 +228,8 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	private AppContext userContext = null;
 
 	private AnalyticsServiceHTMLGenerator generator;
+
+	private final DateFormat ISO8601_full = FacetBuilder.createUTCDateFormat();
 	
 	protected AnalyticsServiceBaseImpl(UriInfo uriInfo, AppContext userContext) {
 		this.uriInfo = uriInfo;
@@ -1103,7 +1113,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			// create the AnalysisResult
 			AnalyticsReply reply = new AnalyticsReply();
 			//
-			reply.setSelection(convertToSelection(query, space, actual));
+			reply.setSelection(convertToSelection(userContext, query, space, job, actual));
 			//
 			reply.setQuery(query);
 			//
@@ -1387,17 +1397,55 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	
 	/**
 	 * Convert a FacetSelection into a AnalyticsSelection, suitable to use with the analytics API
+	 * @param ctx 
+	 * @param job 
 	 * @param actual
 	 * @return
 	 */
-	private AnalyticsSelection convertToSelection(AnalyticsQuery query, Space space, FacetSelection actual) {
+	private AnalyticsSelection convertToSelection(AppContext ctx, AnalyticsQuery query, Space space, ProjectAnalysisJob job, FacetSelection actual) {
 		AnalyticsSelection selection = new AnalyticsSelectionImpl();
 		// using the right style!
 		ReferenceStyle prettyStyle = getReferenceStyle(query.getStyle());
 		PrettyPrintOptions localOptions = new PrettyPrintOptions(prettyStyle, space.getTop().getImageDomain());
+		//
+		try {
+			ArrayList<String> filters = new ArrayList<>();
+			DashboardAnalysis ds = AnalysisJobComputer.buildDashboardAnalysis(ctx, job);
+			for (DomainSelection sel : ds.getSelection().get()) {
+				for (ExpressionInput cond : sel.getConditions()) {
+					filters.add(cond.getInput());
+				}
+				for (Axis axis : sel.getFilters()) {
+					if (query.getPeriod()!=null && !query.getPeriod().equals("") && checkAxisIsPeriod(query.getPeriod(), axis, space)) {
+						Collection<DimensionMember> members = sel.getMembers(axis);
+						if (members.size()==1) {
+							DimensionMember member = members.iterator().next();
+							Object value = member.getID();
+							if (value instanceof Intervalle) {
+								Intervalle interval = (Intervalle)value;
+								ArrayList<String> timeframe = new ArrayList<>();
+								timeframe.add(ISO8601_full.format(interval.getLowerBound()));
+								timeframe.add(ISO8601_full.format(interval.getUpperBound()));
+								selection.setTimeframe(timeframe);
+							}
+						}
+					} else {
+						Collection<DimensionMember> members = sel.getMembers(axis);
+						ExpressionAST expr = where(axis, members);
+						if (expr!=null) {
+							filters.add(expr.prettyPrint(localOptions));
+						}
+					}
+				}
+			}
+			selection.setFilters(filters);
+		} catch (InterruptedException | ComputingException | ScopeException | SQLScopeException e) {
+			// ignore
+		}
+		/*
 		for (Facet facet : actual.getFacets()) {
-			if (facet.getSelectedItems()!=null && !facet.getSelectedItems().isEmpty()) {
-				if (query.getPeriod()!=null && checkFacetIsPeriod(query.getPeriod(), facet, space)) {
+			if (facet.hasSelectedItems()) {
+				if (query.getPeriod()!=null && !query.getPeriod().equals("") && checkFacetIsPeriod(query.getPeriod(), facet, space)) {
 					selection.setPeriod(query.getPeriod());
 					for (FacetMember member : facet.getSelectedItems()) {
 						if (member instanceof FacetMemberInterval) {
@@ -1409,9 +1457,10 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 				}
 			}
 		}
+		*/
 		if (actual.getCompareTo()!=null && !actual.getCompareTo().isEmpty()) {
 			for (Facet facet : actual.getCompareTo()) {
-				if (facet.getSelectedItems()!=null && !facet.getSelectedItems().isEmpty()) {
+				if (facet.hasSelectedItems()) {
 					try {
 						Axis axis = space.getUniverse().axis(facet.getId());
 						String local = axis.prettyPrint(localOptions);
@@ -1434,12 +1483,116 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		return selection;
 	}
 	
+	protected ExpressionAST where(Axis axis, Collection<DimensionMember> filters)
+			throws ScopeException, SQLScopeException {
+		//
+		ExpressionAST expr = axis.getReference();
+		// ticket:3014 - handles predicates
+		if (expr.getImageDomain().isInstanceOf(IDomain.CONDITIONAL)) {
+			// ok, apply the predicate only if filters == [true]
+			if (filters.size() == 1) {
+				// get the first
+				Iterator<DimensionMember> iter = filters.iterator();
+				DimensionMember member = iter.next();
+				if (member.getID() instanceof Boolean && ((Boolean) member.getID()).booleanValue()) {
+					// if true, add the predicate
+					return expr;
+				}
+			}
+			// else
+			return null;
+		}
+		boolean filter_by_null = false;// T1198
+		List<Object> filter_by_members = new ArrayList<Object>();
+		ExpressionAST filter_by_intervalle = null;
+		for (DimensionMember filter : filters) {
+			Object value = filter.getID();
+			// check if the member is an interval
+			if (value instanceof Intervalle) {
+				ExpressionAST where = where(expr, (Intervalle) value);
+				if (filter_by_intervalle == null) {
+					filter_by_intervalle = where;
+				} else if (where != null) {
+					filter_by_intervalle = ExpressionMaker.OR(filter_by_intervalle, where);
+				}
+			} else {
+				if (filter.getID()==null || filter.getID().toString()=="") {
+					filter_by_null = true;
+				} else {
+					filter_by_members.add((filter).getID());
+				}
+			}
+		}
+		ExpressionAST filterALL = null;
+		if (!filter_by_members.isEmpty()) {
+			if (filter_by_members.size() == 1) {
+				ConstantValue value = ExpressionMaker.CONSTANT(filter_by_members.get(0));
+				filterALL = ExpressionMaker.EQUAL(expr, value);
+			} else {
+				filterALL = ExpressionMaker.IN(expr, ExpressionMaker.CONSTANTS(filter_by_members));
+			}
+		}
+		if (filter_by_null) {
+			ExpressionAST filterNULL = ExpressionMaker.ISNULL(expr);
+			filterALL = (filterALL == null) ? filterNULL : ExpressionMaker.OR(filterALL, filterNULL);
+		}
+		if (filter_by_intervalle != null) {
+			filterALL = (filterALL == null) ? filter_by_intervalle : ExpressionMaker.OR(filterALL, filter_by_intervalle);
+		}
+		//
+		return filterALL;
+	}
+
+	//
+	/**
+	 * helper method that construct the formula: (expr>intervalle.min and
+	 * expr<intervalle.max)
+	 * 
+	 * @param expr
+	 * @param intervalle
+	 * @return
+	 * @throws ScopeException
+	 */
+	protected ExpressionAST where(ExpressionAST expr, Intervalle intervalle) throws ScopeException {
+		ExpressionAST where = null;
+		ExpressionAST lower = intervalle.getLowerBoundExpression();
+		ExpressionAST upper = intervalle.getUpperBoundExpression();
+		where = createIntervalle(expr, expr, lower, upper);
+		return where != null ? ExpressionMaker.GROUP(where) : null;
+	}
+
+	protected ExpressionAST createIntervalle(ExpressionAST start, ExpressionAST end, ExpressionAST lower,
+			ExpressionAST upper) {
+		if (lower != null && upper != null) {
+			return ExpressionMaker.AND(ExpressionMaker.GREATER(start, lower, false),
+					ExpressionMaker.LESS(end, upper, false));
+		} else if (lower != null) {
+			return ExpressionMaker.GREATER(start, lower, false);
+		} else if (upper != null) {
+			return ExpressionMaker.LESS(end, upper, false);
+		} else {
+			return null;
+		}
+	}
+	
 	boolean checkFacetIsPeriod(String period, Facet facet, Space space) {
 		try {
 			// we must parse the period
 			SpaceScope scope = new SpaceScope(space);
 			ExpressionAST expr = scope.parseExpression(period);
 			Axis axis = space.getUniverse().axis(facet.getId());
+			ExpressionAST check = scope.createReferringExpression(axis);
+			return check.equals(expr);
+		} catch (ScopeException e) {
+			return false;
+		}
+	}
+	
+	boolean checkAxisIsPeriod(String period, Axis axis, Space space) {
+		try {
+			// we must parse the period
+			SpaceScope scope = new SpaceScope(space);
+			ExpressionAST expr = scope.parseExpression(period);
 			ExpressionAST check = scope.createReferringExpression(axis);
 			return check.equals(expr);
 		} catch (ScopeException e) {

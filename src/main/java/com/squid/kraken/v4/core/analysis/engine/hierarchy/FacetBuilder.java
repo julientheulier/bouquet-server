@@ -55,7 +55,7 @@ public class FacetBuilder {
 
 	// note: no need to sync since the FacetBuilder is created by a given thread and not shared
 	// so keep it private, we don't want to share it
-	private static final DateFormat ISO8601_full = createUTCDateFormat(ISO8601_FULL_FORMAT);
+	private final DateFormat ISO8601_full = createUTCDateFormat(ISO8601_FULL_FORMAT);
 
 	/**
 	 * Build a paged Facet.
@@ -177,6 +177,16 @@ public class FacetBuilder {
 			return new FacetMemberInterval(interval.getLowerBound()!=null?interval.getLowerBound().toString():"",
 					interval.getUpperBound()!=null?interval.getUpperBound().toString():"");
 		}
+	}
+
+	/**
+	 * create a ISO8601_FULL_FORMAT UTC date formatter
+	 * @return
+	 */
+	public static DateFormat createUTCDateFormat() {
+		DateFormat df = new SimpleDateFormat(ISO8601_FULL_FORMAT);
+		df.setTimeZone(TimeZone.getTimeZone("UTC"));
+		return df;
 	}
 
 	public static DateFormat createUTCDateFormat(String format) {
