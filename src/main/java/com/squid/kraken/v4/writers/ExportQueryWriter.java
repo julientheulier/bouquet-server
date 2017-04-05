@@ -87,8 +87,12 @@ public class ExportQueryWriter extends QueryWriter {
 	public static List<Selection> buildExportSelection(DashboardSelection ds, FacetSelection fs) {
 		List<Selection> filters = new ArrayList<Selection>();
 		List<Axis> axes = ds.getFilters();
+		Selection continuouSelection = null;
 		for(Axis axis:axes) {
-			Collection<DimensionMember> comparedMembers = ds.getCompareToSelection().getMembers(axis);
+			Collection<DimensionMember> comparedMembers = null;
+			if (ds.getCompareToSelection() != null) {
+				comparedMembers = ds.getCompareToSelection().getMembers(axis);
+			}
 			for (Facet facet:fs.getFacets()) {
 				if (facet.getDimensionId().getDimensionId().equals(axis.getDimension().getId().getDimensionId())) {
 					List<String> values = getSelection(ds.getMembers(axis), facet.getSelectedItems());
@@ -99,21 +103,28 @@ public class ExportQueryWriter extends QueryWriter {
 								comparedWith = getSelection(comparedMembers, compare.getSelectedItems());
 							}
 						}
-						Selection selection = new Selection(axis.getDimension().getName(), values, comparedWith);
-						filters.add(selection);
-						if (axis.getDimensionType().equals(Type.CONTINUOUS)) {
-							while (filters.indexOf(selection)>0) {
-								int i = filters.indexOf(selection);
-								Collections.swap(filters, i, i - 1);
-							}
-						}
+
 					}
+					Selection selection = new Selection(axis.getDimension().getName(), values, comparedWith);
+					filters.add(selection);
+					if (axis.getDimensionType().equals(Type.CONTINUOUS)) {
+						continuouSelection=selection;
+					}
+				}
+			}
+		}
+		//Now sort filters & put period on top
+		Collections.sort(filters);
+		if (continuouSelection != null) {
+			if (continuouSelection != null) {
+				while (filters.indexOf(continuouSelection)>0) {
+					int i = filters.indexOf(continuouSelection);
+					Collections.swap(filters, i, i - 1);
 				}
 			}
 		}
 		return filters;
 	}
-
 
 	private static List<String> getSelection(Collection<DimensionMember> members, Collection<FacetMember> facetMembers) {
 		List<String> values = new ArrayList<String>();
