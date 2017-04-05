@@ -25,11 +25,10 @@ package com.squid.kraken.v4.core.analysis.engine.query.rollup;
 
 import java.util.List;
 
-import com.squid.core.database.impl.DataSourceReliable;
-import com.squid.core.sql.db.features.IRollUpSupport;
+import com.squid.core.sql.db.features.IRollupStrategySupport;
 import com.squid.core.sql.db.templates.SkinFactory;
+import com.squid.core.sql.model.SQLScopeException;
 import com.squid.core.sql.render.ISkinFeatureSupport;
-import com.squid.core.sql.render.ISkinPref;
 import com.squid.core.sql.render.SQLSkin;
 import com.squid.kraken.v4.core.analysis.engine.query.SimpleQuery;
 import com.squid.kraken.v4.core.analysis.engine.query.mapping.QueryMapper;
@@ -39,23 +38,38 @@ import com.squid.kraken.v4.core.sql.SelectUniversal;
 public class RollupStrategySelector {
 	
 	public static IRollupStrategy selectStrategy(SimpleQuery query, SelectUniversal select,
-			List<GroupByAxis> rollup, boolean grandTotal, QueryMapper mapper) {
+			List<GroupByAxis> rollup, boolean grandTotal, QueryMapper mapper) throws SQLScopeException {
 		//
 		// T2033 - make a mapper copy to avoid side effects
     	QueryMapper copy = new QueryMapper(mapper);// T2033
 		SQLSkin skin = SkinFactory.INSTANCE.createSkin(select.getDatabase());
-		if (false && skin.getFeatureSupport(IRollUpSupport.ID)==ISkinFeatureSupport.IS_SUPPORTED) {
-			// we still need to add the grouping ID
-			return new NativeRollupStrategy(query, skin, select, rollup, grandTotal, copy);
+		//
+		// using the skin feature support to select the strategy
+		ISkinFeatureSupport support = skin.getFeatureSupport(IRollupStrategySupport.ID);
+		if (support.equals(ISkinFeatureSupport.IS_NOT_SUPPORTED) || !(support instanceof IRollupStrategySupport)) {
+			throw new SQLScopeException("this database does not support the ROLLUP feature");
 		} else {
+			IRollupStrategySupport strategy = (IRollupStrategySupport)support;
 			if (query.isAssociative()) {
-				if (skin.getPreferences(DataSourceReliable.FeatureSupport.ROLLUP) == ISkinPref.TEMP) {
+				if (strategy.getStrategy().equals(IRollupStrategySupport.Strategy.USE_BUILTIN_SUPPORT)) {
+					return new NativeRollupStrategy(query, skin, select, rollup, grandTotal, copy);
+				} else if (strategy.getStrategy().equals(IRollupStrategySupport.Strategy.DO_NOT_OPTIMIZE)) {
+					return new NonAssociativeRollupStrategy(query, skin, select, rollup, grandTotal, copy);
+				} else if (strategy.getStrategy().equals(IRollupStrategySupport.Strategy.OPTIMIZE_USING_WITH)) {
+					return new AssociativeRollupStrategy(query, skin, select, rollup, grandTotal, copy);
+				} else if (strategy.getStrategy().equals(IRollupStrategySupport.Strategy.OPTIMIZE_USING_TEMPORARY)) {
 					return new AssociativeTemporaryRollupStrategy(query, skin, select, rollup, grandTotal, copy);
 				} else {
-					return new AssociativeRollupStrategy(query, skin, select, rollup, grandTotal, copy);
+					// default to not optimize
+					return new NonAssociativeRollupStrategy(query, skin, select, rollup, grandTotal, copy);
 				}
 			} else {
-				return new NonAssociativeRollupStrategy(query, skin, select, rollup, grandTotal, copy);
+				if (strategy.getStrategy().equals(IRollupStrategySupport.Strategy.USE_BUILTIN_SUPPORT)) {
+					return new NativeRollupStrategy(query, skin, select, rollup, grandTotal, copy);
+				} else {
+					// do not optimize
+					return new NonAssociativeRollupStrategy(query, skin, select, rollup, grandTotal, copy);
+				}
 			}
 		}
 	}
