@@ -37,79 +37,90 @@ import com.squid.kraken.v4.model.Persistent;
  */
 public class VersionControlDataStoreDecorator implements DataStore {
 
-    private final DataStore ds;
+	private final DataStore ds;
 
-    public VersionControlDataStoreDecorator(DataStore ds) {
-        this.ds = ds;
-    }
+	public VersionControlDataStoreDecorator(DataStore ds) {
+		this.ds = ds;
+	}
 
-    /**
-     * Implements optimistic-locking through version control check.
-     */
-    @Override
-    public <T extends Persistent<PK>, PK extends GenericPK> T create(AppContext ctx, T newInstance) {
-    	if (newInstance instanceof HasVersionControl) {
-    		HasVersionControl newObject = (HasVersionControl) newInstance;
-    		newObject.setVersionControl(0);
-    	}
-        return ds.create(ctx, newInstance);
-    }
+	/**
+	 * Implements optimistic-locking through version control check.
+	 */
+	@Override
+	public <T extends Persistent<PK>, PK extends GenericPK> T create(AppContext ctx, T newInstance) {
+		if (newInstance instanceof HasVersionControl) {
+			HasVersionControl newObject = (HasVersionControl) newInstance;
+			newObject.setVersionControl(0);
+		}
+		return ds.create(ctx, newInstance);
+	}
 
-    @Override
-    public <T extends Persistent<PK>, PK extends GenericPK> void delete(AppContext ctx, Class<T> type, PK id) {
-        ds.delete(ctx, type, id);
-    }
+	@Override
+	public <T extends Persistent<PK>, PK extends GenericPK> void delete(AppContext ctx, Class<T> type, PK id) {
+		ds.delete(ctx, type, id);
+	}
 
-    @Override
-    public <T extends Persistent<PK>, PK extends GenericPK> Optional<T> read(AppContext ctx, Class<T> type, PK id) {
-        return ds.read(ctx, type, id);
-    }
+	@Override
+	public <T extends Persistent<PK>, PK extends GenericPK> Optional<T> read(AppContext ctx, Class<T> type, PK id) {
+		return ds.read(ctx, type, id);
+	}
 
-    @Override
-    final public <T extends Persistent<PK>, PK extends GenericPK> T readNotNull(AppContext ctx, Class<T> type, PK id) {
-        return ds.readNotNull(ctx, type, id);
-    }
+	@Override
+	final public <T extends Persistent<PK>, PK extends GenericPK> T readNotNull(AppContext ctx, Class<T> type, PK id) {
+		return ds.readNotNull(ctx, type, id);
+	}
 
-    /**
-     * Implements optimistic-locking through version control check.
-     */
-    @Override
-    public <T extends Persistent<PK>, PK extends GenericPK> void update(AppContext ctx, T object) {
-    	if (object instanceof HasVersionControl) {
-    		// compare old with new version
-    		HasVersionControl newObject = (HasVersionControl) object;
-    		Integer newVersion = newObject.getVersionControl();
-    		@SuppressWarnings("unchecked")
+	/**
+	 * Implements optimistic-locking through version control check.
+	 */
+	@Override
+	public <T extends Persistent<PK>, PK extends GenericPK> void update(AppContext ctx, T object) {
+		if (object instanceof HasVersionControl) {
+			HasVersionControl newObject = (HasVersionControl) object;
+			Integer newVersion = newObject.getVersionControl();
+			@SuppressWarnings("unchecked")
 			HasVersionControl oldObject = (HasVersionControl) DAOFactory.getDAOFactory().getDAO(object.getClass()).readNotNull(ctx, object.getId());
-    		Integer oldVersion = oldObject.getVersionControl();
-    		if (oldVersion != null) {
-    			if ((newVersion == null) || (!newVersion.equals(oldVersion))) {
-    				throw new ConcurrentModificationAPIException(ctx.isNoError());
-    			}
-    		} else {
-    			// initialize version
-    			oldVersion = 0;
-    		}
-    		// increment version
-    		newObject.setVersionControl(oldVersion+1);
-    	}
-        ds.update(ctx, object);
-    }
+			Integer oldVersion = oldObject.getVersionControl();
+			if (newVersion == null){
+				if (oldVersion != null){
+					newObject.setVersionControl(oldVersion+1);
+				}else{
+					newObject.setVersionControl(1);
+				}
+			}else{
+				// compare old with new version
+				if (oldVersion != null) {						
+					if (!newVersion.equals(oldVersion)) {
+						String message = "Version Check Failed: _VCTRL property equals to "+  newVersion ;
+						message+= " but current object version is "  + oldVersion  +"." ;
+						message+= "The two must be equal to allow object update, or _VCTRL must be null" ;
+						throw new ConcurrentModificationAPIException(message, ctx.isNoError());
+					}				
+				} else {
+					// initialize version
+					oldVersion = 0;
+				}
+				// increment version
+				newObject.setVersionControl(oldVersion+1);
+			}			
+		}
+		ds.update(ctx, object);
+	}
 
-    public <T extends Persistent<PK>, PK extends GenericPK> boolean exists(AppContext ctx, Class<T> type, PK objectId) {
-        ((CustomerPK) objectId).setCustomerId(ctx.getCustomerId());
-        return ds.exists(ctx, type, objectId);
-    }
+	public <T extends Persistent<PK>, PK extends GenericPK> boolean exists(AppContext ctx, Class<T> type, PK objectId) {
+		((CustomerPK) objectId).setCustomerId(ctx.getCustomerId());
+		return ds.exists(ctx, type, objectId);
+	}
 
-    @Override
-    public <T extends Persistent<PK>, PK extends GenericPK> List<T> find(AppContext app, Class<T> type,
-            List<DataStoreQueryField> queryFields, List<DataStoreFilterOperator> filterOperators) {
-        return find(app, type, queryFields, filterOperators, null);
-    }
+	@Override
+	public <T extends Persistent<PK>, PK extends GenericPK> List<T> find(AppContext app, Class<T> type,
+			List<DataStoreQueryField> queryFields, List<DataStoreFilterOperator> filterOperators) {
+		return find(app, type, queryFields, filterOperators, null);
+	}
 
-    @Override
-    public <T extends Persistent<PK>, PK extends GenericPK> List<T> find(AppContext app, Class<T> type,
-            List<DataStoreQueryField> queryFields, List<DataStoreFilterOperator> filterOperators, String orderBy) {
-        return ds.find(app, type, queryFields, filterOperators, orderBy);
-    }
+	@Override
+	public <T extends Persistent<PK>, PK extends GenericPK> List<T> find(AppContext app, Class<T> type,
+			List<DataStoreQueryField> queryFields, List<DataStoreFilterOperator> filterOperators, String orderBy) {
+		return ds.find(app, type, queryFields, filterOperators, orderBy);
+	}
 }

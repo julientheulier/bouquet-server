@@ -38,6 +38,9 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MediaType;
 
+import org.apache.commons.lang.SerializationUtils;
+
+import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.api.core.BaseServiceRest;
 import com.squid.kraken.v4.api.core.ObjectNotFoundAPIException;
 import com.squid.kraken.v4.api.core.attribute.AttributeServiceRest;
@@ -77,7 +80,7 @@ public class DimensionServiceRest extends BaseServiceRest {
 	@GET
 	@Path("")
 	@ApiOperation(value = "Get all Dimensions for the Domain (including child dimensions).")
-	public List<Dimension> readAll(@PathParam("projectId") String projectId,
+	public List<Dimension> readAllDimensions(@PathParam("projectId") String projectId,
 			@PathParam("domainId") String domainId) throws ComputingException, InterruptedException {
 		return delegate.readAll(userContext,
 				new DomainPK(userContext.getCustomerId(), projectId, domainId));
@@ -86,7 +89,7 @@ public class DimensionServiceRest extends BaseServiceRest {
 	@DELETE
 	@Path("{"+PARAM_NAME+"}")
 	@ApiOperation(value = "Deletes a dimension")
-	public boolean delete(@PathParam("projectId") String projectId,
+	public boolean deleteDimension(@PathParam("projectId") String projectId,
 			@PathParam("domainId") String domainId,
 			@PathParam(PARAM_NAME) String dimensionId) {
 		return delegate.delete(userContext,
@@ -97,7 +100,7 @@ public class DimensionServiceRest extends BaseServiceRest {
 	@GET
 	@Path("{"+PARAM_NAME+"}")
 	@ApiOperation(value = "Gets a dimension")
-	public Dimension read(@PathParam("projectId") String projectId,
+	public Dimension readDimension(@PathParam("projectId") String projectId,
 			@PathParam("domainId") String domainId,
 			@PathParam(PARAM_NAME) String dimensionId, @QueryParam("deepread") Boolean deepread) {
 		return delegate.read(userContext,
@@ -123,14 +126,16 @@ public class DimensionServiceRest extends BaseServiceRest {
 	public List<DimensionOption> addOptions(@PathParam("projectId") String projectId,
 			@PathParam("domainId") String domainId,
 			@PathParam(PARAM_NAME) String dimensionId,
-			@ApiParam(required = true) DimensionOption option) {
+			@ApiParam(required = true) DimensionOption option) throws ScopeException {
 		Dimension dimension =  delegate.read(userContext,
 				new DimensionPK(userContext.getCustomerId(), projectId,
 						domainId, dimensionId));
-		List<DimensionOption> options = dimension.getOptions()!=null?dimension.getOptions():new ArrayList<>();
+		Dimension clone = (Dimension)SerializationUtils.clone(dimension);
+		delegate.checkDimensionOption(userContext, clone, option);
+		List<DimensionOption> options = clone.getOptions()!=null?clone.getOptions():new ArrayList<>();
 		options.add(option);
-		dimension.setOptions(options);
-		Dimension check = delegate.store(userContext, dimension);
+		clone.setOptions(options);
+		Dimension check = delegate.store(userContext, clone);
 		return check.getOptions()!=null?check.getOptions():Collections.emptyList();
 	}
 
@@ -142,14 +147,16 @@ public class DimensionServiceRest extends BaseServiceRest {
 			@PathParam("domainId") String domainId,
 			@PathParam(PARAM_NAME) String dimensionId,
 			@PathParam("optionId") String optionId,
-			@ApiParam(required = true) DimensionOption update) {
+			@ApiParam(required = true) DimensionOption update) throws ScopeException {
 		Dimension dimension =  delegate.read(userContext,
 				new DimensionPK(userContext.getCustomerId(), projectId,
 						domainId, dimensionId));
-		if (dimension.getOptions()!=null) {
+		Dimension clone = (Dimension)SerializationUtils.clone(dimension);
+		delegate.checkDimensionOption(userContext, clone, update);
+		if (clone.getOptions()!=null) {
 			DimensionOption found = null;
 			ArrayList<DimensionOption> options = new ArrayList<>();
-			for (DimensionOption option : dimension.getOptions()) {
+			for (DimensionOption option : clone.getOptions()) {
 				if (!option.getId().getObjectId().equals(optionId)) {
 					options.add(option);
 				} else {
@@ -158,8 +165,8 @@ public class DimensionServiceRest extends BaseServiceRest {
 				}
 			}
 			if (found!=null) {
-				dimension.setOptions(options);
-				Dimension check = delegate.store(userContext, dimension);
+				clone.setOptions(options);
+				Dimension check = delegate.store(userContext, clone);
 				return check.getOptions();
 			}
 		}
@@ -176,8 +183,9 @@ public class DimensionServiceRest extends BaseServiceRest {
 		Dimension dimension =  delegate.read(userContext,
 				new DimensionPK(userContext.getCustomerId(), projectId,
 						domainId, dimensionId));
-		if (dimension.getOptions()!=null) {
-			for (DimensionOption option : dimension.getOptions()) {
+		Dimension clone = (Dimension)SerializationUtils.clone(dimension);
+		if (clone.getOptions()!=null) {
+			for (DimensionOption option : clone.getOptions()) {
 				if (option.getId().getObjectId().equals(optionId)) {
 					return option;
 				}
@@ -196,10 +204,11 @@ public class DimensionServiceRest extends BaseServiceRest {
 		Dimension dimension =  delegate.read(userContext,
 				new DimensionPK(userContext.getCustomerId(), projectId,
 						domainId, dimensionId));
+		Dimension clone = (Dimension)SerializationUtils.clone(dimension);
 		if (dimension.getOptions()!=null) {
 			DimensionOption found = null;
 			ArrayList<DimensionOption> options = new ArrayList<>();
-			for (DimensionOption option : dimension.getOptions()) {
+			for (DimensionOption option : clone.getOptions()) {
 				if (!option.getId().getObjectId().equals(optionId)) {
 					options.add(option);
 				} else {
@@ -207,8 +216,8 @@ public class DimensionServiceRest extends BaseServiceRest {
 				}
 			}
 			if (found!=null) {
-				dimension.setOptions(options);
-				Dimension check = delegate.store(userContext, dimension);
+				clone.setOptions(options);
+				Dimension check = delegate.store(userContext, clone);
 				return check.getOptions();
 			}
 		}
@@ -218,7 +227,7 @@ public class DimensionServiceRest extends BaseServiceRest {
 	@POST
 	@Path("")
 	@ApiOperation(value = "Creates a dimension")
-	public Dimension store(@PathParam("projectId") String projectId,
+	public Dimension storeDimension(@PathParam("projectId") String projectId,
 			@PathParam("domainId") String domainId,@ApiParam(required = true) Dimension dimension) {
 		return delegate.store(userContext, dimension);
 	}
@@ -226,7 +235,7 @@ public class DimensionServiceRest extends BaseServiceRest {
 	@POST
 	@Path("{"+PARAM_NAME+"}")
 	@ApiOperation(value = "Creates a dimension")
-	public Dimension store(@PathParam("projectId") String projectId,
+	public Dimension storeDimension2(@PathParam("projectId") String projectId,
 			@PathParam("domainId") String domainId,
 			@PathParam(PARAM_NAME) String dimensionId,@ApiParam(required = true) Dimension dimension) {
 		return delegate.store(userContext, dimension);
@@ -235,7 +244,7 @@ public class DimensionServiceRest extends BaseServiceRest {
 	@PUT
 	@Path("{"+PARAM_NAME+"}")
 	@ApiOperation(value = "Updates a dimension")
-	public Dimension update(@PathParam("projectId") String projectId,
+	public Dimension updateDimension(@PathParam("projectId") String projectId,
 			@PathParam("domainId") String domainId,
 			@PathParam(PARAM_NAME) String dimensionId,@ApiParam(required = true) Dimension dimension) {
 		return delegate.store(userContext, dimension);
@@ -245,7 +254,7 @@ public class DimensionServiceRest extends BaseServiceRest {
 	@Path("{"+PARAM_NAME+"}"+"/access")
 	@GET
 	@ApiOperation(value = "Gets a dimension's access rights")
-	public Set<AccessRight> readAccessRights(
+	public Set<AccessRight> readAccessRightsDimension(
 			@PathParam("projectId") String projectId,
 			@PathParam("domainId") String domainId,
 			@PathParam(PARAM_NAME) String dimensionId) {
@@ -256,7 +265,7 @@ public class DimensionServiceRest extends BaseServiceRest {
 	@Path("{"+PARAM_NAME+"}"+"/access")
 	@POST
 	@ApiOperation(value = "Sets a dimension's access rights")
-	public Set<AccessRight> storeAccessRights(
+	public Set<AccessRight> storeAccessRightsDimension(
 			@PathParam("projectId") String projectId,
 			@PathParam("domainId") String domainId,
 			@PathParam(PARAM_NAME) String dimensionId,

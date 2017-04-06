@@ -120,7 +120,7 @@ public class DomainOption implements Serializable {
 	public Boolean alink = false;
 
 	@JsonInclude(JsonInclude.Include.NON_DEFAULT)
-	public String LinkSource = null;
+	public String linkSource = null;
 
 	public DomainOption() {
 		// TODO Auto-generated constructor stub
@@ -135,11 +135,11 @@ public class DomainOption implements Serializable {
 	}
 
 	public String getLinkSource() {
-		return LinkSource;
+		return linkSource;
 	}
 
 	public void setLinkSource(String linkSource) {
-		LinkSource = linkSource;
+		this.linkSource = linkSource;
 	}
 
 	public ArrayList<DomainPK> getDependencies() {

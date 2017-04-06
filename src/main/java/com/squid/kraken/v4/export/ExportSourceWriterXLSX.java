@@ -28,12 +28,14 @@ import java.io.OutputStream;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.List;
 import java.util.concurrent.ExecutionException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.squid.core.export.IRawExportSource;
+import com.squid.core.export.Selection;
 import com.squid.core.jdbc.formatter.IJDBCDataFormatter;
 import com.squid.core.jdbc.vendor.IVendorSupport;
 import com.squid.core.jdbc.vendor.VendorSupportRegistry;
@@ -45,117 +47,128 @@ import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.model.DataTable;
 
-public class ExportSourceWriterXLSX implements ExportSourceWriter {
+public class ExportSourceWriterXLSX implements ExportSelectionWriter {
 
-  private static final Logger logger = LoggerFactory.getLogger(ExportSourceWriterXLSX.class);
+	private static final Logger logger = LoggerFactory.getLogger(ExportSourceWriterXLSX.class);
 
-  private ExcelSettingsBean settings = null;
+	private ExcelSettingsBean settings = null;
+	private List<Selection> selection = null;
 
-  public ExportSourceWriterXLSX() {
-    settings = new ExcelSettingsBean();
-  }
+	public ExportSourceWriterXLSX() {
+		settings = new ExcelSettingsBean();
+	}
 
-  public ExportSourceWriterXLSX(ExcelSettingsBean settings) {
-    this.settings = settings;
-  }
+	public ExportSourceWriterXLSX(ExcelSettingsBean settings) {
+		this.settings = settings;
+	}
 
-  public ExcelSettingsBean getSettings() {
-    return settings;
-  }
+	public ExcelSettingsBean getSettings() {
+		return settings;
+	}
 
-  public void setSettings(ExcelSettingsBean settings) {
-    this.settings = settings;
-  }
+	public void setSettings(ExcelSettingsBean settings) {
+		this.settings = settings;
+	}
 
-  @Override
-  public long write(ExecuteAnalysisResult item, OutputStream out) {
-    ExcelWriter writer;
-    IVendorSupport vendorSpecific;
-    vendorSpecific = VendorSupportRegistry.INSTANCE.getVendorSupport(item.getItem().getDatabase());
-    writer = new ExcelWriter(out, settings);
 
-    ResultSet rs = item.getItem().getResultSet();
-    try {
-      IRawExportSource source = new ExecutionItemExportSource(item);
+	@Override
+	public void setSelection(List<Selection> selection) {
+		this.selection = selection;
 
-      IJDBCDataFormatter formatter = vendorSpecific.createFormatter(settings, rs.getStatement().getConnection());
-      writer.writeResultSet(source, formatter);
-      writer.flush();
-    } catch (SQLException e) {
-      logger.warn(e.getMessage(), e);
-    } catch (IOException e) {
-      logger.warn(e.getMessage(), e);
-    } finally {
-      if (writer != null) {
-        try {
-          writer.close();
-          writer.dispose();
-        } catch (IOException e) {
-          logger.warn(e.getMessage(), e);
-        }
-      }
-    }
+	}
 
-    return writer.getLinesWritten();
-  }
+	@Override
+	public long write(ExecuteAnalysisResult item, OutputStream out) {
+		ExcelWriter writer;
+		IVendorSupport vendorSpecific;
+		vendorSpecific = VendorSupportRegistry.INSTANCE.getVendorSupport(item.getItem().getDatabase());
+		writer = new ExcelWriter(out, settings);
+		writer.writeSelection(selection);
 
-  @Override
-  public long write(RawMatrix matrix, OutputStream out) {
-    IRawExportSource source = new RawMatrixExportSource(matrix);
-    return this.write(source, out, null);
-  }
+		ResultSet rs = item.getItem().getResultSet();
+		try {
+			IRawExportSource source = new ExecutionItemExportSource(item);
 
-  @Override
-  public long write(DataMatrix matrix, OutputStream out) {
-    IRawExportSource source = new DataMatrixExportSource(matrix);
-    return this.write(source, out, null);
-  }
+			IJDBCDataFormatter formatter = vendorSpecific.createFormatter(settings, rs.getStatement().getConnection());
+			writer.writeResultSet(source, formatter);
+			writer.flush();
+		} catch (SQLException e) {
+			logger.warn(e.getMessage(), e);
+		} catch (IOException e) {
+			logger.warn(e.getMessage(), e);
+		} finally {
+			if (writer != null) {
+				try {
+					writer.close();
+					writer.dispose();
+				} catch (IOException e) {
+					logger.warn(e.getMessage(), e);
+				}
+			}
+		}
 
-  @Override
-  public long write(DataTable matrix, OutputStream out) {
-    throw new UnsupportedOperationException();
-  }
+		return writer.getLinesWritten();
+	}
 
-  @Override
-  public long write(RedisCacheValuesList matrix, OutputStream out) throws ComputingException {
-    IRawExportSource source;
-    try {
-      source = new ChunkedRawMatrixExportSource(matrix);
-      return this.write(source, out, null);
 
-    } catch (InterruptedException | ExecutionException e) {
-      throw new ComputingException();
-    }
+	@Override
+	public long write(RawMatrix matrix, OutputStream out) {
+		IRawExportSource source = new RawMatrixExportSource(matrix);
+		return this.write(source, out, null);
+	}
 
-  }
+	@Override
+	public long write(DataMatrix matrix, OutputStream out) {
+		IRawExportSource source = new DataMatrixExportSource(matrix);
+		return this.write(source, out, null);
+	}
 
-  private long write(IRawExportSource source, OutputStream out, Connection connection) {
-    ExcelWriter writer = new ExcelWriter(out, settings);
-    ;
-    try {
+	@Override
+	public long write(DataTable matrix, OutputStream out) {
+		throw new UnsupportedOperationException();
+	}
 
-      IVendorSupport vendorSpecific = VendorSupportRegistry.INSTANCE.getVendorSupport(null);
-      IJDBCDataFormatter formatter = vendorSpecific.createFormatter(settings, connection);
+	@Override
+	public long write(RedisCacheValuesList matrix, OutputStream out) throws ComputingException {
+		IRawExportSource source;
+		try {
+			source = new ChunkedRawMatrixExportSource(matrix);
+			return this.write(source, out, null);
 
-      writer.writeResultSet(source, formatter);
-      writer.flush();
-    } catch (SQLException e) {
-      logger.warn(e.getMessage(), e);
-    } catch (IOException e) {
-      logger.warn(e.getMessage(), e);
-    } finally {
-      if (writer != null) {
-        try {
-          writer.close();
-          writer.dispose();
-        } catch (IOException e) {
-          logger.warn(e.getMessage(), e);
-        }
-      }
-    }
+		} catch (InterruptedException | ExecutionException e) {
+			throw new ComputingException();
+		}
 
-    return writer.getLinesWritten();
+	}
 
-  }
+	private long write(IRawExportSource source, OutputStream out, Connection connection) {
+		ExcelWriter writer = new ExcelWriter(out, settings);
+		;
+		writer.writeSelection(selection);
+		try {
+
+			IVendorSupport vendorSpecific = VendorSupportRegistry.INSTANCE.getVendorSupport(null);
+			IJDBCDataFormatter formatter = vendorSpecific.createFormatter(settings, connection);
+
+			writer.writeResultSet(source, formatter);
+			writer.flush();
+		} catch (SQLException e) {
+			logger.warn(e.getMessage(), e);
+		} catch (IOException e) {
+			logger.warn(e.getMessage(), e);
+		} finally {
+			if (writer != null) {
+				try {
+					writer.close();
+					writer.dispose();
+				} catch (IOException e) {
+					logger.warn(e.getMessage(), e);
+				}
+			}
+		}
+
+		return writer.getLinesWritten();
+
+	}
 
 }

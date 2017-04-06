@@ -2,12 +2,12 @@
  * Copyright © Squid Solutions, 2016
  *
  * This file is part of Open Bouquet software.
- *  
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
  * published by the Free Software Foundation (version 3 of the License).
  *
- * There is a special FOSS exception to the terms and conditions of the 
+ * There is a special FOSS exception to the terms and conditions of the
  * licenses as they are applied to this program. See LICENSE.txt in
  * the directory of this program distribution.
  *
@@ -21,18 +21,15 @@
  * you and Squid Solutions (above licenses and LICENSE.txt included).
  * See http://www.squidsolutions.com/EnterpriseBouquet/
  *******************************************************************************/
-package com.squid.kraken.v4.api.core;
+package com.squid.kraken.v4.export;
 
-@SuppressWarnings("serial")
-public class ConcurrentModificationAPIException extends APIException {
+import java.util.List;
 
-	public ConcurrentModificationAPIException(String message, boolean noError) {
-		super(message, noError, ApiError.CONCURRENT_MODIFICATION);
-	}
+import com.squid.core.export.Selection;
+/**
+ * Interface to implement to export a dataset with the user's selection
+ */
+public interface ExportSelectionWriter extends ExportSourceWriter {
 
-	@Override
-	protected Integer getErrorCode() {
-		return 409;
-	}
-
+	public void setSelection(List<Selection> filters);
 }
