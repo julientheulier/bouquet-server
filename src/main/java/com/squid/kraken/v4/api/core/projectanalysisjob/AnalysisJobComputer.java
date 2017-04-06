@@ -2,12 +2,12 @@
  * Copyright © Squid Solutions, 2016
  *
  * This file is part of Open Bouquet software.
- *  
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
  * published by the Free Software Foundation (version 3 of the License).
  *
- * There is a special FOSS exception to the terms and conditions of the 
+ * There is a special FOSS exception to the terms and conditions of the
  * licenses as they are applied to this program. See LICENSE.txt in
  * the directory of this program distribution.
  *
@@ -31,7 +31,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.squid.core.expression.ExpressionAST;
-import com.squid.core.expression.ExpressionRef;
 import com.squid.core.expression.Operator;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.core.sql.model.SQLScopeException;
@@ -97,7 +96,7 @@ public class AnalysisJobComputer implements JobComputer<ProjectAnalysisJob, Proj
 	 * Preview Compute
 	 * <ul>
 	 * <li>Checks if an analysis is in Redis Cache <br>
-	 * 
+	 *
 	 * <li>If yes, returns the results as a Datatable
 	 * <li>else
 	 * <ul>
@@ -162,6 +161,7 @@ public class AnalysisJobComputer implements JobComputer<ProjectAnalysisJob, Proj
 	 * returns a datatable containing the number of lines written
 	 */
 
+	@Override
 	public DataTable compute(AppContext ctx, ProjectAnalysisJob job, OutputStream outputStream,
 			ExportSourceWriter writer, boolean lazy) throws ComputingException, InterruptedException {
 		// build the analysis
@@ -173,7 +173,7 @@ public class AnalysisJobComputer implements JobComputer<ProjectAnalysisJob, Proj
 		} catch (ScopeException e1) {
 			throw new ComputingException(e1);
 		}
-		ExportQueryWriter eqw = new ExportQueryWriter(writer, outputStream, job.getId().getAnalysisJobId());
+		ExportQueryWriter eqw = new ExportQueryWriter(writer, outputStream, job.getId().getAnalysisJobId(), ExportQueryWriter.buildExportSelection(analysis.getSelection(), job.getSelection()));
 		ComputingService.INSTANCE.executeAnalysis(analysis, eqw, lazy);
 
 		DataTable results = new DataTable();
@@ -191,6 +191,7 @@ public class AnalysisJobComputer implements JobComputer<ProjectAnalysisJob, Proj
 
 		return results;
 	}
+
 
 	public static List<Domain> readDomains(AppContext ctx, ProjectAnalysisJob job) throws ScopeException {
 		List<Domain> domains = new ArrayList<Domain>();
@@ -424,7 +425,7 @@ public class AnalysisJobComputer implements JobComputer<ProjectAnalysisJob, Proj
 									stop - start, "invalid orderBy expression " + expr.getValue() + " at position #"
 											+ pos + ": " + e.getMessage());
 							throw new ScopeException("invalid orderBy expression '" + expr.getValue()
-									+ "' at position #" + pos + ": " + e.getMessage());
+							+ "' at position #" + pos + ": " + e.getMessage());
 						}
 					} else {
 						long stop = System.currentTimeMillis();
@@ -503,7 +504,7 @@ public class AnalysisJobComputer implements JobComputer<ProjectAnalysisJob, Proj
 
 		return dash;
 	}
-	
+
 	/**
 	 * check if the expression is a compareTo() or a growth()
 	 * T2511
@@ -554,7 +555,7 @@ public class AnalysisJobComputer implements JobComputer<ProjectAnalysisJob, Proj
 		} else {
 			AccessRightsUtils.getInstance().checkRole(ctx, index.getDimension(), Role.READ);
 		}
-		*/
+		 */
 		return axis;
 	}
 

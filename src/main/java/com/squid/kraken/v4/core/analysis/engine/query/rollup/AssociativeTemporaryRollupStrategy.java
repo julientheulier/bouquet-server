@@ -31,6 +31,7 @@ import com.squid.core.database.impl.DataSourceReliable.FeatureSupport;
 import com.squid.core.sql.render.ISkinFeatureSupport;
 import com.squid.core.sql.render.RenderingException;
 import com.squid.core.sql.render.SQLSkin;
+import com.squid.core.sql.utils.SQLUtils;
 import com.squid.kraken.v4.core.analysis.engine.query.SimpleQuery;
 import com.squid.kraken.v4.core.analysis.engine.query.mapping.QueryMapper;
 import com.squid.kraken.v4.core.analysis.model.GroupByAxis;
@@ -62,7 +63,7 @@ public class AssociativeTemporaryRollupStrategy extends AssociativeRollupStrateg
         }
         original += "sql:";
         original += getSelect().render();
-        return "T_"+DigestUtils.sha256Hex(original);
+        return SQLUtils.normalizeTableName("T_"+DigestUtils.sha256Hex(original), "temporary");
 	}
 	
 	@Override

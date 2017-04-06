@@ -25,6 +25,7 @@ package com.squid.kraken.v4.api.core.dimension;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 
 import org.bson.types.ObjectId;
@@ -175,6 +176,42 @@ public class DimensionServiceBaseImpl extends
 		}
 	}
 	
+	/**
+	 * check that the DimensionOption definition is valid
+	 * @param ctx
+	 * @param dimension
+	 * @param option
+	 * @throws ScopeException
+	 */
+	public void checkDimensionOption(AppContext ctx, Dimension dimension, DimensionOption option) throws ScopeException {
+		// check default selection definition
+		if (option.getDefaultSelection()!=null && option.getDefaultSelection().getValue()!=null) {
+			Project project = ProjectManager.INSTANCE.getProject(ctx, dimension.getId().getParent().getParent());
+	        Universe universe = new Universe(ctx, project);
+			DomainPK domainPk = dimension.getId().getParent();
+	        Domain domain = ProjectManager.INSTANCE.getDomain(ctx, domainPk);
+	        ExpressionAST expr = universe.getParser().parse(domain, dimension);
+			DimensionDefaultValueScope scope = new DimensionDefaultValueScope(ctx, dimension, expr.getImageDomain());
+			try {
+				scope.parseExpression(option.getDefaultSelection().getValue());
+			} catch (ScopeException e) {
+				throw new ScopeException("Invalid Dimension Option definition: unable to parse the default selection: "+e.getLocalizedMessage(), e);
+			}
+		}
+	}
+	
+	public void checkDimensionOption(AppContext ctx, Domain domain, Dimension dimension, ExpressionAST expr, DimensionOption option) throws ScopeException {
+		// check default selection definition
+		if (option.getDefaultSelection()!=null && option.getDefaultSelection().getValue()!=null) {
+			DimensionDefaultValueScope scope = new DimensionDefaultValueScope(ctx, dimension, expr.getImageDomain());
+			try {
+				scope.parseExpression(option.getDefaultSelection().getValue());
+			} catch (ScopeException e) {
+				throw new ScopeException("Invalid Dimension Option definition: unable to parse the default selection: "+e.getLocalizedMessage(), e);
+			}
+		}
+	}
+	
 	@Override
 	public Dimension store(AppContext ctx, Dimension dimension) {
 		if (dimension.getId()==null) {
@@ -266,6 +303,12 @@ public class DimensionServiceBaseImpl extends
 	        universe.getParser().saveReferences(references);
 	        //
 	        // check the options
+	        HashMap<DimensionOptionPK, DimensionOption> checkOld = new HashMap<>();
+	        if (old!=null && old.getOptions()!=null) {
+	        	for (DimensionOption option : old.getOptions()) {
+	        		checkOld.put(option.getId(), option);
+	        	}
+	        }
 	        if (dimension.getOptions()!=null) {
 	        	for (DimensionOption option : dimension.getOptions()) {
 	        		// enforce ID
@@ -282,14 +325,10 @@ public class DimensionServiceBaseImpl extends
 	        			}
 	        			option.setId(id);
 	        		}
-	        		// check default selection definition
-	        		if (option.getDefaultSelection()!=null && option.getDefaultSelection().getValue()!=null) {
-	        			DimensionDefaultValueScope scope = new DimensionDefaultValueScope(ctx, dimension, expr.getImageDomain());
-	        			try {
-	        				scope.parseExpression(option.getDefaultSelection().getValue());
-	        			} catch (ScopeException e) {
-	        				throw new ScopeException("Invalid Option definition: unable to parse the default selection: "+e.getLocalizedMessage(), e);
-	        			}
+	        		// check if new or updated
+	        		DimensionOption check = checkOld.get(option.getId());
+	        		if (check==null || !check.equals(option)) {
+	        			checkDimensionOption(ctx, domain, dimension, expr, option);
 	        		}
 	        	}
 	        }
