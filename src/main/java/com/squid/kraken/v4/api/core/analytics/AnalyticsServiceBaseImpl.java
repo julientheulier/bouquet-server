@@ -84,7 +84,6 @@ import com.squid.core.expression.scope.ScopeException;
 import com.squid.core.poi.ExcelFile;
 import com.squid.core.poi.ExcelSettingsBean;
 import com.squid.core.sql.model.SQLScopeException;
-import com.squid.core.sql.render.IWherePiece;
 import com.squid.core.sql.render.RenderingException;
 import com.squid.core.sql.render.SQLSkin;
 import com.squid.kraken.v4.KrakenConfig;
@@ -142,7 +141,6 @@ import com.squid.kraken.v4.core.expression.reference.DomainReference;
 import com.squid.kraken.v4.core.expression.scope.ExpressionSuggestionHandler;
 import com.squid.kraken.v4.core.expression.scope.RelationExpressionScope;
 import com.squid.kraken.v4.core.model.domain.DomainDomain;
-import com.squid.kraken.v4.core.sql.SelectUniversal;
 import com.squid.kraken.v4.export.ExportSourceWriter;
 import com.squid.kraken.v4.export.ExportSourceWriterCSV;
 import com.squid.kraken.v4.export.ExportSourceWriterXLSX;
@@ -1431,7 +1429,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 						}
 					} else {
 						Collection<DimensionMember> members = sel.getMembers(axis);
-						ExpressionAST expr = where(axis, members);
+						ExpressionAST expr = convertToExpression(axis, members);
 						if (expr!=null) {
 							filters.add(expr.prettyPrint(localOptions));
 						}
@@ -1439,51 +1437,34 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 				}
 			}
 			selection.setFilters(filters);
+			//
+			if (actual.getCompareTo()!=null && !actual.getCompareTo().isEmpty()) {
+				DomainSelection sel = ds.getSelection().getCompareToSelection();
+				// only handling PERIOD
+				for (Axis axis : sel.getFilters()) {
+					if (query.getPeriod()!=null && !query.getPeriod().equals("") && checkAxisIsPeriod(query.getPeriod(), axis, space)) {
+						Collection<DimensionMember> members = sel.getMembers(axis);
+						if (members.size()==1) {
+							DimensionMember member = members.iterator().next();
+							Object value = member.getID();
+							if (value instanceof Intervalle) {
+								Intervalle interval = (Intervalle)value;
+								ArrayList<String> timeframe = new ArrayList<>();
+								timeframe.add(ISO8601_full.format(interval.getLowerBound()));
+								timeframe.add(ISO8601_full.format(interval.getUpperBound()));
+								selection.setCompareTo(timeframe);
+							}
+						}
+					}
+				}
+			}
 		} catch (InterruptedException | ComputingException | ScopeException | SQLScopeException e) {
 			// ignore
-		}
-		/*
-		for (Facet facet : actual.getFacets()) {
-			if (facet.hasSelectedItems()) {
-				if (query.getPeriod()!=null && !query.getPeriod().equals("") && checkFacetIsPeriod(query.getPeriod(), facet, space)) {
-					selection.setPeriod(query.getPeriod());
-					for (FacetMember member : facet.getSelectedItems()) {
-						if (member instanceof FacetMemberInterval) {
-							selection.setTimeframe(extractIntervalRange((FacetMemberInterval)member));
-						}
-					}
-				} else {
-					// this is a filter
-				}
-			}
-		}
-		*/
-		if (actual.getCompareTo()!=null && !actual.getCompareTo().isEmpty()) {
-			for (Facet facet : actual.getCompareTo()) {
-				if (facet.hasSelectedItems()) {
-					try {
-						Axis axis = space.getUniverse().axis(facet.getId());
-						String local = axis.prettyPrint(localOptions);
-						if (query.getPeriod()!=null && query.getPeriod().equals(local)) {
-							for (FacetMember member : facet.getSelectedItems()) {
-								if (member instanceof FacetMemberInterval) {
-									selection.setCompareTo(extractIntervalRange((FacetMemberInterval)member));
-								}
-							}
-						} else {
-							// this is a filter
-						}
-					} catch (ScopeException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}
-				}
-			}
 		}
 		return selection;
 	}
 	
-	protected ExpressionAST where(Axis axis, Collection<DimensionMember> filters)
+	protected ExpressionAST convertToExpression(Axis axis, Collection<DimensionMember> filters)
 			throws ScopeException, SQLScopeException {
 		//
 		ExpressionAST expr = axis.getReference();
@@ -1509,7 +1490,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			Object value = filter.getID();
 			// check if the member is an interval
 			if (value instanceof Intervalle) {
-				ExpressionAST where = where(expr, (Intervalle) value);
+				ExpressionAST where = convertToInterval(expr, (Intervalle) value);
 				if (filter_by_intervalle == null) {
 					filter_by_intervalle = where;
 				} else if (where != null) {
@@ -1553,7 +1534,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	 * @return
 	 * @throws ScopeException
 	 */
-	protected ExpressionAST where(ExpressionAST expr, Intervalle intervalle) throws ScopeException {
+	protected ExpressionAST convertToInterval(ExpressionAST expr, Intervalle intervalle) throws ScopeException {
 		ExpressionAST where = null;
 		ExpressionAST lower = intervalle.getLowerBoundExpression();
 		ExpressionAST upper = intervalle.getUpperBoundExpression();
