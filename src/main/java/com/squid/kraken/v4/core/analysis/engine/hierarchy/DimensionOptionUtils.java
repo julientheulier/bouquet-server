@@ -77,7 +77,7 @@ public class DimensionOptionUtils {
 	 * @return
 	 */
     public static boolean isOptionApplies(DimensionOption option, AppContext ctx) {
-    	if (option.getGroupFilter()==null && option.getUserFilter()==null) {
+    	if ((option.getGroupFilter()==null || option.getGroupFilter().isEmpty()) && (option.getUserFilter()==null || option.getUserFilter().isEmpty())) {
     		return true;
     	} else {
 	    	if (option.getGroupFilter()!=null) {

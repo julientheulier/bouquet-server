@@ -38,6 +38,9 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MediaType;
 
+import org.apache.commons.lang.SerializationUtils;
+
+import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.api.core.BaseServiceRest;
 import com.squid.kraken.v4.api.core.ObjectNotFoundAPIException;
 import com.squid.kraken.v4.api.core.attribute.AttributeServiceRest;
@@ -123,14 +126,16 @@ public class DimensionServiceRest extends BaseServiceRest {
 	public List<DimensionOption> addOptions(@PathParam("projectId") String projectId,
 			@PathParam("domainId") String domainId,
 			@PathParam(PARAM_NAME) String dimensionId,
-			@ApiParam(required = true) DimensionOption option) {
+			@ApiParam(required = true) DimensionOption option) throws ScopeException {
 		Dimension dimension =  delegate.read(userContext,
 				new DimensionPK(userContext.getCustomerId(), projectId,
 						domainId, dimensionId));
-		List<DimensionOption> options = dimension.getOptions()!=null?dimension.getOptions():new ArrayList<>();
+		Dimension clone = (Dimension)SerializationUtils.clone(dimension);
+		delegate.checkDimensionOption(userContext, clone, option);
+		List<DimensionOption> options = clone.getOptions()!=null?clone.getOptions():new ArrayList<>();
 		options.add(option);
-		dimension.setOptions(options);
-		Dimension check = delegate.store(userContext, dimension);
+		clone.setOptions(options);
+		Dimension check = delegate.store(userContext, clone);
 		return check.getOptions()!=null?check.getOptions():Collections.emptyList();
 	}
 
@@ -142,14 +147,16 @@ public class DimensionServiceRest extends BaseServiceRest {
 			@PathParam("domainId") String domainId,
 			@PathParam(PARAM_NAME) String dimensionId,
 			@PathParam("optionId") String optionId,
-			@ApiParam(required = true) DimensionOption update) {
+			@ApiParam(required = true) DimensionOption update) throws ScopeException {
 		Dimension dimension =  delegate.read(userContext,
 				new DimensionPK(userContext.getCustomerId(), projectId,
 						domainId, dimensionId));
-		if (dimension.getOptions()!=null) {
+		Dimension clone = (Dimension)SerializationUtils.clone(dimension);
+		delegate.checkDimensionOption(userContext, clone, update);
+		if (clone.getOptions()!=null) {
 			DimensionOption found = null;
 			ArrayList<DimensionOption> options = new ArrayList<>();
-			for (DimensionOption option : dimension.getOptions()) {
+			for (DimensionOption option : clone.getOptions()) {
 				if (!option.getId().getObjectId().equals(optionId)) {
 					options.add(option);
 				} else {
@@ -158,8 +165,8 @@ public class DimensionServiceRest extends BaseServiceRest {
 				}
 			}
 			if (found!=null) {
-				dimension.setOptions(options);
-				Dimension check = delegate.store(userContext, dimension);
+				clone.setOptions(options);
+				Dimension check = delegate.store(userContext, clone);
 				return check.getOptions();
 			}
 		}
@@ -176,8 +183,9 @@ public class DimensionServiceRest extends BaseServiceRest {
 		Dimension dimension =  delegate.read(userContext,
 				new DimensionPK(userContext.getCustomerId(), projectId,
 						domainId, dimensionId));
-		if (dimension.getOptions()!=null) {
-			for (DimensionOption option : dimension.getOptions()) {
+		Dimension clone = (Dimension)SerializationUtils.clone(dimension);
+		if (clone.getOptions()!=null) {
+			for (DimensionOption option : clone.getOptions()) {
 				if (option.getId().getObjectId().equals(optionId)) {
 					return option;
 				}
@@ -196,10 +204,11 @@ public class DimensionServiceRest extends BaseServiceRest {
 		Dimension dimension =  delegate.read(userContext,
 				new DimensionPK(userContext.getCustomerId(), projectId,
 						domainId, dimensionId));
+		Dimension clone = (Dimension)SerializationUtils.clone(dimension);
 		if (dimension.getOptions()!=null) {
 			DimensionOption found = null;
 			ArrayList<DimensionOption> options = new ArrayList<>();
-			for (DimensionOption option : dimension.getOptions()) {
+			for (DimensionOption option : clone.getOptions()) {
 				if (!option.getId().getObjectId().equals(optionId)) {
 					options.add(option);
 				} else {
@@ -207,8 +216,8 @@ public class DimensionServiceRest extends BaseServiceRest {
 				}
 			}
 			if (found!=null) {
-				dimension.setOptions(options);
-				Dimension check = delegate.store(userContext, dimension);
+				clone.setOptions(options);
+				Dimension check = delegate.store(userContext, clone);
 				return check.getOptions();
 			}
 		}

@@ -143,4 +143,59 @@ public class DimensionOption implements Serializable {
 		this.userFilter = userFilter;
 	}
 
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + ((defaultSelection == null) ? 0 : defaultSelection.hashCode());
+		result = prime * result + ((groupFilter == null) ? 0 : groupFilter.hashCode());
+		result = prime * result + (hidden ? 1231 : 1237);
+		result = prime * result + ((id == null) ? 0 : id.hashCode());
+		result = prime * result + (mandatorySelection ? 1231 : 1237);
+		result = prime * result + (singleSelection ? 1231 : 1237);
+		result = prime * result + (unmodifiableSelection ? 1231 : 1237);
+		result = prime * result + ((userFilter == null) ? 0 : userFilter.hashCode());
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		DimensionOption other = (DimensionOption) obj;
+		if (defaultSelection == null) {
+			if (other.defaultSelection != null)
+				return false;
+		} else if (!defaultSelection.equals(other.defaultSelection))
+			return false;
+		if (groupFilter == null) {
+			if (other.groupFilter != null)
+				return false;
+		} else if (!groupFilter.equals(other.groupFilter))
+			return false;
+		if (hidden != other.hidden)
+			return false;
+		if (id == null) {
+			if (other.id != null)
+				return false;
+		} else if (!id.equals(other.id))
+			return false;
+		if (mandatorySelection != other.mandatorySelection)
+			return false;
+		if (singleSelection != other.singleSelection)
+			return false;
+		if (unmodifiableSelection != other.unmodifiableSelection)
+			return false;
+		if (userFilter == null) {
+			if (other.userFilter != null)
+				return false;
+		} else if (!userFilter.equals(other.userFilter))
+			return false;
+		return true;
+	}
+
 }
