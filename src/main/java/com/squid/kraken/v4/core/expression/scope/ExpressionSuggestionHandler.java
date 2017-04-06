@@ -233,8 +233,7 @@ public class ExpressionSuggestionHandler {
             //System.out.println(prefix);
             IDomain context = null;
             try {
-            	ExpressionAST self = actualScope.parseExpression("$'SELF'");
-            	context = self.getImageDomain();
+            	context= actualScope.getScopeContext();
             } catch (ScopeException e) {
             	// ignore
             	System.out.println("");
