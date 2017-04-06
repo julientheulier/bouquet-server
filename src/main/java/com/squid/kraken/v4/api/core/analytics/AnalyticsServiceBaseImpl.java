@@ -123,6 +123,7 @@ import com.squid.kraken.v4.core.analysis.model.DashboardAnalysis;
 import com.squid.kraken.v4.core.analysis.model.DashboardSelection;
 import com.squid.kraken.v4.core.analysis.scope.AxisExpression;
 import com.squid.kraken.v4.core.analysis.scope.GlobalExpressionScope;
+import com.squid.kraken.v4.core.analysis.scope.LexiconScope;
 import com.squid.kraken.v4.core.analysis.scope.MeasureExpression;
 import com.squid.kraken.v4.core.analysis.scope.SpaceExpression;
 import com.squid.kraken.v4.core.analysis.scope.SpaceScope;
@@ -132,6 +133,7 @@ import com.squid.kraken.v4.core.analysis.universe.Measure;
 import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.kraken.v4.core.expression.reference.DomainReference;
+import com.squid.kraken.v4.core.expression.scope.DomainExpressionScope;
 import com.squid.kraken.v4.core.expression.scope.ExpressionSuggestionHandler;
 import com.squid.kraken.v4.core.expression.scope.RelationExpressionScope;
 import com.squid.kraken.v4.core.model.domain.DomainDomain;
@@ -1006,8 +1008,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		//
 		DefaultScope scope = null;
 		if (target==null) {
-			scope = new SpaceScope(space);
-			//scope = new DomainExpressionScope(space.getUniverse(), space.getDomain());
+			scope = new LexiconScope(space);
 		} else {
 			// check if the target is valid
 			if (!target.getUniverse().equals(space.getUniverse())) {
