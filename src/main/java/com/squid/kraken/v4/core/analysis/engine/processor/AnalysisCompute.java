@@ -939,7 +939,7 @@ public class AnalysisCompute {
 					SQLStats queryLog = new SQLStats(query.toString(), "executeAnalysis.SQLGeneration", sql,
 							(stop - start), analysis.getUniverse().getProject().getId().getProjectId());
 					queryLog.setError(false);
-					PerfDB.INSTANCE.save(queryLog);
+//					PerfDB.INSTANCE.save(queryLog);
 
 				} catch (RenderingException e) {
 					e.printStackTrace();

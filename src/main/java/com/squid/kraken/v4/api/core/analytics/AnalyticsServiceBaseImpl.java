@@ -3319,7 +3319,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			JobStats queryLog = new JobStats(job.getId().getAnalysisJobId(), "AnalysisJobComputer.compute",
 					(stop - start), job.getId().getProjectId());
 			queryLog.setError(false);
-			PerfDB.INSTANCE.save(queryLog);
+//			PerfDB.INSTANCE.save(queryLog);
 			return datamatrix;
 		}
 	}

@@ -206,7 +206,7 @@ public class ExecuteQueryTask implements CancellableCallable<IExecutionItem> {
 				SQLStats queryLog = new SQLStats(Integer.toString(queryNum), "executeQuery", sql, duration,
 						connection.getMetaData().getDatabaseProductName());
 				queryLog.setError(false);
-				PerfDB.INSTANCE.save(queryLog);
+//				PerfDB.INSTANCE.save(queryLog);
 
 				ExecutionItem ex = new ExecutionItem(ds.getDatabase(), ds.getDatasource(), connection, result,
 						formatter, queryNum);
