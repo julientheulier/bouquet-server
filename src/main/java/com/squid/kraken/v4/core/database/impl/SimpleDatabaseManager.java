@@ -238,7 +238,7 @@ public class SimpleDatabaseManager extends DatabaseManager {
 				SQLStats queryLog = new SQLStats(Integer.toString(queryNum), "execute", sql, duration,
 						this.getDatabase().getProductName());
 				queryLog.setError(false);
-				PerfDB.INSTANCE.save(queryLog);
+//				PerfDB.INSTANCE.save(queryLog);
 
 				return result;
 			} catch (Exception e) {

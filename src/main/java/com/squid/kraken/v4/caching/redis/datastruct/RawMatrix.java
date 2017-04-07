@@ -489,7 +489,7 @@ public class RawMatrix extends RedisCacheValue {
 		SQLStats queryLog = new SQLStats(Integer.toString(item.getID()), "streamExecutionItemToByteArray", "",
 				(metter_finish - metter_start), item.getDatabase().getName());
 		queryLog.setError(false);
-		PerfDB.INSTANCE.save(queryLog);
+	//	PerfDB.INSTANCE.save(queryLog);
 
 		kout.close();
 
