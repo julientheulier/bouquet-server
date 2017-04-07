@@ -44,6 +44,6 @@ public class PerfDB {
         logger.info("task="+logger.getClass()+" method="+method+" jobid="+job.getId().getAnalysisJobId()+" duration="+duration+ " error=true "+" "+msg);
         queryLog = new JobStats(job.getId().getAnalysisJobId(),method, duration, job.getId().getProjectId());
         queryLog.setError(error);
-        PerfDB.INSTANCE.save(queryLog);
+       // PerfDB.INSTANCE.save(queryLog);
     }
  }
