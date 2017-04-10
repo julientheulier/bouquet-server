@@ -64,7 +64,7 @@ public abstract class PersistentBaseImpl<PK extends GenericPK> implements Persis
     
     private Role userRole;
     
-    private Integer versionControl = 0;// T2872: default version to 0 so the GET always return a valid object
+    private Integer versionControl = null;// T2872: restoring to null since now the API accept null, and this is backward compatible
 
 	public PersistentBaseImpl(PK id) {
         setId(id);
