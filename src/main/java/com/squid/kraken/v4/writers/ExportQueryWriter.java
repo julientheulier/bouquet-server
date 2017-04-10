@@ -82,8 +82,6 @@ public class ExportQueryWriter extends QueryWriter {
 		return dateFormat.format(inputString);
 	}
 
-
-
 	public static List<Selection> buildExportSelection(DashboardSelection ds, FacetSelection fs) {
 		List<Selection> filters = new ArrayList<Selection>();
 		List<Axis> axes = ds.getFilters();
@@ -94,7 +92,7 @@ public class ExportQueryWriter extends QueryWriter {
 				comparedMembers = ds.getCompareToSelection().getMembers(axis);
 			}
 			for (Facet facet:fs.getFacets()) {
-				if (facet.getDimensionId().getDimensionId().equals(axis.getDimension().getId().getDimensionId())) {
+				if (facet.getDimensionId() != null && axis.getDimension().getId().getDimensionId().equals(facet.getDimensionId().getDimensionId())) {
 					List<String> values = getSelection(ds.getMembers(axis), facet.getSelectedItems());
 					List<String> comparedWith = null;
 					if (comparedMembers != null) {
