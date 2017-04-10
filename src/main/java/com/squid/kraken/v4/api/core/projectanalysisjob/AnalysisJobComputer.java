@@ -500,7 +500,7 @@ public class AnalysisJobComputer implements JobComputer<ProjectAnalysisJob, Proj
 		queryLog = new JobStats(job.getId().getAnalysisJobId(), "AnalysisJobComputer.buildDashboardAnalysis",
 				(stop - start), job.getId().getProjectId());
 		queryLog.setError(false);
-		PerfDB.INSTANCE.save(queryLog);
+		//PerfDB.INSTANCE.save(queryLog);
 
 		return dash;
 	}

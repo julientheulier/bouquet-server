@@ -245,7 +245,7 @@ public class ExecuteQueryTask implements CancellableCallable<IExecutionItem> {
 			SQLStats queryLog = new SQLStats(Integer.toString(queryNum), "executeQuery", sql, duration,
 					ds.getConfig().getJdbcUrl());
 			queryLog.setError(true);
-			PerfDB.INSTANCE.save(queryLog);
+		//	PerfDB.INSTANCE.save(queryLog);
 			throw new ExecutionException("SQLQuery#" + queryNum + "  jobId "+jobId + " on worker " + this.workerId
 					+  " failed: " + e.getLocalizedMessage()
 					+ "\nwhile executing the following SQL query:\n" + sql, e);
