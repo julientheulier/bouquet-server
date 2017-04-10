@@ -23,10 +23,14 @@
  *******************************************************************************/
 package com.squid.kraken.v4.core.expression.scope;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.squid.core.database.model.Column;
 import com.squid.core.database.model.ForeignKey;
@@ -43,6 +47,7 @@ import com.squid.core.expression.scope.ExpressionScope;
 import com.squid.core.expression.scope.IdentifierType;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
+import com.squid.kraken.v4.core.expression.reference.ColumnDomainReference;
 import com.squid.kraken.v4.core.expression.reference.DomainReference;
 import com.squid.kraken.v4.core.expression.reference.ParameterReference;
 import com.squid.kraken.v4.core.model.domain.DomainDomain;
@@ -63,8 +68,11 @@ public class RelationExpressionScope extends DefaultScope {
 	private String leftName = null;
 	private Domain right;
 	private String rightName = null;
-	
+
 	private List<Relation> relationScope = null;
+
+	static final Logger logger = LoggerFactory.getLogger(RelationExpressionScope.class);
+
 
 	public RelationExpressionScope(Universe universe, Relation relation) throws ScopeException {
 		this(universe,universe.getLeft(relation),universe.getRight(relation));
@@ -78,7 +86,7 @@ public class RelationExpressionScope extends DefaultScope {
 		this.leftName = relation.getLeftName();
 		this.rightName = relation.getRightName();
 	}
-	
+
 	public RelationExpressionScope(Universe universe, Domain left, Domain right) throws ScopeException {
 		super();
 		if (left==null || right==null) {
@@ -88,7 +96,7 @@ public class RelationExpressionScope extends DefaultScope {
 		this.left = left;
 		this.right = right;
 	}
-	
+
 	public RelationExpressionScope(Universe universe, Domain left, String leftName, Domain right, String rightName) throws ScopeException {
 		super();
 		if (left==null || right==null) {
@@ -114,7 +122,7 @@ public class RelationExpressionScope extends DefaultScope {
 			return this;
 		}
 	}
-	
+
 	@Override
 	public void buildDefinitionList(List<Object> definitions) {
 		super.buildDefinitionList(definitions);
@@ -155,8 +163,32 @@ public class RelationExpressionScope extends DefaultScope {
 		} catch (ScopeException | ExecutionException e) {
 			// ignore
 		}
+
+		// columns
+		definitions.addAll(this.getColumnsRef(left));
+		definitions.addAll(this.getColumnsRef(right));		
 	}
-	
+
+
+	private List<Object> getColumnsRef(Domain d){
+		ArrayList<Object> definitions= new ArrayList<Object>();
+		if (!(d.getSubject()==null || d.getSubject().getValue()==null)) {
+			Table table;
+			try {
+				table =universe.getTable(d);
+				if (table!=null && universe.S(d).getParent()==null) {// list columns only for the home domain
+					for (Column col : table.getColumns()) {
+						definitions.add(ExpressionMaker.COMPOSE(new DomainReference(universe, d), new ColumnDomainReference(universe, d,col)));
+					}
+				}
+			} catch (ExecutionException | ScopeException e1) {
+				logger.info("could not load columns");
+			}
+		}
+		return definitions;
+	}
+
+
 	/**
 	 * create natural join between left & right columns. Condition: must have same name and compatible types.
 	 * @param definitions
@@ -192,7 +224,7 @@ public class RelationExpressionScope extends DefaultScope {
 			// ignore, but it's not good
 		}
 	}
-	
+
 	private Set<String> addColumnName(Table table) throws ExecutionException {
 		Set<String> names = new HashSet<String>();
 		for (Column col : table.getColumns()) {
@@ -215,7 +247,7 @@ public class RelationExpressionScope extends DefaultScope {
 			// ignore, but it's not good
 		}
 	}
-	
+
 	private void buildNaturalJoinDefinition(List<Object> definitions, Domain foreign, Domain primary) {
 		ExpressionAST join = createNaturalJoinExpression(foreign, primary);
 		if (join!=null) {
@@ -252,8 +284,8 @@ public class RelationExpressionScope extends DefaultScope {
 			return null;
 		}
 	}
-	*/
-	
+	 */
+
 	@Override
 	public Object lookupObject(IdentifierType identifierType, String identifier) throws ScopeException {
 		// this is either the source or the target... ?
@@ -304,10 +336,10 @@ public class RelationExpressionScope extends DefaultScope {
 		// else
 		throw new ScopeException("cannot find object '"+identifier+"' (could be: Domain, ForeignKey)");
 	}
-	
+
 	@Override
 	public ExpressionAST createReferringExpression(Object reference)
-			throws ScopeException {
+			throws ScopeException {			
 		if (reference instanceof Domain) {
 			return new DomainReference(universe,(Domain)reference);
 		} else if (reference instanceof ForeignKey) {
@@ -316,7 +348,7 @@ public class RelationExpressionScope extends DefaultScope {
 			return super.createReferringExpression(reference);
 		}
 	}
-	
+
 	@Override
 	public ExpressionDiagnostic validateExpression(ExpressionAST expression) {
 		IDomain source = expression.getSourceDomain();
@@ -336,7 +368,7 @@ public class RelationExpressionScope extends DefaultScope {
 				IDomain left = new ProxyDomainDomain(this.universe, this.left);
 				IDomain right = new ProxyDomainDomain(this.universe, this.right);
 				if (( (left.isInstanceOf(one) && right.isInstanceOf(two)) 
-					|| (left.isInstanceOf(two) && right.isInstanceOf(one)) ) ) {
+						|| (left.isInstanceOf(two) && right.isInstanceOf(one)) ) ) {
 					// ok
 				} else {
 					return new ExpressionDiagnostic("This is not a valid join expression between left/right domains");
@@ -361,5 +393,9 @@ public class RelationExpressionScope extends DefaultScope {
 			return expression.prettyPrint(options);
 		}
 	}
-
+	@Override
+	public IDomain getScopeContext() throws ScopeException{
+    	return null;
+    }
+	
 }

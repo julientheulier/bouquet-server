@@ -238,7 +238,7 @@ public class SimpleDatabaseManager extends DatabaseManager {
 				SQLStats queryLog = new SQLStats(Integer.toString(queryNum), "execute", sql, duration,
 						this.getDatabase().getProductName());
 				queryLog.setError(false);
-				PerfDB.INSTANCE.save(queryLog);
+//				PerfDB.INSTANCE.save(queryLog);
 
 				return result;
 			} catch (Exception e) {
@@ -272,7 +272,7 @@ public class SimpleDatabaseManager extends DatabaseManager {
 			SQLStats queryLog = new SQLStats(Integer.toString(queryNum), "execute", sql, duration,
 					this.getDatabase().getProductName());
 			queryLog.setError(true);
-			PerfDB.INSTANCE.save(queryLog);
+			//PerfDB.INSTANCE.save(queryLog);
 			throw new ExecutionException("SQLQuery#" + queryNum + " failed:\n" + e.getLocalizedMessage(), e);
 		}
 	}

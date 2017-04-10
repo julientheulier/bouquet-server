@@ -46,7 +46,7 @@ import com.squid.kraken.v4.model.RelationPK;
 
 public class SpaceScope extends AnalysisScope {
 
-    private Space space;
+    protected Space space;
 
     public SpaceScope(Space space) {
         super();

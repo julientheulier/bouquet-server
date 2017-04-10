@@ -139,7 +139,7 @@ public class AnalysisJobComputer implements JobComputer<ProjectAnalysisJob, Proj
 			JobStats queryLog = new JobStats(job.getId().getAnalysisJobId(), "AnalysisJobComputer.compute",
 					(stop - start), job.getId().getProjectId());
 			queryLog.setError(false);
-			PerfDB.INSTANCE.save(queryLog);
+//			PerfDB.INSTANCE.save(queryLog);
 			DataTable res = datamatrix.toDataTable(ctx, maxResults, startIndex, false, job.getOptionKeys());
 			logger.debug("Is result set in REDIS complete? " + res.getFullset());
 			return res;
@@ -187,7 +187,7 @@ public class AnalysisJobComputer implements JobComputer<ProjectAnalysisJob, Proj
 				+ job.getOid() + " status=done duration=" + (stop - start));
 		JobStats queryLog = new JobStats(job.getId().toString(), "FacetJobComputer", (stop - start),
 				job.getId().getProjectId());
-		PerfDB.INSTANCE.save(queryLog);
+		//PerfDB.INSTANCE.save(queryLog);
 
 		return results;
 	}
@@ -250,7 +250,7 @@ public class AnalysisJobComputer implements JobComputer<ProjectAnalysisJob, Proj
 		JobStats queryLog = new JobStats(job.getId().getAnalysisJobId(),
 				"AnalysisJobComputer.ProjectDeepRead", duration, job.getId().getProjectId());
 		queryLog.setError(false);
-		PerfDB.INSTANCE.save(queryLog);
+		//PerfDB.INSTANCE.save(queryLog);
 
 		Universe universe = new Universe(ctx, project);
 		// define a dashboard
@@ -500,7 +500,7 @@ public class AnalysisJobComputer implements JobComputer<ProjectAnalysisJob, Proj
 		queryLog = new JobStats(job.getId().getAnalysisJobId(), "AnalysisJobComputer.buildDashboardAnalysis",
 				(stop - start), job.getId().getProjectId());
 		queryLog.setError(false);
-		PerfDB.INSTANCE.save(queryLog);
+		//PerfDB.INSTANCE.save(queryLog);
 
 		return dash;
 	}

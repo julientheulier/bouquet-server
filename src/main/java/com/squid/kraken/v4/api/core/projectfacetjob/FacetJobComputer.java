@@ -110,7 +110,7 @@ public class FacetJobComputer implements
 			long duration = (new Date().getTime()-start);
 			logger.info("task="+this.getClass().getName()+" method=FacetJobComputer.compute()"+" duration="+duration+ " error=false end");
 			JobStats queryLog = new JobStats(job.getId().toString(),"FacetJobComputer", duration,job.getId().getProjectId());
-			PerfDB.INSTANCE.save(queryLog);
+//			PerfDB.INSTANCE.save(queryLog);
 			FacetSelection facetSelectionResult = new FacetSelection();
 			facetSelectionResult.setFacets(result);
 			// handling compareTo (T947)
