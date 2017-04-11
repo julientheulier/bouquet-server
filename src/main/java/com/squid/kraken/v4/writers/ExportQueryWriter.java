@@ -91,24 +91,29 @@ public class ExportQueryWriter extends QueryWriter {
 			if (ds.getCompareToSelection() != null) {
 				comparedMembers = ds.getCompareToSelection().getMembers(axis);
 			}
-			for (Facet facet:fs.getFacets()) {
-				if (facet.getDimensionId() != null && axis.getDimension().getId().getDimensionId().equals(facet.getDimensionId().getDimensionId())) {
-					List<String> values = getSelection(ds.getMembers(axis), facet.getSelectedItems());
-					List<String> comparedWith = null;
-					if (comparedMembers != null) {
-						for (Facet compare:fs.getCompareTo()) {
-							if (axis.getDimension().getId().getDimensionId().equals(compare.getDimensionId().getDimensionId())) {
-								comparedWith = getSelection(comparedMembers, compare.getSelectedItems());
-							}
-						}
-
-					}
-					Selection selection = new Selection(axis.getDimension().getName(), values, comparedWith);
-					filters.add(selection);
-					if (axis.getDimensionType().equals(Type.CONTINUOUS)) {
-						continuouSelection=selection;
+			List<FacetMember> facetMembers = null;
+			if (fs.getFacets() != null) {
+				for (Facet facet:fs.getFacets()) {
+					if (facet.getDimensionId() != null && axis.getDimension().getId().getDimensionId().equals(facet.getDimensionId().getDimensionId())) {
+						facetMembers = facet.getSelectedItems();
 					}
 				}
+			}
+			List<String> values = getSelection(ds.getMembers(axis), facetMembers);
+			List<String> comparedWith = null;
+			facetMembers = null;
+			if (comparedMembers != null && fs.getCompareTo() != null) {
+				for (Facet compare:fs.getCompareTo()) {
+					if (compare.getDimensionId() != null && axis.getDimension().getId().getDimensionId().equals(compare.getDimensionId().getDimensionId())) {
+						facetMembers = compare.getSelectedItems();
+					}
+				}
+				comparedWith = getSelection(comparedMembers, facetMembers);
+			}
+			Selection selection = new Selection(axis.getDimension().getName(), values, comparedWith);
+			filters.add(selection);
+			if (axis.getDimensionType().equals(Type.CONTINUOUS)) {
+				continuouSelection=selection;
 			}
 		}
 		//Now sort filters & put period on top
@@ -126,14 +131,20 @@ public class ExportQueryWriter extends QueryWriter {
 
 	private static List<String> getSelection(Collection<DimensionMember> members, Collection<FacetMember> facetMembers) {
 		List<String> values = new ArrayList<String>();
-		Iterator<FacetMember> facetMemberIterator = facetMembers.iterator();
+		Iterator<FacetMember> facetMemberIterator = null;
+		if (facetMembers != null) {
+			facetMemberIterator = facetMembers.iterator();
+		}
 		for(DimensionMember member: members) {
-			FacetMember facetMember = facetMemberIterator.next();
+			FacetMember facetMember = null;
+			if (facetMemberIterator != null) {
+				facetMember = facetMemberIterator.next();
+			}
 			if (member.getID() instanceof IntervalleObject) {
 				Date from = (Date) ((IntervalleObject)member.getID()).getLowerBound();
 				Date to = (Date) ((IntervalleObject)member.getID()).getUpperBound();
 				String interval = "From " + convertToDate(from) + " to " + convertToDate(to);
-				if (((FacetMemberInterval) facetMember).getLowerBound().startsWith("__")) {
+				if (facetMember != null && ((FacetMemberInterval) facetMember).getLowerBound().startsWith("__")) {
 					interval += " ("+ StringUtils.capitalize(((FacetMemberInterval) facetMember).getLowerBound().replaceAll("COMPARE_TO_", "").toLowerCase().replaceAll("_"," ").trim()) + ")";
 				}
 				values.add(interval);
