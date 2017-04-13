@@ -29,13 +29,17 @@ import java.util.List;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.api.core.APIException;
+import com.squid.kraken.v4.api.core.AccessRightsUtils;
 import com.squid.kraken.v4.api.core.GenericServiceImpl;
 import com.squid.kraken.v4.api.core.ObjectNotFoundAPIException;
+import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex;
+import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndexProxy;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainHierarchy;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainHierarchyManager;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
+import com.squid.kraken.v4.model.Dimension;
 import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.DomainPK;
 import com.squid.kraken.v4.model.DynamicObject;
@@ -45,6 +49,7 @@ import com.squid.kraken.v4.model.MetricExt;
 import com.squid.kraken.v4.model.MetricPK;
 import com.squid.kraken.v4.model.Project;
 import com.squid.kraken.v4.model.ProjectPK;
+import com.squid.kraken.v4.model.AccessRight.Role;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DAOFactory;
 
@@ -171,6 +176,21 @@ public class MetricServiceBaseImpl extends GenericServiceImpl<Metric, MetricPK> 
 		} catch (ScopeException | ComputingException | InterruptedException e) {
 			throw new ObjectNotFoundAPIException(e.getMessage(), e, false);
 		}
+	}
+	@Override
+    public boolean delete(AppContext ctx, MetricPK objectId) {
+		Metric met = this.read(ctx, objectId);		
+    	if (met == null){
+    		throw new ObjectNotFoundAPIException("Invalid dimension id " + objectId.toString(), false);
+    	}else{
+    		boolean shouldHide= met.hide();
+    		if (shouldHide){
+    			store(ctx, met);
+    			return true;
+    		}else{
+    			return super.delete(ctx, objectId);
+    		}
+    	}
 	}
 	
 }

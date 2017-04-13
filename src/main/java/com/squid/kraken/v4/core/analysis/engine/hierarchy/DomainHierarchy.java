@@ -159,7 +159,7 @@ public class DomainHierarchy {
 	public List<Dimension> getDimensions(AppContext ctx) {
 		List<Dimension> filtered = new ArrayList<Dimension>();
 		for (Dimension dim : getContent().getDimensions()) {
-			if (hasRole(ctx, dim)) {
+			if (!dim.isHidden() &&  hasRole(ctx, dim)) {
 				Dimension clone = cloneWithRole(ctx, dim);
 				filtered.add(clone);
 			}
@@ -236,7 +236,7 @@ public class DomainHierarchy {
 	public List<Metric> getMetrics(AppContext ctx) {
 		List<Metric> filtered = new ArrayList<Metric>();
 		for (Metric metric : getContent().getMetrics()) {
-			if (hasRole(ctx, metric)) {
+			if (!metric.isHidden() && hasRole(ctx, metric)) {
 				Metric clone = cloneWithRole(ctx, metric);
 				filtered.add(clone);
 			}
@@ -249,7 +249,7 @@ public class DomainHierarchy {
 		for (Metric metric : getContent().getMetrics()) {
 			if (!showDynamics && metric.isDynamic()) {
 				// ignore
-			} else if (hasRole(ctx, metric)) {
+			} else if (!metric.isHidden() && hasRole(ctx, metric)) {
 				filtered.add(cloneWithRole(ctx, metric));
 			}
 		}
@@ -259,7 +259,7 @@ public class DomainHierarchy {
 	public List<MetricExt> getMetricsExt(AppContext ctx) {
 		List<MetricExt> filtered = new ArrayList<MetricExt>();
 		for (Metric metric : getContent().getMetrics()) {
-			if (hasRole(ctx, metric)) {
+			if (!metric.isHidden() && hasRole(ctx, metric)) {
 				String definition = root.prettyPrint() + "." + "[" + AnalysisScope.MEASURE.getToken() + ":'"
 						+ metric.getName() + "']";
 				boolean isVisible = root.getDomain().isDynamic() || !metric.isDynamic();
@@ -481,7 +481,7 @@ public class DomainHierarchy {
 	public List<DimensionIndex> getDimensionIndexes(AppContext ctx) {
 		ArrayList<DimensionIndex> indexes = new ArrayList<DimensionIndex>(flatten.size());
 		for (DimensionIndex index : flatten) {
-			if (index.isVisible() && hasRole(ctx, index.getDimension())) {
+			if ( !index.getDimension().isHidden() && index.isVisible() && hasRole(ctx, index.getDimension())) {
 				indexes.add(index);
 			}
 		}

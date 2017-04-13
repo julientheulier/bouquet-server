@@ -77,16 +77,16 @@ public class ProjectManager {
 
 	public static final ProjectManager INSTANCE = new ProjectManager();
 
-    private DAOFactory factory = DAOFactory.getDAOFactory();
-    
-    private Map<ProjectPK, ProjectDynamicContent> projects = new ConcurrentHashMap<ProjectPK, ProjectDynamicContent>();
+	private DAOFactory factory = DAOFactory.getDAOFactory();
+
+	private Map<ProjectPK, ProjectDynamicContent> projects = new ConcurrentHashMap<ProjectPK, ProjectDynamicContent>();
 
 	private ConcurrentHashMap<ProjectPK, ReentrantLock> project_locks = new ConcurrentHashMap<>();
-	
+
 	public ProjectManager() {
 		projects = new ConcurrentHashMap<ProjectPK, ProjectDynamicContent>();
 	}
-	
+
 	/**
 	 * peek the Project if and only it is already loaded
 	 * @param ctx
@@ -102,7 +102,7 @@ public class ProjectManager {
 			return null;
 		}
 	}
-	
+
 	/**
 	 * load the project according to the context
 	 * @param ctx
@@ -119,12 +119,12 @@ public class ProjectManager {
 			throw new ScopeException("cannot find project with PK = "+projectPk);
 		}
 	}
-	
+
 	public Project getProject(AppContext ctx, String projectId) throws ScopeException {
 		ProjectPK projectPk = new ProjectPK(ctx.getCustomerId(), projectId);
 		return getProject(ctx, projectPk);
 	}
-	
+
 	public Project findProjectByName(AppContext ctx, String projectName) throws ScopeException {
 		// using name
 		List<Project> projects = ((ProjectDAO) DAOFactory.getDAOFactory().getDAO(Project.class))
@@ -137,7 +137,7 @@ public class ProjectManager {
 		}
 		throw new ScopeException("cannot find project with name='"+projectName+"'");
 	}
-	
+
 	/**
 	 * if user has EXECUTE access to the project, upgrade user to be part of the guest group for the duration of the transaction.
 	 * This is performing a side effect on the user.getGroups() list of groups
@@ -190,7 +190,7 @@ public class ProjectManager {
 		// else
 		throw new ScopeException("cannot find Domain with PK="+domainPk);
 	}
-	
+
 	public boolean isVisible(AppContext ctx, Domain domain) {
 		if (!domain.isDynamic()) {
 			return true;
@@ -198,7 +198,7 @@ public class ProjectManager {
 			return AccessRightsUtils.getInstance().hasRole(ctx, domain, Role.WRITE);
 		}
 	}
-	
+
 	/**
 	 * refresh the domain content and data
 	 * @param ctx
@@ -232,7 +232,7 @@ public class ProjectManager {
 		}
 		return key;
 	}
-	
+
 	/**
 	 * return the domain if possible
 	 * @param ctx
@@ -293,7 +293,7 @@ public class ProjectManager {
 		} else {
 			List<Relation> filter = new ArrayList<Relation>();
 			for (Relation rel : rels) {
-				if (hasRole(ctx, rel)) {
+				if (!rel.isHidden() && hasRole(ctx, rel)) {
 					filter.add(cloneWithRole(ctx, rel));
 				}
 			}
@@ -318,7 +318,7 @@ public class ProjectManager {
 		} else {
 			List<Relation> filter = new ArrayList<Relation>();
 			for (Relation rel : rels) {
-				if (rel.getDirection(domainPK)!=RelationDirection.NO_WAY && hasRole(ctx, rel)) {
+				if (! rel.isHidden() && rel.getDirection(domainPK)!=RelationDirection.NO_WAY && hasRole(ctx, rel)) {
 					filter.add(cloneWithRole(ctx, rel));
 				}
 			}
@@ -342,16 +342,18 @@ public class ProjectManager {
 			return null;
 		} else {
 			for (Relation rel : rels) {
-				RelationDirection direction = rel.getDirection(domainPK);
-				if (direction==RelationDirection.LEFT_TO_RIGHT && rel.getRightName().compareTo(name)==0) {
-					// LEFT TO RIGHT
-					checkRole(ctx, rel);
-					return cloneWithRole(ctx, rel);
-				} else if (direction==RelationDirection.RIGHT_TO_LEFT && rel.getLeftName().compareTo(name)==0) {
-					checkRole(ctx, rel);
-					return cloneWithRole(ctx, rel);
-				} else {
-					// ignore
+				if (!rel.isHidden()){
+					RelationDirection direction = rel.getDirection(domainPK);
+					if (direction==RelationDirection.LEFT_TO_RIGHT && rel.getRightName().compareTo(name)==0) {
+						// LEFT TO RIGHT
+						checkRole(ctx, rel);
+						return cloneWithRole(ctx, rel);
+					} else if (direction==RelationDirection.RIGHT_TO_LEFT && rel.getLeftName().compareTo(name)==0) {
+						checkRole(ctx, rel);
+						return cloneWithRole(ctx, rel);
+					} else {
+						// ignore
+					}
 				}
 			}
 			return null;
@@ -371,14 +373,14 @@ public class ProjectManager {
 		}
 		ProjectDynamicContent domains = getProjectContent(ctx, relationPk.getParent(), true);
 		Relation rel = domains.get(relationPk);
-		if (rel!=null) {
+		if (rel!=null && !rel.isHidden()) {
 			checkRole(ctx, rel);
 			return cloneWithRole(ctx, rel);
 		}
 		// else
 		throw new ObjectNotFoundAPIException("cannot find Relation "+relationPk,true);
 	}
-	
+
 	/**
 	 * try to find the relation with the given PK
 	 * @param ctx
@@ -399,7 +401,7 @@ public class ProjectManager {
 		// else
 		return null;
 	}
-	
+
 	/**
 	 * get the cartography for the given project
 	 * @param ctx
@@ -414,7 +416,7 @@ public class ProjectManager {
 		}
 		return content.getCartography();
 	}
-	
+
 	public DomainContent getDomainContent(Space space) throws ScopeException {
 		Universe universe = space.getUniverse();
 		ProjectDynamicContent content = getProjectContent(universe.getContext(), universe.getProject().getId(), true);
@@ -455,7 +457,7 @@ public class ProjectManager {
 		}
 		return content;
 	}
-	
+
 	protected String getProjectContentGenkey(ProjectPK projectPk) {
 		return RedisCacheManager.getInstance().getKey(projectPk.toUUID()+"/domains",projectPk.toUUID()).getStringKey();
 	}
@@ -489,9 +491,9 @@ public class ProjectManager {
 	 * @param projectPk
 	 */
 	public void refreshContent(ProjectPK projectPk) {
-        RedisCacheManager.getInstance().refresh(projectPk.toUUID()+"/domains");// T70: refresh the domains
+		RedisCacheManager.getInstance().refresh(projectPk.toUUID()+"/domains");// T70: refresh the domains
 	}
-	
+
 	/**
 	 * create content for the given project. The genkey is used to invalidate the content. 
 	 * @param ctx
@@ -532,7 +534,7 @@ public class ProjectManager {
 	private List<Domain> filterDomains(AppContext ctx, ProjectPK projectPk, List<Domain> domains) throws ScopeException {
 		List<Domain> filteredDomains = new ArrayList<Domain>();
 		for (Domain domain : domains) {
-			if (hasRole(ctx, domain)) {
+			if (!domain.isHidden()  && hasRole(ctx, domain)) {
 				filteredDomains.add(cloneWithRole(ctx, domain));
 			}
 		}
@@ -540,26 +542,26 @@ public class ProjectManager {
 	}
 
 	public boolean hasRole(AppContext ctx, Domain object) {
-    	// T1076: guest can access dynamic objects
-    	Role role = Role.READ;
+		// T1076: guest can access dynamic objects
+		Role role = Role.READ;
 		return AccessRightsUtils.getInstance().hasRole(ctx,object,role);
 	}
-	
+
 	public void checkRole(AppContext ctx, Domain object) {
-    	// T1076: guest can access dynamic objects
-    	Role role = Role.READ;
+		// T1076: guest can access dynamic objects
+		Role role = Role.READ;
 		AccessRightsUtils.getInstance().checkRole(ctx, object, role);
 	}
 
 	public boolean hasRole(AppContext ctx, Relation object) {
-    	// T1076: guest can access dynamic objects
-    	Role role = Role.READ;
+		// T1076: guest can access dynamic objects
+		Role role = Role.READ;
 		return AccessRightsUtils.getInstance().hasRole(ctx,object,role);
 	}
-	
+
 	public void checkRole(AppContext ctx, Relation object) {
-    	// T1076: guest can access dynamic objects
-    	Role role = Role.READ;
+		// T1076: guest can access dynamic objects
+		Role role = Role.READ;
 		AccessRightsUtils.getInstance().checkRole(ctx, object, role);
 	}
 
@@ -582,7 +584,7 @@ public class ProjectManager {
 			throw new RuntimeException("impossible exception",e);
 		}
 	}
-	
+
 	private ReentrantLock lock(ProjectPK projectPk, int timeoutMs) throws InterruptedException {
 		ReentrantLock mylock = new ReentrantLock();
 		mylock.lock();
@@ -598,14 +600,14 @@ public class ProjectManager {
 		}
 		return lock;
 	}
-	
+
 	public void invalidate(Project project) throws InterruptedException, ScopeException {
 		ReentrantLock lock = lock(project.getId());
 		// load the list first
 		List<Domain> domains = ProjectManager.INSTANCE.getDomains(ServiceUtils.getInstance().getRootUserContext(project.getId().getCustomerId()), project.getId());
 		// ... then refresh the project
-        RedisCacheManager.getInstance().refresh(project.getId().toUUID());
-        // ... and force domains invalidation
+		RedisCacheManager.getInstance().refresh(project.getId().toUUID());
+		// ... and force domains invalidation
 		for(Domain d :domains ){
 			if (! d.isDynamic()){
 				logger.info("Invalidating domain " + d.getName());
@@ -614,5 +616,5 @@ public class ProjectManager {
 		}
 		lock.unlock();
 	}
-	
+
 }

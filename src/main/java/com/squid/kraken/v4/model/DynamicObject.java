@@ -50,6 +50,9 @@ public abstract class DynamicObject<PK extends GenericPK> extends LzPersistentBa
 	@Property(value="isDynamic2")// mongoDB specific: this is for compatibility with projects generated with prior version
     private boolean isDynamic = false;
 	
+	@Property
+	protected boolean hidden= false;
+	
 	@Transient
 	@JsonIgnore
 	private boolean internalDynamic = true;// read-only flag to know if the object has been created through persistence or directly
@@ -101,6 +104,25 @@ public abstract class DynamicObject<PK extends GenericPK> extends LzPersistentBa
 	 */
 	public boolean isInternalDynamic() {
 		return internalDynamic;
+	}
+	/**
+	 * checks if the object is dynamic and should be hidden
+	 * if it is, sets the hidden flag to true and return true
+	 * else, returns false, the object can be delete
+	 * @return true if the object should be hidden instead of deleted
+	 */
+	
+	public boolean hide(){
+		this.hidden=true;
+		if(internalDynamic){
+			return true;
+		}else{
+			return false;
+		}		
+	}
+	
+	public boolean isHidden(){
+		return this.hidden;
 	}
 
 }

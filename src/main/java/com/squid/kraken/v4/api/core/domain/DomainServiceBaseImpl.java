@@ -72,21 +72,21 @@ public class DomainServiceBaseImpl extends GenericServiceImpl<Domain, DomainPK> 
 		// made private for singleton access
 		super(Domain.class);
 	}
-	
-    @Override
-    public Domain read(AppContext ctx, DomainPK domainPk) {
-    	if (!ctx.isDeepRead()) {
-	        // override to support T70 - dynamic Domains
-	    	try {
-	    		return ProjectManager.INSTANCE.getDomain(ctx, domainPk);
-	    	} catch (ScopeException e) {
-	    		throw new ObjectNotFoundAPIException(e.getMessage(), e, false);
-	    	}
-    	} else {
-    		// deepRead support
-    		return super.read(ctx, domainPk, true);
-    	}
-    }
+
+	@Override
+	public Domain read(AppContext ctx, DomainPK domainPk) {
+		if (!ctx.isDeepRead()) {
+			// override to support T70 - dynamic Domains
+			try {
+				return ProjectManager.INSTANCE.getDomain(ctx, domainPk);
+			} catch (ScopeException e) {
+				throw new ObjectNotFoundAPIException(e.getMessage(), e, false);
+			}
+		} else {
+			// deepRead support
+			return super.read(ctx, domainPk, true);
+		}
+	}
 
 	public List<Domain> readAll(AppContext ctx, String projectId) {
 		try {
@@ -94,18 +94,18 @@ public class DomainServiceBaseImpl extends GenericServiceImpl<Domain, DomainPK> 
 			List<Domain> domains = ProjectManager.INSTANCE.getDomains(ctx,id);
 			ArrayList<Domain> visibles = new ArrayList<Domain>();
 			for (Domain domain : domains) {
-		    	// T1076: explicitly hide dynamic domains for guests
-				 if (AccessRightsUtils.getInstance().hasRole(ctx, domain, Role.WRITE)) {
-					// if write access, always add it
-					visibles.add(domain);
-				} else {
-					if (!domain.isDynamic()) {
-						// not dynamic and not write, check if has metrics
-						List<Metric> metrics = metricDAO.findByDomain(ctx, domain.getId());
-						if (!metrics.isEmpty()) {
-							visibles.add(domain);
+					// T1076: explicitly hide dynamic domains for guests
+					if (AccessRightsUtils.getInstance().hasRole(ctx, domain, Role.WRITE)) {
+						// if write access, always add it
+						visibles.add(domain);
+					} else {
+						if (!domain.isDynamic()) {
+							// not dynamic and not write, check if has metrics
+							List<Metric> metrics = metricDAO.findByDomain(ctx, domain.getId());
+							if (!metrics.isEmpty()) {
+								visibles.add(domain);
+							}
 						}
-					}
 				}
 			}
 			return visibles;
@@ -113,60 +113,60 @@ public class DomainServiceBaseImpl extends GenericServiceImpl<Domain, DomainPK> 
 			throw new ObjectNotFoundAPIException(e.getMessage(), e, false);
 		}
 	}
-	
+
 	@Override
 	public Domain store(AppContext ctx, Domain domain) {
-        // check ID
+		// check ID
 		DomainPK domainPk = domain.getId();
-        if (domainPk==null) {
-        	throw new APIException("Domain must not have a null key", ctx.isNoError());
-        }
+		if (domainPk==null) {
+			throw new APIException("Domain must not have a null key", ctx.isNoError());
+		}
 		// check name
-        if (domain.getName()==null || domain.getName().length()==0) {
-        	throw new APIException("Domain name must be defined", ctx.isNoError());
-        }
-        // check project
-        Project project = null;
-        try {
-        	project = ProjectManager.INSTANCE.getProject(ctx, domainPk.getParent());
-        	// check if we are trying to name the domain as another existing one
-            Domain checkByName = ProjectManager.INSTANCE.findDomainByName(ctx, domainPk.getParent(), domain.getName());
-            if (checkByName!=null) {
-            	if (!checkByName.getId().getDomainId().equals(domainPk.getDomainId())) {
-            		throw new APIException("A Domain with that name already exists in this project", ctx.isNoError());
-            	}
-            }
-            // check if user is modifying an existing one
-            Domain checkByID = ProjectManager.INSTANCE.findDomainByID(ctx, domainPk);
-            if (checkByID!=null) {
-                // T1312 - need to copy the internalVersion property because it is not exposed through the API
-            	domain.copyInternalVersion(checkByID);
-            	// check if the dynamic flag has changed
-            	if (domain.isDynamic()!=checkByID.isDynamic()) {
-            		// modifying the flag is OK
-            	} else {
-            		if (domain.isDynamic()) {
-            			// no more dynamic
-            			domain.setDynamic(false);
-            		}
-            	}
-            }
-        } catch (ScopeException e) {
-        	throw new APIException(e.getLocalizedMessage(), ctx.isNoError());
-        }
-        // check definition
-        // -- we allow subject to be null mainly for unit-testing
-        if (domain.getSubject()!=null) {
-        	if (domain.getSubject().getValue()==null || domain.getSubject().getValue().equals("")) {
-        		throw new APIException("Domain must not have an undefined subject", ctx.isNoError());
-        	}
-        	Universe universe = new Universe(ctx, project);
-        	try {
-        		universe.getParser().parse(domain);
-        	} catch (ScopeException e) {
-        		throw new APIException("Domain subject is invalid:\n"+e.getLocalizedMessage(), ctx.isNoError());
-        	}
-        }
+		if (domain.getName()==null || domain.getName().length()==0) {
+			throw new APIException("Domain name must be defined", ctx.isNoError());
+		}
+		// check project
+		Project project = null;
+		try {
+			project = ProjectManager.INSTANCE.getProject(ctx, domainPk.getParent());
+			// check if we are trying to name the domain as another existing one
+			Domain checkByName = ProjectManager.INSTANCE.findDomainByName(ctx, domainPk.getParent(), domain.getName());
+			if (checkByName!=null) {
+				if (!checkByName.getId().getDomainId().equals(domainPk.getDomainId())) {
+					throw new APIException("A Domain with that name already exists in this project", ctx.isNoError());
+				}
+			}
+			// check if user is modifying an existing one
+			Domain checkByID = ProjectManager.INSTANCE.findDomainByID(ctx, domainPk);
+			if (checkByID!=null) {
+				// T1312 - need to copy the internalVersion property because it is not exposed through the API
+				domain.copyInternalVersion(checkByID);
+				// check if the dynamic flag has changed
+				if (domain.isDynamic()!=checkByID.isDynamic()) {
+					// modifying the flag is OK
+				} else {
+					if (domain.isDynamic()) {
+						// no more dynamic
+						domain.setDynamic(false);
+					}
+				}
+			}
+		} catch (ScopeException e) {
+			throw new APIException(e.getLocalizedMessage(), ctx.isNoError());
+		}
+		// check definition
+		// -- we allow subject to be null mainly for unit-testing
+		if (domain.getSubject()!=null) {
+			if (domain.getSubject().getValue()==null || domain.getSubject().getValue().equals("")) {
+				throw new APIException("Domain must not have an undefined subject", ctx.isNoError());
+			}
+			Universe universe = new Universe(ctx, project);
+			try {
+				universe.getParser().parse(domain);
+			} catch (ScopeException e) {
+				throw new APIException("Domain subject is invalid:\n"+e.getLocalizedMessage(), ctx.isNoError());
+			}
+		}
 		return super.store(ctx, domain);
 	}
 
@@ -198,7 +198,7 @@ public class DomainServiceBaseImpl extends GenericServiceImpl<Domain, DomainPK> 
 	}
 
 	public ExpressionSuggestion getMetricSuggestion(AppContext ctx,
-													String projectId, String domainId, String metricId, String expression, Integer offset, ValueType filterType) {
+			String projectId, String domainId, String metricId, String expression, Integer offset, ValueType filterType) {
 		//
 		try {
 			ProjectPK projectPK = new ProjectPK(ctx.getCustomerId(), projectId);
@@ -294,7 +294,7 @@ public class DomainServiceBaseImpl extends GenericServiceImpl<Domain, DomainPK> 
 		Universe universe = new Universe(ctx, project);
 		return universe.S(domain);
 	}
-	
+
 	public Object refreshCache(AppContext ctx, ProjectPK projectPk, DomainPK domainPk) {
 		//
 		try {
@@ -303,6 +303,20 @@ public class DomainServiceBaseImpl extends GenericServiceImpl<Domain, DomainPK> 
 			throw new APIException("failed to refresh the domain data caused by:\n"+e.getLocalizedMessage(), e, ctx.isNoError());
 		}
 	}
-	
+	@Override
+	public boolean delete(AppContext ctx, DomainPK objectId) {
+		Domain dom = this.read(ctx, objectId);		
+		if (dom == null){
+			throw new ObjectNotFoundAPIException("Invalid domain id " + objectId.toString(), false);
+		}else{
+			boolean shouldHide= dom.hide();
+			if (shouldHide){
+				store(ctx, dom);
+				return true;
+			}else{
+				return super.delete(ctx, objectId);
+			}
+		}  
+	}
 
 }

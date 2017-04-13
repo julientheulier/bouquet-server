@@ -339,4 +339,20 @@ public class DimensionServiceBaseImpl extends
 		}
 	}
 
+	@Override
+    public boolean delete(AppContext ctx, DimensionPK objectId) {
+		Dimension dim = this.read(ctx, objectId);		
+    	if (dim == null){
+    		throw new ObjectNotFoundAPIException("Invalid dimension id " + objectId.toString(), false);
+    	}else{
+    		boolean shouldHide= dim.hide();
+    		if (shouldHide){
+    			store(ctx, dim);
+    			return true;
+    		}else{
+    			return super.delete(ctx, objectId);
+    		}
+    	}    	
+	}
+	
 }

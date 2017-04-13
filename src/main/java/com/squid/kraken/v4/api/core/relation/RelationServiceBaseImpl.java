@@ -31,6 +31,7 @@ import com.squid.kraken.v4.api.core.GenericServiceImpl;
 import com.squid.kraken.v4.api.core.ObjectNotFoundAPIException;
 import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
+import com.squid.kraken.v4.model.Dimension;
 import com.squid.kraken.v4.model.DomainPK;
 import com.squid.kraken.v4.model.Project;
 import com.squid.kraken.v4.model.ProjectPK;
@@ -109,4 +110,21 @@ public class RelationServiceBaseImpl extends GenericServiceImpl<Relation, Relati
 		return super.store(ctx, relation);
 	}
 
+	@Override
+    public boolean delete(AppContext ctx, RelationPK objectId) {
+		Relation rel = this.read(ctx, objectId);		
+    	if (rel == null){
+    		throw new ObjectNotFoundAPIException("Invalid relation id " + objectId.toString(), false);
+    	}else{
+    		boolean shouldHide= rel.hide();
+    		if (shouldHide){
+    			store(ctx, rel);
+    			return true;
+    		}else{
+    			return super.delete(ctx, objectId);
+    		}
+    	}
+		
+	}
+	
 }
