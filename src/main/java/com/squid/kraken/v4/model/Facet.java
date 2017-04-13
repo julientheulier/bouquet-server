@@ -164,6 +164,10 @@ public class Facet implements Serializable {
     public void setItems(List<FacetMember> items) {
         this.items = items;
     }
+    
+    public boolean hasSelectedItems() {
+    	return selectedItems!=null && !selectedItems.isEmpty();
+    }
 
     /**
      * List of currently selected items.
