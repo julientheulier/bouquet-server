@@ -33,6 +33,7 @@ import com.squid.kraken.v4.caching.Cache;
 import com.squid.kraken.v4.caching.CacheFactoryEHCache;
 import com.squid.kraken.v4.model.AccessRight.Role;
 import com.squid.kraken.v4.model.CustomerPK;
+import com.squid.kraken.v4.model.DynamicObject;
 import com.squid.kraken.v4.model.GenericPK;
 import com.squid.kraken.v4.model.Persistent;
 import com.squid.kraken.v4.model.visitor.DeepReadVisitor;
@@ -211,6 +212,10 @@ public abstract class PersistentDAO<T extends Persistent<PK>, PK extends Generic
                 	if (ctx.isDeepRead()) {
                 		DeepReadVisitor v1 = new DeepReadVisitor(ctx);
                 		object.accept(v1);
+                	}
+                	if (object instanceof DynamicObject){
+                		//T2986 persistent objects are not dynamic
+                		((DynamicObject) object).setInternalDynamic(false);
                 	}
                     pList.add(object);
                 }

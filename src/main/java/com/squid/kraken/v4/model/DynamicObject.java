@@ -83,7 +83,10 @@ public abstract class DynamicObject<PK extends GenericPK> extends LzPersistentBa
 	
 	@Override
 	public Object clone() throws CloneNotSupportedException {
-		return super.clone();
+		Object o = super.clone();
+		DynamicObject d = (DynamicObject) o;
+		d.setInternalDynamic(this.isInternalDynamic());
+		return d;
 	}
 
 	/**
@@ -99,6 +102,10 @@ public abstract class DynamicObject<PK extends GenericPK> extends LzPersistentBa
 		this.isDynamic = isDynamic;
 	}
 
+    public void setInternalDynamic(boolean id){
+    	this.internalDynamic = id;
+    }
+    
     /**
 	 * @return the internalDynamic
 	 */
