@@ -36,6 +36,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.squid.core.domain.IDomain;
 import com.squid.core.export.Selection;
 import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
 import com.squid.kraken.v4.caching.redis.datastruct.RedisCacheValuesList;
@@ -99,7 +100,15 @@ public class ExportQueryWriter extends QueryWriter {
 					}
 				}
 			}
-			List<String> values = getSelection(ds.getMembers(axis), facetMembers);
+			List<String> values;
+			String name = axis.getDimension().getName();
+			if (axis.getDimension().getImageDomain() != null && axis.getDimension().getImageDomain().equals(IDomain.CONDITIONAL)) {
+				name = "Segment(s)";
+				values = new ArrayList<String>();
+				values.add(axis.getDimension().getName());
+			} else {
+				values = getSelection(ds.getMembers(axis), facetMembers);
+			}
 			List<String> comparedWith = null;
 			facetMembers = null;
 			if (comparedMembers != null && fs.getCompareTo() != null) {
@@ -110,8 +119,12 @@ public class ExportQueryWriter extends QueryWriter {
 				}
 				comparedWith = getSelection(comparedMembers, facetMembers);
 			}
-			Selection selection = new Selection(axis.getDimension().getName(), values, comparedWith);
-			filters.add(selection);
+			Selection selection = new Selection(name, values, comparedWith);
+			if (filters.contains(selection) && axis.getDimension().getImageDomain() != null && axis.getDimension().getImageDomain().equals(IDomain.CONDITIONAL)) {
+				filters.get(filters.indexOf(selection)).getValues().addAll(values);
+			} else {
+				filters.add(selection);
+			}
 			if (axis.getDimensionType().equals(Type.CONTINUOUS)) {
 				continuouSelection=selection;
 			}
