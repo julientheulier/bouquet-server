@@ -125,7 +125,6 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			html.append("<i class=\"fa fa-folder-open-o\" aria-hidden=\"true\"></i>\n" + 
 					title);
 		}
-		if (backLink!=null) html.append("&nbsp;<a href=\""+backLink+"\"><i class=\"fa fa-arrow-left\" aria-hidden=\"true\"></i>&nbsp;back to parent</a>");
 		html.append("<div class='pull-right'><a target='OB API DOC' href='https://api-docs.openbouquet.io/"+(docAnchor!=null?docAnchor:"")+"' ><span class=\"label label-info\"><i class=\"fa fa-book\" aria-hidden=\"true\"></i>&nbsp;API doc</span></a></div>");
 		html.append("</h3>");
 		if (space!=null) {
@@ -381,18 +380,6 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			URI sqlLink = service.buildAnalyticsQueryURI(service.getUserContext(), query, "SQL", null, Style.HTML, null);
 			html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(sqlLink.toString())+"\">SQL</a>]");
 		}
-		{ // for JSON export
-			URI jsonExport = service.buildAnalyticsQueryURI(service.getUserContext(), query, "TABLE", null, Style.HUMAN, null);
-			html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(jsonExport.toString())+"\">JSON</a>]");
-		}
-		{ // for CSV export
-			URI csvExport = service.buildAnalyticsExportURI(service.getUserContext(), query, ".csv");
-			html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(csvExport.toString())+"\">Export CSV</a>]");
-		}
-		{ // for XLS export
-			URI xlsExport = service.buildAnalyticsExportURI(service.getUserContext(), query, ".xls");
-			html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(xlsExport.toString())+"\">Export XLS</a>]");
-		}
 	}
 	
 	private void createHTMLpagination(StringBuilder html, ViewQuery query, ResultInfo info) {
@@ -480,7 +467,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		if (result.getParent()!=null && result.getParent().getDescription()!=null && result.getParent().getDescription().length()>0) {
 			html.append("<p><i>"+result.getParent().getDescription()+"</i></p>");
 		}
-		// coontent
+		// content
 		if (result.getChildren().isEmpty()) {
 			html.append("<p><center>empty folder, nothing to show</center></p>");
 		}
@@ -1162,10 +1149,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 				}
 			}
 		}
-		html.append("<p>Request URL: <i>the URL is authorized with the current token</i></p><div style='display:block;max-width: 999%; overflow-y: auto;'><pre>"+StringEscapeUtils.escapeHtml4(builder.build().toString())+"</pre></div>");
-		String curlURL = "\""+(StringEscapeUtils.escapeHtml4(builder.build().toString()).replace("'", "'"))+"\"";
-		html.append("<p>CURL: <i>the command is authorized with the current token</i></p><div style='display:block;max-width: 999%; overflow-y: auto;'><pre>curl -X GET --header 'Accept: application/json' --header 'Authorization: Bearer "+getToken()+"' "+curlURL+"</pre></div>");
-		html.append("</div>");
+		html.append("</div>"); 
 	}
 
 	private void createFooter(StringBuilder html) {
