@@ -171,7 +171,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 				+ "table.data {border-collapse: collapse;width: 100%;}"
 				+ "th, td {text-align: left;padding: 8px; vertical-align: top;}"
 				+ ".data tr:nth-child(even) {background-color: #f2f2f2}"
-				+ ".data th {background-color: #ee7914;color: white;}"
+				+ ".data th {background-color: grey;color: white;}"
 				+ ".vega-actions a {margin-right:10px;}"
 				+ "hr {border: none; "
 				+ "color: Gainsboro ;\n" + 
