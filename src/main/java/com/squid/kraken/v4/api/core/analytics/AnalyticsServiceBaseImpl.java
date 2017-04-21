@@ -332,24 +332,31 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			result.setParent(createLinkableFolder(userContext, query, ROOT_FOLDER));
 			// this is the root
 			result.getChildren().add(createLinkableFolder(userContext, query, PROJECTS_FOLDER));
-			if (hierarchyMode!=null) listProjects(userContext, query, PROJECTS_FOLDER.getSelfRef(), filters, hierarchyMode, result.getChildren());
+			if (hierarchyMode!=null){
+				listProjects(userContext, query, PROJECTS_FOLDER.getSelfRef(), filters, hierarchyMode, result.getChildren());
+			}
 			result.getChildren().add(createLinkableFolder(userContext, query, SHARED_FOLDER));
-			if (hierarchyMode!=null) listSharedBoomarks(userContext, query, SHARED_FOLDER.getSelfRef(), filters, hierarchyMode, result.getChildren());
-			result.getChildren().add(createLinkableFolder(userContext, query, MYBOOKMARKS_FOLDER));
-			if (hierarchyMode!=null) listMyBoomarks(userContext, query, MYBOOKMARKS_FOLDER.getSelfRef(), filters, hierarchyMode, result.getChildren());
-			result.getChildren().add(createLinkableFolder(userContext, query, SHAREDWITHME_FOLDER));
-			if (hierarchyMode!=null) listSharedWithMeBoomarks(userContext, query, SHAREDWITHME_FOLDER.getSelfRef(), filters, hierarchyMode, result.getChildren());
+			if (hierarchyMode!=null) {
+				listSharedBookmarks(userContext, query, SHARED_FOLDER.getSelfRef(), filters, hierarchyMode, result.getChildren());
+			}			
+			List<Bookmark> myBookmarks = BookmarkManager.INSTANCE.findBookmarksByParent(userContext, BookmarkManager.INSTANCE.getMyBookmarkPath(userContext));
+			if(!myBookmarks.isEmpty()){
+				result.getChildren().add(createLinkableFolder(userContext, query, MYBOOKMARKS_FOLDER));
+				if (hierarchyMode!=null) {
+					listMyBookmarks(userContext, query, MYBOOKMARKS_FOLDER.getSelfRef(), filters, hierarchyMode, result.getChildren());
+				}
+			}		
 		} else {
 			// need to list parent's content
 			if (parent.startsWith(PROJECTS_FOLDER.getSelfRef())) {
 				result.setParent(listProjects(userContext, query, parent, filters, hierarchyMode, result.getChildren()));
 			} else if (parent.startsWith(SHAREDWITHME_FOLDER.getSelfRef())) {
 				// need to check first to avoid going into SHARED
-				result.setParent(listSharedWithMeBoomarks(userContext, query, parent, filters, hierarchyMode, result.getChildren()));
+				result.setParent(listSharedWithMeBookmarks(userContext, query, parent, filters, hierarchyMode, result.getChildren()));
 			} else if (parent.startsWith(SHARED_FOLDER.getSelfRef())) {
-				result.setParent(listSharedBoomarks(userContext, query, parent, filters, hierarchyMode, result.getChildren()));
+				result.setParent(listSharedBookmarks(userContext, query, parent, filters, hierarchyMode, result.getChildren()));
 			} else if (parent.startsWith(MYBOOKMARKS_FOLDER.getSelfRef())) {
-				result.setParent(listMyBoomarks(userContext, query, parent, filters, hierarchyMode, result.getChildren()));
+				result.setParent(listMyBookmarks(userContext, query, parent, filters, hierarchyMode, result.getChildren()));
 			} else {
 				// invalid
 				throw new ObjectNotFoundAPIException("invalid parent reference", true);
@@ -521,7 +528,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	private UriBuilder createNavigationQuery(AppContext userContext, NavigationQuery query) {
 		UriBuilder builder = 
 				getPublicBaseUriBuilder().path("/analytics").queryParam("parent", "{PARENT}");
-		if (query.getHiearchy()!=null) builder.queryParam("hierarchy", query.getHiearchy());
+		if (query.getHierarchy()!=null) builder.queryParam("hierarchy", query.getHierarchy());
 		if (query.getStyle()!=null) builder.queryParam(STYLE_PARAM, query.getStyle());
 		if (query.getVisibility()!=null) builder.queryParam(VISIBILITY_PARAM, query.getVisibility());
 		builder.queryParam("access_token", userContext.getToken().getOid());
@@ -580,7 +587,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	 * @return the parent folder
 	 * @throws ScopeException
 	 */
-	private NavigationItem listMyBoomarks(AppContext userContext, NavigationQuery query, String parent, String[] filters, HierarchyMode hierarchyMode, List<NavigationItem> content) throws ScopeException {
+	private NavigationItem listMyBookmarks(AppContext userContext, NavigationQuery query, String parent, String[] filters, HierarchyMode hierarchyMode, List<NavigationItem> content) throws ScopeException {
 		// list mybookmark related resources
 		String fullPath = BookmarkManager.INSTANCE.getMyBookmarkPath(userContext);
 		NavigationItem parentFolder = null;
@@ -594,11 +601,11 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			String grandParent = parent.substring(0, parent.lastIndexOf("/"));
 			parentFolder = new NavigationItem(name, "", grandParent, parent, NavigationItem.FOLDER_TYPE);
 		}
-		listBoomarks(userContext, query, parent, filters, hierarchyMode, fullPath, content);
+		listBookmarks(userContext, query, parent, filters, hierarchyMode, fullPath, content);
 		return parentFolder;
 	}
 	
-	private NavigationItem listSharedWithMeBoomarks(AppContext userContext, NavigationQuery query, String parent, String[] filters, HierarchyMode hierarchyMode, List<NavigationItem> content) throws ScopeException {
+	private NavigationItem listSharedWithMeBookmarks(AppContext userContext, NavigationQuery query, String parent, String[] filters, HierarchyMode hierarchyMode, List<NavigationItem> content) throws ScopeException {
 		// list mybookmark related resources
 		NavigationItem parentFolder = null;
 		if (parent.equals(SHAREDWITHME_FOLDER.getSelfRef())) {
@@ -612,7 +619,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		}
 		String filterPath = parent.substring(SHAREDWITHME_FOLDER.getSelfRef().length());
 		List<Bookmark> bookmarks = findSharedWithMeBookmarks(userContext, filterPath);
-		listBoomarks(userContext, query, parent, filters, hierarchyMode, filterPath, bookmarks, content);
+		listBookmarks(userContext, query, parent, filters, hierarchyMode, filterPath, bookmarks, content);
 		return parentFolder;
 	}
 	
@@ -668,7 +675,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	 * @return the parent folder
 	 * @throws ScopeException
 	 */
-	private NavigationItem listSharedBoomarks(AppContext userContext, NavigationQuery query, String parent, String[] filters, HierarchyMode hierarchyMode, List<NavigationItem> content) throws ScopeException {
+	private NavigationItem listSharedBookmarks(AppContext userContext, NavigationQuery query, String parent, String[] filters, HierarchyMode hierarchyMode, List<NavigationItem> content) throws ScopeException {
 		// list mybookmark related resources
 		String fullPath = Bookmark.SEPARATOR + Bookmark.Folder.SHARED;
 		NavigationItem parentFolder = null;
@@ -681,14 +688,14 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			String grandParent = parent.substring(0, parent.lastIndexOf("/"));
 			parentFolder = new NavigationItem(name, "", grandParent, parent, NavigationItem.FOLDER_TYPE);
 		}
-		listBoomarks(userContext, query, parent, filters, hierarchyMode, fullPath, content);
+		listBookmarks(userContext, query, parent, filters, hierarchyMode, fullPath, content);
 		return parentFolder;
 	}
 	
-	private void listBoomarks(AppContext userContext, NavigationQuery query, String parent, String[] filters, HierarchyMode hierarchyMode, String fullPath, List<NavigationItem> content) {
+	private void listBookmarks(AppContext userContext, NavigationQuery query, String parent, String[] filters, HierarchyMode hierarchyMode, String fullPath, List<NavigationItem> content) {
 		List<Bookmark> bookmarks = BookmarkManager.INSTANCE.findBookmarksByParent(userContext, fullPath);
 		String filterPath = getSubPath(fullPath);
-		listBoomarks(userContext, query, parent, filters, hierarchyMode, filterPath, bookmarks, content);
+		listBookmarks(userContext, query, parent, filters, hierarchyMode, filterPath, bookmarks, content);
 	}
 
 	/**
@@ -702,7 +709,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	 * @param content
 	 * @throws ScopeException
 	 */
-	private void listBoomarks(AppContext userContext, NavigationQuery query, String parent, String[] filters, HierarchyMode hierarchyMode, String filterPath, List<Bookmark> bookmarks, List<NavigationItem> content) {
+	private void listBookmarks(AppContext userContext, NavigationQuery query, String parent, String[] filters, HierarchyMode hierarchyMode, String filterPath, List<Bookmark> bookmarks, List<NavigationItem> content) {
 		// list the content first
 		HashSet<String> folders = new HashSet<>();
 		for (Bookmark bookmark : bookmarks) {
@@ -836,7 +843,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			}
 			//
 			// merge the bookmark config with the query
-			mergeBoomarkConfig(space, query, originalConfig);
+			mergeBookmarkConfig(space, query, originalConfig);
 			//
 			Bookmark bookmark = new Bookmark();
 			BookmarkPK bookmarkPK = new BookmarkPK(space.getUniverse().getProject().getId());
@@ -932,7 +939,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 				config = BookmarkManager.INSTANCE.readConfig(space.getBookmark());
 			}
 			// merge the config with the query
-			mergeBoomarkConfig(space, query, config);
+			mergeBookmarkConfig(space, query, config);
 			// extract the facet selection
 			FacetSelection selection = createFacetSelection(space, query);
 			job.setSelection(selection);
@@ -1088,7 +1095,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			}
 			//
 			// merge the bookmark config with the query
-			mergeBoomarkConfig(space, query, config);
+			mergeBookmarkConfig(space, query, config);
 			//
 			// set limit of not defined
 			if (query.getLimit()==null) {
@@ -1688,7 +1695,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			BookmarkConfig config = BookmarkManager.INSTANCE.readConfig(bookmark);
 			//
 			// merge the bookmark config with the query
-			mergeBoomarkConfig(space, query, config);
+			mergeBookmarkConfig(space, query, config);
 			// create the facet selection
 			FacetSelection selection = createFacetSelection(space, query);
 			final ProjectAnalysisJob job = createAnalysisJob(space, query, selection, OutputFormat.JSON);
@@ -2361,7 +2368,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	 * @throws ComputingException
 	 * @throws InterruptedException
 	 */
-	private void mergeBoomarkConfig(Space space, AnalyticsQuery query, BookmarkConfig config) throws ScopeException, ComputingException, InterruptedException {
+	private void mergeBookmarkConfig(Space space, AnalyticsQuery query, BookmarkConfig config) throws ScopeException, ComputingException, InterruptedException {
 		ReferenceStyle prettyStyle = getReferenceStyle(query.getStyle());
 		PrettyPrintOptions globalOptions = new PrettyPrintOptions(prettyStyle, null);
 		UniverseScope globalScope = new UniverseScope(space.getUniverse());
@@ -2788,7 +2795,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		Long explicitLimit = view.getLimit();
 		AnalyticsQueryImpl query = new AnalyticsQueryImpl(view);
 		// merge the bookmark config with the query
-		mergeBoomarkConfig(space, query, config);
+		mergeBookmarkConfig(space, query, config);
 		//
 		// change the query ref to use the domain one
 		// - we don't want to have side-effects

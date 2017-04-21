@@ -380,6 +380,11 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			URI sqlLink = service.buildAnalyticsQueryURI(service.getUserContext(), query, "SQL", null, Style.HTML, null);
 			html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(sqlLink.toString())+"\">SQL</a>]");
 		}
+		{ // for JSON export
+			URI jsonExport = service.buildAnalyticsQueryURI(service.getUserContext(), query, "TABLE", null, Style.HUMAN, null);
+			html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(jsonExport.toString())+"\">JSON</a>]");
+		}
+		
 	}
 	
 	private void createHTMLpagination(StringBuilder html, ViewQuery query, ResultInfo info) {
@@ -458,8 +463,8 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			html.append("<input type='hidden' name='style' value='"+(query.getStyle()!=null?query.getStyle():"")+"'>");
 		if (query.getVisibility()!=null)
 			html.append("<input type='hidden' name='visibility' value='"+(query.getVisibility()!=null?query.getVisibility():"")+"'>");
-		if (query.getHiearchy()!=null)
-			html.append("<input type='hidden' name='hierarchy' value='"+query.getHiearchy()+"'>");
+		if (query.getHierarchy()!=null)
+			html.append("<input type='hidden' name='hierarchy' value='"+query.getHierarchy()+"'>");
 		html.append("<input type='hidden' name='access_token' value='"+ctx.getToken().getOid()+"'>");
 		html.append("</table></form>");
 		//
@@ -604,7 +609,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 				URI link = service.buildBookmarkURI(service.getUserContext(), query.getBBID());
 				html.append("<!-- Button trigger modal -->\n" + 
 						"<div style='padding:5px' class='pull-right'><button type=\"button\" class=\"btn btn-primary btn-lg\" data-toggle=\"modal\" data-target=\"#myModal\">\n" + 
-						"<i class=\"fa fa-cloud-upload\" aria-hidden=\"true\"></i> Save Bookmark\n" + 
+						"<i class=\"fa fa-cloud-upload\" aria-hidden=\"true\"></i> Publish\n" + 
 						"</button></div>\n" + 
 						"<!-- Modal -->\n" + 
 						"<div class=\"modal fade\" id=\"myModal\" tabindex=\"-1\" role=\"dialog\" aria-labelledby=\"myModalLabel\" aria-hidden=\"true\">\n" + 
@@ -620,8 +625,8 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 				// body
 				html.append("<label for=\"bookmark-name\" class=\"form-control-label\">Name:</label>\n" + 
 						"              <input type=\"text\" class=\"form-control\" id=\"bookmark-name\" name=\"name\" value=\""+getBookmarkName(space)+"\">");
-				html.append("<label for=\"bookmark-path\" class=\"form-control-label\">Path:</label>\n" + 
-						"              <input type=\"text\" class=\"form-control\" id=\"bookmark-path\" name=\"path\" value=\""+getBookmarkPath(space)+"\">");
+				html.append("<input  type='hidden' class=\"form-control\" id=\"bookmark-parent\" name=\"parent\" value=\"/SHARED\">");
+
 				// footer
 				html.append("      </div>\n" + 
 						"      <div class=\"modal-footer\">\n" + 
@@ -702,14 +707,6 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			return space.getBookmark().getName()+" (copy)";
 		} else {
 			return space.getDomain().getName()+"'s bookmark";
-		}
-	}
-	
-	private String getBookmarkPath(Space space) {
-		if (space.getBookmark()!=null) {
-			return space.getBookmark().getPath();
-		} else {
-			return "/";
 		}
 	}
 	
