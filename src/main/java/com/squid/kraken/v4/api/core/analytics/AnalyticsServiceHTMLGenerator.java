@@ -602,7 +602,6 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 				override.put(LIMIT_PARAM, null);
 				override.put(MAX_RESULTS_PARAM, null);
 				URI link = service.buildAnalyticsViewURI(service.getUserContext(), new ViewQuery(query), null, "ALL", Style.HTML, override);//(userContext, query, "SQL", null, Style.HTML, null);
-				html.append("<div style='float:left;padding:5px'><button type='submit' value='Visualize' formaction=\""+StringEscapeUtils.escapeHtml4(link.toString())+"\"><i class=\"fa fa-bar-chart\" aria-hidden=\"true\"></i>&nbsp;Visualize</button></div>");
 			}
 			// save as bookmark using a modal
 			{
@@ -740,7 +739,6 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		html.append("</center><hr>");
 		// refresh
 		html.append("<form>");
-		html.append("<div style='float:left;padding:5px;'><button type='submit' value='Visualize'><i class=\"fa fa-bar-chart\" aria-hidden=\"true\"></i>&nbsp;Visualize</button></div>");
 		// data-link
 		URI querylink = service.buildAnalyticsQueryURI(service.getUserContext(), reply.getQuery(), "RECORDS", "ALL", Style.HTML, null);
 		html.append("<div style='float:left;padding:5px;'><button type='submit' value='Query' formaction=\""+StringEscapeUtils.escapeHtml4(querylink.toASCIIString())+"\"><i class=\"fa fa-refresh\" aria-hidden=\"true\"></i>&nbsp;Query</button></div>");
