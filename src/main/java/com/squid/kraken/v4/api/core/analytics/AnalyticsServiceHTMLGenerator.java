@@ -608,7 +608,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 				URI link = service.buildBookmarkURI(service.getUserContext(), query.getBBID());
 				html.append("<!-- Button trigger modal -->\n" + 
 						"<div style='padding:5px' class='pull-right'><button type=\"button\" class=\"btn btn-primary btn-lg\" data-toggle=\"modal\" data-target=\"#myModal\">\n" + 
-						"<i class=\"fa fa-cloud-upload\" aria-hidden=\"true\"></i> Publish\n" + 
+						"<i class=\"fa fa-cloud-upload\" aria-hidden=\"true\"></i> Bookmark\n" + 
 						"</button></div>\n" + 
 						"<!-- Modal -->\n" + 
 						"<div class=\"modal fade\" id=\"myModal\" tabindex=\"-1\" role=\"dialog\" aria-labelledby=\"myModalLabel\" aria-hidden=\"true\">\n" + 
