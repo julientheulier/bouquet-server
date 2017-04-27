@@ -125,7 +125,6 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			html.append("<i class=\"fa fa-folder-open-o\" aria-hidden=\"true\"></i>\n" + 
 					title);
 		}
-		if (backLink!=null) html.append("&nbsp;<a href=\""+backLink+"\"><i class=\"fa fa-arrow-left\" aria-hidden=\"true\"></i>&nbsp;back to parent</a>");
 		html.append("<div class='pull-right'><a target='OB API DOC' href='https://api-docs.openbouquet.io/"+(docAnchor!=null?docAnchor:"")+"' ><span class=\"label label-info\"><i class=\"fa fa-book\" aria-hidden=\"true\"></i>&nbsp;API doc</span></a></div>");
 		html.append("</h3>");
 		if (space!=null) {
@@ -172,7 +171,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 				+ "table.data {border-collapse: collapse;width: 100%;}"
 				+ "th, td {text-align: left;padding: 8px; vertical-align: top;}"
 				+ ".data tr:nth-child(even) {background-color: #f2f2f2}"
-				+ ".data th {background-color: #ee7914;color: white;}"
+				+ ".data th {background-color: grey;color: white;}"
 				+ ".vega-actions a {margin-right:10px;}"
 				+ "hr {border: none; "
 				+ "color: Gainsboro ;\n" + 
@@ -385,14 +384,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			URI jsonExport = service.buildAnalyticsQueryURI(service.getUserContext(), query, "TABLE", null, Style.HUMAN, null);
 			html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(jsonExport.toString())+"\">JSON</a>]");
 		}
-		{ // for CSV export
-			URI csvExport = service.buildAnalyticsExportURI(service.getUserContext(), query, ".csv");
-			html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(csvExport.toString())+"\">Export CSV</a>]");
-		}
-		{ // for XLS export
-			URI xlsExport = service.buildAnalyticsExportURI(service.getUserContext(), query, ".xls");
-			html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(xlsExport.toString())+"\">Export XLS</a>]");
-		}
+		
 	}
 	
 	private void createHTMLpagination(StringBuilder html, ViewQuery query, ResultInfo info) {
@@ -471,8 +463,8 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			html.append("<input type='hidden' name='style' value='"+(query.getStyle()!=null?query.getStyle():"")+"'>");
 		if (query.getVisibility()!=null)
 			html.append("<input type='hidden' name='visibility' value='"+(query.getVisibility()!=null?query.getVisibility():"")+"'>");
-		if (query.getHiearchy()!=null)
-			html.append("<input type='hidden' name='hierarchy' value='"+query.getHiearchy()+"'>");
+		if (query.getHierarchy()!=null)
+			html.append("<input type='hidden' name='hierarchy' value='"+query.getHierarchy()+"'>");
 		html.append("<input type='hidden' name='access_token' value='"+ctx.getToken().getOid()+"'>");
 		html.append("</table></form>");
 		//
@@ -480,7 +472,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		if (result.getParent()!=null && result.getParent().getDescription()!=null && result.getParent().getDescription().length()>0) {
 			html.append("<p><i>"+result.getParent().getDescription()+"</i></p>");
 		}
-		// coontent
+		// content
 		if (result.getChildren().isEmpty()) {
 			html.append("<p><center>empty folder, nothing to show</center></p>");
 		}
@@ -604,20 +596,19 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			}
 			html.append("</tbody></table>");
 			html.append("</div>");
-			html.append("<div style='float:left;padding:5px'><button type='submit' value='Query'><i class=\"fa fa-refresh\" aria-hidden=\"true\"></i>&nbsp;Query</button></div>");
+			html.append("<div style='float:left;padding:5px'><button type='submit' value='Query'><i class=\"fa fa-refresh\" aria-hidden=\"true\"></i>&nbsp;Preview</button></div>");
 			{ // for View
 				HashMap<String, Object> override = new HashMap<>();
 				override.put(LIMIT_PARAM, null);
 				override.put(MAX_RESULTS_PARAM, null);
 				URI link = service.buildAnalyticsViewURI(service.getUserContext(), new ViewQuery(query), null, "ALL", Style.HTML, override);//(userContext, query, "SQL", null, Style.HTML, null);
-				html.append("<div style='float:left;padding:5px'><button type='submit' value='Visualize' formaction=\""+StringEscapeUtils.escapeHtml4(link.toString())+"\"><i class=\"fa fa-bar-chart\" aria-hidden=\"true\"></i>&nbsp;Visualize</button></div>");
 			}
 			// save as bookmark using a modal
 			{
 				URI link = service.buildBookmarkURI(service.getUserContext(), query.getBBID());
 				html.append("<!-- Button trigger modal -->\n" + 
 						"<div style='padding:5px' class='pull-right'><button type=\"button\" class=\"btn btn-primary btn-lg\" data-toggle=\"modal\" data-target=\"#myModal\">\n" + 
-						"<i class=\"fa fa-cloud-upload\" aria-hidden=\"true\"></i> Save Bookmark\n" + 
+						"<i class=\"fa fa-cloud-upload\" aria-hidden=\"true\"></i> Bookmark\n" + 
 						"</button></div>\n" + 
 						"<!-- Modal -->\n" + 
 						"<div class=\"modal fade\" id=\"myModal\" tabindex=\"-1\" role=\"dialog\" aria-labelledby=\"myModalLabel\" aria-hidden=\"true\">\n" + 
@@ -633,8 +624,8 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 				// body
 				html.append("<label for=\"bookmark-name\" class=\"form-control-label\">Name:</label>\n" + 
 						"              <input type=\"text\" class=\"form-control\" id=\"bookmark-name\" name=\"name\" value=\""+getBookmarkName(space)+"\">");
-				html.append("<label for=\"bookmark-path\" class=\"form-control-label\">Path:</label>\n" + 
-						"              <input type=\"text\" class=\"form-control\" id=\"bookmark-path\" name=\"path\" value=\""+getBookmarkPath(space)+"\">");
+				html.append("<input  type='hidden' class=\"form-control\" id=\"bookmark-parent\" name=\"parent\" value=\"/SHARED\">");
+
 				// footer
 				html.append("      </div>\n" + 
 						"      <div class=\"modal-footer\">\n" + 
@@ -718,14 +709,6 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		}
 	}
 	
-	private String getBookmarkPath(Space space) {
-		if (space.getBookmark()!=null) {
-			return space.getBookmark().getPath();
-		} else {
-			return "/";
-		}
-	}
-	
 	/**
 	 * the /view view (vegalite)
 	 * @param userContext 
@@ -756,10 +739,9 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		html.append("</center><hr>");
 		// refresh
 		html.append("<form>");
-		html.append("<div style='float:left;padding:5px;'><button type='submit' value='Visualize'><i class=\"fa fa-bar-chart\" aria-hidden=\"true\"></i>&nbsp;Visualize</button></div>");
 		// data-link
 		URI querylink = service.buildAnalyticsQueryURI(service.getUserContext(), reply.getQuery(), "RECORDS", "ALL", Style.HTML, null);
-		html.append("<div style='float:left;padding:5px;'><button type='submit' value='Query' formaction=\""+StringEscapeUtils.escapeHtml4(querylink.toASCIIString())+"\"><i class=\"fa fa-refresh\" aria-hidden=\"true\"></i>&nbsp;Query</button></div>");
+		html.append("<div style='float:left;padding:5px;'><button type='submit' value='Query' formaction=\""+StringEscapeUtils.escapeHtml4(querylink.toASCIIString())+"\"><i class=\"fa fa-refresh\" aria-hidden=\"true\"></i>&nbsp;Preview</button></div>");
 		createHTMLpagination(html, view, info);
 		html.append("<div style='clear:both;'></div>");
 		html.append("</div>");
@@ -1162,10 +1144,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 				}
 			}
 		}
-		html.append("<p>Request URL: <i>the URL is authorized with the current token</i></p><div style='display:block;max-width: 999%; overflow-y: auto;'><pre>"+StringEscapeUtils.escapeHtml4(builder.build().toString())+"</pre></div>");
-		String curlURL = "\""+(StringEscapeUtils.escapeHtml4(builder.build().toString()).replace("'", "'"))+"\"";
-		html.append("<p>CURL: <i>the command is authorized with the current token</i></p><div style='display:block;max-width: 999%; overflow-y: auto;'><pre>curl -X GET --header 'Accept: application/json' --header 'Authorization: Bearer "+getToken()+"' "+curlURL+"</pre></div>");
-		html.append("</div>");
+		html.append("</div>"); 
 	}
 
 	private void createFooter(StringBuilder html) {

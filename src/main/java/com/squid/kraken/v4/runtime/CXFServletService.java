@@ -212,28 +212,25 @@ public class CXFServletService extends CXFNonSpringJaxrsServlet {
 			throw new ServletException(e);
 		}
 
+		AUTH_MODE authMode = KrakenConfig.getAuthMode();
+		if (authMode != AUTH_MODE.OAUTH) {
+			logger.warn("AUTH MODE set to " + authMode);
+		}
+
 		// Check if default customer has to be created
 		String autocreate = KrakenConfig.getProperty("kraken.autocreate", true);
-		if (autocreate != null) {
-			// Extra safety for prod
-			if (autocreate.contains("true")) {
+		if (autocreate == null || (autocreate.equals("true"))) {
 				AppContext ctx = new AppContext.Builder().build();
 				List<Customer> customers = ((CustomerDAO) DAOFactory.getDAOFactory().getDAO(Customer.class))
 						.findAll(ctx);
 				if (customers.isEmpty()) {
 					// create the default Customer
 					String defaultClientURL = KrakenConfig.getProperty("default.client.url", true);
-					CustomerServiceBaseImpl.getInstance().accessRequestDemo(defaultClientURL,
-							EmailHelperImpl.getInstance());
+				CustomerServiceBaseImpl.getInstance().accessRequest(authMode, "default", null, null, null, null,
+						null, null, defaultClientURL, EmailHelperImpl.getInstance());
 					logger.warn("Default Customer created");
 				}
 			}
-		}
-
-		AUTH_MODE authMode = KrakenConfig.getAuthMode();
-		if (authMode != AUTH_MODE.OAUTH) {
-			logger.warn("AUTH MODE set to " + authMode);
-		}
 
 		logger.info("Open Bouquet started with build version : " + ServiceUtils.getInstance().getBuildVersionString());
 	}

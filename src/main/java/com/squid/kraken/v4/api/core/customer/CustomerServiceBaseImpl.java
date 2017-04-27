@@ -420,18 +420,4 @@ public class CustomerServiceBaseImpl extends
 		return ctx;
 	}
 	
-	public AppContext accessRequest(String customerName, String email,
-			String login, String password, String locale, String domain,
-			String linkURL, String defaultClientURL, EmailHelper emailHelper) {
-		return accessRequest(AUTH_MODE.OAUTH, customerName, email, login,
-				password, locale, domain, linkURL, defaultClientURL,
-				emailHelper);
-	}
-
-	public AppContext accessRequestDemo(String defaultClientURL,
-			EmailHelper emailHelper) {
-		return accessRequest(AUTH_MODE.BYPASS, "demo", null, null, null, null,
-				null, null, defaultClientURL, EmailHelperImpl.getInstance());
-	}
-
 }

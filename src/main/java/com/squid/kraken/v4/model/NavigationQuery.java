@@ -75,7 +75,7 @@ public class NavigationQuery {
 		this.q = q;
 	}
 
-	public HierarchyMode getHiearchy() {
+	public HierarchyMode getHierarchy() {
 		return hiearchy;
 	}
 
