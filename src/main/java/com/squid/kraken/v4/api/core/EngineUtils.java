@@ -236,9 +236,9 @@ public class EngineUtils {
 						isMonthlyCompare = true;
 					}
 					if (isMonthlyCompare) {
-						Months months = Months.monthsBetween(localLower, localUpper);
 						if (bound==Bound.UPPER) {
-							LocalDate date = localLower.minusMonths(1 + months.getMonths());
+							LocalDate date = localLower.minusMonths(1);
+							date = date.plusMonths(Months.monthsBetween(localLower, localUpper).getMonths());
 							lastUpperDay = date.dayOfMonth().getMaximumValue();
 							date = date.plusDays(lastUpperDay - 1);
 							return date.toDate();
