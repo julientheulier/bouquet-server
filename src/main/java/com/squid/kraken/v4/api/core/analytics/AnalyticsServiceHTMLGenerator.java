@@ -114,16 +114,12 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 	}
 
 	private void createHTMLtitle(AppContext userContext, StringBuilder html, String title, String BBID, Project project, Space space, URI backLink, String docAnchor, String method) {
-		html.append("<div class=\"logo\"><span>Analytics Rest <b style='color:white;'>API</b> Viewer / STYLE=HTML</span>");
-		// adding the user
-		String fullname = userContext.getUser().getEmail()!=null?userContext.getUser().getEmail():userContext.getUser().getLogin();
-		html.append("<div class='pull-right'>"+fullname+"</div>");
+		html.append("<div class=\"logo\"><span></span>");
 		html.append("</div>");
 		html.append("<div class='overview' style='background-color:#E0E0E0;padding:5px;'>");
 		html.append("<h3>");
 		if (title!=null) {
-			html.append("<i class=\"fa fa-folder-open-o\" aria-hidden=\"true\"></i>\n" + 
-					title);
+			html.append(title);
 		}
 		html.append("<div class='pull-right'><a target='OB API DOC' href='https://api-docs.openbouquet.io/"+(docAnchor!=null?docAnchor:"")+"' ><span class=\"label label-info\"><i class=\"fa fa-book\" aria-hidden=\"true\"></i>&nbsp;API doc</span></a></div>");
 		html.append("</h3>");
@@ -534,6 +530,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 	 */
 	public Response createHTMLPageTable(AppContext ctx, Space space, AnalyticsReply reply, DataTable data) {
 		String title = space!=null?getPageTitle(space):null;
+		String breadcrumbs =  space!=null?getBreadCrumbs(space):null;
 		StringBuilder html ;	
 		if (title == null){
 			html = createHTMLHeader("OB Query Builder");
@@ -541,7 +538,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			 html = createHTMLHeader(title+" - OB Query Builder");						
 		}
 		AnalyticsQuery query = reply.getQuery();
-		createHTMLtitle(ctx, html, title, query.getBBID(), null, space, getParentLink(space), "#query-a-bookmark-or-domain", "runAnalysis");
+		createHTMLtitle(ctx, html, breadcrumbs, query.getBBID(), null, space, getParentLink(space), "#query-a-bookmark-or-domain", "runAnalysis");
 		createHTMLproblems(html, query.getProblems());
 		html.append("<form>");
 		
@@ -597,7 +594,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		createHTMLAPIpanel(html, "runAnalysis");
 		
 		//preview 
-		html.append("<div style='float:left;padding:5px'><button type='submit' value='Query'><i class=\"fa fa-refresh\" aria-hidden=\"true\"></i>&nbsp;Preview</button></div><br><br><br>");
+		html.append("<div style='float:left;padding:5px'><button type='submit' value='Query'><i class=\"fa fa-refresh\" aria-hidden=\"true\"></i>&nbsp;Query</button></div><br><br><br>");
 
 		// query result
 		if (data!=null) {
@@ -741,13 +738,14 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 	 */
 	public Response createHTMLPageView(AppContext ctx, Space space, ViewQuery view, ResultInfo info, ViewReply reply) {
 		String title = getPageTitle(space);
+		String breadcrumbs = getBreadCrumbs(space);
 		StringBuilder html = createHTMLHeader( title + " - OB Query Builder");
 		html.append("<script src=\"//d3js.org/d3.v3.min.js\" charset=\"utf-8\"></script>\n" + 
 				"<script src=\"https://cdnjs.cloudflare.com/ajax/libs/vega/2.5.0/vega.min.js\"></script>\n" + 
 				"  <script src=\"https://cdnjs.cloudflare.com/ajax/libs/vega-lite/1.0.7/vega-lite.min.js\"></script>\n" + 
 				"<script src=\"https://cdnjs.cloudflare.com/ajax/libs/vega-embed/2.2.0/vega-embed.min.js\" charset=\"utf-8\"></script>");
 		html.append("<body>");
-		createHTMLtitle(ctx, html, title, view.getBBID(), null, space, getParentLink(space),"#view-a-bookmark-or-domain", "viewAnalysis");
+		createHTMLtitle(ctx, html, breadcrumbs, view.getBBID(), null, space, getParentLink(space),"#view-a-bookmark-or-domain", "viewAnalysis");
 		createHTMLproblems(html, reply.getQuery().getProblems());
 		// vega lite preview
 		html.append("<div>");
@@ -762,7 +760,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		html.append("<form>");
 		// data-link
 		URI querylink = service.buildAnalyticsQueryURI(service.getUserContext(), reply.getQuery(), "RECORDS", "ALL", Style.HTML, null);
-		html.append("<div style='float:left;padding:5px;'><button type='submit' value='Query' formaction=\""+StringEscapeUtils.escapeHtml4(querylink.toASCIIString())+"\"><i class=\"fa fa-refresh\" aria-hidden=\"true\"></i>&nbsp;Preview</button></div>");
+		html.append("<div style='float:left;padding:5px;'><button type='submit' value='Query' formaction=\""+StringEscapeUtils.escapeHtml4(querylink.toASCIIString())+"\"><i class=\"fa fa-refresh\" aria-hidden=\"true\"></i>&nbsp;Query</button></div>");
 		createHTMLpagination(html, view, info);
 		html.append("<div style='clear:both;'></div>");
 		html.append("</div>");
@@ -1026,8 +1024,9 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 	 */
 	public Response createHTMLPageScope(AppContext ctx, Space space, Space target, ExpressionSuggestion suggestions, String BBID, String value, ObjectType[] types, ValueType[] values) {
 		String title = getPageTitle(space);
+		String breadcrumbs = getBreadCrumbs(space);
 		StringBuilder html = createHTMLHeader(title +" - OB Query Builder");
-		createHTMLtitle(ctx, html, title, BBID, null, target, getParentLink(space), null, "scopeAnalysis");
+		createHTMLtitle(ctx, html, breadcrumbs, BBID, null, target, getParentLink(space), null, "scopeAnalysis");
 		html.append("<form>");
 		String value_value = getFieldValue(value);
 		html.append("<p>Expression:<input type='text' id='value-param' name='value' size=100 value='"+value_value+"' placeholder='type expression to validate it or to filter the suggestion list'>&nbsp;offset=<input type='text' id='offset-param' name='offset' value='"+value_value.length()+"'</p>");
@@ -1208,6 +1207,14 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			return  space.getBookmark().getName() ; 
 		} else {
 			return  space.getDomain().getName();			
+		}
+	}
+	private String getBreadCrumbs(Space space) {
+		if (space.hasBookmark()) {
+			String path = getBookmarkNavigationPath(space.getBookmark());
+			return "Bookmarks>"+path+">"+space.getBookmark().getName();
+		} else {
+			return "Domains>"+space.getUniverse().getProject().getName()+">"+space.getDomain().getName();
 		}
 	}
 	
