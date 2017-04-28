@@ -611,6 +611,12 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			}
 			// save as bookmark using a modal
 			{
+				String popupTitle;
+				if (space.hasBookmark()){
+					popupTitle = space.getBookmark().getName();
+				}else{
+					popupTitle="Save as new bookmark";
+				}
 				URI link = service.buildBookmarkURI(service.getUserContext(), query.getBBID());
 				html.append("<!-- Button trigger modal -->\n" + 
 						"<div style='padding:5px' class='pull-right'><button type=\"button\" class=\"btn btn-primary btn-lg\" data-toggle=\"modal\" data-target=\"#myModal\">\n" + 
@@ -624,7 +630,9 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 						"        <button type=\"button\" class=\"close\" data-dismiss=\"modal\" aria-label=\"Close\">\n" + 
 						"          <span aria-hidden=\"true\">&times;</span>\n" + 
 						"        </button>\n" + 
-						"        <h4 class=\"modal-title\" id=\"myModalLabel\">Save as new bookmark</h4>\n" + 
+						"        <h4 class=\"modal-title\" id=\"myModalLabel\">"+
+						popupTitle+
+						"</h4>\n" + 
 						"      </div>\n" + 
 						"      <div class=\"modal-body\">\n");
 				// body
