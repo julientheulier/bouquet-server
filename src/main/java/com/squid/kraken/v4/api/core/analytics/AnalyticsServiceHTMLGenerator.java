@@ -305,6 +305,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 				"    ev.target.value = data;\n" +
 				"}\n" + 
 				"</script>");
+		html.append("<link rel=\"icon\" type=\"image/png\" href=\"https://s3.amazonaws.com/openbouquet.io/favicon.ico\" />");
 		html.append("</head><body>");
 		return html;
 	}
@@ -440,7 +441,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 	 */
 	public Response createHTMLPageList(AppContext ctx, NavigationQuery query, NavigationResult result) {
 		String title = (query.getParent()!=null && query.getParent().length()>0)?query.getParent():"Root";
-		StringBuilder html = createHTMLHeader("List: "+title);
+		StringBuilder html = createHTMLHeader("OB Query Builder");
 		// check if the parent is a project
 		if (result.getParent()!=null && result.getParent().getType().equals(NavigationItem.PROJECT_TYPE) && result.getParent().getObjectID() instanceof ProjectPK) {
 			ProjectPK id = (ProjectPK)result.getParent().getObjectID();
@@ -533,7 +534,12 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 	 */
 	public Response createHTMLPageTable(AppContext ctx, Space space, AnalyticsReply reply, DataTable data) {
 		String title = space!=null?getPageTitle(space):null;
-		StringBuilder html = createHTMLHeader("Query: "+title);
+		StringBuilder html ;	
+		if (title == null){
+			html = createHTMLHeader("OB Query Builder");
+		}else{
+			 html = createHTMLHeader(title+" - OB Query Builder");						
+		}
 		AnalyticsQuery query = reply.getQuery();
 		createHTMLtitle(ctx, html, title, query.getBBID(), null, space, getParentLink(space), "#query-a-bookmark-or-domain", "runAnalysis");
 		createHTMLproblems(html, query.getProblems());
@@ -596,7 +602,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			}
 			html.append("</tbody></table>");
 			html.append("</div>");
-			html.append("<div style='float:left;padding:5px'><button type='submit' value='Query'><i class=\"fa fa-refresh\" aria-hidden=\"true\"></i>&nbsp;Query</button></div>");
+			html.append("<div style='float:left;padding:5px'><button type='submit' value='Query'><i class=\"fa fa-refresh\" aria-hidden=\"true\"></i>&nbsp;Preview</button></div>");
 			{ // for View
 				HashMap<String, Object> override = new HashMap<>();
 				override.put(LIMIT_PARAM, null);
@@ -605,10 +611,16 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			}
 			// save as bookmark using a modal
 			{
+				String popupTitle;
+				if (space.hasBookmark()){
+					popupTitle = space.getBookmark().getName();
+				}else{
+					popupTitle="Save as new bookmark";
+				}
 				URI link = service.buildBookmarkURI(service.getUserContext(), query.getBBID());
 				html.append("<!-- Button trigger modal -->\n" + 
 						"<div style='padding:5px' class='pull-right'><button type=\"button\" class=\"btn btn-primary btn-lg\" data-toggle=\"modal\" data-target=\"#myModal\">\n" + 
-						"<i class=\"fa fa-cloud-upload\" aria-hidden=\"true\"></i> Publish\n" + 
+						"<i class=\"fa fa-cloud-upload\" aria-hidden=\"true\"></i> Bookmark\n" + 
 						"</button></div>\n" + 
 						"<!-- Modal -->\n" + 
 						"<div class=\"modal fade\" id=\"myModal\" tabindex=\"-1\" role=\"dialog\" aria-labelledby=\"myModalLabel\" aria-hidden=\"true\">\n" + 
@@ -618,7 +630,9 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 						"        <button type=\"button\" class=\"close\" data-dismiss=\"modal\" aria-label=\"Close\">\n" + 
 						"          <span aria-hidden=\"true\">&times;</span>\n" + 
 						"        </button>\n" + 
-						"        <h4 class=\"modal-title\" id=\"myModalLabel\">Save as new bookmark</h4>\n" + 
+						"        <h4 class=\"modal-title\" id=\"myModalLabel\">"+
+						popupTitle+
+						"</h4>\n" + 
 						"      </div>\n" + 
 						"      <div class=\"modal-body\">\n");
 				// body
@@ -629,8 +643,8 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 				// footer
 				html.append("      </div>\n" + 
 						"      <div class=\"modal-footer\">\n" + 
-						"        &nbsp;<button style='margin-left:10px;' type=\"submit\" class=\"btn btn-primary pull-right\" formaction=\""+StringEscapeUtils.escapeHtml4(link.toString())+"\">Save changes</button>&nbsp;\n" + 
-						"        &nbsp;<button style='margin-left:10px;' type=\"button\" class=\"btn btn-secondary pull-right\" data-dismiss=\"modal\">Close</button>&nbsp;\n" + 
+						"        &nbsp;<button style='margin-left:10px;' type=\"button\" class=\"btn btn-secondary pull-right\" data-dismiss=\"modal\">Cancel</button>&nbsp;\n" + 
+						"        &nbsp;<button style='margin-left:10px;' type=\"submit\" class=\"btn btn-primary pull-right\" formaction=\""+StringEscapeUtils.escapeHtml4(link.toString())+"\">Save</button>&nbsp;\n" + 
 						"      </div>\n" + 
 						"    </div>\n" + 
 						"  </div>\n" + 
@@ -720,7 +734,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 	 */
 	public Response createHTMLPageView(AppContext ctx, Space space, ViewQuery view, ResultInfo info, ViewReply reply) {
 		String title = getPageTitle(space);
-		StringBuilder html = createHTMLHeader("View: "+title);
+		StringBuilder html = createHTMLHeader( title + " - OB Query Builder");
 		html.append("<script src=\"//d3js.org/d3.v3.min.js\" charset=\"utf-8\"></script>\n" + 
 				"<script src=\"https://cdnjs.cloudflare.com/ajax/libs/vega/2.5.0/vega.min.js\"></script>\n" + 
 				"  <script src=\"https://cdnjs.cloudflare.com/ajax/libs/vega-lite/1.0.7/vega-lite.min.js\"></script>\n" + 
@@ -741,7 +755,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		html.append("<form>");
 		// data-link
 		URI querylink = service.buildAnalyticsQueryURI(service.getUserContext(), reply.getQuery(), "RECORDS", "ALL", Style.HTML, null);
-		html.append("<div style='float:left;padding:5px;'><button type='submit' value='Query' formaction=\""+StringEscapeUtils.escapeHtml4(querylink.toASCIIString())+"\"><i class=\"fa fa-refresh\" aria-hidden=\"true\"></i>&nbsp;Query</button></div>");
+		html.append("<div style='float:left;padding:5px;'><button type='submit' value='Query' formaction=\""+StringEscapeUtils.escapeHtml4(querylink.toASCIIString())+"\"><i class=\"fa fa-refresh\" aria-hidden=\"true\"></i>&nbsp;Preview</button></div>");
 		createHTMLpagination(html, view, info);
 		html.append("<div style='clear:both;'></div>");
 		html.append("</div>");
@@ -1005,7 +1019,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 	 */
 	public Response createHTMLPageScope(AppContext ctx, Space space, Space target, ExpressionSuggestion suggestions, String BBID, String value, ObjectType[] types, ValueType[] values) {
 		String title = getPageTitle(space);
-		StringBuilder html = createHTMLHeader("Scope: "+title);
+		StringBuilder html = createHTMLHeader(title +" - OB Query Builder");
 		createHTMLtitle(ctx, html, title, BBID, null, target, getParentLink(space), null, "scopeAnalysis");
 		html.append("<form>");
 		String value_value = getFieldValue(value);
@@ -1184,10 +1198,9 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 
 	private String getPageTitle(Space space) {
 		if (space.hasBookmark()) {
-			String path = getBookmarkNavigationPath(space.getBookmark());
-			return path+"/"+space.getBookmark().getName();
+			return  space.getBookmark().getName() ; 
 		} else {
-			return "/PROJECTS/"+space.getUniverse().getProject().getName()+"/"+space.getDomain().getName();
+			return  space.getDomain().getName();			
 		}
 	}
 	

@@ -87,7 +87,7 @@ public class KrakenConfig implements KrakenConfigConstants {
 	 *            the property name
 	 * 
 	 * @param allowsNull
-	 *            throws a RuntimeException if the key ins't found.
+	 *            do not throw a RuntimeException if the key ins't found.
 	 * @return the property
 	 */
 	public static synchronized String getProperty(String key, boolean allowsNull) {

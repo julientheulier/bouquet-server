@@ -83,6 +83,7 @@ public class GenericDataStoreDecorator implements DataStore {
             // publish
             DataStoreEventBus.getInstance().publishEvent(new DataStoreEvent(ctx, newInstance, DataStoreEvent.Type.CREATION));
         }
+        AccessRightsUtils.getInstance().setRole(ctx, newInstance);
         return newInstance;
     }
 
