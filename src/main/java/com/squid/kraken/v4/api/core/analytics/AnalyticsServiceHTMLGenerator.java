@@ -305,6 +305,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 				"    ev.target.value = data;\n" +
 				"}\n" + 
 				"</script>");
+		html.append("<link rel=\"icon\" type=\"image/png\" href=\"https://s3.amazonaws.com/openbouquet.io/favicon.ico\" />");
 		html.append("</head><body>");
 		return html;
 	}
@@ -440,7 +441,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 	 */
 	public Response createHTMLPageList(AppContext ctx, NavigationQuery query, NavigationResult result) {
 		String title = (query.getParent()!=null && query.getParent().length()>0)?query.getParent():"Root";
-		StringBuilder html = createHTMLHeader("List: "+title);
+		StringBuilder html = createHTMLHeader("OB Query Builder");
 		// check if the parent is a project
 		if (result.getParent()!=null && result.getParent().getType().equals(NavigationItem.PROJECT_TYPE) && result.getParent().getObjectID() instanceof ProjectPK) {
 			ProjectPK id = (ProjectPK)result.getParent().getObjectID();
@@ -533,7 +534,12 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 	 */
 	public Response createHTMLPageTable(AppContext ctx, Space space, AnalyticsReply reply, DataTable data) {
 		String title = space!=null?getPageTitle(space):null;
-		StringBuilder html = createHTMLHeader("Query: "+title);
+		StringBuilder html ;	
+		if (title == null){
+			html = createHTMLHeader("OB Query Builder");
+		}else{
+			 html = createHTMLHeader(title+" - OB Query Builder");						
+		}
 		AnalyticsQuery query = reply.getQuery();
 		createHTMLtitle(ctx, html, title, query.getBBID(), null, space, getParentLink(space), "#query-a-bookmark-or-domain", "runAnalysis");
 		createHTMLproblems(html, query.getProblems());
@@ -720,7 +726,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 	 */
 	public Response createHTMLPageView(AppContext ctx, Space space, ViewQuery view, ResultInfo info, ViewReply reply) {
 		String title = getPageTitle(space);
-		StringBuilder html = createHTMLHeader("View: "+title);
+		StringBuilder html = createHTMLHeader( title + " - OB Query Builder");
 		html.append("<script src=\"//d3js.org/d3.v3.min.js\" charset=\"utf-8\"></script>\n" + 
 				"<script src=\"https://cdnjs.cloudflare.com/ajax/libs/vega/2.5.0/vega.min.js\"></script>\n" + 
 				"  <script src=\"https://cdnjs.cloudflare.com/ajax/libs/vega-lite/1.0.7/vega-lite.min.js\"></script>\n" + 
@@ -1005,7 +1011,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 	 */
 	public Response createHTMLPageScope(AppContext ctx, Space space, Space target, ExpressionSuggestion suggestions, String BBID, String value, ObjectType[] types, ValueType[] values) {
 		String title = getPageTitle(space);
-		StringBuilder html = createHTMLHeader("Scope: "+title);
+		StringBuilder html = createHTMLHeader(title +" - OB Query Builder");
 		createHTMLtitle(ctx, html, title, BBID, null, target, getParentLink(space), null, "scopeAnalysis");
 		html.append("<form>");
 		String value_value = getFieldValue(value);
@@ -1184,10 +1190,9 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 
 	private String getPageTitle(Space space) {
 		if (space.hasBookmark()) {
-			String path = getBookmarkNavigationPath(space.getBookmark());
-			return path+"/"+space.getBookmark().getName();
+			return  space.getBookmark().getName() ; 
 		} else {
-			return "/PROJECTS/"+space.getUniverse().getProject().getName()+"/"+space.getDomain().getName();
+			return  space.getDomain().getName();			
 		}
 	}
 	
