@@ -635,8 +635,8 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 				// footer
 				html.append("      </div>\n" + 
 						"      <div class=\"modal-footer\">\n" + 
-						"        &nbsp;<button style='margin-left:10px;' type=\"submit\" class=\"btn btn-primary pull-right\" formaction=\""+StringEscapeUtils.escapeHtml4(link.toString())+"\">Save changes</button>&nbsp;\n" + 
-						"        &nbsp;<button style='margin-left:10px;' type=\"button\" class=\"btn btn-secondary pull-right\" data-dismiss=\"modal\">Close</button>&nbsp;\n" + 
+						"        &nbsp;<button style='margin-left:10px;' type=\"button\" class=\"btn btn-secondary pull-right\" data-dismiss=\"modal\">Cancel</button>&nbsp;\n" + 
+						"        &nbsp;<button style='margin-left:10px;' type=\"submit\" class=\"btn btn-primary pull-right\" formaction=\""+StringEscapeUtils.escapeHtml4(link.toString())+"\">Save</button>&nbsp;\n" + 
 						"      </div>\n" + 
 						"    </div>\n" + 
 						"  </div>\n" + 
