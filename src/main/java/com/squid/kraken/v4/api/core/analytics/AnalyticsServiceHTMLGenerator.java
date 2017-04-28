@@ -544,6 +544,62 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		createHTMLtitle(ctx, html, title, query.getBBID(), null, space, getParentLink(space), "#query-a-bookmark-or-domain", "runAnalysis");
 		createHTMLproblems(html, query.getProblems());
 		html.append("<form>");
+		
+		// the parameters pannel
+		html.append("<div>");
+		html.append("<div style='width:50%;float:left;'>");
+		html.append("<div style='padding-right:15px;'>");
+		html.append("<h4 style='font-family:Helvetica Neue,Helvetica,Arial,sans-serif;'>Query Parameters</h4><hr>");
+		createHTMLswaggerLink(html, "runAnalysis");
+		createHTMLfilters(html, query);
+		html.append("<table style='width:100%;'>");
+		html.append("<tr><td valign='top' style='width:100px;'><a href=\"#\" data-toggle=\"tooltip\" data-placement=\"right\" title=\""+GROUPBY_DOC+"\">groupBy:</a>");
+		html.append("</td><td>");
+		createHTMLinputArray(html, "text", "groupBy", query.getGroupBy());
+		html.append("</td></tr>");
+		html.append("<tr><td valign='top'><a href=\"#\" data-toggle=\"tooltip\" data-placement=\"right\" title=\""+METRICS_DOC+"\">metrics:</a>");
+		html.append("</td><td>");
+		createHTMLinputArray(html, "text", "metrics", query.getMetrics());
+		html.append("</td></tr>");
+		html.append("<tr><td valign='top'><a href=\"#\" data-toggle=\"tooltip\" data-placement=\"right\" title=\""+ROLLUP_DOC+"\">rollup:</a>");
+		html.append("</td><td>");
+		createHTMLinputArray(html, "text", "rollup", query.getRollups());
+		html.append("</td></tr>");
+		html.append("<tr><td valign='top'><a href=\"#\" data-toggle=\"tooltip\" data-placement=\"right\" title=\""+ORDERBY_DOC+"\">orderBy:</a>");
+		html.append("</td><td>");
+		createHTMLinputArray(html, "text", "orderBy", query.getOrderBy());
+		html.append("</td></tr>");
+		html.append("<tr><td valign='top'><a href=\"#\" data-toggle=\"tooltip\" data-placement=\"right\" title=\""+LIMIT_DOC+"\">limit:</a>");
+		html.append("</td><td>");
+		html.append("<input type=\"number\" required name=\"limit\" value=\""+getFieldValue(query.getLimit(),0)+"\">");
+		html.append("</td></tr>");
+		html.append("<tr><td valign='top'><a href=\"#\" data-toggle=\"tooltip\" data-placement=\"right\" title=\""+OFFSET_DOC+"\">offset:</a>");
+		html.append("</td><td>");
+		html.append("<input type=\"number\" required name=\"offset\" value=\""+getFieldValue(query.getOffset(),0)+"\">");
+		html.append("</td></tr>");
+		html.append("<tr><td valign='top'><a href=\"#\" data-toggle=\"tooltip\" data-placement=\"right\" title=\""+MAX_RESULTS_DOC+"\">maxResults:</a>");
+		html.append("</td><td>");
+		html.append("<input type=\"number\" required name=\"maxResults\" value=\""+getFieldValue(query.getMaxResults(),100)+"\">");
+		html.append("</td></tr>");
+		html.append("<tr><td valign='top'><a href=\"#\" data-toggle=\"tooltip\" data-placement=\"right\" title=\""+START_INDEX_DOC+"\">startIndex:</a>");
+		html.append("</td><td>");
+		html.append("<input type=\"number\" required name=\"startIndex\" value=\""+getFieldValue(query.getStartIndex(),0)+"\">");
+		html.append("</td></tr>");
+		html.append("</table>"
+				+ "<input type=\"hidden\" name=\"style\" value=\"HTML\">"
+				+ "<input type=\"hidden\" name=\"access_token\" value=\""+ctx.getToken().getOid()+"\">");
+		html.append("</form>");
+		// the scope panel
+		html.append("</div></div><div style='width:50%;float:left;'>");
+		if (space!=null) createHTMLscope(ctx, html, space, query);
+		html.append("</div>");
+		html.append("</div>");
+		createHTMLAPIpanel(html, "runAnalysis");
+		
+		//preview 
+		html.append("<div style='float:left;padding:5px'><button type='submit' value='Query'><i class=\"fa fa-refresh\" aria-hidden=\"true\"></i>&nbsp;Preview</button></div><br><br><br>");
+
+		// query result
 		if (data!=null) {
 			html.append("<h4 style='font-family:Helvetica Neue,Helvetica,Arial,sans-serif;'>Query Result</h4><hr>");
 			// display selection
@@ -602,54 +658,13 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			}
 			html.append("</tbody></table>");
 			html.append("</div>");
-			html.append("<div style='float:left;padding:5px'><button type='submit' value='Query'><i class=\"fa fa-refresh\" aria-hidden=\"true\"></i>&nbsp;Preview</button></div>");
 			{ // for View
 				HashMap<String, Object> override = new HashMap<>();
 				override.put(LIMIT_PARAM, null);
 				override.put(MAX_RESULTS_PARAM, null);
 				URI link = service.buildAnalyticsViewURI(service.getUserContext(), new ViewQuery(query), null, "ALL", Style.HTML, override);//(userContext, query, "SQL", null, Style.HTML, null);
 			}
-			// save as bookmark using a modal
-			{
-				String popupTitle;
-				if (space.hasBookmark()){
-					popupTitle = space.getBookmark().getName();
-				}else{
-					popupTitle="Save as new bookmark";
-				}
-				URI link = service.buildBookmarkURI(service.getUserContext(), query.getBBID());
-				html.append("<!-- Button trigger modal -->\n" + 
-						"<div style='padding:5px' class='pull-right'><button type=\"button\" class=\"btn btn-primary btn-lg\" data-toggle=\"modal\" data-target=\"#myModal\">\n" + 
-						"<i class=\"fa fa-cloud-upload\" aria-hidden=\"true\"></i> Bookmark\n" + 
-						"</button></div>\n" + 
-						"<!-- Modal -->\n" + 
-						"<div class=\"modal fade\" id=\"myModal\" tabindex=\"-1\" role=\"dialog\" aria-labelledby=\"myModalLabel\" aria-hidden=\"true\">\n" + 
-						"  <div class=\"modal-dialog modal-lg\" role=\"document\">\n" + 
-						"    <div class=\"modal-content\">\n" + 
-						"      <div class=\"modal-header\">\n" + 
-						"        <button type=\"button\" class=\"close\" data-dismiss=\"modal\" aria-label=\"Close\">\n" + 
-						"          <span aria-hidden=\"true\">&times;</span>\n" + 
-						"        </button>\n" + 
-						"        <h4 class=\"modal-title\" id=\"myModalLabel\">"+
-						popupTitle+
-						"</h4>\n" + 
-						"      </div>\n" + 
-						"      <div class=\"modal-body\">\n");
-				// body
-				html.append("<label for=\"bookmark-name\" class=\"form-control-label\">Name:</label>\n" + 
-						"              <input type=\"text\" class=\"form-control\" id=\"bookmark-name\" name=\"name\" value=\""+getBookmarkName(space)+"\">");
-				html.append("<input  type='hidden' class=\"form-control\" id=\"bookmark-parent\" name=\"parent\" value=\"/SHARED\">");
-
-				// footer
-				html.append("      </div>\n" + 
-						"      <div class=\"modal-footer\">\n" + 
-						"        &nbsp;<button style='margin-left:10px;' type=\"button\" class=\"btn btn-secondary pull-right\" data-dismiss=\"modal\">Cancel</button>&nbsp;\n" + 
-						"        &nbsp;<button style='margin-left:10px;' type=\"submit\" class=\"btn btn-primary pull-right\" formaction=\""+StringEscapeUtils.escapeHtml4(link.toString())+"\">Save</button>&nbsp;\n" + 
-						"      </div>\n" + 
-						"    </div>\n" + 
-						"  </div>\n" + 
-						"</div>");
-			}
+			
 			//
 			createHTMLpagination(html, query, data);
 		} else {
@@ -660,56 +675,48 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			html.append("<div style='float:left;padding:5px;'><input type='submit' value='Refresh'></div>");
 			html.append("<div style='clear:both;'></div>");
 		}
-		// the parameters pannel
-		html.append("<div>");
-		html.append("<div style='width:50%;float:left;'>");
-		html.append("<div style='padding-right:15px;'>");
-		html.append("<h4 style='font-family:Helvetica Neue,Helvetica,Arial,sans-serif;'>Query Parameters</h4><hr>");
-		createHTMLswaggerLink(html, "runAnalysis");
-		createHTMLfilters(html, query);
-		html.append("<table style='width:100%;'>");
-		html.append("<tr><td valign='top' style='width:100px;'><a href=\"#\" data-toggle=\"tooltip\" data-placement=\"right\" title=\""+GROUPBY_DOC+"\">groupBy:</a>");
-		html.append("</td><td>");
-		createHTMLinputArray(html, "text", "groupBy", query.getGroupBy());
-		html.append("</td></tr>");
-		html.append("<tr><td valign='top'><a href=\"#\" data-toggle=\"tooltip\" data-placement=\"right\" title=\""+METRICS_DOC+"\">metrics:</a>");
-		html.append("</td><td>");
-		createHTMLinputArray(html, "text", "metrics", query.getMetrics());
-		html.append("</td></tr>");
-		html.append("<tr><td valign='top'><a href=\"#\" data-toggle=\"tooltip\" data-placement=\"right\" title=\""+ROLLUP_DOC+"\">rollup:</a>");
-		html.append("</td><td>");
-		createHTMLinputArray(html, "text", "rollup", query.getRollups());
-		html.append("</td></tr>");
-		html.append("<tr><td valign='top'><a href=\"#\" data-toggle=\"tooltip\" data-placement=\"right\" title=\""+ORDERBY_DOC+"\">orderBy:</a>");
-		html.append("</td><td>");
-		createHTMLinputArray(html, "text", "orderBy", query.getOrderBy());
-		html.append("</td></tr>");
-		html.append("<tr><td valign='top'><a href=\"#\" data-toggle=\"tooltip\" data-placement=\"right\" title=\""+LIMIT_DOC+"\">limit:</a>");
-		html.append("</td><td>");
-		html.append("<input type=\"number\" required name=\"limit\" value=\""+getFieldValue(query.getLimit(),0)+"\">");
-		html.append("</td></tr>");
-		html.append("<tr><td valign='top'><a href=\"#\" data-toggle=\"tooltip\" data-placement=\"right\" title=\""+OFFSET_DOC+"\">offset:</a>");
-		html.append("</td><td>");
-		html.append("<input type=\"number\" required name=\"offset\" value=\""+getFieldValue(query.getOffset(),0)+"\">");
-		html.append("</td></tr>");
-		html.append("<tr><td valign='top'><a href=\"#\" data-toggle=\"tooltip\" data-placement=\"right\" title=\""+MAX_RESULTS_DOC+"\">maxResults:</a>");
-		html.append("</td><td>");
-		html.append("<input type=\"number\" required name=\"maxResults\" value=\""+getFieldValue(query.getMaxResults(),100)+"\">");
-		html.append("</td></tr>");
-		html.append("<tr><td valign='top'><a href=\"#\" data-toggle=\"tooltip\" data-placement=\"right\" title=\""+START_INDEX_DOC+"\">startIndex:</a>");
-		html.append("</td><td>");
-		html.append("<input type=\"number\" required name=\"startIndex\" value=\""+getFieldValue(query.getStartIndex(),0)+"\">");
-		html.append("</td></tr>");
-		html.append("</table>"
-				+ "<input type=\"hidden\" name=\"style\" value=\"HTML\">"
-				+ "<input type=\"hidden\" name=\"access_token\" value=\""+ctx.getToken().getOid()+"\">");
-		html.append("</form>");
-		// the scope panel
-		html.append("</div></div><div style='width:50%;float:left;'>");
-		if (space!=null) createHTMLscope(ctx, html, space, query);
-		html.append("</div>");
-		html.append("</div>");
-		createHTMLAPIpanel(html, "runAnalysis");
+		
+		// save as bookmark using a modal
+					{
+						String popupTitle;
+						if (space.hasBookmark()){
+							popupTitle = space.getBookmark().getName();
+						}else{
+							popupTitle="Save as new bookmark";
+						}
+						URI link = service.buildBookmarkURI(service.getUserContext(), query.getBBID());
+						html.append("<!-- Button trigger modal -->\n" + 
+								"<div style='padding:5px'><button type=\"button\" class=\"btn btn-primary btn-lg\" data-toggle=\"modal\" data-target=\"#myModal\">\n" + 
+								"<i class=\"fa fa-cloud-upload\" aria-hidden=\"true\"></i> Bookmark\n" + 
+								"</button></div>\n" + 
+								"<!-- Modal -->\n" + 
+								"<div class=\"modal fade\" id=\"myModal\" tabindex=\"-1\" role=\"dialog\" aria-labelledby=\"myModalLabel\" aria-hidden=\"true\">\n" + 
+								"  <div class=\"modal-dialog modal-lg\" role=\"document\">\n" + 
+								"    <div class=\"modal-content\">\n" + 
+								"      <div class=\"modal-header\">\n" + 
+								"        <button type=\"button\" class=\"close\" data-dismiss=\"modal\" aria-label=\"Close\">\n" + 
+								"          <span aria-hidden=\"true\">&times;</span>\n" + 
+								"        </button>\n" + 
+								"        <h4 class=\"modal-title\" id=\"myModalLabel\">"+
+								popupTitle+
+								"</h4>\n" + 
+								"      </div>\n" + 
+								"      <div class=\"modal-body\">\n");
+						// body
+						html.append("<label for=\"bookmark-name\" class=\"form-control-label\">Name:</label>\n" + 
+								"              <input type=\"text\" class=\"form-control\" id=\"bookmark-name\" name=\"name\" value=\""+getBookmarkName(space)+"\">");
+						html.append("<input  type='hidden' class=\"form-control\" id=\"bookmark-parent\" name=\"parent\" value=\"/SHARED\">");
+
+						// footer
+						html.append("      </div>\n" + 
+								"      <div class=\"modal-footer\">\n" + 
+								"        &nbsp;<button style='margin-left:10px;' type=\"button\" class=\"btn btn-secondary pull-right\" data-dismiss=\"modal\">Cancel</button>&nbsp;\n" + 
+								"        &nbsp;<button style='margin-left:10px;' type=\"submit\" class=\"btn btn-primary pull-right\" formaction=\""+StringEscapeUtils.escapeHtml4(link.toString())+"\">Save</button>&nbsp;\n" + 
+								"      </div>\n" + 
+								"    </div>\n" + 
+								"  </div>\n" + 
+								"</div>");
+					}
 		createFooter(html);
 		html.append("</body></html>");
 		return Response.ok(html.toString(),"text/html").build();
