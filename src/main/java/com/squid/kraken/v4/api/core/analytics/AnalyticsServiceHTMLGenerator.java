@@ -594,7 +594,14 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		createHTMLAPIpanel(html, "runAnalysis");
 		
 		//preview 
+		html.append("<table border=0><tr>");
+		html.append("<td>");
 		html.append("<div style='float:left;padding:5px'><button type='submit' value='Query'><i class=\"fa fa-refresh\" aria-hidden=\"true\"></i>&nbsp;Query</button></div><br><br><br>");
+		html.append("</td>");
+		html.append("<td>");
+		createHTMLpagination(html, query, data);
+		html.append("</td>");
+		html.append("</tr></table>");
 
 		// query result
 		if (data!=null) {
@@ -662,8 +669,6 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 				URI link = service.buildAnalyticsViewURI(service.getUserContext(), new ViewQuery(query), null, "ALL", Style.HTML, override);//(userContext, query, "SQL", null, Style.HTML, null);
 			}
 			
-			//
-			createHTMLpagination(html, query, data);
 		} else {
 			html.append("<i>Result is not available, it's probably due to an error</i>");
 			html.append("<p>");
@@ -683,7 +688,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 						}
 						URI link = service.buildBookmarkURI(service.getUserContext(), query.getBBID());
 						html.append("<!-- Button trigger modal -->\n" + 
-								"<div style='padding:5px'><button type=\"button\" class=\"btn btn-primary btn-lg\" data-toggle=\"modal\" data-target=\"#myModal\">\n" + 
+								"<div style='padding:13px'><button type=\"button\" class=\"btn btn-primary btn-lg\" style='display:inline' data-toggle=\"modal\" data-target=\"#myModal\">\n" + 
 								"<i class=\"fa fa-cloud-upload\" aria-hidden=\"true\"></i> Bookmark\n" + 
 								"</button></div>\n" + 
 								"<!-- Modal -->\n" + 
