@@ -114,7 +114,8 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 	}
 
 	private void createHTMLtitle(AppContext userContext, StringBuilder html, String title, String BBID, Project project, Space space, URI backLink, String docAnchor, String method) {
-		html.append("<div class=\"logo\"><span></span>");
+
+		html.append("<div style='background-color: #ee7914;padding: 15px;'><img src='https://apps.openbouquet.io/release/obe/bouquet-logo-white.png' height='24' ></div>");
 		html.append("</div>");
 		html.append("<div class='overview' style='background-color:#E0E0E0;padding:5px;'>");
 		html.append("<h3>");
@@ -139,7 +140,6 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			html.append("</p>");
 		}
 
-		//
 		createHTMLAPIpanel(html, "scopeAnalysis");
 		//
 		html.append("</div>");//overview
@@ -1184,7 +1184,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		} catch (UnsupportedEncodingException | IllegalArgumentException | UriBuilderException e) {
 			// default
 		}
-		html.append("<p>the OB Analytics API provides more parameters... check in <a target='swagger' href='http://swagger.squidsolutions.com/"+baseUrl+"#!/analytics/"+method+"'>swagger UI</a> for details</p>");
+		html.append("<p>The Analytics API provides more parameters... check <a target='swagger' href='http://swagger.squidsolutions.com/"+baseUrl+"#!/analytics/"+method+"'>swagger UI</a> for details</p>");
 	}
 	
 	/**
@@ -1212,9 +1212,9 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 	private String getBreadCrumbs(Space space) {
 		if (space.hasBookmark()) {
 			String path = getBookmarkNavigationPath(space.getBookmark());
-			return "Bookmarks>"+path+">"+space.getBookmark().getName();
+			return path+" > "+space.getBookmark().getName();
 		} else {
-			return "Domains>"+space.getUniverse().getProject().getName()+">"+space.getDomain().getName();
+			return space.getUniverse().getProject().getName()+" > "+space.getDomain().getName();
 		}
 	}
 	
