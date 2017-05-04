@@ -2496,7 +2496,9 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		if (query.getMetrics() == null || metricWildcard) {
 			List<String> metrics = new ArrayList<>();
 			if (config==null) {
+				// T3036 - only keep the count()
 				boolean someIntrinsicMetric = false;
+				/*
 				for (Measure measure : space.M()) {
 					Metric metric = measure.getMetric();
 					if (metric!=null && !metric.isDynamic()) {
@@ -2509,8 +2511,9 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 						}
 					}
 				}
+				*/
 				if (!someIntrinsicMetric) {
-					metrics.add("count() // default metric");
+					metrics.add("count() as 'Count'// default metric");
 				}
 			} else if (config.getChosenMetrics() != null) {
 				for (String chosenMetric : config.getChosenMetrics()) {
