@@ -293,7 +293,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 				"    ev.preventDefault();\n" + 
 				"}\n" + 
 				"function drag(ev, text) {\n" + 
-				"    ev.dataTransfer.setData(\"text\", \"'\"+text+\"'\");\n" + 
+				"    ev.dataTransfer.setData(\"text\", text);\n" + 
 				"}\n" + 
 				"function drop(ev) {\n" + 
 				"    ev.preventDefault();\n" + 
@@ -599,7 +599,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		html.append("<div style='float:left;padding:5px'><button type='submit' value='Query'><i class=\"fa fa-refresh\" aria-hidden=\"true\"></i>&nbsp;Query</button></div><br><br><br>");
 		html.append("</td>");
 		html.append("<td>");
-		createHTMLpagination(html, query, data);
+		if (data!=null) createHTMLpagination(html, query, data);
 		html.append("</td>");
 		html.append("</tr></table>");
 
@@ -931,7 +931,8 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 					//
 					DimensionIndex index = axis.getIndex();
 					dimensionContent.append("<span draggable='true' style='"+axis_style+"'");
-					dimensionContent.append(" ondragstart='drag(event,\""+index.getDimensionName()+"\")'>");
+					String name = index.getDimensionName().replaceAll("'", "&apos;").replaceAll("\"", "&quot;");
+					dimensionContent.append(" ondragstart='drag(event,\"&apos;"+name+"&apos;\")'>");
 					if (index.getErrorMessage()==null) {
 						dimensionContent.append("&nbsp;"+index.getDimensionName()+"&nbsp;");
 					} else {
@@ -947,7 +948,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 					if (axis.getDescription()!=null) {
 						dimensionContent.append("&nbsp;"+axis.getDescription());
 					}
-					dimensionContent.append("<br>");
+					dimensionContent.append("<br>\n");
 				}
 			} catch (Exception e) {
 				// ignore
@@ -981,7 +982,8 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 					html.append(m.getDescription());
 				}
 				html.append("'");
-				html.append(" ondragstart='drag(event,\""+m.getName()+"\")'");
+				String name = m.getName().replaceAll("'", "&apos;").replaceAll("\"", "&quot;");
+				html.append(" ondragstart='drag(event,\"&apos;"+name+"&apos;\")'");
 				html.append(">&nbsp;"+m.getName()+"&nbsp;</span><br>");
 			}
 		}
@@ -1002,16 +1004,15 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			});
             for (OperatorDefinition opDef : ops) {
             	if (opDef.getPosition()!=OperatorDefinition.INFIX_POSITION) {
-                    //List<List> poly = opDef.getParametersTypes();
-                    ListContentAssistEntry listContentAssistEntry = opDef.getListContentAssistEntry();
+                    ListContentAssistEntry listContentAssistEntry = opDef.getSimplifiedListContentAssistEntry();
                     if (listContentAssistEntry != null) {
                         if (listContentAssistEntry.getContentAssistEntries() != null) {
-                			if (count % pageSize == 0) {
-                				if (page>1) functionContent.append("</div>");
-                				functionContent.append("<div id='fun"+page+"' class='tab-pane fade "+(page==1?"in active'>":"'>"));
-                				page++;
-                			}
                             for (ContentAssistEntry contentAssistEntry : listContentAssistEntry.getContentAssistEntries()) {
+                    			if (count % pageSize == 0) {
+                    				if (page>1) functionContent.append("</div>");
+                    				functionContent.append("<div id='fun"+page+"' class='tab-pane fade "+(page==1?"in active'>":"'>"));
+                    				page++;
+                    			}
                         		count++;
                                 //TODO this code should disappear when we get to XTEXT
                             	String function = opDef.getSymbol() + "(" + contentAssistEntry.getLabel() + ")";
