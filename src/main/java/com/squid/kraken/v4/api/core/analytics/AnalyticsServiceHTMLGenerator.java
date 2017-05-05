@@ -984,7 +984,8 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		// -- functions
 		html.append("<div id=\"functions\" class=\"tab-pane fade\">");// style='max-height:600px;overflow:scroll;'>");
 		try {
-			List<OperatorDefinition> ops = new ArrayList<>(OperatorScope.getDefault().looseLookupByName(""));
+			SpaceScope scope = new SpaceScope(space);
+			List<OperatorDefinition> ops = new ArrayList<>(scope.looseLookup(""));
 			Collections.sort(ops, new Comparator<OperatorDefinition>() {
 				@Override
 				public int compare(OperatorDefinition o1, OperatorDefinition o2) {
