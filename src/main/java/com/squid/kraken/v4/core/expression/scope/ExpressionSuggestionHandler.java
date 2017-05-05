@@ -284,8 +284,8 @@ public class ExpressionSuggestionHandler {
 	                Set<OperatorDefinition> opDefs = this.scope.looseLookup(text);
 	                for (OperatorDefinition opDef : opDefs) {
 	                	if (opDef.getPosition()!=OperatorDefinition.INFIX_POSITION) {
-		                    List<List> poly = opDef.getParametersTypes();
-		                    ListContentAssistEntry listContentAssistEntry = opDef.getListContentAssistEntry();
+		                    List<List<IDomain>> poly = opDef.getSimplifiedParametersTypes();
+		                    ListContentAssistEntry listContentAssistEntry = opDef.getSimplifiedListContentAssistEntry();
 		                    if (listContentAssistEntry != null) {
 		                        if (listContentAssistEntry.getContentAssistEntries() != null) {
 		                            for (ContentAssistEntry contentAssistEntry : listContentAssistEntry.getContentAssistEntries()) {
