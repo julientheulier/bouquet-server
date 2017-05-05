@@ -915,55 +915,60 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		List<Axis> axisList = space.A(true);
 		int pageSize = 25;
 		int pages = 1+axisList.size()/pageSize;
-		if (pages>1) {
-			html.append("<ul class='pagination'>");
-			html.append("<li class='active'><a data-toggle='tab' href='#axis1'>1</a></li>");
-			for (int i=2;i<=pages;i++) {
-				html.append("<li><a data-toggle='tab' href='#axis"+i+"'>"+i+"</a></li>");
-			}
-			html.append("</ul>");
-			html.append("<div class='tab-content'>");
-		}
 		int count = 0;
 		int page = 1;
+		StringBuilder dimensionContent = new StringBuilder();
 		for (Axis axis : axisList) {// only print the visible scope
-			if (pages>1 && count % pageSize == 0) {
-				if (page>1) html.append("</div>");
-				html.append("<div id='axis"+page+"' class='tab-pane fade "+(page==1?"in active'>":"'>"));
-				page++;
-			}
 			try {
 				IDomain image = axis.getDefinitionSafe().getImageDomain();
 				if (!image.isInstanceOf(IDomain.OBJECT)) {
-					DimensionIndex index = axis.getIndex();
-					html.append("<span draggable='true' style='"+axis_style+"'");
-					html.append(" ondragstart='drag(event,\""+index.getDimensionName()+"\")'>");
-					if (index.getErrorMessage()==null) {
-						html.append("&nbsp;"+index.getDimensionName()+"&nbsp;");
-					} else {
-						html.append("&nbsp;<del>"+index.getDimensionName()+"</del>&nbsp;");
+					if (pages>1 && count % pageSize == 0) {
+						if (page>1) dimensionContent.append("</div>");
+						dimensionContent.append("<div id='axis"+page+"' class='tab-pane fade "+(page==1?"in active'>":"'>"));
+						page++;
 					}
-					html.append("</span>");
+					count++;
+					//
+					DimensionIndex index = axis.getIndex();
+					dimensionContent.append("<span draggable='true' style='"+axis_style+"'");
+					dimensionContent.append(" ondragstart='drag(event,\""+index.getDimensionName()+"\")'>");
+					if (index.getErrorMessage()==null) {
+						dimensionContent.append("&nbsp;"+index.getDimensionName()+"&nbsp;");
+					} else {
+						dimensionContent.append("&nbsp;<del>"+index.getDimensionName()+"</del>&nbsp;");
+					}
+					dimensionContent.append("</span>");
 					// add description, type, error
 					ExpressionAST expr = axis.getDefinitionSafe();
-					html.append(":"+getExpressionValueType(expr).toString());
+					dimensionContent.append(":"+getExpressionValueType(expr).toString());
 					if (index.getErrorMessage()!=null) {
-						html.append("&nbsp;<b>Error:"+index.getErrorMessage()+"</b>");
+						dimensionContent.append("&nbsp;<b>Error:"+index.getErrorMessage()+"</b>");
 					}
 					if (axis.getDescription()!=null) {
-						html.append("&nbsp;"+axis.getDescription());
+						dimensionContent.append("&nbsp;"+axis.getDescription());
 					}
-					html.append("<br>");
-					count++;
+					dimensionContent.append("<br>");
 				}
 			} catch (Exception e) {
 				// ignore
 			}
 		}
 		if (pages>1) {
-			if (page>1) html.append("</div>");// closing last page
-			html.append("</div>");// closing pages
+			if (page>1) dimensionContent.append("</div>");// closing last page
+			dimensionContent.append("</div>");// closing pages
 		}
+		// add the header
+		if (pages>1) {
+			int actualPages = 1+count/pageSize;
+			html.append("<ul class='pagination'>");
+			html.append("<li class='active'><a data-toggle='tab' href='#axis1'>1</a></li>");
+			for (int i=2;i<=actualPages;i++) {
+				html.append("<li><a data-toggle='tab' href='#axis"+i+"'>"+i+"</a></li>");
+			}
+			html.append("</ul>");
+			html.append("<div class='tab-content'>");
+		}
+		html.append(dimensionContent);
 		html.append("</div>");
 		html.append("<div id=\"metrics\" class=\"tab-pane fade\">");
 		//html.append("<div style='max-height:300px;overflow:scroll;'>");
@@ -983,6 +988,9 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		html.append("</div>");
 		// -- functions
 		html.append("<div id=\"functions\" class=\"tab-pane fade\">");// style='max-height:600px;overflow:scroll;'>");
+		count = 0;
+		page = 1;
+		StringBuilder functionContent = new StringBuilder();
 		try {
 			SpaceScope scope = new SpaceScope(space);
 			List<OperatorDefinition> ops = new ArrayList<>(scope.looseLookup(""));
@@ -994,16 +1002,22 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			});
             for (OperatorDefinition opDef : ops) {
             	if (opDef.getPosition()!=OperatorDefinition.INFIX_POSITION) {
-                    List<List> poly = opDef.getParametersTypes();
+                    //List<List> poly = opDef.getParametersTypes();
                     ListContentAssistEntry listContentAssistEntry = opDef.getListContentAssistEntry();
                     if (listContentAssistEntry != null) {
                         if (listContentAssistEntry.getContentAssistEntries() != null) {
+                			if (count % pageSize == 0) {
+                				if (page>1) functionContent.append("</div>");
+                				functionContent.append("<div id='fun"+page+"' class='tab-pane fade "+(page==1?"in active'>":"'>"));
+                				page++;
+                			}
                             for (ContentAssistEntry contentAssistEntry : listContentAssistEntry.getContentAssistEntries()) {
+                        		count++;
                                 //TODO this code should disappear when we get to XTEXT
                             	String function = opDef.getSymbol() + "(" + contentAssistEntry.getLabel() + ")";
-                            	html.append("<span draggable='true'  style='"+metric_style+"'");
-                            	html.append(" ondragstart='drag(event,\""+function+"\")'");
-                				html.append(">&nbsp;"+function+"&nbsp;</span><br>");
+                            	functionContent.append("<span draggable='true'  style='"+metric_style+"'");
+                            	functionContent.append(" ondragstart='drag(event,\""+function+"\")'");
+                            	functionContent.append(">&nbsp;"+function+"&nbsp;</span><br>");
                             }
                         }
                     }
@@ -1013,6 +1027,22 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+		if (true) {
+			if (page>1) functionContent.append("</div>");// closing last page
+			functionContent.append("</div>");// closing pages
+		}
+		// add the header
+		if (true) {
+			int actualPages = 1+count/pageSize;
+			html.append("<ul class='pagination'>");
+			html.append("<li class='active'><a data-toggle='tab' href='#fun1'>1</a></li>");
+			for (int i=2;i<=actualPages;i++) {
+				html.append("<li><a data-toggle='tab' href='#fun"+i+"'>"+i+"</a></li>");
+			}
+			html.append("</ul>");
+			html.append("<div class='tab-content'>");
+		}
+		html.append(functionContent);
 		html.append("</div>");
 		//---- container
 		html.append("</div>");
