@@ -258,9 +258,7 @@ public class ExpressionSuggestionHandler {
                             if (item.getValueType() != ValueType.ERROR ) {
                                 if(valueTypes == null || valueTypes.contains(item.getValueType())) {
                                 	if (objectTypes == null || objectTypes.contains(item.getObjectType())) {
-                                		if (proposals.size() < PROPOSAL_MAX_SIZE) {
-                                			proposals.add(item);
-                                		}
+                                		proposals.add(item);
                                 	}
                                 }
                             }
@@ -283,16 +281,21 @@ public class ExpressionSuggestionHandler {
             		//test if it is a function
 	                Set<OperatorDefinition> opDefs = this.scope.looseLookup(text);
 	                for (OperatorDefinition opDef : opDefs) {
-	                	if (opDef.getPosition()!=OperatorDefinition.INFIX_POSITION) {
+	                	//if (opDef.getPosition()!=OperatorDefinition.INFIX_POSITION) {
 		                    List<List<IDomain>> poly = opDef.getSimplifiedParametersTypes();
 		                    ListContentAssistEntry listContentAssistEntry = opDef.getSimplifiedListContentAssistEntry();
 		                    if (listContentAssistEntry != null) {
 		                        if (listContentAssistEntry.getContentAssistEntries() != null) {
 		                            for (ContentAssistEntry contentAssistEntry : listContentAssistEntry.getContentAssistEntries()) {
-		                                //TODO this code should disappear when we get to XTEXT
+		                            	String display="";
+		                            	if (opDef.getPosition()==OperatorDefinition.INFIX_POSITION){
+		                            		display = opDef.getSymbol() ;
+		                            	}else{
+		                            		display =opDef.getSymbol() + "(" + contentAssistEntry.getLabel() + ")";
+		                            	}
 		                                ExpressionSuggestionItem item =
 		                                        new ExpressionSuggestionItem(null,
-		                                                opDef.getSymbol() + "(" + contentAssistEntry.getLabel() + ")",
+		                                                display,
 		                                                contentAssistEntry.getDescription(),
 		                                                opDef.getSymbol() + "(" + contentAssistEntry.getLabel() + ")",
 		                                                opDef.getSymbol() + "(" + contentAssistEntry.getProposal() + ")",
@@ -301,9 +304,9 @@ public class ExpressionSuggestionHandler {
 		                                                0);//computeValueTypeFromImage(opDef.computeImageDomain(type)));
 		                                if (item.getValueType() != ValueType.ERROR) {
 		                                    if(valueTypes == null || valueTypes.contains(item.getValueType())) {
-		                                        if (proposals.size() < PROPOSAL_MAX_SIZE) {
+		                                        //if (proposals.size() < PROPOSAL_MAX_SIZE) {
 		                                            proposals.add(item);
-		                                        }
+		                                        //}
 		                                    }
 		                                }
 		                                String folder = opDef.getCategoryTypeName();
@@ -311,7 +314,7 @@ public class ExpressionSuggestionHandler {
 		                            }
 		                        }
 		                    }
-	                	}
+	                	//}
 	                }
             	}
             } catch (ScopeException e) {
