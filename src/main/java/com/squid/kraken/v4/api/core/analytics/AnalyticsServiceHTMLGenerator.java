@@ -999,11 +999,15 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			Collections.sort(ops, new Comparator<OperatorDefinition>() {
 				@Override
 				public int compare(OperatorDefinition o1, OperatorDefinition o2) {
-					return o1.getName().compareTo(o2.getName());
+					if (o1.getPosition()!=o2.getPosition()) {
+						return o1.getPosition()-o2.getPosition();
+					} else {
+						return o1.getName().compareTo(o2.getName());
+					}
 				}
 			});
             for (OperatorDefinition opDef : ops) {
-            	if (opDef.getPosition()!=OperatorDefinition.INFIX_POSITION) {
+            	//if (opDef.getPosition()!=OperatorDefinition.INFIX_POSITION) {
                     ListContentAssistEntry listContentAssistEntry = opDef.getSimplifiedListContentAssistEntry();
                     if (listContentAssistEntry != null) {
                         if (listContentAssistEntry.getContentAssistEntries() != null) {
@@ -1014,15 +1018,19 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
                     				page++;
                     			}
                         		count++;
-                                //TODO this code should disappear when we get to XTEXT
-                            	String function = opDef.getSymbol() + "(" + contentAssistEntry.getLabel() + ")";
+                        		String display="";
+                            	if (opDef.getPosition()==OperatorDefinition.INFIX_POSITION){
+                            		display = opDef.getSymbol() ;
+                            	}else{
+                            		display =opDef.getSymbol() + "(" + contentAssistEntry.getLabel() + ")";
+                            	}
                             	functionContent.append("<span draggable='true'  style='"+metric_style+"'");
-                            	functionContent.append(" ondragstart='drag(event,\""+function+"\")'");
-                            	functionContent.append(">&nbsp;"+function+"&nbsp;</span><br>");
+                            	functionContent.append(" ondragstart='drag(event,\""+display+"\")'");
+                            	functionContent.append(">&nbsp;"+display+"&nbsp;</span><br>");
                             }
                         }
                     }
-            	}
+            	//}
             }
 		} catch (ScopeException e) {
 			// TODO Auto-generated catch block
