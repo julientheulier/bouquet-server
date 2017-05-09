@@ -27,7 +27,9 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 
 import com.squid.core.database.model.Column;
@@ -564,5 +566,23 @@ public class DomainExpressionScope extends DefaultScope {
 			return expression.prettyPrint(options);
 		}
 	}
+
+    
+    /* (non-Javadoc)
+     * @see com.squid.core.expression.scope.DefaultExpressionConstructor#looseLookup(java.lang.String)
+     */
+    @Override
+    public Set<OperatorDefinition> looseLookup(String fun) throws ScopeException {
+    	// T3028 - override to filter available functions
+    	Set<OperatorDefinition> operators = super.looseLookup(fun);
+    	Iterator<OperatorDefinition> iter = operators.iterator();
+    	while (iter.hasNext()) {
+    		OperatorDefinition opDef = iter.next();
+    		if (opDef.isExtendedID() && !space.getUniverse().getDatabase().getSkin().canRender(opDef.getExtendedID())) {
+    			iter.remove();
+    		}
+    	}
+    	return operators;
+    }
 
 }
