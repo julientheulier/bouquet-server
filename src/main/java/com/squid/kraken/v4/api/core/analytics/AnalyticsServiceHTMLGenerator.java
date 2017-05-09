@@ -341,6 +341,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 	}
 	
 	private void createHTMLpagination(StringBuilder html, AnalyticsQuery query, DataTable data) {
+		if (data !=null) {
 		long lastRow = (data.getStartIndex()+data.getRows().size());
 		long firstRow = data.getRows().size()>0?(data.getStartIndex()+1):0;
 		html.append("<div style='padding-top:5px;'>rows from "+firstRow+" to "+lastRow+" out of "+data.getTotalSize()+" records");
@@ -369,6 +370,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		createHTMLdataLinks(html, query);
 		html.append("</div>");
 		html.append("</div><br>");
+	}
 	}
 	
 	private void createHTMLdataLinks(StringBuilder html, AnalyticsQuery query) {
@@ -539,8 +541,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		}
 		AnalyticsQuery query = reply.getQuery();
 		createHTMLtitle(ctx, html, breadcrumbs, query.getBBID(), null, space, getParentLink(space), "#query-a-bookmark-or-domain", "runAnalysis");
-		createHTMLproblems(html, query.getProblems());
-		html.append("<form>");
+		html.append("<form id='queryForm' action='#results'>");
 		
 		// the parameters pannel
 		html.append("<div>");
@@ -603,10 +604,10 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		html.append("</td>");
 		html.append("</tr></table>");
 
-		
 		boolean hasError = (data == null);
-		
+		createHTMLproblems(html, query.getProblems());		
 		// query result
+		html.append("<a id='results'></a>");
 		if (!hasError) {
 			html.append("<h4 style='font-family:Helvetica Neue,Helvetica,Arial,sans-serif;'>Query Result</h4><hr>");
 			// display selection
@@ -669,7 +670,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 				HashMap<String, Object> override = new HashMap<>();
 				override.put(LIMIT_PARAM, null);
 				override.put(MAX_RESULTS_PARAM, null);
-				URI link = service.buildAnalyticsViewURI(service.getUserContext(), new ViewQuery(query), null, "ALL", Style.HTML, override);//(userContext, query, "SQL", null, Style.HTML, null);
+				service.buildAnalyticsViewURI(service.getUserContext(), new ViewQuery(query), null, "ALL", Style.HTML, override);
 			}
 			
 		} else {
@@ -682,11 +683,14 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 					{
 						String popupTitle;
 						if (space.hasBookmark()){
-							popupTitle = space.getBookmark().getName();
+				popupTitle = "Update Bookmark";
 						}else{
-							popupTitle="Save as new bookmark";
+				popupTitle="Save as new Bookmark";
 						}
-						URI link = service.buildBookmarkURI(service.getUserContext(), query.getBBID());
+			UriBuilder builder = service.getPublicBaseUriBuilder().
+				path("/analytics/{"+BBID_PARAM_NAME+"}/bookmark");
+			builder.queryParam("access_token", service.getUserContext().getToken().getOid());
+			URI link = builder.build(query.getBBID());
 						html.append("<!-- Button trigger modal -->\n" + 
 								"<div style='padding:13px'><button type=\"button\" class=\"btn btn-primary btn-lg\" style='display:inline' data-toggle=\"modal\" data-target=\"#myModal\">\n" + 
 								"<i class=\"fa fa-cloud-upload\" aria-hidden=\"true\"></i> Bookmark\n" + 
@@ -713,11 +717,26 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 						html.append("      </div>\n" + 
 								"      <div class=\"modal-footer\">\n" + 
 								"        &nbsp;<button style='margin-left:10px;' type=\"button\" class=\"btn btn-secondary pull-right\" data-dismiss=\"modal\">Cancel</button>&nbsp;\n" + 
-								"        &nbsp;<button style='margin-left:10px;' type=\"submit\" class=\"btn btn-primary pull-right\" formaction=\""+StringEscapeUtils.escapeHtml4(link.toString())+"\">Save</button>&nbsp;\n" + 
+					"        &nbsp;<button style='margin-left:10px;' type=\"button\" class=\"btn btn-primary pull-right\" id='saveBoookmark'>Save</button>&nbsp;\n" + 
 								"      </div>\n" + 
 								"    </div>\n" + 
 								"  </div>\n" + 
 								"</div>");
+			html.append("<script>");
+			UriBuilder builder2 = service.getPublicBaseUriBuilder().
+				path("/analytics/");
+			
+			html.append("var onSaveBM = function(data) { \n"
+					+ "window.location.href='" + builder2.build() +"'+data.reference+'/query?style=HTML&access_token="+service.getUserContext().getToken().getOid()+"';"
+					+ "\n}");
+			html.append("\n");
+			html.append("$('#saveBoookmark').on('click', function(){$.ajax({type : 'POST', url: \""
+					+ StringEscapeUtils.escapeHtml4(link.toString())
+					+ "\", dataType : 'json',"
+					+ " success : onSaveBM,"
+					+ " error : function(xhr) {alert('an error occurred');},"
+					+ " data : $('#queryForm').serialize()})})");
+			html.append("</script>");
 					}
 		createFooter(html);
 		html.append("</body></html>");
@@ -725,10 +744,10 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 	}
 	
 	private String getBookmarkName(Space space) {
-		if (space.getBookmark()!=null) {
-			return space.getBookmark().getName()+" (copy)";
+		if (space.getBookmark()==null) {
+			return space.getDomain().getName()+" Bookmark";
 		} else {
-			return space.getDomain().getName()+"'s bookmark";
+			return space.getBookmark().getName();
 		}
 	}
 	
