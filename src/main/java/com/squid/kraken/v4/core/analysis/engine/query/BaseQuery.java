@@ -26,8 +26,10 @@ package com.squid.kraken.v4.core.analysis.engine.query;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,6 +56,7 @@ import com.squid.core.sql.render.RenderingException;
 import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
 import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionMember;
+import com.squid.kraken.v4.core.analysis.engine.processor.AxisListExtractor;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.core.analysis.engine.processor.DataMatrixTransform;
 import com.squid.kraken.v4.core.analysis.engine.processor.DateExpressionAssociativeTransformationExtractor;
@@ -208,7 +211,17 @@ public class BaseQuery implements IQuery {
 			// the order expression is not yet in the scope
 			Axis axis = universe.asAxis(order.getExpression());
 			if (axis == null) {
-				return false;
+				AxisListExtractor ex = new AxisListExtractor();
+				Set<Axis> orderByAxes = ex.eval(expr);
+				Set<Axis> expressionAxes = new HashSet<Axis>();
+				for (AxisMapping ax : getMapper().getAxisMapping()) {
+					expressionAxes.add(ax.getAxis());
+				}
+				if (expressionAxes.contains(orderByAxes)){
+					return true;
+				}else{				
+					return false;
+				}
 			} else {
 				for (AxisMapping ax : getMapper().getAxisMapping()) {
 					try {
