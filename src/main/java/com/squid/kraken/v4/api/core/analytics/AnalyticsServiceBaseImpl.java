@@ -1885,17 +1885,16 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 				if (value instanceof ConstantValue) {
 					Facet facet = new Facet();
 					facet.setId(dim.prettyPrint());
-					if (expr instanceof AxisExpression) {
-						Axis axis = ((AxisExpression)expr).getAxis();
-						facet.setDimension(axis.getDimension());
-					} else {
-						Dimension fake = new Dimension();
-						fake.setType(Type.CATEGORICAL);
-					}
-					Object constant = ((ConstantValue)value).getValue();
-					if (constant!=null) {
-						facet.getSelectedItems().add(new FacetMemberString(constant.toString(), constant.toString()));
-						return facet;
+					if (dim instanceof AxisExpression) {
+						Axis axis = ((AxisExpression)dim).getAxis();
+						if (axis.getDimension()!=null) {
+							facet.setDimension(axis.getDimension());
+							Object constant = ((ConstantValue)value).getValue();
+							if (constant!=null) {
+								facet.getSelectedItems().add(new FacetMemberString(constant.toString(), constant.toString()));
+								return facet;
+							}
+						}
 					}
 				}
 			} else if (op.getOperatorDefinition().getId()==IntrinsicOperators.IN & op.getArguments().size()==2) {
@@ -1906,22 +1905,21 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 					if (vector.getOperatorDefinition().getExtendedID().equals(VectorOperatorDefinition.ID)) {
 						Facet facet = new Facet();
 						facet.setId(dim.prettyPrint());
-						if (expr instanceof AxisExpression) {
-							Axis axis = ((AxisExpression)expr).getAxis();
+						if (dim instanceof AxisExpression) {
+							Axis axis = ((AxisExpression)dim).getAxis();
 							facet.setDimension(axis.getDimension());
-						} else {
-							Dimension fake = new Dimension();
-							fake.setType(Type.CATEGORICAL);
-						}
-						for (ExpressionAST value : vector.getArguments()) {
-							Object constant = ((ConstantValue)value).getValue();
-							if (constant!=null) {
-								FacetMember member = new FacetMemberString(constant.toString(), constant.toString());
-								facet.getSelectedItems().add(member);
+							if (axis.getDimension()!=null) {
+								for (ExpressionAST value : vector.getArguments()) {
+									Object constant = ((ConstantValue)value).getValue();
+									if (constant!=null) {
+										FacetMember member = new FacetMemberString(constant.toString(), constant.toString());
+										facet.getSelectedItems().add(member);
+									}
+								}
+								if (!facet.getSelectedItems().isEmpty()) {
+									return facet;
+								}
 							}
-						}
-						if (!facet.getSelectedItems().isEmpty()) {
-							return facet;
 						}
 					}
 				}
