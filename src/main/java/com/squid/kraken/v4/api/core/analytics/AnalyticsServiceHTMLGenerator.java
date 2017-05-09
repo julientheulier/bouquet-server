@@ -603,8 +603,11 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		html.append("</td>");
 		html.append("</tr></table>");
 
+		
+		boolean hasError = (data == null);
+		
 		// query result
-		if (data!=null) {
+		if (!hasError) {
 			html.append("<h4 style='font-family:Helvetica Neue,Helvetica,Arial,sans-serif;'>Query Result</h4><hr>");
 			// display selection
 			if (reply.getSelection()!=null) {
@@ -671,14 +674,11 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			
 		} else {
 			html.append("<i>Result is not available, it's probably due to an error</i>");
-			html.append("<p>");
-			createHTMLdataLinks(html, query);
-			html.append("</p<br>");
-			html.append("<div style='float:left;padding:5px;'><input type='submit' value='Refresh'></div>");
 			html.append("<div style='clear:both;'></div>");
 		}
 		
 		// save as bookmark using a modal
+		if (!hasError)
 					{
 						String popupTitle;
 						if (space.hasBookmark()){
