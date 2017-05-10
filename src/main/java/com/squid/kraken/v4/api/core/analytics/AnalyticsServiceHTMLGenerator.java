@@ -2,12 +2,12 @@
  * Copyright © Squid Solutions, 2016
  *
  * This file is part of Open Bouquet software.
- *  
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
  * published by the Free Software Foundation (version 3 of the License).
  *
- * There is a special FOSS exception to the terms and conditions of the 
+ * There is a special FOSS exception to the terms and conditions of the
  * licenses as they are applied to this program. See LICENSE.txt in
  * the directory of this program distribution.
  *
@@ -99,16 +99,16 @@ import com.squid.kraken.v4.vegalite.VegaliteSpecs.Encoding;
  *
  */
 public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants {
-	
+
 	private AnalyticsServiceBaseImpl service;
 
 	/**
-	 * 
+	 *
 	 */
 	public AnalyticsServiceHTMLGenerator(AnalyticsServiceBaseImpl service) {
 		this.service = service;
 	}
-	
+
 	private String getToken() {
 		return service.getUserContext().getToken().getOid();
 	}
@@ -119,6 +119,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		html.append("</div>");
 		html.append("<div class='overview' style='background-color:#E0E0E0;padding:5px;'>");
 		html.append("<h3>");
+
 		if (title!=null) {
 			html.append(title);
 		}
@@ -144,17 +145,17 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		//
 		html.append("</div>");//overview
 	}
-	
+
 	private StringBuilder createHTMLHeader(String title) {
 		StringBuilder html = new StringBuilder("<!DOCTYPE html><html xmlns=\"http://www.w3.org/1999/xhtml\" xml:lang=\"en\"><head><meta charset='utf-8'><title>"+title+"</title>");
 		// bootstrap & jquery
-		html.append("<!-- Latest compiled and minified CSS -->\n" + 
-				"<link rel=\"stylesheet\" href=\"https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css\">\n" + 
-				"\n" + 
-				"<!-- jQuery library -->\n" + 
-				"<script src=\"https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js\"></script>\n" + 
-				"\n" + 
-				"<!-- Latest compiled JavaScript -->\n" + 
+		html.append("<!-- Latest compiled and minified CSS -->\n" +
+				"<link rel=\"stylesheet\" href=\"https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css\">\n" +
+				"\n" +
+				"<!-- jQuery library -->\n" +
+				"<script src=\"https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js\"></script>\n" +
+				"\n" +
+				"<!-- Latest compiled JavaScript -->\n" +
 				"<script src=\"https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js\"></script>\n");
 		// datepicker
 		html.append("<script src=\"https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.6.4/css/bootstrap-datepicker.css\"></script>\n");
@@ -170,120 +171,120 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 				+ ".data th {background-color: grey;color: white;}"
 				+ ".vega-actions a {margin-right:10px;}"
 				+ "hr {border: none; "
-				+ "color: Gainsboro ;\n" + 
-				"background-color: Gainsboro ;\n" + 
+				+ "color: Gainsboro ;\n" +
+				"background-color: Gainsboro ;\n" +
 				"height: 3px;}"
-				+ "input[type=date], input[type=text], select {\n" + 
-				"    padding: 4px 4px;\n" + 
-				"    margin: 4px 0;\n" + 
-				"    display: inline-block;\n" + 
-				"    border: 1px solid #ccc;\n" + 
-				"    border-radius: 4px;\n" + 
-				"    box-sizing: border-box;\n" + 
-				"}\n" + 
-				"button[type=submit], .btn {\n" + 
-			    "	 font-size: 1.3em;" +
-				"    width: 200px;\n" + 
-				"    background-color: #ee7914;\n" + 
-				"    color: white;\n" + 
-				"    padding: 14px 20px;\n" + 
-				"    margin: 0 auto;\n" + 
-				"    display: block;" + 
-				"    border: none;\n" + 
-				"    border-radius: 4px;\n" + 
-				"    cursor: pointer;\n" + 
+				+ "input[type=date], input[type=text], select {\n" +
+				"    padding: 4px 4px;\n" +
+				"    margin: 4px 0;\n" +
+				"    display: inline-block;\n" +
+				"    border: 1px solid #ccc;\n" +
+				"    border-radius: 4px;\n" +
+				"    box-sizing: border-box;\n" +
 				"}\n" +
-				"button[type=submit]:hover, .btn:hover {\n" + 
-				"    background-color: #ab570e;\n" + 
+				"button[type=submit], .btn {\n" +
+				"	 font-size: 1.3em;" +
+				"    width: 200px;\n" +
+				"    background-color: #ee7914;\n" +
+				"    color: white;\n" +
+				"    padding: 14px 20px;\n" +
+				"    margin: 0 auto;\n" +
+				"    display: block;" +
+				"    border: none;\n" +
+				"    border-radius: 4px;\n" +
+				"    cursor: pointer;\n" +
 				"}\n" +
-				"input[type=submit] {\n" + 
-			    "	 font-size: 1.3em;" +
-				"    width: 200px;\n" + 
-				"    background-color: #ee7914;\n" + 
-				"    color: white;\n" + 
-				"    padding: 14px 20px;\n" + 
-				"    margin: 0 auto;\n" + 
-				"    display: block;" + 
-				"    border: none;\n" + 
-				"    border-radius: 4px;\n" + 
-				"    cursor: pointer;\n" + 
+				"button[type=submit]:hover, .btn:hover {\n" +
+				"    background-color: #ab570e;\n" +
 				"}\n" +
-				"input[type=text].q {\n" + 
-				"    box-sizing: border-box;\n" + 
-				"    border: 2px solid #ccc;\n" + 
-				"    border-radius: 4px;\n" + 
-				"    font-size: 16px;\n" + 
-				"    background-color: white;\n" + 
-				"    background-position: 10px 10px; \n" + 
-				"    background-repeat: no-repeat;\n" + 
+				"input[type=submit] {\n" +
+				"	 font-size: 1.3em;" +
+				"    width: 200px;\n" +
+				"    background-color: #ee7914;\n" +
+				"    color: white;\n" +
+				"    padding: 14px 20px;\n" +
+				"    margin: 0 auto;\n" +
+				"    display: block;" +
+				"    border: none;\n" +
+				"    border-radius: 4px;\n" +
+				"    cursor: pointer;\n" +
+				"}\n" +
+				"input[type=text].q {\n" +
+				"    box-sizing: border-box;\n" +
+				"    border: 2px solid #ccc;\n" +
+				"    border-radius: 4px;\n" +
+				"    font-size: 16px;\n" +
+				"    background-color: white;\n" +
+				"    background-position: 10px 10px; \n" +
+				"    background-repeat: no-repeat;\n" +
 				"    padding: 12px 20px 12px 40px;" +
 				"}"+
-				"input[type=submit]:hover {\n" + 
-				"    background-color: #ab570e;\n" + 
+				"input[type=submit]:hover {\n" +
+				"    background-color: #ab570e;\n" +
 				"}\n" +
-				"fieldset {\n" + 
-				"    margin-top: 40px;\n" + 
-				"}\n" + 
-				"legend {\n" + 
-				"    font-size: 1.3em;\n" + 
-				"}\n" + 
-				"table.controls {\n" + 
-				"    border-collapse:separate; \n" + 
-				"    border-spacing: 0 20px;\n" + 
-				"}\n" + 
-				"body {\n" + 
-				"    margin-top: 0px;\n" + 
-				"    margin-bottom: 0px;\n" + 
-				"    margin-left: 5px;\n" + 
-				"    margin-right: 5px;\n" + 
-				"}\n" + 
-				".footer a, .footer a:hover, .footer a:visited {\n" + 
-				"    color: White;\n" + 
+				"fieldset {\n" +
+				"    margin-top: 40px;\n" +
 				"}\n" +
-				".footer {\n" + 
-				"    background: #5A5A5A;\n" + 
-				"    padding: 10px;\n" + 
-				"    margin: 20px -8px -8px -8px;\n" + 
-				"}\n" + 
-				".footer p {\n" + 
-				"    text-align: center;\n" + 
-				"    color: White;\n" + 
-				"    width: 100%;\n" + 
-				"}\n" + 
-				".header {\n" + 
-				"    margin: -8px 0 0 0;\n" + 
-				"}\n" + 
+				"legend {\n" +
+				"    font-size: 1.3em;\n" +
+				"}\n" +
+				"table.controls {\n" +
+				"    border-collapse:separate; \n" +
+				"    border-spacing: 0 20px;\n" +
+				"}\n" +
+				"body {\n" +
+				"    margin-top: 0px;\n" +
+				"    margin-bottom: 0px;\n" +
+				"    margin-left: 5px;\n" +
+				"    margin-right: 5px;\n" +
+				"}\n" +
+				".footer a, .footer a:hover, .footer a:visited {\n" +
+				"    color: White;\n" +
+				"}\n" +
+				".footer {\n" +
+				"    background: #5A5A5A;\n" +
+				"    padding: 10px;\n" +
+				"    margin: 20px -8px -8px -8px;\n" +
+				"}\n" +
+				".footer p {\n" +
+				"    text-align: center;\n" +
+				"    color: White;\n" +
+				"    width: 100%;\n" +
+				"}\n" +
+				".header {\n" +
+				"    margin: -8px 0 0 0;\n" +
+				"}\n" +
 				"h2 { margin-bottom:0px;}\n" +
 				"h4 { margin-bottom:0px;}\n" +
-				".logo {\n" + 
-				"    margin-left: -5px;\n" + 
-				"    margin-right: -5px;\n" + 
-				"    height: 32px;\n" + 
+				".logo {\n" +
+				"    margin-left: -5px;\n" +
+				"    margin-right: -5px;\n" +
+				"    height: 32px;\n" +
 				"    background: url('data:image/png;base64,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');\n" +
-				"    background-repeat: no-repeat;\n" + 
+				"    background-repeat: no-repeat;\n" +
 				"	 background-color: #ee7914;\n" +
-				"}\n" + 
-				".logo span {\n" + 
-				"    line-height: 32px;\n" + 
-				"    vertical-align: middle;\n" + 
-				"    color: #5e5e5e;\n" + 
-				"    padding-left: 132px;\n" + 
-				"    font-size: 20px;\n" + 
-				"}\n" + 
-				".header hr {\n" + 
-				"    margin: 0 -8px 0 -8px;\n" + 
 				"}\n" +
-				".period input {\n" + 
-				"    margin-left: 10px;\n" + 
-				"    margin-right: 10px;\n" + 
-				"}\n" + 
-				".instructions {\n" + 
-				"    font-size: 1.2em;\n" + 
-				"    font-style: italic;\n" + 
+				".logo span {\n" +
+				"    line-height: 32px;\n" +
+				"    vertical-align: middle;\n" +
+				"    color: #5e5e5e;\n" +
+				"    padding-left: 132px;\n" +
+				"    font-size: 20px;\n" +
 				"}\n" +
-				".tooltip-inner {\n" + 
-				"    min-width: 250px;n" + 
-				"    max-width: 500px;n" + 
+				".header hr {\n" +
+				"    margin: 0 -8px 0 -8px;\n" +
+				"}\n" +
+				".period input {\n" +
+				"    margin-left: 10px;\n" +
+				"    margin-right: 10px;\n" +
+				"}\n" +
+				".instructions {\n" +
+				"    font-size: 1.2em;\n" +
+				"    font-style: italic;\n" +
+				"}\n" +
+				".tooltip-inner {\n" +
+				"    min-width: 250px;n" +
+				"    max-width: 500px;n" +
 				"    background-color: #aaaaaa;" +
 				"}" +
 				"</style>");
@@ -299,13 +300,13 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 				"    ev.preventDefault();\n" + 
 				"    var data = ev.dataTransfer.getData(\"text\");\n" + 
 				"    ev.target.value = data;\n" +
-				"}\n" + 
+				"}\n" +
 				"</script>");
 		html.append("<link rel=\"icon\" type=\"image/png\" href=\"https://s3.amazonaws.com/openbouquet.io/favicon.ico\" />");
 		html.append("</head><body>");
 		return html;
 	}
-	
+
 
 	private void createHTMLinputArray(StringBuilder html, String type, String name, List<? extends Object> values) {
 		html.append("<div id='fields_"+name+"'>");
@@ -322,55 +323,57 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		}
 		html.append("</div>");
 		// add the add button
-		html.append("<script type='text/javascript'>//<![CDATA[\n" + 
-				"\n" + 
-				"        function addField_"+name+"(){\n" + 
-				"            var container = document.getElementById(\"fields_"+name+"\");\n" + 
-				"            var input = document.createElement(\"input\");\n" + 
-				"            input.type = '"+type+"';\n" + 
-				"            input.style = 'width:100%;';\n" + 
-				"            input.name = '"+name+"';\n" + 
-				"            input.placeholder = 'type formula';\n" + 
-				"            container.appendChild(input);\n" + 
-				"            container.appendChild(document.createElement(\"br\"));\n" + 
-				"        }\n" + 
-				"//]]> \n" + 
-				"\n" + 
+		html.append("<script type='text/javascript'>//<![CDATA[\n" +
+				"\n" +
+				"        function addField_"+name+"(){\n" +
+				"            var container = document.getElementById(\"fields_"+name+"\");\n" +
+				"            var input = document.createElement(\"input\");\n" +
+				"            input.type = '"+type+"';\n" +
+				"            input.style = 'width:100%;';\n" +
+				"            input.name = '"+name+"';\n" +
+				"            input.placeholder = 'type formula';\n" +
+				"            container.appendChild(input);\n" +
+				"            container.appendChild(document.createElement(\"br\"));\n" +
+				"        }\n" +
+				"//]]> \n" +
+				"\n" +
 				"</script>\n");
 		html.append("<button type='button' onclick='addField_"+name+"()'>Add +</button>");
 	}
-	
+
 	private void createHTMLpagination(StringBuilder html, AnalyticsQuery query, DataTable data) {
-		long lastRow = (data.getStartIndex()+data.getRows().size());
-		long firstRow = data.getRows().size()>0?(data.getStartIndex()+1):0;
-		html.append("<div style='padding-top:5px;'>rows from "+firstRow+" to "+lastRow+" out of "+data.getTotalSize()+" records");
-		if (data.getFullset()) {
-			html.append(" (the query is complete)");
-		} else {
-			html.append(" (the query has more data)");
+		if (data !=null) {
+			long lastRow = (data.getStartIndex()+data.getRows().size());
+			long firstRow = data.getRows().size()>0?(data.getStartIndex()+1):0;
+			html.append("<div style='padding-top:5px;'>rows from "+firstRow+" to "+lastRow+" out of "+data.getTotalSize()+" records");
+			if (data.getFullset()) {
+				html.append(" (the query is complete)");
+			} else {
+				html.append(" (the query has more data)");
+			}
+			if (lastRow<data.getTotalSize()) {
+				// go to next page
+				HashMap<String, Object> override = new HashMap<>();
+				override.put(START_INDEX_PARAM, lastRow);
+				URI nextLink = service.buildAnalyticsQueryURI(service.getUserContext(), query, null, null, Style.HTML, override);
+				html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(nextLink.toString())+"\">next</a>]");
+			}
+			html.append("</div><div>");
+			if (data.isFromSmartCache()) {
+				html.append("data from smart-cache, last computed "+data.getExecutionDate());
+			} else if (data.isFromCache()) {
+				html.append("data from cache, last computed "+data.getExecutionDate());
+			} else {
+				html.append("fresh data just computed at "+data.getExecutionDate());
+			}
+			// add links
+			html.append("<div>");
+			createHTMLdataLinks(html, query);
+			html.append("</div>");
+			html.append("</div><br>");
 		}
-		if (lastRow<data.getTotalSize()) {
-			// go to next page
-			HashMap<String, Object> override = new HashMap<>();
-			override.put(START_INDEX_PARAM, lastRow);
-			URI nextLink = service.buildAnalyticsQueryURI(service.getUserContext(), query, null, null, Style.HTML, override);
-			html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(nextLink.toString())+"\">next</a>]");
-		}
-		html.append("</div><div>");
-		if (data.isFromSmartCache()) {
-			html.append("data from smart-cache, last computed "+data.getExecutionDate());
-		} else if (data.isFromCache()) {
-			html.append("data from cache, last computed "+data.getExecutionDate());
-		} else {
-			html.append("fresh data just computed at "+data.getExecutionDate());
-		}
-		// add links
-		html.append("<div>");
-		createHTMLdataLinks(html, query);
-		html.append("</div>");
-		html.append("</div><br>");
 	}
-	
+
 	private void createHTMLdataLinks(StringBuilder html, AnalyticsQuery query) {
 		// add links
 		{ // for SQL
@@ -381,9 +384,9 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			URI jsonExport = service.buildAnalyticsQueryURI(service.getUserContext(), query, "TABLE", null, Style.HUMAN, null);
 			html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(jsonExport.toString())+"\">JSON</a>]");
 		}
-		
+
 	}
-	
+
 	private void createHTMLpagination(StringBuilder html, ViewQuery query, ResultInfo info) {
 		long lastRow = (info.getStartIndex()+info.getPageSize());
 		long firstRow = info.getTotalSize()>0?(info.getStartIndex()+1):0;
@@ -427,7 +430,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		html.append("</body></html>");
 		return Response.ok(html.toString(),"text/html").build();
 	}
-	
+
 	/**
 	 * the navigation view
 	 * @param ctx
@@ -504,10 +507,10 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		html.append("</body></html>");
 		return Response.ok(html.toString(),"text/html").build();
 	}
-	
+
 	private static final DateFormat ISO8601_full = FacetBuilder.createUTCDateFormat(FacetBuilder.ISO8601_FULL_FORMAT);
 	private static final DateFormat ISO8601_date = FacetBuilder.createUTCDateFormat("yyyy-MM-dd");
-	
+
 	private String formatDate(IDomain image, String iso8601) {
 		if (image.isInstanceOf(IDomain.DATE)) {
 			// reformat to a simple date
@@ -524,24 +527,23 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 
 	/**
 	 * The query view
-	 * @param userContext 
-	 * @param dataTable 
+	 * @param userContext
+	 * @param dataTable
 	 * @return
 	 */
 	public Response createHTMLPageTable(AppContext ctx, Space space, AnalyticsReply reply, DataTable data) {
 		String title = space!=null?getPageTitle(space):null;
 		String breadcrumbs =  space!=null?getBreadCrumbs(space):null;
-		StringBuilder html ;	
+		StringBuilder html ;
 		if (title == null){
 			html = createHTMLHeader("OB Query Builder");
 		}else{
-			 html = createHTMLHeader(title+" - OB Query Builder");						
+			html = createHTMLHeader(title+" - OB Query Builder");
 		}
 		AnalyticsQuery query = reply.getQuery();
 		createHTMLtitle(ctx, html, breadcrumbs, query.getBBID(), null, space, getParentLink(space), "#query-a-bookmark-or-domain", "runAnalysis");
-		createHTMLproblems(html, query.getProblems());
-		html.append("<form>");
-		
+		html.append("<form id='queryForm' action='#results'>");
+
 		// the parameters pannel
 		html.append("<div>");
 		html.append("<div style='width:50%;float:left;'>");
@@ -592,8 +594,8 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		html.append("</div>");
 		html.append("</div>");
 		createHTMLAPIpanel(html, "runAnalysis");
-		
-		//preview 
+
+		//preview
 		html.append("<table border=0><tr>");
 		html.append("<td>");
 		html.append("<div style='float:left;padding:5px'><button type='submit' value='Query'><i class=\"fa fa-refresh\" aria-hidden=\"true\"></i>&nbsp;Query</button></div><br><br><br>");
@@ -603,10 +605,10 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		html.append("</td>");
 		html.append("</tr></table>");
 
-		
 		boolean hasError = (data == null);
-		
+		createHTMLproblems(html, query.getProblems());		
 		// query result
+		html.append("<a id='results'></a>");
 		if (!hasError) {
 			html.append("<h4 style='font-family:Helvetica Neue,Helvetica,Arial,sans-serif;'>Query Result</h4><hr>");
 			// display selection
@@ -669,9 +671,9 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 				HashMap<String, Object> override = new HashMap<>();
 				override.put(LIMIT_PARAM, null);
 				override.put(MAX_RESULTS_PARAM, null);
-				URI link = service.buildAnalyticsViewURI(service.getUserContext(), new ViewQuery(query), null, "ALL", Style.HTML, override);//(userContext, query, "SQL", null, Style.HTML, null);
+				service.buildAnalyticsViewURI(service.getUserContext(), new ViewQuery(query), null, "ALL", Style.HTML, override);
 			}
-			
+
 		} else {
 			html.append("<i>Result is not available, it's probably due to an error</i>");
 			html.append("<div style='clear:both;'></div>");
@@ -682,59 +684,77 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 					{
 						String popupTitle;
 						if (space.hasBookmark()){
-							popupTitle = space.getBookmark().getName();
-						}else{
-							popupTitle="Save as new bookmark";
-						}
-						URI link = service.buildBookmarkURI(service.getUserContext(), query.getBBID());
-						html.append("<!-- Button trigger modal -->\n" + 
-								"<div style='padding:13px'><button type=\"button\" class=\"btn btn-primary btn-lg\" style='display:inline' data-toggle=\"modal\" data-target=\"#myModal\">\n" + 
-								"<i class=\"fa fa-cloud-upload\" aria-hidden=\"true\"></i> Bookmark\n" + 
-								"</button></div>\n" + 
-								"<!-- Modal -->\n" + 
-								"<div class=\"modal fade\" id=\"myModal\" tabindex=\"-1\" role=\"dialog\" aria-labelledby=\"myModalLabel\" aria-hidden=\"true\">\n" + 
-								"  <div class=\"modal-dialog modal-lg\" role=\"document\">\n" + 
-								"    <div class=\"modal-content\">\n" + 
-								"      <div class=\"modal-header\">\n" + 
-								"        <button type=\"button\" class=\"close\" data-dismiss=\"modal\" aria-label=\"Close\">\n" + 
-								"          <span aria-hidden=\"true\">&times;</span>\n" + 
-								"        </button>\n" + 
-								"        <h4 class=\"modal-title\" id=\"myModalLabel\">"+
-								popupTitle+
-								"</h4>\n" + 
-								"      </div>\n" + 
-								"      <div class=\"modal-body\">\n");
-						// body
-						html.append("<label for=\"bookmark-name\" class=\"form-control-label\">Name:</label>\n" + 
-								"              <input type=\"text\" class=\"form-control\" id=\"bookmark-name\" name=\"name\" value=\""+getBookmarkName(space)+"\">");
-						html.append("<input  type='hidden' class=\"form-control\" id=\"bookmark-parent\" name=\"parent\" value=\"/SHARED\">");
+				popupTitle = "Update Bookmark";
+			}else{
+				popupTitle="Save as new Bookmark";
+			}
+			UriBuilder builder = service.getPublicBaseUriBuilder().
+				path("/analytics/{"+BBID_PARAM_NAME+"}/bookmark");
+			builder.queryParam("access_token", service.getUserContext().getToken().getOid());
+			URI link = builder.build(query.getBBID());
+			html.append("<!-- Button trigger modal -->\n" + 
+					"<div style='padding:13px'><button type=\"button\" class=\"btn btn-primary btn-lg\" style='display:inline' data-toggle=\"modal\" data-target=\"#myModal\">\n" + 
+					"<i class=\"fa fa-cloud-upload\" aria-hidden=\"true\"></i> Bookmark\n" + 
+					"</button></div>\n" + 
+					"<!-- Modal -->\n" + 
+					"<div class=\"modal fade\" id=\"myModal\" tabindex=\"-1\" role=\"dialog\" aria-labelledby=\"myModalLabel\" aria-hidden=\"true\">\n" + 
+					"  <div class=\"modal-dialog modal-lg\" role=\"document\">\n" + 
+					"    <div class=\"modal-content\">\n" + 
+					"      <div class=\"modal-header\">\n" + 
+					"        <button type=\"button\" class=\"close\" data-dismiss=\"modal\" aria-label=\"Close\">\n" + 
+					"          <span aria-hidden=\"true\">&times;</span>\n" + 
+					"        </button>\n" + 
+					"        <h4 class=\"modal-title\" id=\"myModalLabel\">"+
+					popupTitle+
+					"</h4>\n" + 
+					"      </div>\n" + 
+					"      <div class=\"modal-body\">\n");
+			// body
+			html.append("<label for=\"bookmark-name\" class=\"form-control-label\">Name:</label>\n" + 
+					"              <input type=\"text\" class=\"form-control\" id=\"bookmark-name\" name=\"name\" value=\""+getBookmarkName(space)+"\">");
+			html.append("<input  type='hidden' class=\"form-control\" id=\"bookmark-parent\" name=\"parent\" value=\"/SHARED\">");
 
-						// footer
-						html.append("      </div>\n" + 
-								"      <div class=\"modal-footer\">\n" + 
-								"        &nbsp;<button style='margin-left:10px;' type=\"button\" class=\"btn btn-secondary pull-right\" data-dismiss=\"modal\">Cancel</button>&nbsp;\n" + 
-								"        &nbsp;<button style='margin-left:10px;' type=\"submit\" class=\"btn btn-primary pull-right\" formaction=\""+StringEscapeUtils.escapeHtml4(link.toString())+"\">Save</button>&nbsp;\n" + 
-								"      </div>\n" + 
-								"    </div>\n" + 
-								"  </div>\n" + 
-								"</div>");
-					}
+			// footer
+			html.append("      </div>\n" + 
+					"      <div class=\"modal-footer\">\n" + 
+					"        &nbsp;<button style='margin-left:10px;' type=\"button\" class=\"btn btn-secondary pull-right\" data-dismiss=\"modal\">Cancel</button>&nbsp;\n" + 
+					"        &nbsp;<button style='margin-left:10px;' type=\"button\" class=\"btn btn-primary pull-right\" id='saveBoookmark'>Save</button>&nbsp;\n" + 
+					"      </div>\n" + 
+					"    </div>\n" + 
+					"  </div>\n" + 
+					"</div>");
+			html.append("<script>");
+			UriBuilder builder2 = service.getPublicBaseUriBuilder().
+				path("/analytics/");
+			
+			html.append("var onSaveBM = function(data) { \n"
+					+ "window.location.href='" + builder2.build() +"'+data.reference+'/query?style=HTML&access_token="+service.getUserContext().getToken().getOid()+"';"
+					+ "\n}");
+			html.append("\n");
+			html.append("$('#saveBoookmark').on('click', function(){$.ajax({type : 'POST', url: \""
+					+ StringEscapeUtils.escapeHtml4(link.toString())
+					+ "\", dataType : 'json',"
+					+ " success : onSaveBM,"
+					+ " error : function(xhr) {alert('an error occurred');},"
+					+ " data : $('#queryForm').serialize()})})");
+			html.append("</script>");
+		}
 		createFooter(html);
 		html.append("</body></html>");
 		return Response.ok(html.toString(),"text/html").build();
 	}
-	
+
 	private String getBookmarkName(Space space) {
-		if (space.getBookmark()!=null) {
-			return space.getBookmark().getName()+" (copy)";
+		if (space.getBookmark()==null) {
+			return space.getDomain().getName()+" Bookmark";
 		} else {
-			return space.getDomain().getName()+"'s bookmark";
+			return space.getBookmark().getName();
 		}
 	}
-	
+
 	/**
 	 * the /view view (vegalite)
-	 * @param userContext 
+	 * @param userContext
 	 * @param space
 	 * @param view
 	 * @param info
@@ -745,9 +765,9 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		String title = getPageTitle(space);
 		String breadcrumbs = getBreadCrumbs(space);
 		StringBuilder html = createHTMLHeader( title + " - OB Query Builder");
-		html.append("<script src=\"//d3js.org/d3.v3.min.js\" charset=\"utf-8\"></script>\n" + 
-				"<script src=\"https://cdnjs.cloudflare.com/ajax/libs/vega/2.5.0/vega.min.js\"></script>\n" + 
-				"  <script src=\"https://cdnjs.cloudflare.com/ajax/libs/vega-lite/1.0.7/vega-lite.min.js\"></script>\n" + 
+		html.append("<script src=\"//d3js.org/d3.v3.min.js\" charset=\"utf-8\"></script>\n" +
+				"<script src=\"https://cdnjs.cloudflare.com/ajax/libs/vega/2.5.0/vega.min.js\"></script>\n" +
+				"  <script src=\"https://cdnjs.cloudflare.com/ajax/libs/vega-lite/1.0.7/vega-lite.min.js\"></script>\n" +
 				"<script src=\"https://cdnjs.cloudflare.com/ajax/libs/vega-embed/2.2.0/vega-embed.min.js\" charset=\"utf-8\"></script>");
 		html.append("<body>");
 		createHTMLtitle(ctx, html, breadcrumbs, view.getBBID(), null, space, getParentLink(space),"#view-a-bookmark-or-domain", "viewAnalysis");
@@ -878,16 +898,16 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			}
 		}
 		html.append("<input type='text' size=50 name='filters' value='' placeholder='type formula'>");
-		*/
+		 */
 		createHTMLinputArray(html, "text", "filters", query.getFilters());
 		html.append("</td></tr></table>");
 	}
-	
+
 	private static final String axis_style = "display: inline-block;border:1px solid;border-radius:5px;background-color:LavenderBlush ;margin:1px;";
 	private static final String metric_style = "display: inline-block;border:1px solid;border-radius:5px;background-color:Lavender;margin:1px;";
 	private static final String func_style = "display: inline-block;border:1px solid;border-radius:5px;background-color:ghostwhite;margin:1px;";
 	private static final String other_style = "display: inline-block;border:1px solid;border-radius:5px;background-color:azure;margin:1px;";
-	
+
 	private void createHTMLscope(AppContext userContext, StringBuilder html, Space space, AnalyticsQuery query) {
 		html.append("<h4 style='font-family:Helvetica Neue,Helvetica,Arial,sans-serif;'>Query Scope</h4><hr>");
 		{
@@ -1056,15 +1076,15 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		//---- container
 		html.append("</div>");
 	}
-	
+
 	/**
-	 * @param userContext 
+	 * @param userContext
 	 * @param space
-	 * @param target 
+	 * @param target
 	 * @param suggestions
-	 * @param values 
-	 * @param types 
-	 * @param expression 
+	 * @param values
+	 * @param types
+	 * @param expression
 	 * @return
 	 */
 	public Response createHTMLPageScope(AppContext ctx, Space space, Space target, ExpressionSuggestion suggestions, String BBID, String value, ObjectType[] types, ValueType[] values) {
@@ -1090,8 +1110,8 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		html.append("<div class=\"clearfix\">");
 		html.append("<div style='float:left;padding:5px'>");
 		html.append("<input type=\"hidden\" name=\"style\" value=\"HTML\">"
-		+ "<input type=\"hidden\" name=\"access_token\" value=\""+space.getUniverse().getContext().getToken().getOid()+"\">"
-		+ "<input type=\"submit\" value=\"Refresh\">");
+				+ "<input type=\"hidden\" name=\"access_token\" value=\""+space.getUniverse().getContext().getToken().getOid()+"\">"
+				+ "<input type=\"submit\" value=\"Refresh\">");
 		if (target!=null) {
 			html.append("<input type=\"hidden\" name=\"target\" value=\""+target.getBBID(Style.ROBOT)+"\">");
 		}
@@ -1153,11 +1173,11 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		createHTMLAPIpanel(html, "scopeAnalysis");
 		createFooter(html);
 		// caret
-		html.append("<script>\n" + 
-				"$(\"#value-param\").bind(\"keydown keypress mousemove\", function() {\n" + 
-				"  $(\"#offset-param\").get(0).value = $(\"#value-param\").get(0).selectionStart;\n" + 
+		html.append("<script>\n" +
+				"$(\"#value-param\").bind(\"keydown keypress mousemove\", function() {\n" +
+				"  $(\"#offset-param\").get(0).value = $(\"#value-param\").get(0).selectionStart;\n" +
 				"});"
-				+ 
+				+
 				"</script>");
 		html.append("</body></html>");
 		return Response.ok(html.toString(),"text/html").build();
@@ -1209,19 +1229,19 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 				}
 			}
 		}
-		html.append("</div>"); 
+		html.append("</div>");
 	}
 
 	private void createFooter(StringBuilder html) {
 		html.append("<div class=\"footer\"><p>Powered by <a href=\"http://openbouquet.io/\">Open Bouquet</a> <i style='color:white;'>the Analytics Rest API</i></p></div>\n");
-		html.append("\n" + 
-				"<script>\n" + 
-				"$(document).ready(function(){\n" + 
-				"    $('[data-toggle=\"tooltip\"]').tooltip();   \n" + 
-				"});\n" + 
+		html.append("\n" +
+				"<script>\n" +
+				"$(document).ready(function(){\n" +
+				"    $('[data-toggle=\"tooltip\"]').tooltip();   \n" +
+				"});\n" +
 				"</script>");
 	}
-	
+
 	private void createHTMLswaggerLink(StringBuilder html, String method) {
 		String baseUrl = "";
 		try {
@@ -1231,7 +1251,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		}
 		html.append("<p>The Analytics API provides more parameters... check <a target='swagger' href='http://swagger.squidsolutions.com/"+baseUrl+"#!/analytics/"+method+"'>swagger UI</a> for details</p>");
 	}
-	
+
 	/**
 	 * displays query problems
 	 * @param html
@@ -1249,9 +1269,9 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 
 	private String getPageTitle(Space space) {
 		if (space.hasBookmark()) {
-			return  space.getBookmark().getName() ; 
+			return  space.getBookmark().getName() ;
 		} else {
-			return  space.getDomain().getName();			
+			return  space.getDomain().getName();
 		}
 	}
 	private String getBreadCrumbs(Space space) {
@@ -1262,7 +1282,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			return space.getUniverse().getProject().getName()+" > "+space.getDomain().getName();
 		}
 	}
-	
+
 	private String getDate(List<String> dates, int pos) {
 		if (dates!=null && !dates.isEmpty() && pos<dates.size()) {
 			return formatDateForWeb(getFieldValue(dates.get(pos)));
@@ -1276,9 +1296,9 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		return ExpressionSuggestionHandler.computeValueTypeFromImage(image);
 	}
 
-	
+
 	private SimpleDateFormat htmlDateFormat = new SimpleDateFormat("yyyy-MM-dd");
-	
+
 	private String formatDateForWeb(String jsonFormat) {
 		if (jsonFormat.startsWith("__")) return jsonFormat;// it's a shortcut
 		try {
@@ -1288,7 +1308,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			return jsonFormat;
 		}
 	}
-	
+
 	/**
 	 * @param result
 	 * @return
@@ -1302,11 +1322,11 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			throw new APIException("failed to write vegalite specs to JSON", e, true);
 		}
 	}
-	
+
 	private String getFieldValue(Object var) {
 		if (var==null) return ""; else return var.toString().replaceAll("\"", "&quot;").replaceAll("'", "&#x27;");
 	}
-	
+
 	private String getFieldValue(Object var, Object defaultValue) {
 		if (var==null) return defaultValue.toString(); else return var.toString().replaceAll("\"", "&quot;").replaceAll("'", "&#x27;");
 	}
@@ -1320,7 +1340,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			return service.getPublicBaseUriBuilder().path("/analytics").queryParam(PARENT_PARAM, "/PROJECTS/"+space.getUniverse().getProject().getName()).queryParam(STYLE_PARAM, "HTML").queryParam("access_token", getToken()).build();
 		}
 	}
-	
+
 	public String getBookmarkNavigationPath(Bookmark bookmark) {
 		String path = bookmark.getPath();
 		if (path.startsWith(Bookmark.SEPARATOR + Bookmark.Folder.USER)) {
@@ -1342,5 +1362,5 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		if (path.endsWith("/")) path = path.substring(0, path.length()-1);
 		return path;
 	}
-	
+
 }
