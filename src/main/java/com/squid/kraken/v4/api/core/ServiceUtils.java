@@ -24,6 +24,8 @@
 package com.squid.kraken.v4.api.core;
 
 import java.math.BigInteger;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.security.Key;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -45,6 +47,7 @@ import javax.crypto.Cipher;
 import javax.crypto.spec.SecretKeySpec;
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
+import javax.ws.rs.core.UriInfo;
 import javax.xml.bind.DatatypeConverter;
 
 import org.apache.commons.lang3.StringUtils;
@@ -666,4 +669,41 @@ public class ServiceUtils {
 		return reqIp;
 	}
 
+	/**
+	 * Guess the public base URI for the server
+	 * @param uriInfo2
+	 * @return
+	 */
+	public URI guessPublicBaseUri(UriInfo uriInfo) {
+		// first check if there is a publicBaseUri parameter
+		String uri = KrakenConfig.getProperty(KrakenConfig.publicBaseUri, true);
+		if (uri!=null) {
+			try {
+				return new URI(uri);
+			} catch (URISyntaxException e) {
+				// let's try the next
+			}
+		}
+		// second, try to use the OAuth endpoint
+		String oauthEndpoint = KrakenConfig.getProperty(KrakenConfig.krakenOAuthEndpoint,true);
+		if (oauthEndpoint!=null) {
+			try {
+				URI check = new URI(oauthEndpoint);
+				// check that it is not using the ob.io central auth
+				if (!"auth.openbouquet.io".equalsIgnoreCase(check.getHost())) {
+					while (oauthEndpoint.endsWith("/")) {
+						oauthEndpoint = oauthEndpoint.substring(0, oauthEndpoint.length()-1);
+					}
+					if (oauthEndpoint.endsWith("/auth/oauth")) {
+						oauthEndpoint = oauthEndpoint.substring(0,oauthEndpoint.length() - "/auth/oauth".length());
+						return new URI(oauthEndpoint+"/v4.2");
+					}
+				}
+			} catch (URISyntaxException e) {
+				// let's try the next
+			}
+		}
+		// last, use the uriInfo
+		return uriInfo.getBaseUri();
+	}
 }
