@@ -605,11 +605,11 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		html.append("</td>");
 		html.append("</tr></table>");
 
-		createHTMLproblems(html, query.getProblems());
 		boolean hasError = (data == null);
+		createHTMLproblems(html, query.getProblems());		
 		// query result
+		html.append("<a id='results'></a>");
 		if (!hasError) {
-			html.append("<a id='results'></a>");
 			html.append("<h4 style='font-family:Helvetica Neue,Helvetica,Arial,sans-serif;'>Query Result</h4><hr>");
 			// display selection
 			if (reply.getSelection()!=null) {
@@ -680,10 +680,10 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		}
 		
 		// save as bookmark using a modal
-if (!hasError)
-		{
-			String popupTitle;
-			if (space.hasBookmark()){
+		if (!hasError)
+					{
+						String popupTitle;
+						if (space.hasBookmark()){
 				popupTitle = "Update Bookmark";
 			}else{
 				popupTitle="Save as new Bookmark";
