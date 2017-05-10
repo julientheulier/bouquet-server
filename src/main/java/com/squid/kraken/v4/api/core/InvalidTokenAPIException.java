@@ -30,47 +30,68 @@ import com.squid.kraken.v4.KrakenConfig;
 
 @SuppressWarnings("serial")
 public class InvalidTokenAPIException extends APIException {
+
+	private static final String ADMIN_CONSOLE = "admin_console";
+
+	private final String loginURL;
+
+	private final URI redirectURL;
+
+	private final String clientId;
 	
-    private static final String AUTH_URL = "kraken.oauth.endpoint";
-    
-    private URI redirectURL;
-    
-    private String clientId = "admin_console";
+	public InvalidTokenAPIException(String message, boolean noError) {
+		this(message, KrakenConfig.getProperty("kraken.oauth.endpoint"), null, ADMIN_CONSOLE, noError);
+	}
 
-    public InvalidTokenAPIException(boolean noError) {
-        super(noError);
-    }
+	public InvalidTokenAPIException(boolean noError, String loginURL) {
+		this(null, loginURL, null, ADMIN_CONSOLE, noError);
+	}
 
-    public InvalidTokenAPIException(String message, boolean noError) {
-        super(message, noError);
-    }
+	public InvalidTokenAPIException(String message, boolean noError, String loginURL) {
+		this(message, loginURL, null, ADMIN_CONSOLE, noError);
+	}
 
-    public InvalidTokenAPIException(String message, URI redirectURL, String clientId, boolean noError) {
-        super(message, noError);
-        this.redirectURL = redirectURL;
-        this.clientId = clientId;
-    }
+	public InvalidTokenAPIException(String message, URI redirectURL, String clientId, boolean noError, String loginURL) {
+		this(message, loginURL, redirectURL, clientId, noError);
+	}
 
-    public InvalidTokenAPIException(String message, Throwable cause, boolean noError) {
-        super(message, cause, noError);
-    }
+	public InvalidTokenAPIException(String message, Throwable cause, boolean noError, String loginURL) {
+		this(message, loginURL, null, ADMIN_CONSOLE, noError);
+	}
 
-    public InvalidTokenAPIException(Throwable cause, boolean noError) {
-        super(cause, noError);
-    }
+	public InvalidTokenAPIException(Throwable cause, boolean noError, String loginURL) {
+		this(cause, null, loginURL, null, ADMIN_CONSOLE, noError);
+	}
+	
+	public InvalidTokenAPIException(String message, String loginURL, URI redirectURL, String clientId,
+			boolean noError) {
+		super(message, noError);
+		this.redirectURL = redirectURL;
+		this.loginURL = loginURL;
+		this.clientId = clientId;
+	}
 
-    @Override
-    protected Integer getErrorCode() {
-    	return 401;
-    }
+	public InvalidTokenAPIException(Throwable cause, String message, String loginURL, URI redirectURL, String clientId,
+			boolean noError) {
+		super(cause, noError);
+		this.redirectURL = redirectURL;
+		this.loginURL = loginURL;
+		this.clientId = clientId;
+	}
 
-    @JsonProperty
-    public String getLoginURL() {
-    	return KrakenConfig.getProperty(AUTH_URL);
-    }
+	@Override
+	protected Integer getErrorCode() {
+		return 401;
+	}
 
-    @JsonProperty
-    public String getSelfLoginURL() {
-    	return redirectURL!=null?getLoginURL()+"?client_id="+clientId+"&redirect_uri="+redirectURL.toASCIIString():null;
-    }
+	@JsonProperty
+	public String getLoginURL() {
+		return loginURL;
+	}
+
+	@JsonProperty
+	public String getSelfLoginURL() {
+		return redirectURL != null
+				? getLoginURL() + "?client_id=" + clientId + "&redirect_uri=" + redirectURL.toASCIIString() : null;
+	}
 }

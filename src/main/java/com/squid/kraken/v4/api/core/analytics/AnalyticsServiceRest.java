@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map.Entry;
 
 import javax.servlet.http.HttpServletRequest;
+import javax.ws.rs.FormParam;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
@@ -45,6 +46,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.squid.core.expression.scope.ScopeException;
+import com.squid.kraken.v4.KrakenConfig;
 import com.squid.kraken.v4.api.core.APIException;
 import com.squid.kraken.v4.api.core.InvalidIdAPIException;
 import com.squid.kraken.v4.api.core.InvalidTokenAPIException;
@@ -63,6 +65,7 @@ import com.squid.kraken.v4.model.ObjectType;
 import com.squid.kraken.v4.model.ValueType;
 import com.squid.kraken.v4.model.ViewQuery;
 import com.squid.kraken.v4.persistence.AppContext;
+
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
@@ -149,7 +152,7 @@ public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implemen
 	@POST
 	@Path("/analytics/{" + BBID_PARAM_NAME + "}")
 	@ApiOperation(
-			value = "create a new bookmark",
+			value = "Create/Update a Bookmark",
 			notes = "")
 	public Bookmark createBookmark(
 			@Context HttpServletRequest request,
@@ -159,12 +162,103 @@ public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implemen
 			@ApiParam(value="the new bookmark folder, can be /MYBOOKMARKS, /MYBOOKMARKS/any/folders or /SHARED/any/folders") @QueryParam(PARENT_PARAM) String parent)
 	{
 		AppContext userContext = getUserContext(request);
-		return delegate(userContext).createBookmark(userContext, query, BBID, null, name, parent);
+		return delegate(userContext).storeBookmark(userContext, query, BBID, null, name, parent);
+	}
+	
+	@POST
+	@Path("/analytics/{" + BBID_PARAM_NAME + "}/bookmark")
+	@ApiOperation(value = "Create/Update a Bookmark")
+	public Bookmark createBookmarkFromForm(
+			@Context HttpServletRequest request, 
+			@PathParam(BBID_PARAM_NAME) String BBID,
+			// bookmark info
+			@ApiParam(value="the new bookmark name", required=true) @FormParam("name") String name,
+			@ApiParam(value="the new bookmark folder, can be /MYBOOKMARKS, /MYBOOKMARKS/any/folders or /SHARED/any/folders") @FormParam(PARENT_PARAM) String parent,
+			// groupBy parameter
+			@ApiParam(
+					value = GROUPBY_DOC,
+					allowMultiple = true
+					) 
+			@FormParam(GROUP_BY_PARAM) String[] groupBy, 
+			// metric parameter
+			@ApiParam(
+					value = METRICS_DOC,
+					allowMultiple = true) 
+			@FormParam(METRICS_PARAM) String[] metrics, 
+			// filters
+			@ApiParam(
+					value = FILTERS_DOC,
+					allowMultiple = true) 
+			@FormParam(FILTERS_PARAM) String[] filterExpressions,
+			// period
+			@ApiParam(value=PERIOD_DOC) 
+			@FormParam(PERIOD_PARAM) String period,
+			// timeframe
+			@ApiParam(value=TIMEFRAME_DOC, allowMultiple = true) 
+			@FormParam(TIMEFRAME_PARAM) String[] timeframe,
+			// compareTo
+			@ApiParam(value=COMPARETO_DOC, allowMultiple = true) 
+			@FormParam(COMPARETO_PARAM) String[] compareframe,
+			// orderBy
+			@ApiParam(value=ORDERBY_DOC, allowMultiple = true) 
+			@FormParam(ORDERBY_PARAM) String[] orderExpressions,
+			// rollup
+			@ApiParam(value=ROLLUP_DOC, allowMultiple = true) 
+			@FormParam(ROLLUP_PARAM) String[] rollupExpressions,
+			// limit
+			@ApiParam(value=LIMIT_DOC)
+			@FormParam(LIMIT_PARAM) Long limit,
+			// offset
+			@ApiParam(value=OFFSET_DOC)
+			@FormParam(OFFSET_PARAM) Long offset,
+			// beyondLimit
+			@ApiParam(
+					value="exclude some dimensions from the limit",
+					allowMultiple=true
+					)
+			@FormParam(BEYOND_LIMIT_PARAM) String[] beyondLimit,
+			// maxResults
+			@ApiParam(value = MAX_RESULTS_DOC) 
+			@FormParam(MAX_RESULTS_PARAM) Integer maxResults,
+			// startIndex
+			@ApiParam(value = START_INDEX_DOC) 
+			@FormParam(START_INDEX_PARAM) Integer startIndex,
+			// lazy
+			@ApiParam(value = "if true, get the analysis only if already in cache, else throw a NotInCacheException; if noError returns a null result if the analysis is not in cache ; else regular analysis", defaultValue = "false") 
+			@FormParam(LAZY_PARAM) String lazy,
+			// data
+			@ApiParam(
+					value="define the analysis data output format.",
+					allowableValues="TABLE,RECORDS,TRANSPOSE,SQL,LEGACY")
+			@FormParam(DATA_PARAM) String data,
+			// apply formatting
+			@ApiParam(
+					value="apply formatting to the output data")
+			@FormParam(APPLY_FORMATTING_PARAM) boolean applyFormatting,
+			// style
+			@ApiParam(
+					value="define the response style. If HUMAN, the API will try to use natural reference for objects, like 'My First Project', 'Account', 'Total Sales'... If MACHINE the API will use canonical references that are invariant, e.g. @'5603ca63c531d744b50823a3bis'. If LEGACY the API will also provide internal compound key to lookup objects in the management API.", 
+					allowableValues="LEGACY, MACHINE, HUMAN", defaultValue="HUMAN")
+			@FormParam(STYLE_PARAM) String style,
+			// envelope
+			@ApiParam(
+					value="define the result envelope",
+					allowableValues="ALL,RESULT,DATA")
+			@FormParam(ENVELOPE_PARAM) String envelope,
+			// timeout
+			@ApiParam(value = "response timeout in milliseconds. If no timeout set, the method will return according to current job status.") 
+			@FormParam(TIMEOUT_PARAM) Integer timeout,
+			// state
+			@FormParam("state") String state
+			) throws ComputingException, ScopeException, InterruptedException {
+		AppContext userContext = getUserContext(request);
+		AnalyticsQuery query = createAnalysisFromParams(null, BBID, groupBy, metrics, filterExpressions, period, timeframe, compareframe, orderExpressions, rollupExpressions, limit, offset, beyondLimit, maxResults, startIndex, lazy, computeStyle(style));
+		return delegate(userContext).storeBookmark(userContext, query, BBID, state, name, parent);
 	}
 	
 	@GET
 	@Path("/analytics/{" + BBID_PARAM_NAME + "}/bookmark")
-	@ApiOperation(value = "Create a new bookmark based on a query")
+	@ApiOperation(value = "Create/Update a Bookmark")
 	public Bookmark createBookmarkFromQuery(
 			@Context HttpServletRequest request, 
 			@PathParam(BBID_PARAM_NAME) String BBID,
@@ -250,7 +344,7 @@ public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implemen
 			) throws ComputingException, ScopeException, InterruptedException {
 		AppContext userContext = getUserContext(request);
 		AnalyticsQuery query = createAnalysisFromParams(null, BBID, groupBy, metrics, filterExpressions, period, timeframe, compareframe, orderExpressions, rollupExpressions, limit, offset, beyondLimit, maxResults, startIndex, lazy, computeStyle(style));
-		return delegate(userContext).createBookmark(userContext, query, BBID, state, name, parent);
+		return delegate(userContext).storeBookmark(userContext, query, BBID, state, name, parent);
 	}
 	
 	@GET
@@ -738,7 +832,7 @@ public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implemen
 				String fragment = full.substring(full.lastIndexOf("#"));
 				builder.fragment(fragment);
 			}
-			throw new InvalidTokenAPIException(e.getMessage(), builder.build(), "admin_console", e.isNoError());
+			throw new InvalidTokenAPIException(e.getMessage(), builder.build(), "admin_console", e.isNoError(), KrakenConfig.getAuthServerEndpoint());
 		}
 	}
 	
