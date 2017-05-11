@@ -86,7 +86,9 @@ public class QueryRunner {
 
 			boolean checkFullVersion = (query.getSelect().getStatement().hasLimitValue()
 					|| query.getSelect().getStatement().hasOffsetValue()
-					|| query.getSelect().getStatement().hasOrderByPieces()) && noRollups;
+					|| query.getSelect().getStatement().hasOrderByPieces()) 
+					&& noRollups
+					&& query.getSelect().getStatement().isHasSimpleOrderBys();
 			RedisCacheValue result;
 			// first check if the original query is in cache (lazy)
 			result = RedisCacheManager.getInstance().getRedisCacheValueLazy(sql, deps, url, user, pwd, -2);
