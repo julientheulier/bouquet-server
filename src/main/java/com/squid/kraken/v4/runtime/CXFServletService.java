@@ -74,6 +74,9 @@ import io.swagger.models.auth.OAuth2Definition;
 @SuppressWarnings("serial")
 public class CXFServletService extends CXFNonSpringJaxrsServlet {
 
+	public static final String KRAKEN_AUTH = "kraken_auth";
+	public static final String RS_TOKEN = "/rs/token";
+	public static final String SWAGGER = "swagger";
 	private static final Logger logger = LoggerFactory.getLogger(CXFServletService.class);
 
 	@Override
@@ -240,7 +243,7 @@ public class CXFServletService extends CXFNonSpringJaxrsServlet {
 		scanner.setResourcePackage("com.squid.kraken.v4.api.core.project,com.squid.kraken.v4.api.core.analytics");
 		ScannerFactory.setScanner(scanner);
 
-		Info info = new Info().title("Bouquet").version("4.2").description("This is Bouquet API");
+		Info info = new Info().title("Bouquet").version("4.2").description("This is Bouquet API, you can check the documentation <a href='https://api-docs.openbouquet.io/'>here</a>");
 
 		String basePath = "/" + KrakenConfig.getProperty("kraken.ws.api", "release") + "/"
 				+ KrakenConfig.getProperty("kraken.ws.version", "v4.2");
@@ -248,11 +251,17 @@ public class CXFServletService extends CXFNonSpringJaxrsServlet {
 		logger.info("Swagger base path " + basePath);
 		String oauthEndpoint = KrakenConfig.getProperty("kraken.oauth.endpoint",
 				"https://api.squidsolutions.com/release/auth/oauth");
-		swagger.securityDefinition("kraken_auth",
-				new OAuth2Definition().implicit(oauthEndpoint).scope("access", "Access protected resources"));
+		String publicBaseUri = KrakenConfig.getProperty(KrakenConfig.publicBaseUri, true);
+		if (publicBaseUri == null) {
+			publicBaseUri = basePath;
+		}
+		OAuth2Definition auth2Definition = new OAuth2Definition()
+				.accessCode(oauthEndpoint, publicBaseUri + RS_TOKEN)
+				.scope("access", "Access protected resources");
+		swagger.securityDefinition(KRAKEN_AUTH, auth2Definition);
 
 		ServletContext context = config.getServletContext();
-		context.setAttribute("swagger", swagger);
+		context.setAttribute(SWAGGER, swagger);
 		// apparently required by swagger 1.5 (see
 		// SwaggerContextService#getScanner)
 		context.setAttribute(SwaggerContextService.SCANNER_ID_DEFAULT, scanner);

@@ -26,7 +26,6 @@ package com.squid.kraken.v4.api.core.analytics;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.sql.Types;
 import java.text.DateFormat;
 import java.util.ArrayList;
@@ -86,7 +85,6 @@ import com.squid.core.poi.ExcelSettingsBean;
 import com.squid.core.sql.model.SQLScopeException;
 import com.squid.core.sql.render.RenderingException;
 import com.squid.core.sql.render.SQLSkin;
-import com.squid.kraken.v4.KrakenConfig;
 import com.squid.kraken.v4.api.core.APIException;
 import com.squid.kraken.v4.api.core.AccessRightsUtils;
 import com.squid.kraken.v4.api.core.ComputingInProgressAPIException;
@@ -96,10 +94,10 @@ import com.squid.kraken.v4.api.core.JobServiceBaseImpl.OutputCompression;
 import com.squid.kraken.v4.api.core.JobServiceBaseImpl.OutputFormat;
 import com.squid.kraken.v4.api.core.JobStats;
 import com.squid.kraken.v4.api.core.ObjectNotFoundAPIException;
-import com.squid.kraken.v4.api.core.PerfDB;
+import com.squid.kraken.v4.api.core.ServiceUtils;
 import com.squid.kraken.v4.api.core.bookmark.BookmarkServiceBaseImpl;
-import com.squid.kraken.v4.api.core.project.ProjectServiceBaseImpl;
 import com.squid.kraken.v4.api.core.customer.StateServiceBaseImpl;
+import com.squid.kraken.v4.api.core.project.ProjectServiceBaseImpl;
 import com.squid.kraken.v4.api.core.projectanalysisjob.AnalysisJobComputer;
 import com.squid.kraken.v4.caching.NotInCacheException;
 import com.squid.kraken.v4.caching.redis.RedisCacheManager;
@@ -139,7 +137,6 @@ import com.squid.kraken.v4.core.analysis.universe.Measure;
 import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.kraken.v4.core.expression.reference.DomainReference;
-import com.squid.kraken.v4.core.expression.scope.DomainExpressionScope;
 import com.squid.kraken.v4.core.expression.scope.ExpressionSuggestionHandler;
 import com.squid.kraken.v4.core.expression.scope.RelationExpressionScope;
 import com.squid.kraken.v4.core.model.domain.DomainDomain;
@@ -231,9 +228,11 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 
 	private final DateFormat ISO8601_full = FacetBuilder.createUTCDateFormat();
 	
-	protected AnalyticsServiceBaseImpl(UriInfo uriInfo, AppContext userContext) {
+	public AnalyticsServiceBaseImpl(UriInfo uriInfo, AppContext userContext) {
 		this.uriInfo = uriInfo;
-		this.publicBaseUri = getPublicBaseUri(uriInfo);
+		if (uriInfo != null) {
+			this.publicBaseUri = ServiceUtils.getInstance().guessPublicBaseUri(uriInfo);
+		}
 		this.userContext = userContext;
 		this.generator = new AnalyticsServiceHTMLGenerator(this);
 	}
@@ -251,43 +250,6 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	
 	public UriBuilder getPublicBaseUriBuilder() {
 		return new UriBuilderImpl(publicBaseUri);
-	}
-
-	/**
-	 * @param uriInfo2
-	 * @return
-	 */
-	private URI getPublicBaseUri(UriInfo uriInfo) {
-		// first check if there is a publicBaseUri parameter
-		String uri = KrakenConfig.getProperty(KrakenConfig.publicBaseUri, true);
-		if (uri!=null) {
-			try {
-				return new URI(uri);
-			} catch (URISyntaxException e) {
-				// let's try the next
-			}
-		}
-		// second, try to use the OAuth endpoint
-		String oauthEndpoint = KrakenConfig.getProperty(KrakenConfig.krakenOAuthEndpoint,true);
-		if (oauthEndpoint!=null) {
-			try {
-				URI check = new URI(oauthEndpoint);
-				// check that it is not using the ob.io central auth
-				if (!"auth.openbouquet.io".equalsIgnoreCase(check.getHost())) {
-					while (oauthEndpoint.endsWith("/")) {
-						oauthEndpoint = oauthEndpoint.substring(0, oauthEndpoint.length()-1);
-					}
-					if (oauthEndpoint.endsWith("/auth/oauth")) {
-						oauthEndpoint = oauthEndpoint.substring(0,oauthEndpoint.length() - "/auth/oauth".length());
-						return new URI(oauthEndpoint+"/v4.2");
-					}
-				}
-			} catch (URISyntaxException e) {
-				// let's try the next
-			}
-		}
-		// last, use the uriInfo
-		return uriInfo.getBaseUri();
 	}
 
 	protected static final NavigationItem ROOT_FOLDER = new NavigationItem("Root", "list all your available content, organize by Projects and Bookmarks", null, "/", "FOLDER");
@@ -807,14 +769,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		return true;
 	}
 
-	/**
-	 * @param userContext
-	 * @param query
-	 * @param parent
-	 * @param parent2 
-	 * @return
-	 */
-	public Bookmark createBookmark(AppContext userContext, AnalyticsQuery query, String BBID, String stateId, String name, String parent) {
+	public Bookmark storeBookmark(AppContext userContext, AnalyticsQuery query, String BBID, String stateId, String name, String parent) {
 		try {
 			Space space = getSpace(userContext, BBID);
 			if (query==null) {
@@ -829,36 +784,42 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			}
 			//
 			//
-			Bookmark original = space.getBookmark();
-			BookmarkConfig originalConfig = BookmarkManager.INSTANCE.readConfig(original);
-			// check the state
-			if (stateId!=null && !stateId.equals("")) {
-				// read the state
-				StatePK pk = new StatePK(userContext.getCustomerId(), stateId);
-				State state = StateServiceBaseImpl.getInstance().read(userContext, pk);
-				BookmarkConfig stateConfig = BookmarkManager.INSTANCE.readConfig(state);
-				if (stateConfig!=null) {
-					originalConfig = stateConfig;
+			Bookmark bookmark = space.getBookmark();
+			if (bookmark == null) {
+				// create a new Bookmark
+				bookmark = new Bookmark();
+				BookmarkPK bookmarkPK = new BookmarkPK(space.getUniverse().getProject().getId());
+				bookmark.setId(bookmarkPK);
+				if (name==null || name.equals("")) {
+					name = space.getDomain().getName()+" Bookmark";
+				}
+				bookmark.setName(name);
+			} else {
+				BookmarkConfig originalConfig = BookmarkManager.INSTANCE.readConfig(bookmark);
+				// check the state
+				if (stateId!=null && !stateId.equals("")) {
+					// read the state
+					StatePK pk = new StatePK(userContext.getCustomerId(), stateId);
+					State state = StateServiceBaseImpl.getInstance().read(userContext, pk);
+					BookmarkConfig stateConfig = BookmarkManager.INSTANCE.readConfig(state);
+					if (stateConfig!=null) {
+						originalConfig = stateConfig;
+					}
+				}
+				//
+				// merge the bookmark config with the query
+				mergeBookmarkConfig(space, query, originalConfig);
+				if (name != null) {
+					bookmark.setName(name);
 				}
 			}
-			//
-			// merge the bookmark config with the query
-			mergeBookmarkConfig(space, query, originalConfig);
-			//
-			Bookmark bookmark = new Bookmark();
-			BookmarkPK bookmarkPK = new BookmarkPK(space.getUniverse().getProject().getId());
-			bookmark.setId(bookmarkPK);
+
 			BookmarkConfig config = createBookmarkConfig(space, query);
 			ObjectMapper mapper = new ObjectMapper();
 			mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 			String json = mapper.writeValueAsString(config);
 			JsonNode tree = mapper.readTree(json);
 			bookmark.setConfig(tree);
-			bookmark.setDescription("created using the super cool new Bookmark API");
-			if (name==null || name.equals("")) {
-				name = space.getDomain().getName()+"'s Bookmark";
-			}
-			bookmark.setName(name);
 			String path = "";
 			if (parent==null) parent="";
 			if (parent.startsWith(MYBOOKMARKS_FOLDER.getSelfRef())) {
@@ -2591,126 +2552,130 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			ExpressionAST expr = localScope.parseExpression(query.getPeriod());
 			period = expr.prettyPrint(new PrettyPrintOptions(ReferenceStyle.IDENTIFIER, null));
 		}
-		if (!selection.getFacets().isEmpty()) {// always iterate over selection at least to capture the period
-			boolean keepConfig = filterWildcard || filters.isEmpty();
-			// look for the selection
-			for (Facet facet : selection.getFacets()) {
-				if (!facet.getSelectedItems().isEmpty()) {
-					if (facet.getId().equals(period)) {
-						// it's the period
-						List<FacetMember> items = facet.getSelectedItems();
-						if (items.size()==1) {
-							FacetMember timeframe = items.get(0);
-							if (timeframe instanceof FacetMemberInterval) {
-								String upperBound = ((FacetMemberInterval) timeframe).getUpperBound();
-								if (upperBound.startsWith("__")) {
-									// it's a shortcut
-									query.setTimeframe(Collections.singletonList(upperBound));
-								} else {
-									// it's a date
-									String lowerBound = ((FacetMemberInterval) timeframe).getLowerBound();
-									query.setTimeframe(new ArrayList<String>(2));
-									query.getTimeframe().add(lowerBound);
-									query.getTimeframe().add(upperBound);
-								}
-							}
-						}
-					} else if (SegmentManager.isSegmentFacet(facet) && keepConfig) {
-						// it's the segment facet
-						for (FacetMember item : facet.getSelectedItems()) {
-							if (item instanceof FacetMemberString) {
-								FacetMemberString member = (FacetMemberString)item;
-								if (SegmentManager.isOpenFilter(member)) {
-									// open filter is jut a formula
-									String formula = member.getValue();
-									if (formula.startsWith("=")) {
-										formula = formula.substring(1);
-									}
-									filters.add(formula);
-								} else {
-									// it's a segment name
-									// check the ID
-									try {
-										if (member.getId().startsWith("@")) {
-											ExpressionAST seg = globalScope.parseExpression(member.getId());
-											filters.add(seg.prettyPrint(localOptions));
-										} else {
-											// use the name
-											ExpressionAST seg = globalScope.parseExpression("'"+member.getValue()+"'");
-											filters.add(seg.prettyPrint(localOptions));
-										}
-									} catch (ScopeException e) {
-										query.add(new Problem(Severity.ERROR, member.getId(), "Unable to parse segment with value='"+member+"'", e));
-									}
-								}
-							}
-						}
-					} else if (keepConfig) {
-						ExpressionAST expr = globalScope.parseExpression(facet.getId());
-						String  filter = expr.prettyPrint(localOptions);
-						if (facet.getSelectedItems().size()==1) {
-							if (facet.getSelectedItems().get(0) instanceof FacetMemberString) {
-								filter += "=";
-								FacetMember member = facet.getSelectedItems().get(0);
-								filter += "\""+member.toString()+"\"";
-								filters.add(filter);
-							}
-						} else {
-							filter += " IN {";
-							boolean first = true;
-							for (FacetMember member : facet.getSelectedItems()) {
-								if (member instanceof FacetMemberString) {
-									if (!first) {
-										filter += " , ";
+		
+		if (selection != null) {
+			if (!selection.getFacets().isEmpty()) {// always iterate over selection at least to capture the period
+				boolean keepConfig = filterWildcard || filters.isEmpty();
+				// look for the selection
+				for (Facet facet : selection.getFacets()) {
+					if (!facet.getSelectedItems().isEmpty()) {
+						if (facet.getId().equals(period)) {
+							// it's the period
+							List<FacetMember> items = facet.getSelectedItems();
+							if (items.size()==1) {
+								FacetMember timeframe = items.get(0);
+								if (timeframe instanceof FacetMemberInterval) {
+									String upperBound = ((FacetMemberInterval) timeframe).getUpperBound();
+									if (upperBound.startsWith("__")) {
+										// it's a shortcut
+										query.setTimeframe(Collections.singletonList(upperBound));
 									} else {
-										first = false;
+										// it's a date
+										String lowerBound = ((FacetMemberInterval) timeframe).getLowerBound();
+										query.setTimeframe(new ArrayList<String>(2));
+										query.getTimeframe().add(lowerBound);
+										query.getTimeframe().add(upperBound);
 									}
+								}
+							}
+						} else if (SegmentManager.isSegmentFacet(facet) && keepConfig) {
+							// it's the segment facet
+							for (FacetMember item : facet.getSelectedItems()) {
+								if (item instanceof FacetMemberString) {
+									FacetMemberString member = (FacetMemberString)item;
+									if (SegmentManager.isOpenFilter(member)) {
+										// open filter is jut a formula
+										String formula = member.getValue();
+										if (formula.startsWith("=")) {
+											formula = formula.substring(1);
+										}
+										filters.add(formula);
+									} else {
+										// it's a segment name
+										// check the ID
+										try {
+											if (member.getId().startsWith("@")) {
+												ExpressionAST seg = globalScope.parseExpression(member.getId());
+												filters.add(seg.prettyPrint(localOptions));
+											} else {
+												// use the name
+												ExpressionAST seg = globalScope.parseExpression("'"+member.getValue()+"'");
+												filters.add(seg.prettyPrint(localOptions));
+											}
+										} catch (ScopeException e) {
+											query.add(new Problem(Severity.ERROR, member.getId(), "Unable to parse segment with value='"+member+"'", e));
+										}
+									}
+								}
+							}
+						} else if (keepConfig) {
+							ExpressionAST expr = globalScope.parseExpression(facet.getId());
+							String  filter = expr.prettyPrint(localOptions);
+							if (facet.getSelectedItems().size()==1) {
+								if (facet.getSelectedItems().get(0) instanceof FacetMemberString) {
+									filter += "=";
+									FacetMember member = facet.getSelectedItems().get(0);
 									filter += "\""+member.toString()+"\"";
+									filters.add(filter);
 								}
-							}
-							filter += "}";
-							if (!first) {
-								filters.add(filter);
-							}
-						}
-					}
-				}
-			}
-		}
-		query.setFilters(filters);
-		//
-		// check compareTo
-		if (!selection.getCompareTo().isEmpty()) {
-			for (Facet facet : selection.getCompareTo()) {
-				if (!facet.getSelectedItems().isEmpty()) {
-					if (facet.getId().equals(period)) {
-						// it's the period
-						List<FacetMember> items = facet.getSelectedItems();
-						if (items.size()==1) {
-							FacetMember timeframe = items.get(0);
-							if (timeframe instanceof FacetMemberInterval) {
-								String upperBound = ((FacetMemberInterval) timeframe).getUpperBound();
-								if (upperBound.startsWith("__")) {
-									// it's a shortcut
-									query.setCompareTo(Collections.singletonList(upperBound));
-								} else {
-									// it's a date
-									String lowerBound = ((FacetMemberInterval) timeframe).getLowerBound();
-									query.setCompareTo(new ArrayList<String>(2));
-									query.getCompareTo().add(lowerBound);
-									query.getCompareTo().add(upperBound);
+							} else {
+								filter += " IN {";
+								boolean first = true;
+								for (FacetMember member : facet.getSelectedItems()) {
+									if (member instanceof FacetMemberString) {
+										if (!first) {
+											filter += " , ";
+										} else {
+											first = false;
+										}
+										filter += "\""+member.toString()+"\"";
+									}
+								}
+								filter += "}";
+								if (!first) {
+									filters.add(filter);
 								}
 							}
 						}
 					}
 				}
 			}
-		}
-		//
-		// check timeframe again
-		if (query.getPeriod()!=null && (query.getTimeframe()==null || query.getTimeframe().size()==0)) {
-			// add a default timeframe
-			query.setTimeframe(Collections.singletonList("__CURRENT_MONTH"));
+			query.setFilters(filters);
+			//
+			// check compareTo
+
+			if (!selection.getCompareTo().isEmpty()) {
+				for (Facet facet : selection.getCompareTo()) {
+					if (!facet.getSelectedItems().isEmpty()) {
+						if (facet.getId().equals(period)) {
+							// it's the period
+							List<FacetMember> items = facet.getSelectedItems();
+							if (items.size()==1) {
+								FacetMember timeframe = items.get(0);
+								if (timeframe instanceof FacetMemberInterval) {
+									String upperBound = ((FacetMemberInterval) timeframe).getUpperBound();
+									if (upperBound.startsWith("__")) {
+										// it's a shortcut
+										query.setCompareTo(Collections.singletonList(upperBound));
+									} else {
+										// it's a date
+										String lowerBound = ((FacetMemberInterval) timeframe).getLowerBound();
+										query.setCompareTo(new ArrayList<String>(2));
+										query.getCompareTo().add(lowerBound);
+										query.getCompareTo().add(upperBound);
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+			//
+			// check timeframe again
+			if (query.getPeriod()!=null && (query.getTimeframe()==null || query.getTimeframe().size()==0)) {
+				// add a default timeframe
+				query.setTimeframe(Collections.singletonList("__CURRENT_MONTH"));
+			}
 		}
 	}
 	
@@ -3302,7 +3267,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		UriBuilder builder = getPublicBaseUriBuilder().
 			path("/analytics/{"+BBID_PARAM_NAME+"}/bookmark");
 		//addAnalyticsQueryParams(builder, query, null, null);
-		//builder.queryParam("access_token", userContext.getToken().getOid());
+		builder.queryParam("access_token", userContext.getToken().getOid());
 		return builder.build(BBID);
 	}
 	

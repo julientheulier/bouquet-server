@@ -187,6 +187,9 @@ public class KrakenConfig implements KrakenConfigConstants {
 						props.setProperty("kraken.ws.version", confV2.getKrakenWSVersion());
 
 					}
+					if (confV2.getObIoApiEndpoint() != null) {
+						props.setProperty("ob-io-api.endpoint", confV2.getObIoApiEndpoint());
+					}
 					
 					if (confV2.getLocalAdminPass()!=null){
 						props.setProperty("localAdminPass", confV2.getLocalAdminPass());
@@ -245,6 +248,18 @@ public class KrakenConfig implements KrakenConfigConstants {
 	
 	public static AUTH_MODE getAuthMode() {
 		return AUTH_MODE.valueOf(KrakenConfig.getProperty("authMode", AUTH_MODE.BYPASS.toString()));
+	}
+
+	public static String getAuthServerEndpoint() {
+		return KrakenConfig.getProperty("kraken.oauth.endpoint", "https://auth.openbouquet.io?teamId={teamId}");
+	}
+	
+	/**
+	 * if localAdminBadge=<email> is defined, the user authenticated with this email will be promoted local_admin
+	 * @return
+	 */
+	public static String getLocalAdminPass() {
+		return KrakenConfig.getProperty("localAdminPass", null);
 	}
 
 }

@@ -63,6 +63,8 @@ public class KrakenConfigV2 {
 	
 	public AUTH_MODE authMode = AUTH_MODE.BYPASS;
 
+	public String obIoApiEndpoint;
+
 	public String publicBaseUri;
 
 	
@@ -209,6 +211,14 @@ public class KrakenConfigV2 {
 
 	public void setAuthMode(AUTH_MODE authMode) {
 		this.authMode = authMode;
+	}
+
+	public String getObIoApiEndpoint() {
+		return obIoApiEndpoint;
+	}
+
+	public void setObIoApiEndpoint(String obIoApiEndpoint) {
+		this.obIoApiEndpoint = obIoApiEndpoint;
 	}
 
 	public static KrakenConfigV2 loadFromjson(String filename) throws IOException {
