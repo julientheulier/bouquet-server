@@ -38,9 +38,13 @@ import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.squid.core.api.CoreVersion;
 import com.squid.core.jdbc.vendor.IVendorSupport;
 import com.squid.core.jdbc.vendor.VendorSupportRegistry;
+import com.squid.kraken.v4.KrakenConfig;
 import com.squid.kraken.v4.api.core.APIException;
 import com.squid.kraken.v4.api.core.EmailHelperImpl;
 import com.squid.kraken.v4.api.core.ServiceUtils;
@@ -62,16 +66,22 @@ import com.squid.kraken.v4.model.CustomerPK;
 import com.squid.kraken.v4.model.User;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DAOFactory;
+import com.squid.kraken.v4.runtime.CXFServletService;
+
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
 import io.swagger.annotations.Authorization;
 import io.swagger.annotations.AuthorizationScope;
+import io.swagger.models.Swagger;
+import io.swagger.models.auth.OAuth2Definition;
 
 @Path("/rs")
 @Api(hidden = true, value = "customers", authorizations = { @Authorization(value = "kraken_auth", scopes = { @AuthorizationScope(scope = "access", description = "Access")}) })
 @Produces({ MediaType.APPLICATION_JSON })
 public class CustomerServiceRest extends CoreAuthenticatedServiceRest {
+
+	private static final Logger logger = LoggerFactory.getLogger(CustomerServiceRest.class);
 
 	static private CustomerServiceRest instance;
 
@@ -531,6 +541,23 @@ public class CustomerServiceRest extends CoreAuthenticatedServiceRest {
 		res += ", \"bouquet-core\" : \"" + version.getVendorVersion() + "\"";
 
 		res += " }";
+		
+		// update publicBaseUri and swagger tokenUrl if required
+		String publicBaseUri = KrakenConfig.getProperty(KrakenConfig.publicBaseUri, true);
+		if (publicBaseUri == null) {
+			Swagger swagger = (Swagger) request.getServletContext().getAttribute(CXFServletService.SWAGGER);
+			OAuth2Definition auth2Definition = (OAuth2Definition) swagger.getSecurityDefinitions()
+					.get(CXFServletService.KRAKEN_AUTH);
+			publicBaseUri = request.getScheme() + "://" + request.getServerName();
+			int port = request.getServerPort();
+			if (port > 0) {
+				publicBaseUri += ":" + port;
+			}
+			logger.warn("setting " + KrakenConfig.publicBaseUri + " to " + publicBaseUri);
+			KrakenConfig.setProperty(KrakenConfig.publicBaseUri, publicBaseUri);
+			auth2Definition.setTokenUrl(publicBaseUri + CXFServletService.RS_TOKEN);
+		}
+		
 		return res;
 	}
 
