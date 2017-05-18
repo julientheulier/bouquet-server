@@ -229,7 +229,7 @@ public class SpaceScope extends AnalysisScope {
     	Iterator<OperatorDefinition> iter = operators.iterator();
     	while (iter.hasNext()) {
     		OperatorDefinition opDef = iter.next();
-    		if (opDef.isExtendedID() && !space.getUniverse().getDatabase().getSkin().canRender(opDef.getExtendedID())) {
+    		if (!space.getUniverse().getDatabase().getSkin().canRender(opDef.getExtendedID())) {
     			iter.remove();
     		}
     	}

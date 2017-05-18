@@ -26,8 +26,10 @@ package com.squid.kraken.v4.core.analysis.engine.query;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,8 +39,11 @@ import com.squid.core.database.model.Database;
 import com.squid.core.domain.IDomain;
 import com.squid.core.domain.aggregate.AggregateDomain;
 import com.squid.core.domain.analytics.AnalyticDomain;
+import com.squid.core.domain.sort.SortOperatorDefinition;
 import com.squid.core.expression.ConstantValue;
 import com.squid.core.expression.ExpressionAST;
+import com.squid.core.expression.ExpressionLeaf;
+import com.squid.core.expression.Operator;
 import com.squid.core.expression.scope.ExpressionMaker;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.core.sql.Context;
@@ -54,6 +59,7 @@ import com.squid.core.sql.render.RenderingException;
 import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
 import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionMember;
+import com.squid.kraken.v4.core.analysis.engine.processor.AxisListExtractor;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.core.analysis.engine.processor.DataMatrixTransform;
 import com.squid.kraken.v4.core.analysis.engine.processor.DateExpressionAssociativeTransformationExtractor;
@@ -63,6 +69,7 @@ import com.squid.kraken.v4.core.analysis.engine.query.mapping.QueryMapper;
 import com.squid.kraken.v4.core.analysis.engine.query.mapping.SimpleMapping;
 import com.squid.kraken.v4.core.analysis.model.Intervalle;
 import com.squid.kraken.v4.core.analysis.model.OrderBy;
+import com.squid.kraken.v4.core.analysis.scope.AxisExpression;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.kraken.v4.core.database.impl.DatasourceDefinition;
@@ -162,6 +169,7 @@ public class BaseQuery implements IQuery {
 	 * @throws ScopeException
 	 */
 	public void orderBy(List<OrderBy> orders) throws ScopeException, SQLScopeException {
+		boolean hasSimpleOrders = true;
 		for (OrderBy order : orders) {
 			orderBy.add(order);
 			SimpleMapping m = mapper.find(order.getExpression());
@@ -178,6 +186,7 @@ public class BaseQuery implements IQuery {
 					// d'ont have to display the country
 					IPiece piece = select.createPiece(Context.ORDERBY, order.getExpression());
 					select.orderBy(piece).setOrdering(order.getOrdering());
+					hasSimpleOrders = hasSimpleOrders && this.isSimpleOrderBy(order);
 				} else {
 					// throw new ScopeException("invalid orderBy expression
 					// "+order.getExpression().prettyPrint() + ": you must
@@ -187,6 +196,7 @@ public class BaseQuery implements IQuery {
 				}
 			}
 		}
+		select.getStatement().setHasSimpleOrderBys(hasSimpleOrders);
 	}
 
 	/**
@@ -209,7 +219,7 @@ public class BaseQuery implements IQuery {
 			Axis axis = universe.asAxis(order.getExpression());
 			if (axis == null) {
 				return false;
-			} else {
+			} else {				
 				for (AxisMapping ax : getMapper().getAxisMapping()) {
 					try {
 						if (axis.isParentDimension(ax.getAxis())) {
@@ -219,18 +229,51 @@ public class BaseQuery implements IQuery {
 							DateExpressionAssociativeTransformationExtractor ex = new DateExpressionAssociativeTransformationExtractor();
 							ExpressionAST naked1 = ex.eval(axis.getDefinitionSafe());
 							ExpressionAST naked2 = ex.eval(ax.getAxis().getDefinitionSafe());
-							return naked1.equals(naked2);
+							if( naked1.equals(naked2))
+								return true;
 						}
 					} catch (ComputingException | InterruptedException e) {
 						// ignore
 					}
-				}
-				// cannot lookup
+				}				
+			}
+			AxisListExtractor ex = new AxisListExtractor();
+			Set<Axis> orderByAxes = ex.eval(expr);
+			if (orderByAxes.isEmpty()){
 				return false;
 			}
+			Set<Axis> expressionAxes = new HashSet<Axis>();
+			for (AxisMapping ax : getMapper().getAxisMapping()) {
+				expressionAxes.add(ax.getAxis());
+			}
+			return (expressionAxes.containsAll(orderByAxes));						
 		}
 	}
-
+	
+	private boolean isSimpleOrderBy(OrderBy order) throws ScopeException{
+		ExpressionAST expr = order.getExpression();
+		IDomain image = expr.getImageDomain();
+		if (image.isInstanceOf(AggregateDomain.DOMAIN)) {
+			return true;
+		}
+		Axis axis = universe.asAxis(order.getExpression());
+		if (axis == null){
+			return false;
+		}		
+		if (expr instanceof AxisExpression){
+			return true;
+		}
+		if (expr instanceof SortOperatorDefinition){
+			Operator operator = (Operator) expr;
+			if (operator.getArguments().size() != 1){
+				return false;
+			}else{
+				return operator.getArguments().get(0) instanceof AxisExpression  ;
+			}						
+		}	
+		return false;
+	}
+	
 	public List<OrderBy> getOrderBy() {
 		return orderBy;
 	}

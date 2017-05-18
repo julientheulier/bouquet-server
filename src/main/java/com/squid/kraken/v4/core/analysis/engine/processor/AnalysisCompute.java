@@ -808,7 +808,7 @@ public class AnalysisCompute {
 					}
 				}
 				long end = System.currentTimeMillis();
-				logger.info("HIT! get analysis from Smart Cache in " + (end - start) + "ms");
+				logger.info("Smart Cache: HIT! get analysis from Smart Cache in " + (end - start) + "ms");
 				// set the smart cache flag
 				dm.setFromSmartCache(true);
 				return dm;
@@ -817,7 +817,7 @@ public class AnalysisCompute {
 			}
 		} else {
 			long end = System.currentTimeMillis();
-			logger.info("Smart Cache consumed: " + (end - start) + "ms");
+			logger.info("Smart Cache: no Hit: consumed: " + (end - start) + "ms");
 		}
 		// else
 		throw new NotInCacheException("cannot use this cached datamatrix");// for
@@ -886,12 +886,12 @@ public class AnalysisCompute {
 						// from cache, but is it still in the smartCache ?
 						if (!AnalysisSmartCache.INSTANCE.contains(smartCacheRequest)) {
 							AnalysisSmartCache.INSTANCE.put(smartCacheRequest);
-							logger.info("put analysis in Smart Cache");
+							logger.info("updating analysis in Smart Cache (key="+dm.getRedisKey()+")");
 						}
 					} else {
 						// add to the smart cache
 						AnalysisSmartCache.INSTANCE.put(smartCacheRequest);
-						logger.info("put analysis in Smart Cache");
+						logger.info("put analysis in Smart Cache (key="+dm.getRedisKey()+")\"");
 					}
 				}
 			}

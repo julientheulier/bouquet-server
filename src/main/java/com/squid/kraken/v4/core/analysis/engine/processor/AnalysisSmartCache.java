@@ -117,14 +117,18 @@ public class AnalysisSmartCache {
 	 */
 	public AnalysisSmartCacheMatch checkMatch(Universe universe, AnalysisSmartCacheRequest request) {
 		// check same axis
+		logger.info("Smart Cache: looking for exact match");
 		{
 			Map<String, HashSet<String>> sameAxes = lookup.get(request.getAxesSignature());
 			if (sameAxes!=null) {
+				logger.info("Smart Cache: found same signature");
 				// check same filters
 				HashSet<String> sameFiltersCandidates = sameAxes.get(request.getFiltersSignature());
 				if (sameFiltersCandidates!=null) {
+					logger.info("Smart Cache: found same filters");
 					AnalysisSmartCacheMatch match = checkMatchMany(null, request, sameFiltersCandidates);
 					if (match!=null) {
+						logger.info("Smart Cache: found a match");
 						return match;
 					}
 				}
@@ -132,23 +136,28 @@ public class AnalysisSmartCache {
 		}
 		// try to generalize the search ?
 		Collection<Axis> filters = request.getAnalysis().getSelection().getFilters();
-		if (filters.size()>1) {
+		if (filters.size()>=1) {
+			logger.info("Smart Cache: looking for filtered match");
 			// let try by excluding one filter at a time?
 			for (Axis filter : filters) {
+				logger.info("Smart Cache: looking by adding "+filter.toString());
 				// generalize the search by adding the filter as an axis
 				AnalysisSmartCacheSignature generalize = new AnalysisSmartCacheSignature(request.getSignature(), filter);
-				generalize.setAxesSignature(universe);// ok, the API is a bit ackward
+				generalize.setAxesSignature(universe);// ok, the API is a bit awkward
 				Map<String, HashSet<String>> sameAxes = lookup.get(generalize.getAxesSignature());
 				if (sameAxes!=null) {
+					logger.info("Smart Cache: found generalized signature");
 					// get candidates with restriction
 					HashSet<Axis> filterMinusOne = new HashSet<>(filters);
 					filterMinusOne.remove(filter);
 					String sign1 = request.computeFiltersSignature(universe, new ArrayList<>(filterMinusOne));
 					HashSet<String> sameFiltersCandidates = sameAxes.get(sign1);
 					if (sameFiltersCandidates!=null) {
+						logger.info("Smart Cache: found same sub-filters");
 						AnalysisSmartCacheMatch match = checkMatchMany(filterMinusOne, request, sameFiltersCandidates);
 						if (match!=null) {
 							try {
+								logger.info("Smart Cache: found a match");
 								DashboardSelection softFilters = new DashboardSelection();
 								softFilters.add(filter, request.getAnalysis().getSelection().getMembers(filter));
 								// add the post-processing

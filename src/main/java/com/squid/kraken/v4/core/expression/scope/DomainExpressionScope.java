@@ -143,7 +143,7 @@ public class DomainExpressionScope extends DefaultScope {
 	@Override
 	public OperatorDefinition lookup(String fun) throws ScopeException {
 		OperatorDefinition opDef = super.lookup(fun);
-		if (opDef.isExtendedID() && !universe.getDatabase().getSkin().canRender(opDef.getExtendedID())) {
+		if (!universe.getDatabase().getSkin().canRender(opDef.getExtendedID())) {
 			throw new ScopeException("the '"+fun+"' function is not supported by this database: "+universe.getDatabase().getProductFullName());
 		} else {
 			return opDef;
@@ -578,7 +578,7 @@ public class DomainExpressionScope extends DefaultScope {
     	Iterator<OperatorDefinition> iter = operators.iterator();
     	while (iter.hasNext()) {
     		OperatorDefinition opDef = iter.next();
-    		if (opDef.isExtendedID() && !space.getUniverse().getDatabase().getSkin().canRender(opDef.getExtendedID())) {
+    		if (!space.getUniverse().getDatabase().getSkin().canRender(opDef.getExtendedID())) {
     			iter.remove();
     		}
     	}
