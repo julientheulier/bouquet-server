@@ -693,7 +693,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			builder.queryParam("access_token", service.getUserContext().getToken().getOid());
 			URI link = builder.build(query.getBBID());
 			html.append("<!-- Button trigger modal -->\n" + 
-					"<div style='padding:13px'><button type=\"button\" class=\"btn btn-primary btn-lg\" style='display:inline' data-toggle=\"modal\" data-target=\"#myModal\">\n" + 
+					"<div style='padding:13px'><button type=\"button\" class=\"btn btn-lg\" style='display:inline' data-toggle=\"modal\" data-target=\"#myModal\">\n" + 
 					"<i class=\"fa fa-cloud-upload\" aria-hidden=\"true\"></i> Bookmark\n" + 
 					"</button></div>\n" + 
 					"<!-- Modal -->\n" + 
