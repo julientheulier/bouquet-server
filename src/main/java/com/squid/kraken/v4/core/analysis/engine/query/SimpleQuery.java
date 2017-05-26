@@ -136,12 +136,16 @@ public class SimpleQuery extends BaseQuery {
 				throw new SQLScopeException(
 						"cannot select '" + axis.getDimension().getName() + "': unsupported VECTOR expression");
 			}
+			/*
+			 * JTH 20170524 : remove this ugly Nautilus thing
+			 * https://phab.squidsolutions.com/T3110 
 			// ticket:3014 - handles predicate as case(P,true,null): we don't
 			// want to index false values
 			if (image.isInstanceOf(IDomain.CONDITIONAL)) {
 				// transform expr into case(expr,true,null)
 				expr = ExpressionMaker.CASE(expr, ExpressionMaker.TRUE(), ExpressionMaker.NULL());
 			}
+			*/
 			//
 			if (image.isInstanceOf(IDomain.OBJECT)) {
 				// ok, try to identify the foreign-key...
