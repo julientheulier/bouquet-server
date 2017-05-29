@@ -52,7 +52,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.squid.core.domain.IDomain;
 import com.squid.core.domain.operators.ListContentAssistEntry;
 import com.squid.core.domain.operators.OperatorDefinition;
-import com.squid.core.domain.operators.OperatorScope;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.api.core.APIException;

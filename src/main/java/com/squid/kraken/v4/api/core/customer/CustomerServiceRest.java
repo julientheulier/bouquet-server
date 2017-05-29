@@ -553,10 +553,10 @@ public class CustomerServiceRest extends CoreAuthenticatedServiceRest {
 			if (port > 0) {
 				publicBaseUri += ":" + port;
 			}
+			publicBaseUri = publicBaseUri + swagger.getBasePath();
 			logger.warn("setting " + KrakenConfig.publicBaseUri + " to " + publicBaseUri);
 			KrakenConfig.setProperty(KrakenConfig.publicBaseUri, publicBaseUri);
-			String basePath = swagger.getBasePath();
-			auth2Definition.setTokenUrl(publicBaseUri + basePath + CXFServletService.RS_TOKEN);
+			auth2Definition.setTokenUrl(publicBaseUri + CXFServletService.RS_TOKEN);
 		}
 		
 		return res;
