@@ -287,6 +287,10 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 				"    max-width: 500px;n" +
 				"    background-color: #aaaaaa;" +
 				"}" +
+				// display the clear button
+				"input[type=search]::-webkit-search-cancel-button {\n" + 
+				"    -webkit-appearance: searchfield-cancel-button;\n" + 
+				"}" +
 				"</style>");
 		// drag & drop support
 		html.append("<script>\n" + 
@@ -309,6 +313,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 
 
 	private void createHTMLinputArray(StringBuilder html, String type, String name, List<? extends Object> values) {
+		if (type.equals("text")) type="search";// use search type to have a clear button
 		html.append("<div id='fields_"+name+"'>");
 		if (values==null || values.isEmpty()) {
 			html.append("<input type=\""+type+"\" style='width:100%;'  name=\""+name+"\" value=\"\" placeholder=\"type formula\"><br>");
@@ -325,20 +330,24 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		// add the add button
 		html.append("<script type='text/javascript'>//<![CDATA[\n" +
 				"\n" +
-				"        function addField_"+name+"(){\n" +
+				"        function addField_"+name+"(ev){\n" +
 				"            var container = document.getElementById(\"fields_"+name+"\");\n" +
 				"            var input = document.createElement(\"input\");\n" +
 				"            input.type = '"+type+"';\n" +
 				"            input.style = 'width:100%;';\n" +
 				"            input.name = '"+name+"';\n" +
 				"            input.placeholder = 'type formula';\n" +
+				"            if (ev!==undefined) {\n" +
+				"    	     	ev.preventDefault();\n" + 
+				"            	input.value = ev.dataTransfer.getData(\"text\");\n" +
+				"            }\n" +
 				"            container.appendChild(input);\n" +
 				"            container.appendChild(document.createElement(\"br\"));\n" +
 				"        }\n" +
 				"//]]> \n" +
 				"\n" +
 				"</script>\n");
-		html.append("<button type='button' onclick='addField_"+name+"()'>Add +</button>");
+		html.append("<button ondragover='allowDrop(event)' ondrop='addField_"+name+"(event)' type='button' onclick='addField_"+name+"()'>Add <i class=\"fa fa-plus-circle\" aria-hidden=\"true\"></i></button>");
 	}
 
 	private void createHTMLpagination(StringBuilder html, AnalyticsQuery query, DataTable data) {
@@ -366,12 +375,14 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			} else {
 				html.append("fresh data just computed at "+data.getExecutionDate());
 			}
-			// add links
-			html.append("<div>");
-			createHTMLdataLinks(html, query);
-			html.append("</div>");
-			html.append("</div><br>");
+		} else {
+			html.append("<div style='padding-top:5px;'>The query failed to execute, no data returned</div>");
 		}
+		// add links
+		html.append("<div>");
+		createHTMLdataLinks(html, query);
+		html.append("</div>");
+		html.append("</div><br>");
 	}
 
 	private void createHTMLdataLinks(StringBuilder html, AnalyticsQuery query) {
@@ -601,7 +612,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		html.append("<div style='float:left;padding:5px'><button type='submit' value='Query'><i class=\"fa fa-refresh\" aria-hidden=\"true\"></i>&nbsp;Query</button></div><br><br><br>");
 		html.append("</td>");
 		html.append("<td>");
-		if (data!=null) createHTMLpagination(html, query, data);
+		createHTMLpagination(html, query, data);
 		html.append("</td>");
 		html.append("</tr></table>");
 
@@ -678,22 +689,28 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			html.append("<i>Result is not available, it's probably due to an error</i>");
 			html.append("<div style='clear:both;'></div>");
 		}
-		
-		// save as bookmark using a modal
-		if (!hasError)
-					{
-						String popupTitle;
-						if (space.hasBookmark()){
+
+		if (!hasError) {
+			{ // for View
+				HashMap<String, Object> override = new HashMap<>();
+				override.put(LIMIT_PARAM, null);
+				override.put(MAX_RESULTS_PARAM, null);
+				URI viewLink = service.buildAnalyticsViewURI(service.getUserContext(), new ViewQuery(query), null, "ALL", Style.HTML, override);//(userContext, query, "SQL", null, Style.HTML, null);
+				html.append("<div style='padding:13px'><button type='submit' class='btn btn-primary btn-lg' style='display:inline' value='Visualize' formaction=\""+StringEscapeUtils.escapeHtml4(viewLink.toString())+"\"><i class=\"fa fa-bar-chart\" aria-hidden=\"true\"></i>&nbsp;Visualize</button>");
+			}
+			// save as bookmark using a modal
+			String popupTitle;
+			if (space.hasBookmark()) {
 				popupTitle = "Update Bookmark";
 			}else{
 				popupTitle="Save as new Bookmark";
 			}
 			UriBuilder builder = service.getPublicBaseUriBuilder().
-				path("/analytics/{"+BBID_PARAM_NAME+"}/bookmark");
+					path("/analytics/{"+BBID_PARAM_NAME+"}/bookmark");
 			builder.queryParam("access_token", service.getUserContext().getToken().getOid());
 			URI link = builder.build(query.getBBID());
 			html.append("<!-- Button trigger modal -->\n" + 
-					"<div style='padding:13px'><button type=\"button\" class=\"btn btn-primary btn-lg\" style='display:inline' data-toggle=\"modal\" data-target=\"#myModal\">\n" + 
+					"<button type=\"button\" class=\"btn btn-primary btn-lg\" style='display:inline' data-toggle=\"modal\" data-target=\"#myModal\">\n" + 
 					"<i class=\"fa fa-cloud-upload\" aria-hidden=\"true\"></i> Bookmark\n" + 
 					"</button></div>\n" + 
 					"<!-- Modal -->\n" + 
@@ -725,8 +742,8 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 					"</div>");
 			html.append("<script>");
 			UriBuilder builder2 = service.getPublicBaseUriBuilder().
-				path("/analytics/");
-			
+					path("/analytics/");
+
 			html.append("var onSaveBM = function(data) { \n"
 					+ "window.location.href='" + builder2.build() +"'+data.reference+'/query?style=HTML&access_token="+service.getUserContext().getToken().getOid()+"';"
 					+ "\n}");
@@ -775,14 +792,20 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		// vega lite preview
 		html.append("<div>");
 		html.append("<h4 style='font-family:Helvetica Neue,Helvetica,Arial,sans-serif;'>View Result</h4><hr>");
-		html.append("<center>");
 		html.append("<div id=\"vis\"></div>\r\n\r\n<script>\r\nvar embedSpec = {\r\n  mode: \"vega-lite\", renderer:\"svg\",  spec:");
-		html.append(writeVegalightSpecs(reply.getResult()));
-		Encoding channels = reply.getResult().encoding;
-		html.append("}\r\nvg.embed(\"#vis\", embedSpec, function(error, result) {\r\n  // Callback receiving the View instance and parsed Vega spec\r\n  // result.view is the View, which resides under the '#vis' element\r\n});\r\n</script>\r\n");
-		html.append("</center><hr>");
+		Encoding channels = null;
+		if (reply.getResult()!=null) {
+			html.append(writeVegalightSpecs(reply.getResult()));
+			channels = reply.getResult().encoding;
+			html.append("}\r\nvg.embed(\"#vis\", embedSpec, function(error, result) {\r\n  // Callback receiving the View instance and parsed Vega spec\r\n  // result.view is the View, which resides under the '#vis' element\r\n});\r\n</script>\r\n");
+		} else {
+			html.append("<p>No Result</p>");
+			channels = new Encoding();// empty encoding
+		}
+		html.append("<hr>");
 		// refresh
 		html.append("<form>");
+		html.append("<div style='float:left;padding:5px;'><button type='submit' value='View'><i class=\"fa fa-bar-chart\" aria-hidden=\"true\"></i>&nbsp;View</button></div>");
 		// data-link
 		URI querylink = service.buildAnalyticsQueryURI(service.getUserContext(), reply.getQuery(), "RECORDS", "ALL", Style.HTML, null);
 		html.append("<div style='float:left;padding:5px;'><button type='submit' value='Query' formaction=\""+StringEscapeUtils.escapeHtml4(querylink.toASCIIString())+"\"><i class=\"fa fa-refresh\" aria-hidden=\"true\"></i>&nbsp;Query</button></div>");
@@ -1026,32 +1049,32 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 					}
 				}
 			});
-            for (OperatorDefinition opDef : ops) {
-            	//if (opDef.getPosition()!=OperatorDefinition.INFIX_POSITION) {
-                    ListContentAssistEntry listContentAssistEntry = opDef.getSimplifiedListContentAssistEntry();
-                    if (listContentAssistEntry != null) {
-                        if (listContentAssistEntry.getContentAssistEntries() != null) {
-                            for (ContentAssistEntry contentAssistEntry : listContentAssistEntry.getContentAssistEntries()) {
-                    			if (count % pageSize == 0) {
-                    				if (page>1) functionContent.append("</div>");
-                    				functionContent.append("<div id='fun"+page+"' class='tab-pane fade "+(page==1?"in active'>":"'>"));
-                    				page++;
-                    			}
-                        		count++;
-                        		String display="";
-                            	if (opDef.getPosition()==OperatorDefinition.INFIX_POSITION){
-                            		display = opDef.getSymbol() ;
-                            	}else{
-                            		display =opDef.getSymbol() + "(" + contentAssistEntry.getLabel() + ")";
-                            	}
-                            	functionContent.append("<span draggable='true'  style='"+metric_style+"'");
-                            	functionContent.append(" ondragstart='drag(event,\""+display+"\")'");
-                            	functionContent.append(">&nbsp;"+display+"&nbsp;</span><br>");
-                            }
-                        }
-                    }
-            	//}
-            }
+			for (OperatorDefinition opDef : ops) {
+				//if (opDef.getPosition()!=OperatorDefinition.INFIX_POSITION) {
+				ListContentAssistEntry listContentAssistEntry = opDef.getSimplifiedListContentAssistEntry();
+				if (listContentAssistEntry != null) {
+					if (listContentAssistEntry.getContentAssistEntries() != null) {
+						for (ContentAssistEntry contentAssistEntry : listContentAssistEntry.getContentAssistEntries()) {
+							if (count % pageSize == 0) {
+								if (page>1) functionContent.append("</div>");
+								functionContent.append("<div id='fun"+page+"' class='tab-pane fade "+(page==1?"in active'>":"'>"));
+								page++;
+							}
+							count++;
+							String display="";
+							if (opDef.getPosition()==OperatorDefinition.INFIX_POSITION){
+								display = opDef.getSymbol() ;
+							}else{
+								display =opDef.getSymbol() + "(" + contentAssistEntry.getLabel() + ")";
+							}
+							functionContent.append("<span draggable='true'  style='"+metric_style+"'");
+							functionContent.append(" ondragstart='drag(event,\""+display+"\")'");
+							functionContent.append(">&nbsp;"+display+"&nbsp;</span><br>");
+						}
+					}
+				}
+				//}
+			}
 		} catch (ScopeException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
