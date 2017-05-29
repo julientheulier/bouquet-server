@@ -54,7 +54,6 @@ import com.squid.core.sql.render.IPiece;
 import com.squid.core.sql.render.ISelectPiece;
 import com.squid.core.sql.render.IWherePiece;
 import com.squid.core.sql.render.OperatorPiece;
-import com.squid.core.sql.render.OrderByPiece;
 import com.squid.core.sql.render.SubSelectReferencePiece;
 import com.squid.core.sql.render.WherePiece;
 import com.squid.core.sql.statements.FromSelectStatementPiece;
@@ -506,11 +505,10 @@ public class SimpleQuery extends BaseQuery {
 				}
 			}
 			// orderBy
-			for (OrderBy orderBy : getOrderBy()) {
-				ISelectPiece piece = main.select(orderBy.getExpression());
-				OrderByPiece opiece = main.orderBy(piece);
-				opiece.setOrdering(orderBy.getOrdering());
-			}
+			// -- resubmit the orderBy list
+			ArrayList<OrderBy> copy = new ArrayList<>(getOrderBy());
+			getOrderBy().clear();
+			orderBy(copy, getMapper(), main);
 			// limit & offset
 			if (select.getStatement().hasLimitValue()) {
 				main.getStatement().setLimitValue(select.getStatement().getLimitValue());
