@@ -85,7 +85,6 @@ import com.squid.core.expression.scope.ScopeException;
 import com.squid.core.poi.ExcelFile;
 import com.squid.core.poi.ExcelSettingsBean;
 import com.squid.core.sql.model.SQLScopeException;
-import com.squid.core.sql.render.RenderingException;
 import com.squid.core.sql.render.SQLSkin;
 import com.squid.kraken.v4.api.core.APIException;
 import com.squid.kraken.v4.api.core.AccessRightsUtils;
@@ -1146,7 +1145,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 					Throwable cause = e.getCause();
 					if (cause instanceof NotInCacheException) {
 						if (query.getLazy().equals("noError") || query.getStyle()==Style.HTML) {
-							query.add(new Problem(Severity.ERROR, "SQL", "Lazy flag prevented to run the query: "+cause.getMessage(), cause));
+							query.add(new Problem(Severity.ERROR, "SQL", "Lazy flag prevented to run the query: "+cause.toString(), cause));
 							reply.setResult(new AnalyticsResult());
 						} else {
 							// now using a 404 instead of the 204
@@ -1155,7 +1154,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 					} else {
 						if (query.getStyle()==Style.HTML) {
 							// wrap the exception in a Problem
-							query.add(new Problem(Severity.ERROR, "SQL", "Failed to run the query: "+cause.getMessage(), cause));
+							query.add(new Problem(Severity.ERROR, "SQL", "Failed to run the query: "+cause.toString(), cause));
 						} else {
 							// just let if go
 							throwCauseException(e);
@@ -1190,7 +1189,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			} 
 			//else
 			return Response.ok(reply).build();
-		} catch (DatabaseServiceException | ComputingException | InterruptedException | ScopeException | SQLScopeException | RenderingException e) {
+		} catch (Throwable e) {
 			if (query.getStyle()==Style.HTML) {
 				query.add(new Problem(Severity.ERROR, "query", "unable to run the query, fatal error: " + e.getMessage(), e));
 				AnalyticsReply reply = new AnalyticsReply();
