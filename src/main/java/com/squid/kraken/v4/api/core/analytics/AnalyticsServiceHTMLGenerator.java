@@ -642,7 +642,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 				}
 				html.append("<p>"+message+"</p>");
 			}
-			html.append("<div style='max-height:200px;overflow:scroll;'>");
+			html.append("<div style='max-height:600px;overflow:scroll;'>");
 			html.append("<table class='data'>");
 			html.append("<table class='data'><thead><tr>");
 			html.append("<th></th>");
@@ -695,7 +695,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 				override.put(LIMIT_PARAM, null);
 				override.put(MAX_RESULTS_PARAM, null);
 				URI viewLink = service.buildAnalyticsViewURI(service.getUserContext(), new ViewQuery(query), null, "ALL", Style.HTML, override);//(userContext, query, "SQL", null, Style.HTML, null);
-				html.append("<div style='padding:13px'><button type='submit' class='btn btn-primary btn-lg' style='display:inline' value='Visualize' formaction=\""+StringEscapeUtils.escapeHtml4(viewLink.toString())+"\"><i class=\"fa fa-bar-chart\" aria-hidden=\"true\"></i>&nbsp;Visualize</button>");
+				html.append("<div style='padding:13px'><button type='submit' class='btn btn-lg' style='display:inline' value='Visualize' formaction=\""+StringEscapeUtils.escapeHtml4(viewLink.toString())+"\"><i class=\"fa fa-bar-chart\" aria-hidden=\"true\"></i>&nbsp;Visualize</button>");
 			}
 			// save as bookmark using a modal
 			String popupTitle;
@@ -709,7 +709,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			builder.queryParam("access_token", service.getUserContext().getToken().getOid());
 			URI link = builder.build(query.getBBID());
 			html.append("<!-- Button trigger modal -->\n" + 
-					"<button type=\"button\" class=\"btn btn-primary btn-lg\" style='display:inline' data-toggle=\"modal\" data-target=\"#myModal\">\n" + 
+					"<button type=\"button\" class=\"btn btn-lg\" style='display:inline' data-toggle=\"modal\" data-target=\"#myModal\">\n" + 
 					"<i class=\"fa fa-cloud-upload\" aria-hidden=\"true\"></i> Bookmark\n" + 
 					"</button></div>\n" + 
 					"<!-- Modal -->\n" + 
@@ -804,7 +804,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		html.append("<hr>");
 		// refresh
 		html.append("<form>");
-		html.append("<div style='float:left;padding:5px;'><button type='submit' value='View'><i class=\"fa fa-bar-chart\" aria-hidden=\"true\"></i>&nbsp;View</button></div>");
+		html.append("<div style='float:left;padding:5px;'><button type='submit' value='View'><i class=\"fa fa-bar-chart\" aria-hidden=\"true\"></i>&nbsp;Visualize</button></div>");
 		// data-link
 		URI querylink = service.buildAnalyticsQueryURI(service.getUserContext(), reply.getQuery(), "RECORDS", "ALL", Style.HTML, null);
 		html.append("<div style='float:left;padding:5px;'><button type='submit' value='Query' formaction=\""+StringEscapeUtils.escapeHtml4(querylink.toASCIIString())+"\"><i class=\"fa fa-refresh\" aria-hidden=\"true\"></i>&nbsp;Query</button></div>");
@@ -840,6 +840,10 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		html.append("<tr><td valign='top' style='width:100px;'><a href=\"#\" data-html='true' data-toggle=\"tooltip\" data-placement=\"right\" title=\"Use the metrics parameters if you want to view multiple metrics on the same graph. Then you can use the <b>__VALUE</b> expression in channel to reference the metrics' value, and the <b>__METRICS</b> to get the metrics' name as a series.<br>If you need only a single metrics, you can directly define it in a channel, e.g. <code>y=count()</code>.<br>"+METRICS_DOC+"\">metrics:</a>");
 		html.append("</td><td>");
 		createHTMLinputArray(html, "text", "metrics", reply.getQuery().getMetrics());
+		html.append("</td></tr>");
+		html.append("<tr><td valign='top'><a href=\"#\" data-toggle=\"tooltip\" data-placement=\"right\" title=\""+ORDERBY_DOC+"\">orderBy:</a>");
+		html.append("</td><td>");
+		createHTMLinputArray(html, "text", "orderBy", reply.getQuery().getOrderBy());
 		html.append("</td></tr>");
 		// limits, maxResults, startIndex
 		html.append("<tr><td valign='top'><a href=\"#\" data-toggle=\"tooltip\" data-placement=\"right\" title=\""+LIMIT_DOC+"\">limit:</a>");
