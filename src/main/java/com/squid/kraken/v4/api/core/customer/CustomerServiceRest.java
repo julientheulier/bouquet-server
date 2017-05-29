@@ -543,20 +543,23 @@ public class CustomerServiceRest extends CoreAuthenticatedServiceRest {
 		res += " }";
 		
 		// update publicBaseUri and swagger tokenUrl if required
-		String publicBaseUri = KrakenConfig.getProperty(KrakenConfig.publicBaseUri, true);
-		if (publicBaseUri == null) {
+		final String publicBaseUri = KrakenConfig.getProperty(KrakenConfig.publicBaseUri, true);
+		if ((publicBaseUri == null) || (publicBaseUri.contains("127.0.0.1")) || (publicBaseUri.contains("localhost"))
+				|| (publicBaseUri.contains("0.0.0.0"))) {
 			Swagger swagger = (Swagger) request.getServletContext().getAttribute(CXFServletService.SWAGGER);
 			OAuth2Definition auth2Definition = (OAuth2Definition) swagger.getSecurityDefinitions()
 					.get(CXFServletService.KRAKEN_AUTH);
-			publicBaseUri = request.getScheme() + "://" + request.getServerName();
+			String publicBaseUri2 = request.getScheme() + "://" + request.getServerName();
 			int port = request.getServerPort();
 			if (port > 0) {
-				publicBaseUri += ":" + port;
+				publicBaseUri2 += ":" + port;
 			}
-			publicBaseUri = publicBaseUri + swagger.getBasePath();
-			logger.warn("setting " + KrakenConfig.publicBaseUri + " to " + publicBaseUri);
-			KrakenConfig.setProperty(KrakenConfig.publicBaseUri, publicBaseUri);
-			auth2Definition.setTokenUrl(publicBaseUri + CXFServletService.RS_TOKEN);
+			publicBaseUri2 = publicBaseUri2 + swagger.getBasePath();
+			if (!publicBaseUri2.equals(publicBaseUri)) {
+				logger.warn("setting " + KrakenConfig.publicBaseUri + " to " + publicBaseUri2);
+				KrakenConfig.setProperty(KrakenConfig.publicBaseUri, publicBaseUri2);
+				auth2Definition.setTokenUrl(publicBaseUri2 + CXFServletService.RS_TOKEN);
+			}
 		}
 		
 		return res;
