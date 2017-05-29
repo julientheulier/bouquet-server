@@ -29,6 +29,7 @@ import java.util.List;
 
 import com.squid.core.database.model.Table;
 import com.squid.core.domain.IDomain;
+import com.squid.core.domain.analytics.AnalyticDomain;
 import com.squid.core.expression.Compose;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.parser.ParseException;
@@ -303,7 +304,10 @@ public class Universe extends Physics {
 		} else {
             throw new ScopeException("Invalid expression: source domain must be a Space, was " + source.getName());
         }
-		if (!expr.getImageDomain().isInstanceOf(IDomain.AGGREGATE)) {
+		IDomain image = expr.getImageDomain();
+		if (image.isInstanceOf(IDomain.AGGREGATE) || image.isInstanceOf(AnalyticDomain.DOMAIN)) {
+			// ok
+		} else {
 		    throw new ScopeException("Invalid expression: this is not a measure, must be an aggregation");
 		}
 		if (expr instanceof MeasureExpression) {
