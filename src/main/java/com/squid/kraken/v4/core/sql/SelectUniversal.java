@@ -332,7 +332,7 @@ public class SelectUniversal extends PieceCreator {
 		*/
 		//
 		// ...else create it
-		IPiece piece = createPiece(Context.SELECT, parent, expression);
+		IPiece piece = createPiece(Context.SELECT, parent, expression, mapping);
 		String reference = getSqlStyleReferences()?baseName:null;
 		SelectPiece select =  getStatement().createSelectPiece(parent, piece, reference, useAlias, normalizeAlias);
 		// 
