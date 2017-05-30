@@ -630,14 +630,14 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 					IDomain image = scope.parseExpressionSafe(selection.getPeriod()).getImageDomain();
 					message += "results for the period <kbd>"+selection.getPeriod()+"</kbd> ";
 					if (selection.getTimeframe()!=null && selection.getTimeframe().size()==2) {
-						message += "<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;from the <kbd>"+formatDate(image, selection.getTimeframe().get(0))+"</kbd>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;to the <kbd>"+formatDate(image, selection.getTimeframe().get(1))+"</kbd> ";
+						message += "&nbsp;from <kbd>"+formatDate(image, selection.getTimeframe().get(0))+"</kbd>&nbsp;to <kbd>"+formatDate(image, selection.getTimeframe().get(1))+"</kbd> ";
 					} else if (selection.getTimeframe()!=null && selection.getTimeframe().size()==1) {
-						message += " for the <kbd>"+formatDate(image, selection.getTimeframe().get(0))+"</kbd> ";
+						message += "&nbsp;for the <kbd>"+formatDate(image, selection.getTimeframe().get(0))+"</kbd> ";
 					}
 					if (selection.getCompareTo()!=null && selection.getCompareTo().size()==2) {
-						message += "<br>compare to the <kbd>"+formatDate(image, selection.getCompareTo().get(0))+"</kbd> up to the <kbd>"+formatDate(image, selection.getCompareTo().get(1))+"</kbd> ";
+						message += "&nbsp;compare to the <kbd>"+formatDate(image, selection.getCompareTo().get(0))+"</kbd> up to the <kbd>"+formatDate(image, selection.getCompareTo().get(1))+"</kbd> ";
 					} else if (selection.getCompareTo()!=null && selection.getCompareTo().size()==1) {
-						message += " compare to the <kbd>"+formatDate(image, selection.getCompareTo().get(0))+"</kbd> ";
+						message += "&nbsp;compare to the <kbd>"+formatDate(image, selection.getCompareTo().get(0))+"</kbd> ";
 					}
 				}
 				html.append("<p>"+message+"</p>");

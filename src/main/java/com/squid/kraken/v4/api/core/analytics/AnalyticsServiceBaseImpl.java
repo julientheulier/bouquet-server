@@ -1378,6 +1378,8 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	 */
 	private AnalyticsSelection convertToSelection(AppContext ctx, AnalyticsQuery query, Space space, ProjectAnalysisJob job, FacetSelection actual) {
 		AnalyticsSelection selection = new AnalyticsSelectionImpl();
+		//
+		selection.setPeriod(query.getPeriod());
 		// using the right style!
 		ReferenceStyle prettyStyle = getReferenceStyle(query.getStyle());
 		PrettyPrintOptions localOptions = new PrettyPrintOptions(prettyStyle, space.getTop().getImageDomain());
