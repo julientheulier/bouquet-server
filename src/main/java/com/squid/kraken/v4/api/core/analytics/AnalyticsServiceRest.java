@@ -414,6 +414,9 @@ public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implemen
 					value="define the analysis data format.",
 					allowableValues="LEGACY,SQL,RECORDS,TABLE")
 			@QueryParam(DATA_PARAM) String data,
+			// compareTo growth option
+			@ApiParam(value=COMPARETO_COMPUTE_GROWTH_DOC, allowMultiple = false) 
+			@QueryParam(COMPARETO_COMPUTE_GROWTH_PARAM) boolean computeGrowth,
 			// apply formatting
 			@ApiParam(
 					value="apply formatting to the output data")
@@ -429,7 +432,7 @@ public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implemen
 			@QueryParam("state") String state
 			) throws ComputingException, ScopeException, InterruptedException {
 		AppContext userContext = getUserContext(request);
-		return delegate(userContext).runAnalysis(userContext, BBID, state, query, getDataLayout(data), applyFormatting, envelope, timeout);
+		return delegate(userContext).runAnalysis(userContext, BBID, state, query, getDataLayout(data), computeGrowth, applyFormatting, envelope, timeout);
 	}
 
 	@GET
@@ -463,6 +466,9 @@ public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implemen
 			// compareTo
 			@ApiParam(value=COMPARETO_DOC, allowMultiple = true) 
 			@QueryParam(COMPARETO_PARAM) String[] compareframe,
+			// compareTo growth option
+			@ApiParam(value=COMPARETO_COMPUTE_GROWTH_DOC, allowMultiple = false) 
+			@QueryParam(COMPARETO_COMPUTE_GROWTH_PARAM) boolean computeGrowth,
 			// orderBy
 			@ApiParam(value=ORDERBY_DOC, allowMultiple = true) 
 			@QueryParam(ORDERBY_PARAM) String[] orderExpressions,
@@ -517,7 +523,7 @@ public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implemen
 			) throws ComputingException, ScopeException, InterruptedException {
 		AppContext userContext = getUserContext(request);
 		AnalyticsQuery analysis = createAnalysisFromParams(null, BBID, groupBy, metrics, filterExpressions, period, timeframe, compareframe, orderExpressions, rollupExpressions, limit, offset, beyondLimit, maxResults, startIndex, lazy, computeStyle(style));
-		return delegate(userContext).runAnalysis(userContext, BBID, state, analysis, getDataLayout(data), applyFormatting, envelope, timeout);
+		return delegate(userContext).runAnalysis(userContext, BBID, state, analysis, getDataLayout(data), computeGrowth, applyFormatting, envelope, timeout);
 	}
 
 	@GET

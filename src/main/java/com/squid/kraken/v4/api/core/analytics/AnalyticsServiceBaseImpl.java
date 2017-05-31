@@ -37,6 +37,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -65,6 +66,7 @@ import com.squid.core.concurrent.ExecutionManager;
 import com.squid.core.database.impl.DatabaseServiceException;
 import com.squid.core.domain.DomainNumericConstant;
 import com.squid.core.domain.IDomain;
+import com.squid.core.domain.analytics.AnalyticDomain;
 import com.squid.core.domain.operators.ExtendedType;
 import com.squid.core.domain.operators.IntrinsicOperators;
 import com.squid.core.domain.operators.OperatorDefinition;
@@ -74,6 +76,7 @@ import com.squid.core.domain.sort.SortOperatorDefinition;
 import com.squid.core.domain.vector.VectorOperatorDefinition;
 import com.squid.core.expression.ConstantValue;
 import com.squid.core.expression.ExpressionAST;
+import com.squid.core.expression.NumericConstant;
 import com.squid.core.expression.Operator;
 import com.squid.core.expression.PrettyPrintOptions;
 import com.squid.core.expression.PrettyPrintOptions.ReferenceStyle;
@@ -83,7 +86,6 @@ import com.squid.core.expression.scope.ScopeException;
 import com.squid.core.poi.ExcelFile;
 import com.squid.core.poi.ExcelSettingsBean;
 import com.squid.core.sql.model.SQLScopeException;
-import com.squid.core.sql.render.RenderingException;
 import com.squid.core.sql.render.SQLSkin;
 import com.squid.kraken.v4.api.core.APIException;
 import com.squid.kraken.v4.api.core.AccessRightsUtils;
@@ -1028,6 +1030,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			String stateId, 
 			final AnalyticsQuery query, 
 			DataLayout data,
+			boolean computeGrowth,
 			boolean applyFormatting,
 			String envelope,
 			Integer timeout
@@ -1066,12 +1069,17 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			FacetSelection selection = createFacetSelection(space, query);
 			// create the job
 			final ProjectAnalysisJob job = createAnalysisJob(space, query, selection, OutputFormat.JSON);
-			// applyFormatting
-			if (applyFormatting) {
-				HashMap<String, Object> optionKeys = new HashMap<>();
-				optionKeys.put(DataMatrix.APPLY_FORMAT_OPTION, true);
-				job.setOptionKeys(optionKeys);
+			// options
+			Map<String, Object> optionKeys = new HashMap<>();
+			// -- growth ?
+			if (!selection.getCompareTo().isEmpty()) {
+				optionKeys.put(DashboardAnalysis.COMPUTE_GROWTH_OPTION_KEY, computeGrowth);
 			}
+			// -- applyFormatting
+			if (applyFormatting) {
+				optionKeys.put(DataMatrix.APPLY_FORMAT_OPTION, true);
+			}
+			job.setOptionKeys(optionKeys);
 			// update the facet selection with actual values
 			FacetSelection actual = computeFacetSelection(space, selection);
 			//
@@ -1138,7 +1146,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 					Throwable cause = e.getCause();
 					if (cause instanceof NotInCacheException) {
 						if (query.getLazy().equals("noError") || query.getStyle()==Style.HTML) {
-							query.add(new Problem(Severity.ERROR, "SQL", "Lazy flag prevented to run the query: "+cause.getMessage(), cause));
+							query.add(new Problem(Severity.ERROR, "SQL", "Lazy flag prevented to run the query: "+cause.toString(), cause));
 							reply.setResult(new AnalyticsResult());
 						} else {
 							// now using a 404 instead of the 204
@@ -1147,7 +1155,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 					} else {
 						if (query.getStyle()==Style.HTML) {
 							// wrap the exception in a Problem
-							query.add(new Problem(Severity.ERROR, "SQL", "Failed to run the query: "+cause.getMessage(), cause));
+							query.add(new Problem(Severity.ERROR, "SQL", "Failed to run the query: "+cause.toString(), cause));
 						} else {
 							// just let if go
 							throwCauseException(e);
@@ -1182,7 +1190,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			} 
 			//else
 			return Response.ok(reply).build();
-		} catch (DatabaseServiceException | ComputingException | InterruptedException | ScopeException | SQLScopeException | RenderingException e) {
+		} catch (Throwable e) {
 			if (query.getStyle()==Style.HTML) {
 				query.add(new Problem(Severity.ERROR, "query", "unable to run the query, fatal error: " + e.getMessage(), e));
 				AnalyticsReply reply = new AnalyticsReply();
@@ -1371,6 +1379,8 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	 */
 	private AnalyticsSelection convertToSelection(AppContext ctx, AnalyticsQuery query, Space space, ProjectAnalysisJob job, FacetSelection actual) {
 		AnalyticsSelection selection = new AnalyticsSelectionImpl();
+		//
+		selection.setPeriod(query.getPeriod());
 		// using the right style!
 		ReferenceStyle prettyStyle = getReferenceStyle(query.getStyle());
 		PrettyPrintOptions localOptions = new PrettyPrintOptions(prettyStyle, space.getTop().getImageDomain());
@@ -1679,7 +1689,6 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			if (writer==null) {
 				throw new APIException("unable to handle the format='"+outFormat+"'", true);
 			}
-
 			StreamingOutput stream = new StreamingOutput() {
 				@Override
 				public void write(OutputStream os) throws IOException, WebApplicationException {
@@ -1951,7 +1960,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			if (facet!=null && facet.length()>0) {// ignore empty values
 				ExpressionAST colExpression = scope.parseExpression(facet);
 				IDomain image = colExpression.getImageDomain();
-				if (image.isInstanceOf(IDomain.AGGREGATE)) {
+				if (image.isInstanceOf(IDomain.AGGREGATE) || image.isInstanceOf(AnalyticDomain.DOMAIN)) {
 					IDomain source = colExpression.getSourceDomain();
 					String name = colExpression.getName();// T1807
 					if (!source.isInstanceOf(DomainDomain.DOMAIN)) {
@@ -2024,19 +2033,19 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 						ExpressionAST expr = scope.parseExpression(order);
 						IDomain image = expr.getImageDomain();
 						Direction direction = getDirection(image);
-						if (image.isInstanceOf(DomainNumericConstant.DOMAIN)) {
+						if (expr  instanceof NumericConstant) {
 							// it is a reference to the facets
 							DomainNumericConstant num = (DomainNumericConstant) image
 									.getAdapter(DomainNumericConstant.class);
-							int index = num.getValue().intValue();
-							if (!lookup.containsKey(index)) {
-								throw new ScopeException("the orderBy index specified (" + index + ") is out of bounds");
-							}
-							int legacy = lookup.get(index);
-							if (metricSet.contains(index)) {
-								legacy += legacyFacetCount;
-							}
-							orderBy.add(new OrderBy(legacy, direction));
+								int index = num.getValue().intValue();							
+								if (!lookup.containsKey(index)) {
+									throw new ScopeException("the orderBy index specified (" + index + ") is out of bounds");
+								}
+								int legacy = lookup.get(index);
+								if (metricSet.contains(index)) {
+									legacy += legacyFacetCount;
+								}
+								orderBy.add(new OrderBy(legacy, direction));
 						} else {
 							// it's an expression which is now scoped into the bookmark
 							// but job is expecting it to be scoped in the universe... (OMG)
@@ -2749,63 +2758,179 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			String data,
 			Style style, 
 			String envelope) throws ScopeException, ComputingException, InterruptedException {
-		Space space = getSpace(userContext, BBID);
-		//
-		if (data==null) data="URL";
-		boolean preFetch = true;// default to prefetch when data mode is URL
-		//
-		Bookmark bookmark = space.getBookmark();
-		BookmarkConfig config = BookmarkManager.INSTANCE.readConfig(bookmark);
-		//
-		// handle the limit
-		Long explicitLimit = view.getLimit();
-		AnalyticsQueryImpl query = new AnalyticsQueryImpl(view);
-		// merge the bookmark config with the query
-		mergeBookmarkConfig(space, query, config);
-		//
-		// change the query ref to use the domain one
-		// - we don't want to have side-effects
-		String domainBBID = "@'"+space.getUniverse().getProject().getOid()+"'.@'"+space.getDomain().getOid()+"'";
-		query.setBBID(domainBBID);
-		//
-		VegaliteConfigurator inputConfig = new VegaliteConfigurator(space, query);
-		// first check the provided parameters, because they must override the default
-		inputConfig.createChannelDef("x", view.getX());
-		inputConfig.createChannelDef("y", view.getY());
-		inputConfig.createChannelDef("color", view.getColor());
-		inputConfig.createChannelDef("size", view.getSize());
-		inputConfig.createChannelDef("column", view.getColumn());
-		inputConfig.createChannelDef("row", view.getRow());
-		if (inputConfig.getRequired().getMetrics().size()>0) {
-			// override the default metrics
-			query.setMetrics(inputConfig.getRequired().getMetrics());
-		}
-		if (inputConfig.getRequired().getGroupBy().size()>0) {
-			// override the default metrics
-			query.setGroupBy(inputConfig.getRequired().getGroupBy());
-		}
-		//
-		// add the compareTo() if needed
-		/*
-		if (query.getCompareframe()!=null && query.getMetrics()!=null && query.getMetrics().size()==1) {
-			String expression = query.getMetrics().get(0);
-			ExpressionAST ast = inputConfig.parse(expression);
-			query.getMetrics().add("compareTo("+inputConfig.prettyPrint(ast)+")");
-		}
-		*/
-		//
-		int dims = (query.getGroupBy()!=null)?query.getGroupBy().size():0;
-		int kpis = (query.getMetrics()!=null)?query.getMetrics().size():0;
-		// this will be the output config including the default settings
-		VegaliteConfigurator outputConfig = new VegaliteConfigurator(space, query);
-		//
-		// use default dataviz unless x and y are already sets
-		if (view.getX()==null || view.getY()==null) {
-			// DOMAIN
-			if (config==null) {
-				// not a bookmark, use default & specs if nothing provided
-				// T1935: if explicit groupBy, use it
-				if (view.getGroupBy()!=null && view.getGroupBy().size()>0 && query.getGroupBy()!=null && query.getGroupBy().size()>0) {
+		Space space = null;
+		try {
+			space = getSpace(userContext, BBID);
+			//
+			if (data==null) data="URL";
+			boolean preFetch = true;// default to prefetch when data mode is URL
+			//
+			Bookmark bookmark = space.getBookmark();
+			BookmarkConfig config = BookmarkManager.INSTANCE.readConfig(bookmark);
+			//
+			// handle the limit
+			Long explicitLimit = view.getLimit();
+			AnalyticsQueryImpl query = new AnalyticsQueryImpl(view);
+			// merge the bookmark config with the query
+			mergeBookmarkConfig(space, query, config);
+			//
+			// change the query ref to use the domain one
+			// - we don't want to have side-effects
+			String domainBBID = "@'"+space.getUniverse().getProject().getOid()+"'.@'"+space.getDomain().getOid()+"'";
+			query.setBBID(domainBBID);
+			//
+			VegaliteConfigurator inputConfig = new VegaliteConfigurator(space, query);
+			// first check the provided parameters, because they must override the default
+			VegaliteSpecs channels = new VegaliteSpecs();
+			channels.encoding.x = inputConfig.createChannelDef("x", view.getX());
+			channels.encoding.y = inputConfig.createChannelDef("y", view.getY());
+			channels.encoding.color = inputConfig.createChannelDef("color", view.getColor());
+			channels.encoding.size = inputConfig.createChannelDef("size", view.getSize());
+			channels.encoding.column = inputConfig.createChannelDef("column", view.getColumn());
+			channels.encoding.row = inputConfig.createChannelDef("row", view.getRow());
+			if (inputConfig.getRequired().getMetrics().size()>0) {
+				// override the default metrics
+				query.setMetrics(inputConfig.getRequired().getMetrics());
+			}
+			if (inputConfig.getRequired().getGroupBy().size()>0) {
+				// override the default metrics
+				query.setGroupBy(inputConfig.getRequired().getGroupBy());
+			}
+			//
+			// add the compareTo() if needed
+			/*
+			if (query.getCompareframe()!=null && query.getMetrics()!=null && query.getMetrics().size()==1) {
+				String expression = query.getMetrics().get(0);
+				ExpressionAST ast = inputConfig.parse(expression);
+				query.getMetrics().add("compareTo("+inputConfig.prettyPrint(ast)+")");
+			}
+			*/
+			//
+			int dims = (query.getGroupBy()!=null)?query.getGroupBy().size():0;
+			int kpis = (query.getMetrics()!=null)?query.getMetrics().size():0;
+			// this will be the output config including the default settings
+			VegaliteConfigurator outputConfig = new VegaliteConfigurator(space, query);
+			//
+			// generate a default dataviz if x and y are not already sets
+			if (view.getX()==null || view.getY()==null) {
+				// DOMAIN
+				if (config==null) {
+					// not a bookmark, use default & specs if nothing provided
+					// T1935: if explicit groupBy, use it
+					boolean metricsDone = false;
+					if (view.getGroupBy()!=null && view.getGroupBy().size()>0 && query.getGroupBy()!=null && query.getGroupBy().size()>0) {
+						int next = 0;
+						while (next<dims) {
+							if (next==1) {
+								// insert the metrics after the first dimension
+								metricsDone = handleMetrics(query, inputConfig, view, channels, true);
+							}
+							if (!inputConfig.getRequired().getGroupBy().contains(query.getGroupBy().get(next))) {
+								String dim = query.getGroupBy().get(next++);
+								ExpressionAST expr = inputConfig.parse(dim);
+								boolean isTemporal = expr.getImageDomain().isInstanceOf(IDomain.TEMPORAL);
+								if ((view.getX()==null || channels.encoding.x.type==DataType.quantitative) && view.getY()==null && !isTemporal) {// use Y only for categories and left a channel for the metrics
+									// use it as the y
+									view.setY(dim);
+									channels.encoding.y = inputConfig.createChannelDef("y", view.getY());
+								} else if ((view.getY()==null || channels.encoding.y.type==DataType.quantitative) && view.getX()==null) {
+									// use it as the x
+									view.setX(dim);
+									channels.encoding.x = inputConfig.createChannelDef("x", view.getX());
+								} else if (view.getColor()==null) {
+									// use it as the color
+									view.setColor(dim);
+									channels.encoding.color = inputConfig.createChannelDef("color", view.getColor());
+								} else if (view.getColumn()==null) {
+									// use it as the column
+									view.setColumn(dim);
+									channels.encoding.column = inputConfig.createChannelDef("column", view.getColumn());
+								} else if (view.getRow()==null) {
+									// use it as the column
+									view.setRow(dim);
+									channels.encoding.row = inputConfig.createChannelDef("row", view.getRow());
+								} else {
+									break;// no more channel available
+								}
+							}
+						}
+					}
+					if (!metricsDone) {
+						handleMetrics(query, inputConfig, view, channels, false);
+					}
+					// add the period if no group set
+					if (view.getX()==null && !inputConfig.isTimeseries() && query.getPeriod()!=null) {
+						view.setX("__PERIOD");
+					}
+				// TIME-SERIES
+				} else if (config.getCurrentAnalysis()!=null && config.getCurrentAnalysis().equalsIgnoreCase(BookmarkConfig.TIMESERIES_ANALYSIS)) {
+					// use the period as the x
+					if (view.getX()==null && !inputConfig.isTimeseries()) {
+						view.setX("__PERIOD");
+					}
+					// take care of y axis and metrics
+					if (view.getY()==null && (!inputConfig.isHasMetric() || !inputConfig.isHasMetricValue())) {
+						if (kpis==0 && !inputConfig.isHasMetric()) {
+							// we need a default metric
+							view.setY("count() // this is the default metric");
+						} else if (kpis==1 && !inputConfig.isHasMetric()) {
+							// we can only use the first one for now
+							view.setY(query.getMetrics().get(0));
+						} else if (!inputConfig.isHasMetricValue()) {
+							view.setY(TransposeConverter.METRIC_VALUE_COLUMN);
+							if (!inputConfig.isHasMetricSeries()) {
+								if (view.getColor()==null) {
+									view.setColor(TransposeConverter.METRIC_SERIES_COLUMN);
+								} else if (view.getColumn()==null) {
+									view.setColumn(TransposeConverter.METRIC_SERIES_COLUMN);
+								} else if (view.getRow()==null) {
+									view.setRow(TransposeConverter.METRIC_SERIES_COLUMN);
+								}
+							}
+						}
+					}
+					// add reminding groupBy
+					int next = 0;
+					while (next<dims) {
+						String groupBy = query.getGroupBy().get(next++);
+						if (!groupBy.equals("__PERIOD") && !groupBy.equals(query.getPeriod()) && !inputConfig.getRequired().getGroupBy().contains(groupBy)) {
+							if (view.getColor()==null) {
+								// use it as the color
+								view.setColor(groupBy);
+							} else if (view.getColumn()==null) {
+								// use it as the column
+								view.setColumn(groupBy);
+							} else if (view.getRow()==null) {
+								// use it as the column
+								view.setRow(groupBy);
+							} else {
+								break;// no more channel available
+							}
+						}
+					}
+				// BARCHART 
+				} else if (config.getCurrentAnalysis()!=null && config.getCurrentAnalysis().equalsIgnoreCase(BookmarkConfig.BARCHART_ANALYSIS)) {
+					if (view.getY()==null && (!inputConfig.isHasMetric() || !inputConfig.isHasMetricValue())) {
+						if (kpis==0 && !inputConfig.isHasMetric()) {
+							// we need a default metric
+							view.setY("count() // this is the default metric");
+						} else if (kpis==1 && !inputConfig.isHasMetric()) {
+							// we can only use the first one for now
+							view.setY(query.getMetrics().get(0));
+						} else if (!inputConfig.isHasMetricValue()) {
+							view.setY(TransposeConverter.METRIC_VALUE_COLUMN);
+							if (!inputConfig.isHasMetricSeries()) {
+								if (view.getColor()==null) {
+									view.setColor(TransposeConverter.METRIC_SERIES_COLUMN);
+								} else if (view.getColumn()==null) {
+									view.setColumn(TransposeConverter.METRIC_SERIES_COLUMN);
+								} else if (view.getRow()==null) {
+									view.setRow(TransposeConverter.METRIC_SERIES_COLUMN);
+								}
+							}
+						}
+					}
+					// add reminding groupBy
 					int next = 0;
 					while (next<dims) {
 						if (!inputConfig.getRequired().getGroupBy().contains(query.getGroupBy().get(next))) {
@@ -2826,391 +2951,358 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 							}
 						}
 					}
-				}
-				if (view.getX()==null && !inputConfig.isTimeseries() && query.getPeriod()!=null) {
-					view.setX("__PERIOD");
-				}
-				if (query.getMetrics()==null || query.getMetrics().size()==0) {
-					if (!inputConfig.isHasMetric()) {
-						// use count() for now
-						if (view.getX()==null) {
-							view.setX("count()");
-						} else {
-							view.setY("count()");
-						}
+				} else {// TABLE_ANALYSIS or unknown
+					if (kpis==0) {
+						// we need at least one dim
+						query.setMetrics(Collections.singletonList("count() // this is the default metric"));
+						kpis++;
 					}
-				} else {
-					// display some metrics
-					// - single metric
-					if (query.getMetrics().size()==1) {
-						if (!inputConfig.isHasMetric()) {
-							if (view.getX()==null) {
+					if (dims==0) {
+						// just display the metrics
+						if (view.getX()==null && !inputConfig.isHasMetric() && !inputConfig.isHasMetricValue()) {
+							if (kpis==1) {
 								view.setX(query.getMetrics().get(0));
 							} else {
-								view.setY(query.getMetrics().get(0));
+								// multi-kpis
+								view.setX(TransposeConverter.METRIC_VALUE_COLUMN);
+								if (!inputConfig.isHasMetricSeries()) {
+									view.setY(TransposeConverter.METRIC_SERIES_COLUMN);
+								}
 							}
 						}
-					// - multiple metrics
-					} else if (view.getY()==null || view.getColor()==null || view.getColumn()==null || view.getRow()==null) {
-						// set __VALUE
-						if (!inputConfig.isHasMetricValue()) {
+					} else if (kpis==1) {
+						// display a barchart or timeseries
+						if (view.getY()==null && !inputConfig.isHasMetric() && !inputConfig.isHasMetricValue()) {
+							view.setY(query.getMetrics().get(0));
+						}
+						for (String next : query.getGroupBy()) {
 							if (view.getX()==null) {
-								view.setX("__VALUE");
-							} else {
-								view.setY("__VALUE");
-							}
-						}
-						// set __METRICS
-						if (!inputConfig.isHasMetricSeries()) {
-							if (view.getY()==null) {
-								view.setY("__METRICS");
+								if (!next.equals(query.getPeriod())) {
+									// change the barchart orientation
+									view.setX(view.getY());
+									view.setY(next);
+								} else {
+									view.setX(next);
+								}
 							} else if (view.getColor()==null) {
-								view.setColor("__METRICS");
+								// use it as the column
+								view.setColor(next);
 							} else if (view.getColumn()==null) {
-								view.setColumn("__METRICS");
+								// use it as the column
+								view.setColumn(next);
 							} else if (view.getRow()==null) {
-								view.setRow("__METRICS");
-							}
-						}
-					}
-				}
-			// TIME-SERIES
-			} else if (config.getCurrentAnalysis()!=null && config.getCurrentAnalysis().equalsIgnoreCase(BookmarkConfig.TIMESERIES_ANALYSIS)) {
-				// use the period as the x
-				if (view.getX()==null && !inputConfig.isTimeseries()) {
-					view.setX("__PERIOD");
-				}
-				// take care of y axis and metrics
-				if (view.getY()==null && (!inputConfig.isHasMetric() || !inputConfig.isHasMetricValue())) {
-					if (kpis==0 && !inputConfig.isHasMetric()) {
-						// we need a default metric
-						view.setY("count() // this is the default metric");
-					} else if (kpis==1 && !inputConfig.isHasMetric()) {
-						// we can only use the first one for now
-						view.setY(query.getMetrics().get(0));
-					} else if (!inputConfig.isHasMetricValue()) {
-						view.setY(TransposeConverter.METRIC_VALUE_COLUMN);
-						if (!inputConfig.isHasMetricSeries()) {
-							if (view.getColor()==null) {
-								view.setColor(TransposeConverter.METRIC_SERIES_COLUMN);
-							} else if (view.getColumn()==null) {
-								view.setColumn(TransposeConverter.METRIC_SERIES_COLUMN);
-							} else if (view.getRow()==null) {
-								view.setRow(TransposeConverter.METRIC_SERIES_COLUMN);
-							}
-						}
-					}
-				}
-				// add reminding groupBy
-				int next = 0;
-				while (next<dims) {
-					String groupBy = query.getGroupBy().get(next++);
-					if (!groupBy.equals("__PERIOD") && !groupBy.equals(query.getPeriod()) && !inputConfig.getRequired().getGroupBy().contains(groupBy)) {
-						if (view.getColor()==null) {
-							// use it as the color
-							view.setColor(groupBy);
-						} else if (view.getColumn()==null) {
-							// use it as the column
-							view.setColumn(groupBy);
-						} else if (view.getRow()==null) {
-							// use it as the column
-							view.setRow(groupBy);
-						} else {
-							break;// no more channel available
-						}
-					}
-				}
-			// BARCHART 
-			} else if (config.getCurrentAnalysis()!=null && config.getCurrentAnalysis().equalsIgnoreCase(BookmarkConfig.BARCHART_ANALYSIS)) {
-				if (view.getY()==null && (!inputConfig.isHasMetric() || !inputConfig.isHasMetricValue())) {
-					if (kpis==0 && !inputConfig.isHasMetric()) {
-						// we need a default metric
-						view.setY("count() // this is the default metric");
-					} else if (kpis==1 && !inputConfig.isHasMetric()) {
-						// we can only use the first one for now
-						view.setY(query.getMetrics().get(0));
-					} else if (!inputConfig.isHasMetricValue()) {
-						view.setY(TransposeConverter.METRIC_VALUE_COLUMN);
-						if (!inputConfig.isHasMetricSeries()) {
-							if (view.getColor()==null) {
-								view.setColor(TransposeConverter.METRIC_SERIES_COLUMN);
-							} else if (view.getColumn()==null) {
-								view.setColumn(TransposeConverter.METRIC_SERIES_COLUMN);
-							} else if (view.getRow()==null) {
-								view.setRow(TransposeConverter.METRIC_SERIES_COLUMN);
-							}
-						}
-					}
-				}
-				// add reminding groupBy
-				int next = 0;
-				while (next<dims) {
-					if (!inputConfig.getRequired().getGroupBy().contains(query.getGroupBy().get(next))) {
-						if (view.getX()==null) {
-							// use it as the x
-							view.setX(query.getGroupBy().get(next++));
-						} else if (view.getColor()==null) {
-							// use it as the color
-							view.setColor(query.getGroupBy().get(next++));
-						} else if (view.getColumn()==null) {
-							// use it as the column
-							view.setColumn(query.getGroupBy().get(next++));
-						} else if (view.getRow()==null) {
-							// use it as the column
-							view.setRow(query.getGroupBy().get(next++));
-						} else {
-							break;// no more channel available
-						}
-					}
-				}
-			} else {// TABLE_ANALYSIS or unknown
-				if (kpis==0) {
-					// we need at least one dim
-					query.setMetrics(Collections.singletonList("count() // this is the default metric"));
-					kpis++;
-				}
-				if (dims==0) {
-					// just display the metrics
-					if (view.getX()==null && !inputConfig.isHasMetric() && !inputConfig.isHasMetricValue()) {
-						if (kpis==1) {
-							view.setX(query.getMetrics().get(0));
-						} else {
-							// multi-kpis
-							view.setX(TransposeConverter.METRIC_VALUE_COLUMN);
-							if (!inputConfig.isHasMetricSeries()) {
-								view.setY(TransposeConverter.METRIC_SERIES_COLUMN);
-							}
-						}
-					}
-				} else if (kpis==1) {
-					// display a barchart or timeseries
-					if (view.getY()==null && !inputConfig.isHasMetric() && !inputConfig.isHasMetricValue()) {
-						view.setY(query.getMetrics().get(0));
-					}
-					for (String next : query.getGroupBy()) {
-						if (view.getX()==null) {
-							if (!next.equals(query.getPeriod())) {
-								// change the barchart orientation
-								view.setX(view.getY());
-								view.setY(next);
+								// use it as the column
+								view.setRow(next);
 							} else {
-								view.setX(next);
+								break;// no more channel available
 							}
-						} else if (view.getColor()==null) {
-							// use it as the column
-							view.setColor(next);
-						} else if (view.getColumn()==null) {
-							// use it as the column
-							view.setColumn(next);
-						} else if (view.getRow()==null) {
-							// use it as the column
-							view.setRow(next);
-						} else {
-							break;// no more channel available
 						}
-					}
-				} else {
-					// multiple kpis
-					if (view.getX()==null) {
-						view.setX(query.getGroupBy().get(0));
-					}
-					if (view.getY()==null && !inputConfig.isHasMetric()) {
-						if (!inputConfig.isHasMetricValue()) {
-							view.setY(TransposeConverter.METRIC_VALUE_COLUMN);
+					} else {
+						// multiple kpis
+						if (view.getX()==null) {
+							view.setX(query.getGroupBy().get(0));
 						}
-						if (!inputConfig.isHasMetricSeries()) {
-							if (view.getColor()==null) {
-								view.setColor(TransposeConverter.METRIC_SERIES_COLUMN);
-							} else if (view.getColumn()==null) {
-								view.setColumn(TransposeConverter.METRIC_SERIES_COLUMN);
+						if (view.getY()==null && !inputConfig.isHasMetric()) {
+							if (!inputConfig.isHasMetricValue()) {
+								view.setY(TransposeConverter.METRIC_VALUE_COLUMN);
+							}
+							if (!inputConfig.isHasMetricSeries()) {
+								if (view.getColor()==null) {
+									view.setColor(TransposeConverter.METRIC_SERIES_COLUMN);
+								} else if (view.getColumn()==null) {
+									view.setColumn(TransposeConverter.METRIC_SERIES_COLUMN);
+								} else if (view.getRow()==null) {
+									view.setRow(TransposeConverter.METRIC_SERIES_COLUMN);
+								}
+							}
+						}
+						int next = 1;
+						while (next<dims) {
+							if (view.getColumn()==null) {
+								// use it as the column
+								view.setColumn(query.getGroupBy().get(next++));
 							} else if (view.getRow()==null) {
-								view.setRow(TransposeConverter.METRIC_SERIES_COLUMN);
+								// use it as the column
+								view.setRow(query.getGroupBy().get(next++));
+							} else {
+								break;// no more channel available
 							}
 						}
 					}
-					int next = 1;
-					while (next<dims) {
-						if (view.getColumn()==null) {
-							// use it as the column
-							view.setColumn(query.getGroupBy().get(next++));
-						} else if (view.getRow()==null) {
-							// use it as the column
-							view.setRow(query.getGroupBy().get(next++));
-						} else {
-							break;// no more channel available
-						}
-					}
 				}
 			}
-		}
-		// rollup is not supported
-		if (query.getRollups()!=null) {
-			query.setRollups(null);
-		}
-		//
-		//
-		VegaliteSpecs specs = new VegaliteSpecs();
-		specs.encoding.x = outputConfig.createChannelDef("x", view.getX());
-		specs.encoding.y = outputConfig.createChannelDef("y", view.getY());
-		specs.encoding.color = outputConfig.createChannelDef("color", view.getColor());
-		specs.encoding.size = outputConfig.createChannelDef("size", view.getSize());
-		specs.encoding.column = outputConfig.createChannelDef("column", view.getColumn());
-		specs.encoding.row = outputConfig.createChannelDef("row", view.getRow());
-		//
-		if (specs.encoding.x!=null && specs.encoding.y!=null) {
-			if (specs.encoding.x.type==DataType.nominal && specs.encoding.y.type==DataType.quantitative) {
-				// auto sort
-				specs.encoding.x.sort = new Sort(specs.encoding.y.field, Operation.max, Order.descending);
-			} else if (specs.encoding.y.type==DataType.nominal && specs.encoding.x.type==DataType.quantitative) {
-				// auto sort
-				specs.encoding.y.sort = new Sort(specs.encoding.x.field, Operation.max, Order.descending);
+			// rollup is not supported
+			if (query.getRollups()!=null) {
+				query.setRollups(null);
 			}
-		}
-		//
-		// force using required
-		query.setGroupBy(outputConfig.getRequired().getGroupBy());
-		query.setMetrics(outputConfig.getRequired().getMetrics());
-		//
-		// enforce the explicit limit
-		if (explicitLimit==null) {// compute the default
-			int validDimensions = dims;
-			if (outputConfig.isTimeseries()) validDimensions--;
-			if (outputConfig.isHasMetricSeries()) validDimensions--;// excluding the metrics series
-			if (dims>0) {
-				explicitLimit = 10L;// keep 10 for each dim
-				for (int i = validDimensions-1; i>0; i--) explicitLimit = explicitLimit*10;// get the power
-			}
-		}
-		if (explicitLimit!=null && // if time-series, there's not explicit limit
-				(query.getLimit()==null || query.getLimit()>explicitLimit)) {
-			query.setLimit(explicitLimit);
-		}
-		// beyond limit
-		if (outputConfig.isTimeseries()) {
-			query.setBeyondLimit(Collections.singletonList(Integer.toString(outputConfig.getTimeseriesPosition())));
-			query.setMaxResults(null);
-		} else {
 			//
-			// set limit of not defined
-			if (query.getLimit()==null) {
-				query.setLimit((long) 100);
+			//
+			VegaliteSpecs specs = new VegaliteSpecs();
+			specs.encoding.x = outputConfig.createChannelDef("x", view.getX());
+			specs.encoding.y = outputConfig.createChannelDef("y", view.getY());
+			specs.encoding.color = outputConfig.createChannelDef("color", view.getColor());
+			specs.encoding.size = outputConfig.createChannelDef("size", view.getSize());
+			specs.encoding.column = outputConfig.createChannelDef("column", view.getColumn());
+			specs.encoding.row = outputConfig.createChannelDef("row", view.getRow());
+			//
+			if (specs.encoding.x!=null && specs.encoding.y!=null) {
+				if (specs.encoding.x.type==DataType.nominal && specs.encoding.y.type==DataType.quantitative) {
+					// auto sort
+					specs.encoding.x.sort = new Sort(specs.encoding.y.field, Operation.max, Order.descending);
+				} else if (specs.encoding.y.type==DataType.nominal && specs.encoding.x.type==DataType.quantitative) {
+					// auto sort
+					specs.encoding.y.sort = new Sort(specs.encoding.x.field, Operation.max, Order.descending);
+				}
 			}
-		}
-		final int startIndex = query.getStartIndex()!=null?query.getStartIndex():0;
-		final int maxResults = query.getMaxResults()!=null?query.getMaxResults():(query.getLimit()!=null?query.getLimit().intValue():100);
-		// make sure we order by something
-		if (query.getOrderBy()==null || query.getOrderBy().size()==0) {
-			if (query.getMetrics().size()>0) {
-				ExpressionAST m = outputConfig.parse(query.getMetrics().get(0));
-				query.setOrderBy(Collections.singletonList("desc("+outputConfig.prettyPrint(m)+")"));
+			//
+			// force using required
+			query.setGroupBy(outputConfig.getRequired().getGroupBy());
+			query.setMetrics(outputConfig.getRequired().getMetrics());
+			//
+			// enforce the explicit limit
+			if (explicitLimit==null) {// compute the default
+				int validDimensions = dims;
+				if (outputConfig.isTimeseries()) validDimensions--;
+				if (outputConfig.isHasMetricSeries()) validDimensions--;// excluding the metrics series
+				if (dims>0) {
+					explicitLimit = 10L;// keep 10 for each dim
+					for (int i = validDimensions-1; i>0; i--) explicitLimit = explicitLimit*10;// get the power
+				}
+			}
+			if (explicitLimit!=null && // if time-series, there's not explicit limit
+					(query.getLimit()==null || query.getLimit()>explicitLimit)) {
+				query.setLimit(explicitLimit);
+			}
+			// beyond limit
+			if (outputConfig.isTimeseries()) {
+				query.setBeyondLimit(Collections.singletonList(Integer.toString(outputConfig.getTimeseriesPosition())));
+				query.setMaxResults(null);
 			} else {
-				query.setOrderBy(Collections.singletonList("desc(count())"));
+				//
+				// set limit of not defined
+				if (query.getLimit()==null) {
+					query.setLimit((long) 20);
+				}
 			}
-		} else {
-			// check orderBy
-			if (query.getMetrics().size()>0) {
-				ExpressionAST m = outputConfig.parse(query.getMetrics().get(0));
-				boolean check = false;
-				for (String orderBy : query.getOrderBy()) {
-					ExpressionAST o = outputConfig.parse(orderBy);
-					if (o.getImageDomain().isInstanceOf(DomainSort.DOMAIN) && o instanceof Operator) {
-						// remove the first operator
-						Operator op = (Operator)o;
-						if (op.getArguments().size()==1 
-								&& (op.getOperatorDefinition().getExtendedID().equals(SortOperatorDefinition.ASC_ID)
-								|| op.getOperatorDefinition().getExtendedID().equals(SortOperatorDefinition.DESC_ID))) 
-						{
-							o = op.getArguments().get(0);
+			final int startIndex = query.getStartIndex()!=null?query.getStartIndex():0;
+			final int maxResults = query.getMaxResults()!=null?query.getMaxResults():(query.getLimit()!=null?query.getLimit().intValue():100);
+			// make sure we order by something
+			if (query.getOrderBy()==null || query.getOrderBy().size()==0) {
+				if (query.getMetrics().size()>0) {
+					ExpressionAST m = outputConfig.parse(query.getMetrics().get(0));
+					query.setOrderBy(Collections.singletonList("desc("+outputConfig.prettyPrint(m)+")"));
+				} else {
+					query.setOrderBy(Collections.singletonList("desc(count())"));
+				}
+			} else {
+				// check orderBy
+				if (query.getMetrics().size()>0) {
+					ExpressionAST m = outputConfig.parse(query.getMetrics().get(0));
+					boolean check = false;
+					for (String orderBy : query.getOrderBy()) {
+						ExpressionAST o = outputConfig.parse(orderBy);
+						if (o.getImageDomain().isInstanceOf(DomainSort.DOMAIN) && o instanceof Operator) {
+							// remove the first operator
+							Operator op = (Operator)o;
+							if (op.getArguments().size()==1 
+									&& (op.getOperatorDefinition().getExtendedID().equals(SortOperatorDefinition.ASC_ID)
+									|| op.getOperatorDefinition().getExtendedID().equals(SortOperatorDefinition.DESC_ID))) 
+							{
+								o = op.getArguments().get(0);
+							}
+						}
+						if (o.equals(m)) {
+							check = true;
 						}
 					}
-					if (o.equals(m)) {
-						check = true;
+					if (!check) {
+						query.getOrderBy().add(0, "desc("+outputConfig.prettyPrint(m)+")");
 					}
 				}
-				if (!check) {
-					query.getOrderBy().add(0, "desc("+outputConfig.prettyPrint(m)+")");
-				}
 			}
-		}
-		//
-		// create the facet selection
-		FacetSelection selection = createFacetSelection(space, query);
-		final ProjectAnalysisJob job = createAnalysisJob(space, query, selection, OutputFormat.JSON);
-		//
-		// handling data
-		ResultInfo info = null;
-		if (data.equals("EMBEDED") || data.equals("EMBEDDED")) {
-			DataMatrix matrix = compute(userContext, job, query.getMaxResults(), query.getStartIndex(), false);
-			if (!outputConfig.isHasMetricSeries()) {
-				specs.data = transformToVegaData(query, matrix, DataLayout.RECORDS);
+			//
+			// create the facet selection
+			FacetSelection selection = createFacetSelection(space, query);
+			final ProjectAnalysisJob job = createAnalysisJob(space, query, selection, OutputFormat.JSON);
+			//
+			// handling data
+			ResultInfo info = null;
+			if (data.equals("EMBEDED") || data.equals("EMBEDDED")) {
+				DataMatrix matrix = compute(userContext, job, query.getMaxResults(), query.getStartIndex(), false);
+				if (!outputConfig.isHasMetricSeries()) {
+					specs.data = transformToVegaData(query, matrix, DataLayout.RECORDS);
+				} else {
+					specs.data = transformToVegaData(query, matrix, DataLayout.TRANSPOSE);
+				}
+				int end = startIndex+maxResults;
+				if (end>matrix.getRows().size()) end=matrix.getRows().size();
+				info = getAnalyticsResultInfo(end-startIndex, startIndex, matrix);
+			} else if (data.equals("URL")) {
+				if (preFetch || style==Style.HTML) {// always prefetch if HTML
+					// run the query
+					Callable<DataMatrix> task = new Callable<DataMatrix>() {
+						@Override
+						public DataMatrix call() throws Exception {
+							return compute(userContext, job, maxResults, startIndex, false);
+						}
+					};
+					// execute the task, no need to wait for result
+					Future<DataMatrix> future = ExecutionManager.INSTANCE.submit(userContext.getCustomerId(), task);
+					if (style==Style.HTML) {
+						// in that case we want to wait for the result in order to get data info
+						try {
+							DataMatrix matrix = future.get();
+							int end = startIndex+maxResults;
+							if (end>matrix.getRows().size()) end=matrix.getRows().size();
+							info = getAnalyticsResultInfo(end-startIndex, startIndex, matrix);
+						} catch (ExecutionException e) {
+							throwCauseException(e);
+						}
+					}
+				}
+				specs.data = new Data();
+				HashMap<String, Object> options = new HashMap<>();
+				options.put(AnalyticsServiceConstants.COMPARETO_COMPUTE_GROWTH_PARAM, false);
+				if (!outputConfig.isHasMetricSeries()) {
+					specs.data.url = buildAnalyticsQueryURI(userContext, query, "RECORDS", "DATA", null/*default style*/, options).toString();
+				} else {
+					specs.data.url = buildAnalyticsQueryURI(userContext, query, "TRANSPOSE", "DATA", null/*default style*/, options).toString();
+				}
+				specs.data.format = new Format();
+				specs.data.format.type = FormatType.json;// lowercase only!
 			} else {
-				specs.data = transformToVegaData(query, matrix, DataLayout.TRANSPOSE);
+				throw new APIException("undefined value for data parameter, must be EMBEDDED or URL");
 			}
-			int end = startIndex+maxResults;
-			if (end>matrix.getRows().size()) end=matrix.getRows().size();
-			info = getAnalyticsResultInfo(end-startIndex, startIndex, matrix);
-		} else if (data.equals("URL")) {
-			if (preFetch || style==Style.HTML) {// always prefetch if HTML
-				// run the query
-				Callable<DataMatrix> task = new Callable<DataMatrix>() {
-					@Override
-					public DataMatrix call() throws Exception {
-						return compute(userContext, job, maxResults, startIndex, false);
+			// mark
+			if (outputConfig.isTimeseries()) {
+				specs.mark = Mark.line;
+			} else {
+				 if (specs.encoding.x!=null && specs.encoding.x.type==DataType.quantitative && specs.encoding.y!=null && specs.encoding.y.type==DataType.quantitative) {
+						// use ticks
+					 if (specs.encoding.size!=null) {
+						 specs.mark = Mark.circle;
+					 } else {
+						 specs.mark = Mark.point;
+					 }
+				 } else {
+					 specs.mark = Mark.bar;
+				 }
+			}
+			// size
+			if (specs.encoding.row==null && specs.encoding.column==null) {
+				specs.config.cell = new VegaliteSpecs.Cell(640,400);
+			}
+			//
+			ViewReply reply = new ViewReply();
+			reply.setQuery(query);
+			reply.setResult(specs);
+			//
+			if (envelope==null) {
+				envelope = computeEnvelope(query);
+			}
+			//
+			if (style!=null && style==Style.HTML) {
+				return generator.createHTMLPageView(userContext, space, view, info, reply);
+			} else if (envelope==null || envelope.equals("") || envelope.equalsIgnoreCase("RESULT")) {
+				return Response.ok(reply.getResult(), MediaType.APPLICATION_JSON_TYPE.toString()).build();
+			} else if(envelope.equalsIgnoreCase("ALL")) {
+				return Response.ok(reply, MediaType.APPLICATION_JSON_TYPE.toString()).build();
+			} else {
+				throw new InvalidIdAPIException("invalid parameter envelope="+envelope+", must be ALL, RESULT", true);
+			}
+		} catch (DatabaseServiceException | ComputingException | InterruptedException | ScopeException e) {
+			if (style==Style.HTML) {
+				view.add(new Problem(Severity.ERROR, "query", "unable to run the query, fatal error: " + e.getMessage(), e));
+				ViewReply reply = new ViewReply();
+				reply.setQuery(view);
+				return generator.createHTMLPageView(userContext, space, view, null, reply);
+			} else {
+				throw new APIException(e.getMessage(), true);
+			}
+		}
+	}
+	
+	private boolean handleMetrics(AnalyticsQueryImpl query, VegaliteConfigurator inputConfig, ViewQuery view, VegaliteSpecs channels, boolean hasMoreDimensions) throws ScopeException {
+		// add the metrics after the first dimension has been set
+		if (query.getMetrics()==null || query.getMetrics().size()==0) {
+			if (!inputConfig.isHasMetric()) {
+				// use count() for now
+				if (view.getX()==null) {
+					view.setX("count()");
+					channels.encoding.x = inputConfig.createChannelDef("x", view.getX());
+				} else {
+					view.setY("count()");
+					channels.encoding.y = inputConfig.createChannelDef("y", view.getY());
+				}
+			}
+		} else {
+			// display some metrics
+			// - single metric
+			if (query.getMetrics().size()==1) {
+				if (!inputConfig.isHasMetric()) {
+					if (query.getCompareTo()!=null && !query.getCompareTo().isEmpty() && !inputConfig.isHasMetricValue() && !inputConfig.isHasMetricValue()) {
+						// handle it like a multi-variate
+						if (view.getX()==null) {
+							view.setX("__VALUE");
+							channels.encoding.x = inputConfig.createChannelDef("x", view.getX());
+						} else if (view.getY()==null) {
+							view.setY("__VALUE");
+							channels.encoding.y = inputConfig.createChannelDef("y", view.getY());
+						}
+						if (view.getY()==null) {
+							view.setY("__METRICS");
+							channels.encoding.y = inputConfig.createChannelDef("y", view.getY());
+						} else if (view.getColor()==null) {
+							view.setColor("__METRICS");
+							channels.encoding.color = inputConfig.createChannelDef("color", view.getColor());
+						} else if (view.getColumn()==null) {
+							view.setColumn("__METRICS");
+							channels.encoding.column = inputConfig.createChannelDef("column", view.getColumn());
+						} else if (view.getRow()==null) {
+							view.setRow("__METRICS");
+							channels.encoding.row = inputConfig.createChannelDef("row", view.getRow());
+						}
+					} else {
+						if (view.getX()==null) {
+							view.setX(query.getMetrics().get(0));
+							channels.encoding.x = inputConfig.createChannelDef("x", view.getX());
+						} else if (view.getY()==null) {
+							view.setY(query.getMetrics().get(0));
+							channels.encoding.y = inputConfig.createChannelDef("y", view.getY());
+						}
 					}
-				};
-				// execute the task, no need to wait for result
-				Future<DataMatrix> future = ExecutionManager.INSTANCE.submit(userContext.getCustomerId(), task);
-				if (style==Style.HTML) {
-					// in that case we want to wait for the result in order to get data info
-					try {
-						DataMatrix matrix = future.get();
-						int end = startIndex+maxResults;
-						if (end>matrix.getRows().size()) end=matrix.getRows().size();
-						info = getAnalyticsResultInfo(end-startIndex, startIndex, matrix);
-					} catch (ExecutionException e) {
-						throwCauseException(e);
+				}
+			// - multiple metrics
+			} else if (view.getY()==null || view.getColor()==null || view.getColumn()==null || view.getRow()==null) {
+				// set __VALUE
+				if (!inputConfig.isHasMetricValue()) {
+					if (view.getX()==null) {
+						view.setX("__VALUE");
+						channels.encoding.x = inputConfig.createChannelDef("x", view.getX());
+					} else {
+						view.setY("__VALUE");
+						channels.encoding.y = inputConfig.createChannelDef("y", view.getY());
+					}
+				}
+				// set __METRICS
+				if (!inputConfig.isHasMetricSeries()) {
+					if (view.getY()==null) {
+						view.setY("__METRICS");
+						channels.encoding.y = inputConfig.createChannelDef("y", view.getY());
+					} else if (view.getColor()==null && !hasMoreDimensions) {
+						view.setColor("__METRICS");
+						channels.encoding.color = inputConfig.createChannelDef("color", view.getColor());
+					} else if (view.getColumn()==null) {
+						view.setColumn("__METRICS");
+						channels.encoding.column = inputConfig.createChannelDef("column", view.getColumn());
+					} else if (view.getRow()==null) {
+						view.setRow("__METRICS");
+						channels.encoding.row = inputConfig.createChannelDef("row", view.getRow());
 					}
 				}
 			}
-			specs.data = new Data();
-			if (!outputConfig.isHasMetricSeries()) {
-				specs.data.url = buildAnalyticsQueryURI(userContext, query, "RECORDS", "DATA", null/*default style*/, null).toString();
-			} else {
-				specs.data.url = buildAnalyticsQueryURI(userContext, query, "TRANSPOSE", "DATA", null/*default style*/, null).toString();
-			}
-			specs.data.format = new Format();
-			specs.data.format.type = FormatType.json;// lowercase only!
-		} else {
-			throw new APIException("undefined value for data parameter, must be EMBEDDED or URL");
 		}
-		// mark
-		if (outputConfig.isTimeseries()) {
-			specs.mark = Mark.line;
-		} else {
-			specs.mark = Mark.bar;
-		}
-		// size
-		if (specs.encoding.row==null && specs.encoding.column==null) {
-			specs.config.cell = new VegaliteSpecs.Cell(640,400);
-		}
-		//
-		ViewReply reply = new ViewReply();
-		reply.setQuery(query);
-		reply.setResult(specs);
-		//
-		if (envelope==null) {
-			envelope = computeEnvelope(query);
-		}
-		//
-		if (style!=null && style==Style.HTML) {
-			return generator.createHTMLPageView(userContext, space, view, info, reply);
-		} else if (envelope==null || envelope.equals("") || envelope.equalsIgnoreCase("RESULT")) {
-			return Response.ok(reply.getResult(), MediaType.APPLICATION_JSON_TYPE.toString()).build();
-		} else if(envelope.equalsIgnoreCase("ALL")) {
-			return Response.ok(reply, MediaType.APPLICATION_JSON_TYPE.toString()).build();
-		} else {
-			throw new InvalidIdAPIException("invalid parameter envelope="+envelope+", must be ALL, RESULT", true);
-		}
+		return true;
 	}
 	
 	/**

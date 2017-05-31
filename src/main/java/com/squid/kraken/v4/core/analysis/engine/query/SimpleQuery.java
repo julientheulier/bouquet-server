@@ -65,6 +65,7 @@ import com.squid.kraken.v4.core.analysis.engine.query.mapping.SimpleMapping;
 import com.squid.kraken.v4.core.analysis.engine.query.rollup.IRollupStrategy;
 import com.squid.kraken.v4.core.analysis.engine.query.rollup.RollupStrategySelector;
 import com.squid.kraken.v4.core.analysis.model.GroupByAxis;
+import com.squid.kraken.v4.core.analysis.model.OrderBy;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
 import com.squid.kraken.v4.core.analysis.universe.Measure;
 import com.squid.kraken.v4.core.analysis.universe.Space;
@@ -90,6 +91,8 @@ public class SimpleQuery extends BaseQuery {
 	private List<GroupByAxis> rollup = null;
 	private boolean rollupGrandTotal = false;
 
+	private boolean isAnalytics;
+
 	public SimpleQuery(Space subject) throws ScopeException, SQLScopeException {
 		super(subject.getUniverse(), subject.getRoot());
 		this.subject = subject.getRoot();
@@ -101,6 +104,9 @@ public class SimpleQuery extends BaseQuery {
 
 	public void select(Measure measure, ExpressionAST expr) throws SQLScopeException, ScopeException {
 		try {
+			if (expr.getImageDomain().isInstanceOf(AnalyticDomain.DOMAIN)) {
+				isAnalytics = true;
+			}
 			ISelectPiece piece = select.select(expr, measure.getName());
 			String name = measure.getName();
 			piece.addComment(name + " (Metric)");
@@ -136,16 +142,24 @@ public class SimpleQuery extends BaseQuery {
 				throw new SQLScopeException(
 						"cannot select '" + axis.getDimension().getName() + "': unsupported VECTOR expression");
 			}
+			/*
+			 * JTH 20170524 : remove this ugly Nautilus thing
+			 * https://phab.squidsolutions.com/T3110 
 			// ticket:3014 - handles predicate as case(P,true,null): we don't
 			// want to index false values
 			if (image.isInstanceOf(IDomain.CONDITIONAL)) {
 				// transform expr into case(expr,true,null)
 				expr = ExpressionMaker.CASE(expr, ExpressionMaker.TRUE(), ExpressionMaker.NULL());
 			}
+			*/
 			//
 			if (image.isInstanceOf(IDomain.OBJECT)) {
 				// ok, try to identify the foreign-key...
 				expr = extractRelation(axis, expr);
+			}
+			if (image.isInstanceOf(AnalyticDomain.DOMAIN)) {
+				throw new SQLScopeException(
+						"cannot select '" + axis.getName() + "' as a groupBy: must be selected as a metric");
 			}
 			AxisMapping ax = getMapper().find(axis);
 			if (ax != null) {// if there is already a slice, discard it
@@ -411,8 +425,13 @@ public class SimpleQuery extends BaseQuery {
 
 	@Override
 	public SQLScript generateScript() throws SQLScopeException {
+		if (isAnalytics) {
+			if (rollupGrandTotal || (rollup != null && !rollup.isEmpty())) {
+				throw new SQLScopeException("mixing rollup and analytics feature is not supported");
+			}
+			return generateQualifyScript();
 		// krkn-59: rollup support
-		if (rollupGrandTotal || (rollup != null && !rollup.isEmpty())) {
+		} else if (rollupGrandTotal || (rollup != null && !rollup.isEmpty())) {
 			IRollupStrategy strategy = RollupStrategySelector.selectStrategy(this, select, rollup, rollupGrandTotal,
 					getMapper());
 			return strategy.generateScript();
@@ -425,25 +444,94 @@ public class SimpleQuery extends BaseQuery {
 	@Override
 	protected SQLScript generateQualifyScript() throws SQLScopeException {
 		try {
+			// create a groub-by-free subselect where we can evaluate the analytics functions
+			// this one is derived from this.select statement
+			SelectUniversal inner = new SelectUniversal(getUniverse());
+			inner.from(getUniverse().S(getSubject()));
+			// create the outer select
+			SelectUniversal main = new SelectUniversal(getUniverse());
+			FromSelectUniversal from = main.from(inner);
+			main.getScope().put(getSubject(), from);
+			// add the axis
+			for (AxisMapping ax : getMapper().getAxisMapping()) {
+				ISelectPiece piece = inner.select(ax.getAxis().getDefinition(),ax.getPiece().getAlias());
+				SubSelectReferencePiece ref = new SubSelectReferencePiece(from, piece);
+				// make sure to use the same alias
+				ISelectPiece sel = main.select(ref, ax.getPiece().getAlias());
+				ax.setPiece(sel);// update the mapping... that's dangerous!
+			}
+			// handle the QUALIFY conditions
+			for (ExpressionAST condition : getConditions()) {
+				if (condition.getImageDomain().isInstanceOf(AnalyticDomain.DOMAIN)) {
+					try {
+						ExpressionAST rewrite = rewriteQualifyCondition(condition, main, from);
+						IWherePiece where = main.where(rewrite);
+						// override QUALIFY
+						where.setType(IWherePiece.WHERE);
+						where.addComment("QUALIFY clause: " + condition.prettyPrint());
+					} catch (SQLScopeException | ScopeException e) {
+						throw new SQLScopeException("cannot rewrite QuUALIFY condition: " + condition.prettyPrint()
+								+ " caused by:\n" + e.getLocalizedMessage());
+					}
+				} else if (condition.getImageDomain().isInstanceOf(IDomain.AGGREGATE)) {
+					IWherePiece where = main.where(condition);
+					// override QUALIFY
+					where.setType(IWherePiece.HAVING);
+					where.addComment("HAVING clause: " + condition.prettyPrint());
+				} else {
+					inner.where(condition);
+				}
+			}
+	        // standard filters
+	        for (Filter filter : getFilters()) {
+	            filter.applyFilter(inner);
+	        }
+			// select the measures
+			for (MeasureMapping mx : getMapper().getMeasureMapping()) {
+				ExpressionAST measure = mx.getMapping().getDefinition();
+				if (measure.getImageDomain().isInstanceOf(AnalyticDomain.DOMAIN)) {
+					try {
+						ExpressionAST rewrite = rewriteQualifyCondition(measure, main, from);
+						ISelectPiece piece = main.select(rewrite, mx.getPiece().getAlias());
+						mx.setPiece(piece);// update the mapping... that's dangerous!
+					} catch (SQLScopeException | ScopeException e) {
+						throw new SQLScopeException("cannot rewrite analytics measure: " + measure.prettyPrint()
+								+ " caused by:\n" + e.getLocalizedMessage());
+					}
+				} else {
+		            ISelectPiece piece = main.select(mx.getMapping().getDefinition(),mx.getPiece().getAlias());
+					piece.addComment(mx.getMapping().getName() + " (Metric)");
+					mx.setPiece(piece);// update the mapping... that's dangerous!
+				}
+			}
+			// orderBy
+			// -- resubmit the orderBy list
+			ArrayList<OrderBy> copy = new ArrayList<>(getOrderBy());
+			getOrderBy().clear();
+			orderBy(copy, getMapper(), main);
+			// limit & offset
+			if (select.getStatement().hasLimitValue()) {
+				main.getStatement().setLimitValue(select.getStatement().getLimitValue());
+				main.getStatement().setOffsetValue(select.getStatement().getOffsetValue());
+			}
+			//
+			return new SQLScript(main, getMapper());
+		} catch (ScopeException e) {
+			throw new SQLScopeException("Failed to generate the QUALIFY clause, caused by:\n" + e.getLocalizedMessage(),
+					e);
+		}
+	}
+
+	protected SQLScript generateQualifyScriptDeprecated() throws SQLScopeException {
+		try {
 			//
 			SelectUniversal main = new SelectUniversal(getUniverse());
 			FromSelectUniversal from = main.from(select);
+			from.getWrapperSelectInterface().getGrouping().setForceGroupBy(false);// cannot use group-by!!!
 			main.getStatement().addComment(select.getStatement().getComment());
 			main.getStatement().addComment("!! QUALIFY strategy: external query to filter on analytic features");
 			select.getStatement().addComment("!! QUALIFY strategy: compute analytic features");
-			// select the measures and dimensions
-			for (MeasureMapping mx : getMapper().getMeasureMapping()) {
-				SubSelectReferencePiece pieceRef = new SubSelectReferencePiece(from, mx.getPiece());
-				ISelectPiece piece = main.select(pieceRef, mx.getPiece().getAlias());// make
-																						// sure
-																						// to
-																						// use
-																						// the
-																						// same
-																						// alias
-				piece.addComment("copy of " + mx.getMapping().getName() + " (Metric)");
-				mx.setPiece(piece);// update the mapping... that's dangerous!
-			}
+			// select the dimensions
 			for (AxisMapping ax : getMapper().getAxisMapping()) {
 				SubSelectReferencePiece pieceRef = new SubSelectReferencePiece(from, ax.getPiece());
 				ISelectPiece piece = main.select(pieceRef, ax.getPiece().getAlias());// make
@@ -471,9 +559,23 @@ public class SimpleQuery extends BaseQuery {
 					}
 				}
 			}
+			//
+			// select the measures
+			for (MeasureMapping mx : getMapper().getMeasureMapping()) {
+				SubSelectReferencePiece pieceRef = new SubSelectReferencePiece(from, mx.getPiece());
+				ISelectPiece piece = main.select(pieceRef, mx.getPiece().getAlias());// make
+																						// sure
+																						// to
+																						// use
+																						// the
+																						// same
+																						// alias
+				piece.addComment("copy of " + mx.getMapping().getName() + " (Metric)");
+				mx.setPiece(piece);// update the mapping... that's dangerous!
+			}
 			return new SQLScript(main, getMapper());
 		} catch (SQLScopeException e) {
-			throw new SQLScopeException("Failed to generate the QUALIFY clause, caused by:\n" + e.getLocalizedMessage(),
+			throw new SQLScopeException("Failed to generate the analytics features, caused by:\n" + e.getLocalizedMessage(),
 					e);
 		}
 	}
@@ -486,8 +588,22 @@ public class SimpleQuery extends BaseQuery {
 			if (expression instanceof Operator) {
 				Operator op = (Operator) expression;
 				if (op.getOperatorDefinition() instanceof OrderedAnalyticOperatorDefinition) {
-					// analytics operator
-					throw new SQLScopeException("cannot rewrite QuUALIFY expression: " + expression.prettyPrint());
+					Object binding = mainSelect.getScope().get(op);
+					if (binding!=null) {
+						if (!(binding instanceof SubSelectReferencePiece)) {
+							// ok, already bound but by someone else?
+							throw new SQLScopeException("cannot rewrite analytics feature: " + expression.prettyPrint());
+						}
+					} else {
+						// compute the analytic operator in the sub query
+						ISelectPiece select = from.getWrapperSelectInterface().select(op);
+						// create a reference
+						SubSelectReferencePiece ref = new SubSelectReferencePiece(from, select);
+						// register the reference in the outer scope
+						mainSelect.getScope().put(op, ref);
+						// return the operator that will be overriden by the scope
+					}
+					return ExpressionMaker.GROUP(op);// add a group around it to force overriding... (if not it may fail if it is the top level expression)
 				} else {
 					// continue...
 					Operator rewrite = new Operator(op.getOperatorDefinition());
@@ -519,7 +635,7 @@ public class SimpleQuery extends BaseQuery {
 				}
 			}
 			// else
-			throw new SQLScopeException("cannot rewrite QuUALIFY expression: " + expression.prettyPrint());
+			throw new SQLScopeException("cannot rewrite analytics feature: " + expression.prettyPrint());
 		} else {
 			// do nothing
 			return expression;

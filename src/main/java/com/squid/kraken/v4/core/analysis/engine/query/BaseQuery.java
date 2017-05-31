@@ -42,7 +42,6 @@ import com.squid.core.domain.analytics.AnalyticDomain;
 import com.squid.core.domain.sort.SortOperatorDefinition;
 import com.squid.core.expression.ConstantValue;
 import com.squid.core.expression.ExpressionAST;
-import com.squid.core.expression.ExpressionLeaf;
 import com.squid.core.expression.Operator;
 import com.squid.core.expression.scope.ExpressionMaker;
 import com.squid.core.expression.scope.ScopeException;
@@ -169,6 +168,11 @@ public class BaseQuery implements IQuery {
 	 * @throws ScopeException
 	 */
 	public void orderBy(List<OrderBy> orders) throws ScopeException, SQLScopeException {
+		orderBy(orders, mapper, select);
+	}
+	
+
+	public void orderBy(List<OrderBy> orders, QueryMapper mapper, SelectUniversal select) throws ScopeException, SQLScopeException {
 		boolean hasSimpleOrders = true;
 		for (OrderBy order : orders) {
 			orderBy.add(order);

@@ -60,8 +60,10 @@ import com.squid.core.sql.render.ISelectPiece;
 import com.squid.core.sql.render.ITypedPiece;
 import com.squid.core.sql.render.NullPiece;
 import com.squid.core.sql.render.OperatorPiece;
+import com.squid.core.sql.render.RenderingException;
 import com.squid.core.sql.render.SQLSkin;
 import com.squid.core.sql.render.SimpleConstantValuePiece;
+import com.squid.core.sql.render.SubSelectReferencePiece;
 import com.squid.kraken.v4.core.analysis.scope.AxisExpression;
 import com.squid.kraken.v4.core.analysis.scope.MeasureExpression;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
@@ -126,11 +128,19 @@ public abstract class PieceCreator implements ISelect {
 	}
 	
 	public IPiece createPiece(Context ctx, ExpressionAST expression) throws SQLScopeException, ScopeException {
-		return createPiece(ctx, getScope(), expression);
+		return createPiece(ctx, getScope(), expression, null);
+	}
+	
+	public IPiece createPiece(Context ctx, ExpressionAST expression, Object mapping) throws SQLScopeException, ScopeException {
+		return createPiece(ctx, getScope(), expression, mapping);
+	}
+
+	public IPiece createPiece(Context ctx, Scope parent, ExpressionAST expression) throws SQLScopeException, ScopeException {
+		return createPiece(ctx, parent, expression, null);
 	}
 	
 	@Override
-	public IPiece createPiece(Context ctx, Scope parent, ExpressionAST expression) throws SQLScopeException, ScopeException {
+	public IPiece createPiece(Context ctx, Scope parent, ExpressionAST expression, Object mapping) throws SQLScopeException, ScopeException {
 		//
 		// check the binding... that enable overriding an expression
 		Object binding = parent.get(expression);
@@ -151,44 +161,44 @@ public abstract class PieceCreator implements ISelect {
 			getGrouping().setForceGroupBy(true);
 		}
 		if (expression instanceof Compose) {
-			return createPieceCompose(ctx, parent, (Compose)expression);
+			return createPieceCompose(ctx, parent, (Compose)expression, mapping);
 		} else if (expression instanceof Operator) {
-			return createPieceOperator(ctx, parent, (Operator)expression);
+			return createPieceOperator(ctx, parent, (Operator)expression, mapping);
 		} else {
-			return createPieceLeaf(ctx, parent,(ExpressionAST)expression);
+			return createPieceLeaf(ctx, parent,(ExpressionAST)expression, mapping);
 		}
 	}
 
-	protected IPiece createPieceCompose(Context ctx, Scope parent, Compose expression) throws SQLScopeException, ScopeException {
+	protected IPiece createPieceCompose(Context ctx, Scope parent, Compose expression, Object mapping) throws SQLScopeException, ScopeException {
 		Scope subscope = parent;
 		for (ExpressionAST segment : expression.getBody()) {
 			if (segment!=expression.getHead()) {
 				IFromPiece from = from(ctx, subscope, segment);
 				subscope = from.getScope();
 			} else {
-				return createPiece(ctx, subscope, segment);
+				return createPiece(ctx, subscope, segment, mapping);
 			}
 		}
 		// we should not get there...
 		throw new ScopeException("invalid expression: "+expression.toString());
 	}
 
-	private IPiece createPieceLeaf(Context ctx, Scope parent, ExpressionAST expression) throws SQLScopeException, ScopeException {
+	private IPiece createPieceLeaf(Context ctx, Scope parent, ExpressionAST expression, Object mapping) throws SQLScopeException, ScopeException {
 		//
 		// Universe scope
 		if (expression instanceof AxisExpression) {
-			return createPiece(ctx, parent, ((AxisExpression)expression).getAxis().getDefinition());
+			return createPiece(ctx, parent, ((AxisExpression)expression).getAxis().getDefinition(), mapping);
 		}
 		if (expression instanceof MeasureExpression) {
-			return createPiece(ctx, parent, ((MeasureExpression)expression).getMeasure().getDefinition());
+			return createPiece(ctx, parent, ((MeasureExpression)expression).getMeasure().getDefinition(), mapping);
 		}
 		//
 		// database scope
 		if (expression instanceof ColumnReference) {
-			return createPiece(parent,((ColumnReference)expression).getColumn());
+			return createPiece(parent,((ColumnReference)expression).getColumn(), mapping);
 		}
 		if (expression instanceof ForeignKeyReference) {
-			return createPiece(ctx, parent,((ForeignKeyReference)expression).getForeignKey());
+			return createPiece(ctx, parent,((ForeignKeyReference)expression).getForeignKey(), mapping);
 		}
 		//
 		// intrinsic scope
@@ -211,16 +221,16 @@ public abstract class PieceCreator implements ISelect {
 	 * @throws SQLScopeException 
 	 * @throws ScopeException 
 	 */
-	private IPiece createPiece(Context ctx, Scope parent, ForeignKey foreignKey) throws ScopeException, SQLScopeException {
+	private IPiece createPiece(Context ctx, Scope parent, ForeignKey foreignKey, Object mapping) throws ScopeException, SQLScopeException {
 		// create the fk expression
 		List<ExpressionAST> joins = new LinkedList<ExpressionAST>();
 		for (KeyPair pair : foreignKey.getKeys()) {
 			joins.add(ExpressionMaker.EQUAL(new ColumnReference(pair.getPrimary()), new ColumnReference(pair.getExported())));
 		}
 		if (joins.size()==1) {
-			return createPiece(ctx, parent,joins.get(0));
+			return createPiece(ctx, parent,joins.get(0), mapping);
 		} else if (joins.size()>1) {
-			return createPiece(ctx, parent,ExpressionMaker.AND(joins));
+			return createPiece(ctx, parent,ExpressionMaker.AND(joins), mapping);
 		} else {
 			throw new ScopeException("undefined foreignKey '"+foreignKey.getName()+"' from table "+foreignKey.getForeignTable()+" to table "+foreignKey.getPrimaryTable());
 		}
@@ -231,9 +241,24 @@ public abstract class PieceCreator implements ISelect {
 	 * @param parent
 	 * @param column
 	 * @return
+	 * @throws SQLScopeException 
+	 * @throws ScopeException 
 	 */
-	public IPiece createPiece(Scope parent, Column column) {
-		return new ColumnPiece(parent,column);
+	public IPiece createPiece(Scope parent, Column column, Object mapping) throws ScopeException, SQLScopeException {
+		try {
+			return new ColumnPiece(parent,column);
+		} catch (SQLScopeException e) {
+			if (mapping instanceof FromSelectUniversal) {
+				FromSelectUniversal from = (FromSelectUniversal)mapping;
+				ExpressionAST expression = new ColumnReference(column);
+				ISelectPiece piece = from.getWrapperSelectInterface().select(expression);
+				SubSelectReferencePiece ref = new SubSelectReferencePiece(from, piece);
+				parent.put(column,  ref);
+				return ref;
+			} else {
+				throw e;
+			}
+		}
 	}
 
 	/**
@@ -244,7 +269,7 @@ public abstract class PieceCreator implements ISelect {
 	 * @throws SQLScopeException
 	 * @throws ScopeException
 	 */
-	private IPiece createPieceOperator(Context ctx, Scope parent, Operator operator) throws SQLScopeException, ScopeException {
+	private IPiece createPieceOperator(Context ctx, Scope parent, Operator operator, Object mapping) throws SQLScopeException, ScopeException {
 		// special case to handle EXISTS operator
 		if (operator.getOperatorDefinition().getId()==IntrinsicOperators.EXISTS) {
 			return createExistsOperator(parent,operator);
@@ -256,7 +281,7 @@ public abstract class PieceCreator implements ISelect {
 			int i=0;
 			for (Iterator<ExpressionAST> iter = operator.getArguments().iterator();iter.hasNext();i++) {
 				ExpressionAST argument = iter.next();
-				IPiece p = createPiece(ctx, parent, argument);
+				IPiece p = createPiece(ctx, parent, argument, mapping);
 				if (p instanceof ITypedPiece) {
 					types[i] = ((ITypedPiece)p).getType();
 					// double-check

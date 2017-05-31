@@ -52,6 +52,7 @@ public interface AnalyticsServiceConstants {
 	public static final String ROLLUP_PARAM = "rollup";
 	public static final String ORDERBY_PARAM = "orderBy";
 	public static final String COMPARETO_PARAM = "compareTo";
+	public static final String COMPARETO_COMPUTE_GROWTH_PARAM = "computeGrowth";
 	public static final String TIMEFRAME_PARAM = "timeframe";
 	public static final String PERIOD_PARAM = "period";
 	public static final String METRICS_PARAM = "metrics";
@@ -65,6 +66,7 @@ public interface AnalyticsServiceConstants {
 	public static final String PERIOD_DOC = "the period defines a dimension or expression of a type date that is used to restrict the timeframe. You can use the __PERIOD expression as a alias to it in other parameters (e.g.: "+GROUP_BY_PARAM+","+ORDERBY_PARAM+"...).";
 	public static final String TIMEFRAME_DOC = "the timeframe defines the period range to filter. You can use an array of two dates for lower/upper bounds (inclusive). Or some alias like __ALL, __LAST_DAY, __LAST_7_DAYS, __CURRENT_MONTH, __PREVIOUS_MONTH, __CURRENT_YEAR, __PREVIOUS_YEAR";
 	public static final String COMPARETO_DOC = "Activate and define the compare to period. You can use an array of two dates for lower/upper bounds (inclusive). Or some alias like __COMPARE_TO_PREVIOUS_PERIOD, __COMPARE_TO_PREVIOUS_MONTH, __COMPARE_TO_PREVIOUS_YEAR";
+	public static final String COMPARETO_COMPUTE_GROWTH_DOC = "When set to true and using the compareTo feature, compute the growth between present and past periods (default is true)";
 	
 	public static final String GROUPBY_DOC = "Define the facets to agroup by the results. Facet can be defined using it's ID or any valid expression. If empty, the subject default parameters will apply. You can use the * token to extend the subject default parameters.";
 	public static final String METRICS_DOC = "Define the metrics to compute. Metric can be defined using it's ID or any valid expression. If empty, the subject default parameters will apply. You can use the * token to extend the subject default parameters.";
