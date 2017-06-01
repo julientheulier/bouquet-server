@@ -76,6 +76,7 @@ import com.squid.core.domain.sort.SortOperatorDefinition;
 import com.squid.core.domain.vector.VectorOperatorDefinition;
 import com.squid.core.expression.ConstantValue;
 import com.squid.core.expression.ExpressionAST;
+import com.squid.core.expression.NumericConstant;
 import com.squid.core.expression.Operator;
 import com.squid.core.expression.PrettyPrintOptions;
 import com.squid.core.expression.PrettyPrintOptions.ReferenceStyle;
@@ -2032,19 +2033,19 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 						ExpressionAST expr = scope.parseExpression(order);
 						IDomain image = expr.getImageDomain();
 						Direction direction = getDirection(image);
-						if (image.isInstanceOf(DomainNumericConstant.DOMAIN)) {
+						if (expr  instanceof NumericConstant) {
 							// it is a reference to the facets
 							DomainNumericConstant num = (DomainNumericConstant) image
 									.getAdapter(DomainNumericConstant.class);
-							int index = num.getValue().intValue();
-							if (!lookup.containsKey(index)) {
-								throw new ScopeException("the orderBy index specified (" + index + ") is out of bounds");
-							}
-							int legacy = lookup.get(index);
-							if (metricSet.contains(index)) {
-								legacy += legacyFacetCount;
-							}
-							orderBy.add(new OrderBy(legacy, direction));
+								int index = num.getValue().intValue();							
+								if (!lookup.containsKey(index)) {
+									throw new ScopeException("the orderBy index specified (" + index + ") is out of bounds");
+								}
+								int legacy = lookup.get(index);
+								if (metricSet.contains(index)) {
+									legacy += legacyFacetCount;
+								}
+								orderBy.add(new OrderBy(legacy, direction));
 						} else {
 							// it's an expression which is now scoped into the bookmark
 							// but job is expecting it to be scoped in the universe... (OMG)
@@ -2124,6 +2125,21 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 				Integer x = getIntegerValue(value);
 				if (x==null || x<0 && x>=query.getGroupBy().size()) {
 					x = query.getGroupBy().indexOf(value);
+					if (x<0) {
+						// try harder
+						try {
+							ExpressionAST valExpr = scope.parseExpression(value);
+							for (int i=0;i<query.getGroupBy().size();i++) {
+								ExpressionAST expr = scope.parseExpression(query.getGroupBy().get(i));
+								if (valExpr.equals(expr)) {
+									x = i;
+									break;
+								}
+							}
+						} catch (ScopeException e) {
+							// ignore
+						}
+					}
 				}
 				if (x==null || x<0) {
 					throw new ScopeException("invalid beyondLimit parameter: "+value+": must be an valid integer position or a groupBy expression");
@@ -2819,13 +2835,25 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 					boolean metricsDone = false;
 					if (view.getGroupBy()!=null && view.getGroupBy().size()>0 && query.getGroupBy()!=null && query.getGroupBy().size()>0) {
 						int next = 0;
+						// reorder the dims to have the period first
+						ArrayList<Integer> reorder = new ArrayList<>();
+						for (int i=0;i<dims;i++) {
+							String dim = query.getGroupBy().get(i);
+							ExpressionAST expr = inputConfig.parse(dim);
+							boolean isTemporal = expr.getImageDomain().isInstanceOf(IDomain.TEMPORAL);
+							if (isTemporal) {
+								reorder.add(0, i);// put it in front
+							} else {
+								reorder.add(i);
+							}
+						}
 						while (next<dims) {
 							if (next==1) {
 								// insert the metrics after the first dimension
 								metricsDone = handleMetrics(query, inputConfig, view, channels, true);
 							}
-							if (!inputConfig.getRequired().getGroupBy().contains(query.getGroupBy().get(next))) {
-								String dim = query.getGroupBy().get(next++);
+							String dim = query.getGroupBy().get(reorder.get(next++));
+							if (!inputConfig.getRequired().getGroupBy().contains(dim)) {
 								ExpressionAST expr = inputConfig.parse(dim);
 								boolean isTemporal = expr.getImageDomain().isInstanceOf(IDomain.TEMPORAL);
 								if ((view.getX()==null || channels.encoding.x.type==DataType.quantitative) && view.getY()==null && !isTemporal) {// use Y only for categories and left a channel for the metrics
@@ -2852,6 +2880,12 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 									break;// no more channel available
 								}
 							}
+						}
+					} else {
+						// add the period if nothing is selected
+						if (view.getX()==null) {
+							view.setX("daily(__PERIOD)");
+							channels.encoding.x = inputConfig.createChannelDef("x", view.getX());
 						}
 					}
 					if (!metricsDone) {
@@ -3115,7 +3149,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 						}
 					}
 					if (!check) {
-						query.getOrderBy().add(0, "desc("+outputConfig.prettyPrint(m)+")");
+						query.getOrderBy().add("desc("+outputConfig.prettyPrint(m)+")");
 					}
 				}
 			}
@@ -3414,7 +3448,8 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		}
 		if (query.getFilters()!=null) {
 			for (String item : query.getFilters()) {
-				builder.queryParam(FILTERS_PARAM, item);
+				String value = item.replaceAll("%", "%25");
+				builder.queryParam(FILTERS_PARAM, value);
 			}
 		}
 		if (query.getPeriod()!=null) builder.queryParam(PERIOD_PARAM, query.getPeriod());
