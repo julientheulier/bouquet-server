@@ -91,6 +91,7 @@ import com.squid.kraken.v4.api.core.APIException;
 import com.squid.kraken.v4.api.core.AccessRightsUtils;
 import com.squid.kraken.v4.api.core.ComputingInProgressAPIException;
 import com.squid.kraken.v4.api.core.EngineUtils;
+import com.squid.kraken.v4.api.core.InvalidCredentialsAPIException;
 import com.squid.kraken.v4.api.core.InvalidIdAPIException;
 import com.squid.kraken.v4.api.core.JobServiceBaseImpl.OutputCompression;
 import com.squid.kraken.v4.api.core.JobServiceBaseImpl.OutputFormat;
@@ -725,6 +726,8 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 				}
 			} catch (ScopeException e) {
 				// ignore
+			} catch (InvalidCredentialsAPIException e) {
+				// T3019: ignore bookmark if cannot access the parent project
 			}
 		}
 	}

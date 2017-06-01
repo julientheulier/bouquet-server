@@ -31,6 +31,7 @@ import java.util.Set;
 
 import org.apache.commons.codec.binary.Base64;
 
+import com.squid.kraken.v4.api.core.InvalidCredentialsAPIException;
 import com.squid.kraken.v4.api.core.ObjectNotFoundAPIException;
 import com.squid.kraken.v4.model.Bookmark;
 import com.squid.kraken.v4.model.BookmarkFolder;
@@ -195,7 +196,11 @@ public class BookmarkFolderServiceBaseImpl {
 			String realPath = bookmark.getPath();
 			// only handle the exact path
 			if (realPath.equals(internalPath)) {
-				links.add(createBookmarkLink(ctx, bookmark));
+				try {
+					links.add(createBookmarkLink(ctx, bookmark));
+				} catch (InvalidCredentialsAPIException e) {
+					// T3019: ignore bookmark if cannot access the parent project
+				}
 			}
 		}
 		return links;
