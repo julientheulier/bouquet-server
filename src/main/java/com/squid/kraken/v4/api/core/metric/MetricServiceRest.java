@@ -101,6 +101,9 @@ public class MetricServiceRest extends BaseServiceRest {
 			@PathParam("domainId") String domainId,
 			@PathParam(PARAM_NAME) String metricId,
 			@ApiParam(required = true) Metric metric) {
+		DomainPK domainPK = new DomainPK(userContext.getCustomerId(), projectId, domainId);
+		MetricPK mpk = new MetricPK(domainPK, metricId);
+		metric.setId(mpk);
 		return delegate.store(userContext, metric);
 	}
 
@@ -110,6 +113,9 @@ public class MetricServiceRest extends BaseServiceRest {
 	public Metric storeMetric2(@PathParam("projectId") String projectId,
 			@PathParam("domainId") String domainId,
 			@ApiParam(required = true) Metric metric) {
+		DomainPK domainPK = new DomainPK(userContext.getCustomerId(), projectId, domainId);
+		MetricPK mpk = new MetricPK(domainPK, null);
+		metric.setId(mpk);
 		return delegate.store(userContext, metric);
 	}
 
