@@ -123,6 +123,15 @@ public class MetricServiceRest extends BaseServiceRest {
 		return delegate.store(userContext, metric);
 	}
 
+	@PUT
+	@Path("{" + PARAM_NAME + "}")
+	@ApiOperation(value = "Updates a Metric")
+	public Metric updateMetric2(@PathParam("projectId") String projectId,
+			@PathParam("domainId") String domainId,
+			@ApiParam(required = true) Metric metric) {
+		return delegate.store(userContext, metric);
+	}
+	
 	@Path("{" + PARAM_NAME + "}"+"/access")
 	@GET
 	@ApiOperation(value = "Gets a Metric's access rights")
