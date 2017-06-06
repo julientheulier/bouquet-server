@@ -86,5 +86,6 @@ public interface AnalyticsServiceConstants {
 	public static final String VIEW_SIZE_PARAM = "size";
 	public static final String VIEW_COLUMN_PARAM = "column";
 	public static final String VIEW_ROW_PARAM = "row";
+	public static final String VIEW_OPTIONS_PARAM = "options";
 
 }
