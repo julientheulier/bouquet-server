@@ -23,6 +23,7 @@
  *******************************************************************************/
 package com.squid.kraken.v4.api.core.analytics;
 
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URLEncoder;
@@ -37,6 +38,7 @@ import java.util.HashMap;
 import java.util.IllegalFormatException;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.Properties;
 
 import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Response;
@@ -90,7 +92,10 @@ import com.squid.kraken.v4.model.ViewQuery;
 import com.squid.kraken.v4.model.ViewReply;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.vegalite.VegaliteSpecs;
+import com.squid.kraken.v4.vegalite.VegaliteSpecs.DataType;
 import com.squid.kraken.v4.vegalite.VegaliteSpecs.Encoding;
+import com.squid.kraken.v4.vegalite.VegaliteSpecs.Mark;
+import com.squid.kraken.v4.vegalite.VegaliteSpecs.Stacked;
 
 /**
  * This call is responsible for generating the HTML code for the API
@@ -181,7 +186,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 				"    border-radius: 4px;\n" +
 				"    box-sizing: border-box;\n" +
 				"}\n" +
-				"button[type=submit], .btn {\n" +
+				"button[type=submit], .btn-orange {\n" +
 				"	 font-size: 1.3em;" +
 				"    width: 200px;\n" +
 				"    background-color: #ee7914;\n" +
@@ -193,7 +198,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 				"    border-radius: 4px;\n" +
 				"    cursor: pointer;\n" +
 				"}\n" +
-				"button[type=submit]:hover, .btn:hover {\n" +
+				"button[type=submit]:hover, .btn-orange:hover {\n" +
 				"    background-color: #ab570e;\n" +
 				"}\n" +
 				"input[type=submit] {\n" +
@@ -255,14 +260,6 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 				"}\n" +
 				"h2 { margin-bottom:0px;}\n" +
 				"h4 { margin-bottom:0px;}\n" +
-				".logo {\n" +
-				"    margin-left: -5px;\n" +
-				"    margin-right: -5px;\n" +
-				"    height: 32px;\n" +
-				"    background: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHsAAAAYCAYAAADap4KLAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAIGNIUk0AAG11AABzoAAA/N0AAINkAABw6AAA7GgAADA+AAAQkOTsmeoAAAbiSURBVHja7Jp7sFdTFMc/P+n9QtxUQkIomcorjxTVneRNmJgKaaaZ8hwMeb8NYu7EVIrBeDYmryTvSJEJNaX3gx6quR6lLj2//vD9je10zu+c6/6Qmbtmzqzz22utvfdZa6+11177l5NERtgHKAXGUg3/S9ilErzHAWOAE1P6aw7UqVbt/9vYm427ALWBPsAAIBfwnAosA0ZUq3bng11T6G2Ai4EKG3szcC4wGGgBvAM8HfA3BGo65FfDTu7ZRwO3Rrz5UuBe4CFgOLDBnn2r9/Bw099kvL5atf8J1AAOBnbPYuxDgTvszQA/AsOAfsA4oLs7mwvcVa3bnQ56AvPtmKnGfsV4EHAh8DNwA/CsQ/qRwAwnaR8UGDRXrff/BBob75a0Z9cGGgAnmWkW0Ap4AVjppKsz0B64B7gZuMa4hXmiEIbxmkAzj1VeyRDfxCFpE/A9sPVfVt7Bzj9+A5YAq//l8esATR2es+huufHaWKqk4yS9pD9hlqT7JK2TdJkkJPWQNMjvSLrFT72gDUnnuI+3JV0raZp2hEmSzorIhU9dSTd6HiFskjReUvcEuQckPSepSYG+kTRM0vOS9k2g15F0k6SVMXP/QNJpBfo+yn33T5lDG/MNSaCfIWlizPifShoY4e0j6R1Jr0maYb4Vkl63rt+1PfoiqZakVpIul3S1pC8krZZUYcGBksokXePO+7p9aMwkz46Z4BJJH0qaIunXoP2KGPnmkuYHPAskTZA0OSJ7b4xsHtqmKPp78/WIobWVtDDoa7ykuyU9KunroP2xhL6vNH1CyhzOCxwrSrs/GGeppHGSXoiM/2rAX6ZsMJYEpa3w6potabGkF93+lpX1kz0gydjzJJ0rafcIvbY9Kw9tIvQ5bn9P0uERWg1JlwSyfSL0ZW4/KEXR+WhzQsxC22jaaEl7xch28eKVpKdi6ANMG5Myh9KERdHH7RUJi/HwwHtHuK2RpHaS9pc0OFikrazfQ/00jHbWzcxDLNxR0iGmPWLaVK/IMklXSWoaE8bTPja/bdwZtPVy26IU2YHm+6bIxv7E7WUp8o0lrTFv7yIbe6nbSwvINvKWJknNIrSuwWLdQTaajX/rxGuEk6KOwDygBNgb2O4svBYwFHgEuC0mFWiUkkg8Zdw+aDvS+OkU2bHAFh8T9yhSInQ8cAKwFLgihXcd0NfvZUVMxvYF9nciOqkA3/rg1NQtQsvro26Wo9cSZ9x40MUui67xUWyiz93zrZxS4Pa/8WHrYo4I241/SZHNBVlpwyIp+kLj4Rn537euDgDaFWkOLY1nZ+D9zLikmOXSz4GHrYQJNnpvoBdwZhU+LBcxMMA249opsjWDRbqtSIo+2nhKJWQmuWzcKaOBslS/sHf3s21yMXrb6ONwKFMUY/8GTAZetIJPcpjtV6Qyrdg5YK9IxMkCP2XcsrJCfuEflGEry8MPxTT2dmCVV1J94F2v/tFV/DD9A5W2qvT1s3H9Ssg0MN5Q5PnPAvrba3MF+DYDc4ppbIBpwIPAR4FSphZpFdeI+Yi0Ktm2QD7uivbvVNm+AjpUMiSfbDwjJhRvqYKx1wJfV3Er2JolQYuDLeabU0QvbBxctIR7cZbQvhWoF6zuPGyqgoe/bHx1Rv4OTswW2ROjc6hVhaS1pAp63VIoQmUxdjN3srkSg6aFtguMwwW0zPj0FNnOPlqUR2rA3xl3yZCHxCVbC4AjgOszfN844yGR9oXGpSnya2P0v8ALvV3SRUYAE4EVwH6R9mWRhHOH2nja09VlwI4ZeC8Kasi5BJ4BQRXskKC9gaT1br8rQbatpOXmuTmh2FLuilKc/J5BBax7TN95GJYg39pFJUXuCsIq3yrTHy+gp+vMMznSPiLQX/2E/ocH89wnQq/pOw3ZZn+Rz2X4w2E3e2pd4OMU3lOA9/xebo+Z5+NCE+9znU2/nT/uzkPoGRQUVrl4sMRh+xjgDNM+9ry2R/a8aebDJ4gvzdPERZseAf+BriOEUAqM97eudlY8x1vMycD5fn/SBaWm/j092JJ6A2/6fS7whvuq59vELs64cfFqaCTpm+6C0a/ASO/fOXv8Jf6WCvczI8YGg4HHg3xipm3xahbP7iHpDknHZuDNl0wnFSjIL07wivzTyTc4cVBewOvzN1ZPFBi7XNIoSR0K9NHSde/KwICYW6uZBfin+iKpVsz4DSSNLCD7jOvehWxwbRAB8zAqi2e39B7wWiUz3bZ+9ranVNiTpmS80+7kPbTEic9Se+6aDLKHec5Nnb3/4AgxKzgfp0Ebl1FbuI+t3lNz9tIwEXzeVcUQ6joatPb7Rnv43IzJbmvg2KCytgL4ImacJChxFM3Lv//7ABotpDua280DAAAAAElFTkSuQmCC');\n" +
-				"    background-repeat: no-repeat;\n" +
-				"	 background-color: #ee7914;\n" +
-				"}\n" +
 				".logo span {\n" +
 				"    line-height: 32px;\n" +
 				"    vertical-align: middle;\n" +
@@ -686,13 +683,6 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			}
 			html.append("</tbody></table>");
 			html.append("</div>");
-			{ // for View
-				HashMap<String, Object> override = new HashMap<>();
-				override.put(LIMIT_PARAM, null);
-				override.put(MAX_RESULTS_PARAM, null);
-				service.buildAnalyticsViewURI(service.getUserContext(), new ViewQuery(query), null, "ALL", Style.HTML, override);
-			}
-
 		} else {
 			html.append("<i>Result is not available, it's probably due to an error</i>");
 			html.append("<div style='clear:both;'></div>");
@@ -718,7 +708,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			builder.queryParam("access_token", service.getUserContext().getToken().getOid());
 			URI link = builder.build(query.getBBID());
 			html.append("<!-- Button trigger modal -->\n" + 
-					"<button type=\"button\" class=\"btn btn-lg\" style='display:inline' data-toggle=\"modal\" data-target=\"#myModal\">\n" + 
+					"<button type=\"submit\" class=\"btn btn-lg\" style='display:inline' data-toggle=\"modal\" data-target=\"#myModal\">\n" + 
 					"<i class=\"fa fa-cloud-upload\" aria-hidden=\"true\"></i> Bookmark\n" + 
 					"</button></div>\n" + 
 					"<!-- Modal -->\n" + 
@@ -776,6 +766,32 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			return space.getBookmark().getName();
 		}
 	}
+	
+	public Response createHTMLViewSnippet(AppContext ctx, Space space, ViewQuery view, ResultInfo info, ViewReply reply) {
+		String title = getPageTitle(space);
+		StringBuilder html = createHTMLHeader(title);
+		html.append("<script src=\"//d3js.org/d3.v3.min.js\" charset=\"utf-8\"></script>\n" +
+				"<script src=\"https://cdnjs.cloudflare.com/ajax/libs/vega/2.5.0/vega.min.js\"></script>\n" +
+				"  <script src=\"https://cdnjs.cloudflare.com/ajax/libs/vega-lite/1.0.7/vega-lite.min.js\"></script>\n" +
+				"<script src=\"https://cdnjs.cloudflare.com/ajax/libs/vega-embed/2.2.0/vega-embed.min.js\" charset=\"utf-8\"></script>");
+		html.append("<body>");
+		// vega lite preview
+		html.append("<div>");
+		Encoding channels = null;
+		if (reply.getResult()!=null) {
+			html.append("<div id=\"vis\"></div>\r\n\r\n<script>\r\nvar embedSpec = {\r\n  mode: \"vega-lite\", renderer:\"svg\",  spec:");
+			html.append(writeVegalightSpecs(reply.getResult()));
+			channels = reply.getResult().encoding;
+			html.append("}\r\nvg.embed(\"#vis\", embedSpec, function(error, result) {\r\n  // Callback receiving the View instance and parsed Vega spec\r\n  // result.view is the View, which resides under the '#vis' element\r\n});\r\n</script>\r\n");
+		} else {
+			html.append("<p>No Result</p>");
+			channels = new Encoding();// empty encoding
+		}
+		html.append("</body>\r\n</html>");
+		return Response.ok(html.toString(), "text/html; charset=UTF-8").build();
+	}
+	
+	private static final Mark[] MARKS = new Mark[]{Mark.bar, Mark.line, Mark.area, Mark.point ,Mark.circle, Mark.square, Mark.tick};
 
 	/**
 	 * the /view view (vegalite)
@@ -789,7 +805,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 	public Response createHTMLPageView(AppContext ctx, Space space, ViewQuery view, ResultInfo info, ViewReply reply) {
 		String title = getPageTitle(space);
 		String breadcrumbs = getBreadCrumbs(space);
-		StringBuilder html = createHTMLHeader( title + " - OB Query Builder");
+		StringBuilder html = createHTMLHeader( title + " - OB Query Viewer");
 		html.append("<script src=\"//d3js.org/d3.v3.min.js\" charset=\"utf-8\"></script>\n" +
 				"<script src=\"https://cdnjs.cloudflare.com/ajax/libs/vega/2.5.0/vega.min.js\"></script>\n" +
 				"  <script src=\"https://cdnjs.cloudflare.com/ajax/libs/vega-lite/1.0.7/vega-lite.min.js\"></script>\n" +
@@ -801,7 +817,119 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		html.append("<div>");
 		html.append("<h4 style='font-family:Helvetica Neue,Helvetica,Arial,sans-serif;'>View Result</h4><hr>");
 		Encoding channels = null;
-		if (reply.getResult()!=null) {
+		if (reply.getResult()!=null) {// switchers
+			html.append("<div class='btn-toolbar' role='toolbar' aria-label='vegalite settings'>");
+			boolean separator = false;
+			boolean group = false;
+			{ // for View snippet
+				HashMap<String, Object> override = new HashMap<>();
+				URI viewLink = service.buildAnalyticsViewURI(service.getUserContext(), view, null, "ALL", Style.SNIPPET, override);//(userContext, query, "SQL", null, Style.HTML, null);
+				html.append("<a class='btn btn-default' target='_blank' href=\""+StringEscapeUtils.escapeHtml4(viewLink.toString())+"\"><i class='fa fa-external-link' aria-hidden='true'></i>&nbsp;Snippet</a>");
+				separator = true;
+			}
+			{// x<->y
+				if (reply.getResult().encoding.x!=null && reply.getResult().encoding.x.type!=DataType.temporal) {
+					if (separator) html.append("<div class='btn-group' role='group'>");
+					ViewQuery copy = new ViewQuery(view);
+					copy.setX(view.getY());
+					copy.setY(view.getX());
+					URI viewLink = service.buildAnalyticsViewURI(service.getUserContext(), copy, null, "ALL", Style.HTML, null);
+					html.append("<a class='btn btn-default' href=\""+StringEscapeUtils.escapeHtml4(viewLink.toString())+"\">X <i class='fa fa-refresh' aria-hidden='true'></i> Y</a>");
+					separator = false;
+					group = true;
+				}
+			}
+			{// x<->color
+				if ((reply.getResult().encoding.x!=null && reply.getResult().encoding.x.type!=DataType.temporal) && reply.getResult().encoding.color!=null) {
+					if (separator)  html.append("<div class='btn-group' role='group'>");
+					ViewQuery copy = new ViewQuery(view);
+					copy.setX(view.getColor());
+					copy.setColor(view.getX());
+					URI viewLink = service.buildAnalyticsViewURI(service.getUserContext(), copy, null, "ALL", Style.HTML, null);
+					html.append("<a class='btn btn-default' href=\""+StringEscapeUtils.escapeHtml4(viewLink.toString())+"\">X <i class='fa fa-refresh' aria-hidden='true'></i> color</a>");
+					separator = false;
+					group = true;
+				}
+			}
+			{// color<->column
+				if (reply.getResult().encoding.color!=null || reply.getResult().encoding.column!=null) {
+					if (separator) html.append("<div class='btn-group' role='group'>");
+					ViewQuery copy = new ViewQuery(view);
+					copy.setColor(view.getColumn());
+					copy.setColumn(view.getColor());
+					URI viewLink = service.buildAnalyticsViewURI(service.getUserContext(), copy, null, "ALL", Style.HTML, null);
+					html.append("<a class='btn btn-default' href=\""+StringEscapeUtils.escapeHtml4(viewLink.toString())+"\">color <i class='fa fa-refresh' aria-hidden='true'></i> column</a>");
+					separator = false;
+					group = true;
+				}
+			}
+			{// column<->row
+				if (reply.getResult().encoding.column!=null || reply.getResult().encoding.row!=null) {
+					if (separator) html.append("<div class='btn-group' role='group'>");
+					ViewQuery copy = new ViewQuery(view);
+					copy.setColumn(view.getRow());
+					copy.setRow(view.getColumn());
+					URI viewLink = service.buildAnalyticsViewURI(service.getUserContext(), copy, null, "ALL", Style.HTML, null);
+					html.append("<a class='btn btn-default' href=\""+StringEscapeUtils.escapeHtml4(viewLink.toString())+"\">column <i class='fa fa-refresh' aria-hidden='true'></i> row</a>");
+					separator = false;
+					group = true;
+				}
+			}
+			if (group==true) {
+				html.append("</div>");
+				separator = true;
+				group = false;
+			}
+			{ // set mark option
+				for (Mark mark : MARKS) {
+					ViewQuery copy = new ViewQuery(view);
+					try {
+						// line and area are ony valid with ordinal/quantitative
+						if (mark.equals(Mark.line) || mark.equals(Mark.area)) {
+							if (!(reply.getResult().encoding.x!=null && (reply.getResult().encoding.x.type.equals(DataType.ordinal) || reply.getResult().encoding.x.type.equals(DataType.temporal))
+									&& reply.getResult().encoding.y!=null && reply.getResult().encoding.y.type.equals(DataType.quantitative))) {
+								continue;
+							}
+						}
+						Properties options = copy.getOptionsAsProperties(true);
+						options.put("mark", mark.name());
+						copy.setOptionsAsProperties(options);
+						URI viewLink = service.buildAnalyticsViewURI(service.getUserContext(), copy, null, "ALL", Style.HTML, null);
+						if (separator) html.append("<div class='btn-group' role='group'>");
+						if (reply.getResult().mark.equals(mark)) {
+							html.append("<button type='button' class='btn btn-default disabled'>");
+							html.append(mark.toString());
+							html.append("</button>");
+						} else {
+							html.append("<a class='btn btn-default' href=\""+StringEscapeUtils.escapeHtml4(viewLink.toString())+"\">"+mark.toString()+"</a>");
+						}
+						separator = false;
+						group = true;
+					} catch (IOException e) {
+						//
+					}
+				}
+			}
+			if (group==true) {
+				html.append("</div>");
+				separator = true;
+				group = false;
+			}
+			// stacked options
+			if ((reply.getResult().mark.equals(Mark.bar) || reply.getResult().mark.equals(Mark.area)) && reply.getResult().encoding.color!=null) {
+				html.append("<div class='btn-group' role='group'>");
+				createHTMLpageViewStackedOptions(html, view, reply);
+				html.append("</div>");
+			}
+			{// reset
+				if (true) {
+					ViewQuery copy = new ViewQuery((AnalyticsQuery)view);
+					URI viewLink = service.buildAnalyticsViewURI(service.getUserContext(), copy, null, "ALL", Style.HTML, null);
+					html.append("<a class='btn btn-default' href=\""+StringEscapeUtils.escapeHtml4(viewLink.toString())+"\"><i class='fa fa-times' aria-hidden='true'></i>reset</a>");
+				}
+			}
+			html.append("</div>");
+			// vegalite
 			html.append("<div id=\"vis\"></div>\r\n\r\n<script>\r\nvar embedSpec = {\r\n  mode: \"vega-lite\", renderer:\"svg\",  spec:");
 			html.append(writeVegalightSpecs(reply.getResult()));
 			channels = reply.getResult().encoding;
@@ -819,8 +947,6 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		html.append("<div style='float:left;padding:5px;'><button type='submit' value='Query' formaction=\""+StringEscapeUtils.escapeHtml4(querylink.toASCIIString())+"\"><i class=\"fa fa-refresh\" aria-hidden=\"true\"></i>&nbsp;Query</button></div>");
 		createHTMLpagination(html, view, info);
 		html.append("<div style='clear:both;'></div>");
-		html.append("</div>");
-		html.append("</div>");
 		// parameters
 		html.append("<div>");
 		html.append("<div style='width:50%;float:left;'>");
@@ -829,12 +955,14 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		html.append("<p id=\"query-instructions\"><i class=\"fa fa-info-circle fa-lg\" aria-hidden=\"true\"></i>&nbsp;You can either build expressions manually, or drag and drop objects from Query Scope to Query parameters.</p>");
 		// view parameter
 		html.append("<table style='width:100%;'>"
-				+ "<tr><td style='width:100px;'>x</td><td><input type=\"text\" style='width:100%;' name=\"x\" value=\""+getFieldValue(view.getX())+"\"><br>"+(channels.x!=null?"as <b>"+channels.x.field+"</b>":"")+"</td></tr>"
-				+ "<tr><td>y</td><td><input type=\"text\" style='width:100%;' name=\"y\" value=\""+getFieldValue(view.getY())+"\"><br>"+(channels.y!=null?"as <b>"+channels.y.field+"</b>":"")+"</td></tr>"
-				+ "<tr><td>color</td><td><input type=\"text\" style='width:100%;' name=\"color\" value=\""+getFieldValue(view.getColor())+"\"><br>"+(channels.color!=null?"as <b>"+channels.color.field+"</b>":"")+"</td></tr>"
-				+ "<tr><td>size</td><td><input type=\"text\" style='width:100%;' name=\"size\" value=\""+getFieldValue(view.getSize())+"\"><br>"+(channels.size!=null?"as <b>"+channels.size.field+"</b>":"")+"</td></tr>"
-				+ "<tr><td>column</td><td><input type=\"text\" style='width:100%;' name=\"column\" value=\""+getFieldValue(view.getColumn())+"\"><br>"+(channels.column!=null?"as <b>"+channels.column.field+"</b>":"")+"</td></tr>"
-				+ "<tr><td>row</td><td><input type=\"text\" style='width:100%;' name=\"row\" value=\""+getFieldValue(view.getRow())+"\"><br>"+(channels.row!=null?"as <b>"+channels.row.field+"</b>":"")+"</td></tr>");
+				+ "<tr><td style='width:100px;'>x</td><td><input type=\"search\" style='width:100%;' name=\"x\" value=\""+getFieldValue(view.getX())+"\"><br>"+(channels.x!=null?"as <b>"+channels.x.field+"</b>":"")+"</td></tr>"
+				+ "<tr><td>y</td><td><input type=\"search\" style='width:100%;' name=\"y\" value=\""+getFieldValue(view.getY())+"\"><br>"+(channels.y!=null?"as <b>"+channels.y.field+"</b>":"")+"</td></tr>"
+				+ "<tr><td>color</td><td><input type=\"search\" style='width:100%;' name=\"color\" value=\""+getFieldValue(view.getColor())+"\"><br>"+(channels.color!=null?"as <b>"+channels.color.field+"</b>":"")+"</td></tr>"
+				+ "<tr><td>size</td><td><input type=\"search\" style='width:100%;' name=\"size\" value=\""+getFieldValue(view.getSize())+"\"><br>"+(channels.size!=null?"as <b>"+channels.size.field+"</b>":"")+"</td></tr>"
+				+ "<tr><td>column</td><td><input type=\"search\" style='width:100%;' name=\"column\" value=\""+getFieldValue(view.getColumn())+"\"><br>"+(channels.column!=null?"as <b>"+channels.column.field+"</b>":"")+"</td></tr>"
+				+ "<tr><td>row</td><td><input type=\"search\" style='width:100%;' name=\"row\" value=\""+getFieldValue(view.getRow())+"\"><br>"+(channels.row!=null?"as <b>"+channels.row.field+"</b>":"")+"</td></tr>");
+		// options
+		html.append("<tr><td>options</td><td><input type=\"search\" style='width:100%;' name=\"row\" value=\""+getFieldValue(view.getOptions())+"\"></td></tr>");
 		html.append("</table>");
 		// the other (query) parameters
 		html.append("<h4 style='font-family:Helvetica Neue,Helvetica,Arial,sans-serif;'>Query Parameters</h4><hr>");
@@ -883,6 +1011,8 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 				+ "</form>");
 		html.append("</div>");
 		html.append("</div>");
+		html.append("</div>");
+		html.append("</div>");
 		// scope
 		html.append("<div style='width:50%;float:left;'>");
 		createHTMLscope(ctx, html, space, reply.getQuery());
@@ -893,6 +1023,42 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		createFooter(html);
 		html.append("</body>\r\n</html>");
 		return Response.ok(html.toString(), "text/html; charset=UTF-8").build();
+	}
+	
+	private void createHTMLpageViewStackedOptions(StringBuilder html, ViewQuery view, ViewReply reply) {
+		// set stacked option
+		boolean separator = false;
+		if (reply.getResult().mark.equals(Mark.bar) || reply.getResult().mark.equals(Mark.area)) {
+			Stacked selected = null;
+			if (reply.getResult().config.mark!=null) selected = reply.getResult().config.mark.stacked;
+			for (Stacked stacked : Stacked.values()) {
+				separator = createHTMLpageViewSelectOption(html, separator, view, "mark.stacked", stacked.name(), stacked.toString(), stacked.equals(selected));
+			}
+		}
+	}
+	
+	private boolean createHTMLpageViewSelectOption(StringBuilder html, boolean separator, ViewQuery view, String option, String value, String name, boolean selected) {
+		ViewQuery copy = new ViewQuery(view);
+		try {
+			Properties options = copy.getOptionsAsProperties(true);
+			if (value!=null) {
+				options.put(option, value);
+			} else {
+				options.remove(option);
+			}
+			copy.setOptionsAsProperties(options);
+			URI viewLink = service.buildAnalyticsViewURI(service.getUserContext(), copy, null, "ALL", Style.HTML, null);
+			if (!selected) {
+				html.append("<button type='button' class='btn btn-default'>");
+				html.append("<a href=\""+StringEscapeUtils.escapeHtml4(viewLink.toString())+"\">"+name+"</a>");
+				html.append("</button>");
+			} else {
+				createHTMLpageViewSelectOption(html, false, view, "mark.stacked", null, "<i class='fa fa-times' aria-hidden='true'></i>"+name, false);
+			}
+			return true;
+		} catch (IOException e) {
+			return false;
+		}
 	}
 
 	/**
