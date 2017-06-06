@@ -53,6 +53,7 @@ import com.squid.kraken.v4.model.DomainPK;
 import com.squid.kraken.v4.model.ExpressionSuggestion;
 import com.squid.kraken.v4.model.ValueType;
 import com.squid.kraken.v4.persistence.AppContext;
+
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
@@ -227,17 +228,28 @@ public class DimensionServiceRest extends BaseServiceRest {
 	@POST
 	@Path("")
 	@ApiOperation(value = "Creates a dimension")
-	public Dimension storeDimension(@PathParam("projectId") String projectId,
-			@PathParam("domainId") String domainId,@ApiParam(required = true) Dimension dimension) {
+	public Dimension storeDimension(@PathParam("projectId") String projectId, @PathParam("domainId") String domainId,
+			@ApiParam(required = true) Dimension dimension) {
+		DomainPK domainPK = new DomainPK(userContext.getCustomerId(), projectId, domainId);
+		String dimensionId;
+		if (dimension.getId() != null) {
+			dimensionId = dimension.getId().getDimensionId();
+		} else {
+			dimensionId = null;
+		}
+		DimensionPK pk = new DimensionPK(domainPK, dimensionId);
+		dimension.setId(pk);
 		return delegate.store(userContext, dimension);
 	}
 	
 	@POST
-	@Path("{"+PARAM_NAME+"}")
+	@Path("{" + PARAM_NAME + "}")
 	@ApiOperation(value = "Creates a dimension")
-	public Dimension storeDimension2(@PathParam("projectId") String projectId,
-			@PathParam("domainId") String domainId,
-			@PathParam(PARAM_NAME) String dimensionId,@ApiParam(required = true) Dimension dimension) {
+	public Dimension storeDimension2(@PathParam("projectId") String projectId, @PathParam("domainId") String domainId,
+			@PathParam(PARAM_NAME) String dimensionId, @ApiParam(required = true) Dimension dimension) {
+		DomainPK domainPK = new DomainPK(userContext.getCustomerId(), projectId, domainId);
+		DimensionPK pk = new DimensionPK(domainPK, dimensionId);
+		dimension.setId(pk);
 		return delegate.store(userContext, dimension);
 	}
 	
