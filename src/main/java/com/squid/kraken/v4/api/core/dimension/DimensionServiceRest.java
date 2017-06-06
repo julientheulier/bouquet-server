@@ -230,15 +230,7 @@ public class DimensionServiceRest extends BaseServiceRest {
 	@ApiOperation(value = "Creates a dimension")
 	public Dimension storeDimension(@PathParam("projectId") String projectId, @PathParam("domainId") String domainId,
 			@ApiParam(required = true) Dimension dimension) {
-		DomainPK domainPK = new DomainPK(userContext.getCustomerId(), projectId, domainId);
-		String dimensionId;
-		if (dimension.getId() != null) {
-			dimensionId = dimension.getId().getDimensionId();
-		} else {
-			dimensionId = null;
-		}
-		DimensionPK pk = new DimensionPK(domainPK, dimensionId);
-		dimension.setId(pk);
+		setId(dimension, projectId, domainId, null);
 		return delegate.store(userContext, dimension);
 	}
 	
@@ -247,9 +239,7 @@ public class DimensionServiceRest extends BaseServiceRest {
 	@ApiOperation(value = "Creates a dimension")
 	public Dimension storeDimension2(@PathParam("projectId") String projectId, @PathParam("domainId") String domainId,
 			@PathParam(PARAM_NAME) String dimensionId, @ApiParam(required = true) Dimension dimension) {
-		DomainPK domainPK = new DomainPK(userContext.getCustomerId(), projectId, domainId);
-		DimensionPK pk = new DimensionPK(domainPK, dimensionId);
-		dimension.setId(pk);
+		setId(dimension, projectId, domainId, dimensionId);
 		return delegate.store(userContext, dimension);
 	}
 	
@@ -259,6 +249,15 @@ public class DimensionServiceRest extends BaseServiceRest {
 	public Dimension updateDimension(@PathParam("projectId") String projectId,
 			@PathParam("domainId") String domainId,
 			@PathParam(PARAM_NAME) String dimensionId,@ApiParam(required = true) Dimension dimension) {
+		setId(dimension, projectId, domainId, dimensionId);
+		return delegate.store(userContext, dimension);
+	}
+	
+	@PUT
+	@Path("{"+PARAM_NAME+"}")
+	@ApiOperation(value = "Updates a dimension")
+	public Dimension updateDimension2(@PathParam("projectId") String projectId,
+			@PathParam("domainId") String domainId,@ApiParam(required = true) Dimension dimension) {
 		return delegate.store(userContext, dimension);
 	}
 
@@ -315,6 +314,21 @@ public class DimensionServiceRest extends BaseServiceRest {
 			@PathParam(PARAM_NAME) String dimensionId) {
 		return delegate.readSubDimensions(userContext, new DimensionPK(
 				userContext.getCustomerId(), projectId, domainId, dimensionId));
+	}
+	
+	private void setId(Dimension dimension, String projectId,
+			String domainId,
+			String dimensionId) {
+		DomainPK domainPK = new DomainPK(userContext.getCustomerId(), projectId, domainId);
+		if (dimensionId == null) {
+			if (dimension.getId() != null) {
+				dimensionId = dimension.getId().getDimensionId();
+			} else {
+				dimensionId = null;
+			}
+		}
+		DimensionPK pk = new DimensionPK(domainPK, dimensionId);
+		dimension.setId(pk);
 	}
 
 }

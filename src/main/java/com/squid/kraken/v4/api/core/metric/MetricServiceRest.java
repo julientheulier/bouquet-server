@@ -101,9 +101,7 @@ public class MetricServiceRest extends BaseServiceRest {
 			@PathParam("domainId") String domainId,
 			@PathParam(PARAM_NAME) String metricId,
 			@ApiParam(required = true) Metric metric) {
-		DomainPK domainPK = new DomainPK(userContext.getCustomerId(), projectId, domainId);
-		MetricPK mpk = new MetricPK(domainPK, metricId);
-		metric.setId(mpk);
+		setId(metric, projectId, domainId, metricId);
 		return delegate.store(userContext, metric);
 	}
 
@@ -113,15 +111,7 @@ public class MetricServiceRest extends BaseServiceRest {
 	public Metric storeMetric2(@PathParam("projectId") String projectId,
 			@PathParam("domainId") String domainId,
 			@ApiParam(required = true) Metric metric) {
-		DomainPK domainPK = new DomainPK(userContext.getCustomerId(), projectId, domainId);
-		String metricId;
-		if (metric.getId() != null) {
-			metricId = metric.getId().getMetricId();
-		} else {
-			metricId = null;
-		}
-		MetricPK mpk = new MetricPK(domainPK, metricId);
-		metric.setId(mpk);
+		setId(metric, projectId, domainId, null);
 		return delegate.store(userContext, metric);
 	}
 
@@ -132,6 +122,7 @@ public class MetricServiceRest extends BaseServiceRest {
 			@PathParam("domainId") String domainId,
 			@PathParam(PARAM_NAME) String metricId,
 			@ApiParam(required = true) Metric metric) {
+		setId(metric, projectId, domainId, metricId);
 		return delegate.store(userContext, metric);
 	}
 
@@ -167,6 +158,19 @@ public class MetricServiceRest extends BaseServiceRest {
 		return delegate.storeAccessRights(userContext,
 				new MetricPK(userContext.getCustomerId(), projectId, domainId,
 						metricId), accessRights);
+	}
+	
+	private void setId(Metric metric, String projectId,
+			String domainId,
+			String metricId) {
+		DomainPK domainPK = new DomainPK(userContext.getCustomerId(), projectId, domainId);
+		if (metricId == null) {
+			if (metric.getId() != null) {
+				metricId = metric.getId().getMetricId();
+			}
+		}
+		MetricPK mpk = new MetricPK(domainPK, metricId);
+		metric.setId(mpk);
 	}
 
 }
