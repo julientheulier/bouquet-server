@@ -29,17 +29,14 @@ import java.util.List;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.api.core.APIException;
-import com.squid.kraken.v4.api.core.AccessRightsUtils;
+import com.squid.kraken.v4.api.core.BadRequestAPIException;
 import com.squid.kraken.v4.api.core.GenericServiceImpl;
 import com.squid.kraken.v4.api.core.ObjectNotFoundAPIException;
-import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex;
-import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndexProxy;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainHierarchy;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainHierarchyManager;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
-import com.squid.kraken.v4.model.Dimension;
 import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.DomainPK;
 import com.squid.kraken.v4.model.DynamicObject;
@@ -49,7 +46,6 @@ import com.squid.kraken.v4.model.MetricExt;
 import com.squid.kraken.v4.model.MetricPK;
 import com.squid.kraken.v4.model.Project;
 import com.squid.kraken.v4.model.ProjectPK;
-import com.squid.kraken.v4.model.AccessRight.Role;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DAOFactory;
 
@@ -109,19 +105,19 @@ public class MetricServiceBaseImpl extends GenericServiceImpl<Metric, MetricPK> 
 	public Metric store(AppContext ctx, Metric metric) {
 		try {
 	        if (metric.getExpression()==null) {
-	        	throw new APIException("Metric must not have a null Expression", ctx.isNoError());
+	        	throw new BadRequestAPIException("Metric must not have a null Expression", ctx.isNoError());
 	        }
 			// first check if the Domain is dynamic
 			MetricPK metricPk = metric.getId();
 	        if (metricPk==null) {
-	        	throw new APIException("Metric must not have a null key", ctx.isNoError());
+	        	throw new BadRequestAPIException("Metric must not have a null key", ctx.isNoError());
 	        }
 			metricPk.setCustomerId(ctx.getCustomerId());// force the customerID so we can check if natural
 			DomainPK domainPk = metricPk.getParent();
 	        Domain domain = ProjectManager.INSTANCE.getDomain(ctx, domainPk);
 	        // check name
 	        if (metric.getName()==null || metric.getName().length()==0) {
-	        	throw new APIException("Metric name must be defined", ctx.isNoError());
+	        	throw new BadRequestAPIException("Metric name must be defined", ctx.isNoError());
 	        }
 	        DomainHierarchy hierarchy = DomainHierarchyManager.INSTANCE.getHierarchy(domainPk.getParent(), domain, true);
 			// check if exists
@@ -157,7 +153,7 @@ public class MetricServiceBaseImpl extends GenericServiceImpl<Metric, MetricPK> 
         			}
         		}
 	        	if (check!=null) {
-	        		throw new APIException("An object with that name already exists in this Domain scope", ctx.isNoError());
+	        		throw new BadRequestAPIException("An object with that name already exists in this Domain scope", ctx.isNoError());
 	        	}
 	        }
 	        if (domain.isDynamic()) {

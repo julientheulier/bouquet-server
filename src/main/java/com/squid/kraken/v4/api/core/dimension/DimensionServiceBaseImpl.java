@@ -37,6 +37,7 @@ import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.api.core.APIException;
 import com.squid.kraken.v4.api.core.AccessRightsUtils;
+import com.squid.kraken.v4.api.core.BadRequestAPIException;
 import com.squid.kraken.v4.api.core.GenericServiceImpl;
 import com.squid.kraken.v4.api.core.ObjectNotFoundAPIException;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex;
@@ -215,22 +216,22 @@ public class DimensionServiceBaseImpl extends
 	@Override
 	public Dimension store(AppContext ctx, Dimension dimension) {
 		if (dimension.getId()==null) {
-            throw new APIException("Dimension should not have a null id", ctx.isNoError());
+            throw new BadRequestAPIException("Dimension should not have a null id", ctx.isNoError());
 		}
         if (dimension.getExpression()==null) {
-        	throw new APIException("Dimension should not have a null Expression", ctx.isNoError());
+        	throw new BadRequestAPIException("Dimension should not have a null Expression", ctx.isNoError());
         }
 		try {
 			DimensionPK dimensionPk = dimension.getId();
 	        if (dimensionPk==null) {
-	        	throw new APIException("Dimension must not have a null key", ctx.isNoError());
+	        	throw new BadRequestAPIException("Dimension must not have a null key", ctx.isNoError());
 	        }
 			dimensionPk.setCustomerId(ctx.getCustomerId());// force the customerID so we can check if natural
 			DomainPK domainPk = dimensionPk.getParent();
 	        Domain domain = ProjectManager.INSTANCE.getDomain(ctx, domainPk);
 	        // check name
 	        if (dimension.getName()==null || dimension.getName().length()==0) {
-	        	throw new APIException("Dimension name must be defined", ctx.isNoError());
+	        	throw new BadRequestAPIException("Dimension name must be defined", ctx.isNoError());
 	        }
 	        DomainHierarchy hierarchy = DomainHierarchyManager.INSTANCE.getHierarchy(domainPk.getParent(), domain, true); 
 			// check if exists
@@ -267,7 +268,7 @@ public class DimensionServiceBaseImpl extends
 	        			}
 	        		}
 	        		if (check!=null) {
-	        			throw new APIException("An object with that name already exists in this Domain scope", ctx.isNoError());
+	        			throw new BadRequestAPIException("An object with that name already exists in this Domain scope", ctx.isNoError());
 	        		}
 	        	}
 	        }
