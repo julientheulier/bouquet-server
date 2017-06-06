@@ -114,7 +114,13 @@ public class MetricServiceRest extends BaseServiceRest {
 			@PathParam("domainId") String domainId,
 			@ApiParam(required = true) Metric metric) {
 		DomainPK domainPK = new DomainPK(userContext.getCustomerId(), projectId, domainId);
-		MetricPK mpk = new MetricPK(domainPK, null);
+		String metricId;
+		if (metric.getId() != null) {
+			metricId = metric.getId().getMetricId();
+		} else {
+			metricId = null;
+		}
+		MetricPK mpk = new MetricPK(domainPK, metricId);
 		metric.setId(mpk);
 		return delegate.store(userContext, metric);
 	}
