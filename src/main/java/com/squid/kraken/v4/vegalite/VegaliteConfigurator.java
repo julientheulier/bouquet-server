@@ -194,10 +194,10 @@ public class VegaliteConfigurator {
 	
 	private ChannelDef parseChannelDef(String channelName, String expr) throws ScopeException {
 		ExpressionAST ast = parse(expr);
+		IDomain image = ast.getImageDomain();
 		ChannelDef channel = new ChannelDef();
-		channel.type = computeDataType(ast);
+		channel.type = computeDataType(ast, image);
 		if (channel.type==DataType.temporal) {
-			IDomain image = ast.getImageDomain();
 			if (image.isInstanceOf(IDomain.YEARLY)) {
 				channel.timeUnit = TimeUnit.year;
 			} else if (image.isInstanceOf(IDomain.MONTHLY)) {
@@ -210,6 +210,9 @@ public class VegaliteConfigurator {
 		if (name==null) {
 			name = formatName(expr);
 		} else {
+			if (name.startsWith("$BIN")) {
+				channel.bin = true;
+			}
 			name = formatName(name);
 		}
 		// need to convert to lower-case because of CSV export...
@@ -217,7 +220,7 @@ public class VegaliteConfigurator {
 		ast.setName(name);
 		channel.field = name;
 		String namedExpression = ast.prettyPrint(options) + " as '" + name +"'";
-		if (channel.type==DataType.quantitative) {
+		if (image.isInstanceOf(IDomain.AGGREGATE)) {
 			channel.aggregate = Aggregate.sum;// add the sum in order so that VGL correctly stack values
 			if (!hasMetricSeries && !hasMetricValue) {// series get precedence
 				// it's a metric
@@ -232,6 +235,10 @@ public class VegaliteConfigurator {
 			this.isTimeseries = true;
 			this.timeseriesField = namedExpression;
 		}
+		if (image.isInstanceOf(IDomain.AGGREGATE) && !channelName.equals("x") && !channelName.equals("y") && !channelName.equals("size") && !image.isInstanceOf(IDomain.AGGREGATE)) {
+			// try to bin
+			channel.bin = true;
+		}
 		return channel;
 	}
 	
@@ -243,8 +250,7 @@ public class VegaliteConfigurator {
 		}
 	}
 
-	private DataType computeDataType(ExpressionAST expr) {
-		IDomain image = expr.getImageDomain();
+	private DataType computeDataType(ExpressionAST expr, IDomain image) {
 		if (image.isInstanceOf(IDomain.AGGREGATE)) {
 			// it's a metric
 			return DataType.quantitative;
@@ -252,7 +258,11 @@ public class VegaliteConfigurator {
 			if (image.isInstanceOf(IDomain.TEMPORAL)) {
 				return DataType.temporal;
 			} else if (image.isInstanceOf(IDomain.NUMERIC)) {
-				return DataType.ordinal;
+				if (expr.getName()!=null && expr.getName().startsWith("$NOMINAL")) {
+					return DataType.nominal;
+				} else {
+					return DataType.quantitative;
+				}
 			} else {
 				return DataType.nominal;
 			}
