@@ -50,9 +50,23 @@ public class VegaliteSpecs {
 		
 	}
 	
+	public enum Stacked {
+		normalize, center, none
+	}
+	
+	public static class MarkConfig {
+		
+		public Stacked stacked;
+		
+		public Double opacity;
+		
+	}
+	
 	public static class Config {
 		
 		public Cell cell;
+		
+		public MarkConfig mark;
 		
 	}
 
@@ -74,6 +88,8 @@ public class VegaliteSpecs {
 		public Sort sort;
 		
 		public Aggregate aggregate;
+		
+		public Boolean bin = false;
 
 	}
 	
@@ -145,7 +161,6 @@ public class VegaliteSpecs {
 	public Mark mark;
 
 	public Encoding encoding = new Encoding();
-	
 	
 	public Config config = new Config();
 
