@@ -35,7 +35,7 @@ public class NavigationQuery {
 	}
 	
 	public enum Style {
-		HUMAN, LEGACY, ROBOT, HTML
+		HUMAN, LEGACY, ROBOT, HTML, SNIPPET
 	}
 	
 	public enum Visibility {

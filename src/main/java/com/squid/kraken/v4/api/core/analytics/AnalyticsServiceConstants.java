@@ -75,6 +75,8 @@ public interface AnalyticsServiceConstants {
 	public static final String LIMIT_DOC= "limit the resultset size as computed by the database. Note that this is independant from the paging size defined by "+MAX_RESULTS_PARAM+".";
 	public static final String OFFSET_DOC = "offset the resultset first row - usually used with limit to paginate the database. Note that this is independant from the paging defined by "+START_INDEX_PARAM+".";
 	
+	public static final String BEYOND_LIMIT_DOC = "Exclude a dimension from the limit";
+	
 	public static final String START_INDEX_DOC = "Pagination starting index. Index is zero-based, so use the #count of the last row to view the next page.";
 	public static final String MAX_RESULTS_DOC = "Define the pagination size.";
 	
@@ -84,5 +86,6 @@ public interface AnalyticsServiceConstants {
 	public static final String VIEW_SIZE_PARAM = "size";
 	public static final String VIEW_COLUMN_PARAM = "column";
 	public static final String VIEW_ROW_PARAM = "row";
+	public static final String VIEW_OPTIONS_PARAM = "options";
 
 }

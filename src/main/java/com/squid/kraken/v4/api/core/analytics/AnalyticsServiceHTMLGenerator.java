@@ -23,6 +23,7 @@
  *******************************************************************************/
 package com.squid.kraken.v4.api.core.analytics;
 
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URLEncoder;
@@ -37,6 +38,7 @@ import java.util.HashMap;
 import java.util.IllegalFormatException;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.Properties;
 
 import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Response;
@@ -70,27 +72,30 @@ import com.squid.kraken.v4.model.AnalyticsReply;
 import com.squid.kraken.v4.model.AnalyticsSelection;
 import com.squid.kraken.v4.model.Bookmark;
 import com.squid.kraken.v4.model.DataTable;
-import com.squid.kraken.v4.model.ExpressionSuggestion;
-import com.squid.kraken.v4.model.ExpressionSuggestionItem;
-import com.squid.kraken.v4.model.ResultInfo;
-import com.squid.kraken.v4.model.NavigationItem;
-import com.squid.kraken.v4.model.NavigationQuery;
-import com.squid.kraken.v4.model.NavigationResult;
-import com.squid.kraken.v4.model.ObjectType;
-import com.squid.kraken.v4.model.Problem;
-import com.squid.kraken.v4.model.ValueType;
-import com.squid.kraken.v4.model.ViewQuery;
-import com.squid.kraken.v4.model.ViewReply;
 import com.squid.kraken.v4.model.DataTable.Col;
 import com.squid.kraken.v4.model.DataTable.Row;
 import com.squid.kraken.v4.model.Dimension.Type;
+import com.squid.kraken.v4.model.ExpressionSuggestion;
+import com.squid.kraken.v4.model.ExpressionSuggestionItem;
+import com.squid.kraken.v4.model.NavigationItem;
+import com.squid.kraken.v4.model.NavigationQuery;
 import com.squid.kraken.v4.model.NavigationQuery.Style;
+import com.squid.kraken.v4.model.NavigationResult;
+import com.squid.kraken.v4.model.ObjectType;
+import com.squid.kraken.v4.model.Problem;
 import com.squid.kraken.v4.model.Problem.Severity;
 import com.squid.kraken.v4.model.Project;
 import com.squid.kraken.v4.model.ProjectPK;
+import com.squid.kraken.v4.model.ResultInfo;
+import com.squid.kraken.v4.model.ValueType;
+import com.squid.kraken.v4.model.ViewQuery;
+import com.squid.kraken.v4.model.ViewReply;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.vegalite.VegaliteSpecs;
+import com.squid.kraken.v4.vegalite.VegaliteSpecs.DataType;
 import com.squid.kraken.v4.vegalite.VegaliteSpecs.Encoding;
+import com.squid.kraken.v4.vegalite.VegaliteSpecs.Mark;
+import com.squid.kraken.v4.vegalite.VegaliteSpecs.Stacked;
 
 /**
  * This call is responsible for generating the HTML code for the API
@@ -126,17 +131,17 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		html.append("</h3>");
 		if (space!=null) {
 			URI projectLink = service.buildGenericObjectURI(userContext, space.getUniverse().getProject().getId());
-			html.append("<p>project:&nbsp;<kbd>'"+space.getUniverse().getProject().getName()+"'</kbd>&nbsp;(id=<a href=\""+StringEscapeUtils.escapeHtml4(projectLink.toString())+"\"><kbd>@'"+space.getUniverse().getProject().getOid()+"'</kbd></a>)");
+			html.append("<p>project:&nbsp;<a href=\""+StringEscapeUtils.escapeHtml4(backLink.toString())+"\"><kbd>'"+space.getUniverse().getProject().getName()+"'</kbd></a>&nbsp;(id=<a href=\""+StringEscapeUtils.escapeHtml4(projectLink.toString())+"\"><kbd>@'"+space.getUniverse().getProject().getOid()+"'</kbd></a>)");
 			URI domainLink = service.buildGenericObjectURI(userContext, space.getDomain().getId());
 			html.append("&nbsp;/&nbsp;domain:&nbsp;<kbd>'"+space.getDomain().getName()+"'</kbd>&nbsp;(id=<a href=\""+StringEscapeUtils.escapeHtml4(domainLink.toString())+"\"><kbd>@'"+space.getDomain().getOid()+"'</kbd></a>)");
 			if (space.getBookmark()!=null) {
-				html.append("&nbsp;/&nbsp;bookmark:&nbsp;<kbd>'"+space.getBookmark().getName()+"'</kbd>&nbsp;(id=<kbd>@'"+space.getBookmark().getOid()+"'</kbd>)");
+				html.append("&nbsp;/&nbsp;bookmark:&nbsp;<a href=\""+StringEscapeUtils.escapeHtml4(backLink.toString())+"\"><kbd>'"+space.getBookmark().getName()+"'</kbd></a>&nbsp;(id=<kbd>@'"+space.getBookmark().getOid()+"'</kbd>)");
 			}
 			html.append("</p>");
 		} else if (project!=null) {
 			// just display the project
 			URI projectLink = service.buildGenericObjectURI(userContext, project.getId());
-			html.append("<p>project:&nbsp;<kbd>'"+project.getName()+"'</kbd>&nbsp;(id=<a href=\""+StringEscapeUtils.escapeHtml4(projectLink.toString())+"\"><kbd>@'"+project.getOid()+"'</kbd></a>)");
+			html.append("<p>project:&nbsp;<a href=\""+StringEscapeUtils.escapeHtml4(backLink.toString())+"\"><kbd>'"+project.getName()+"'</kbd></a>&nbsp;(id=<a href=\""+StringEscapeUtils.escapeHtml4(projectLink.toString())+"\"><kbd>@'"+project.getOid()+"'</kbd></a>)");
 			html.append("</p>");
 		}
 
@@ -181,7 +186,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 				"    border-radius: 4px;\n" +
 				"    box-sizing: border-box;\n" +
 				"}\n" +
-				"button[type=submit], .btn {\n" +
+				"button[type=submit], .btn-orange {\n" +
 				"	 font-size: 1.3em;" +
 				"    width: 200px;\n" +
 				"    background-color: #ee7914;\n" +
@@ -193,7 +198,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 				"    border-radius: 4px;\n" +
 				"    cursor: pointer;\n" +
 				"}\n" +
-				"button[type=submit]:hover, .btn:hover {\n" +
+				"button[type=submit]:hover, .btn-orange:hover {\n" +
 				"    background-color: #ab570e;\n" +
 				"}\n" +
 				"input[type=submit] {\n" +
@@ -255,14 +260,6 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 				"}\n" +
 				"h2 { margin-bottom:0px;}\n" +
 				"h4 { margin-bottom:0px;}\n" +
-				".logo {\n" +
-				"    margin-left: -5px;\n" +
-				"    margin-right: -5px;\n" +
-				"    height: 32px;\n" +
-				"    background: url('data:image/png;base64,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');\n" +
-				"    background-repeat: no-repeat;\n" +
-				"	 background-color: #ee7914;\n" +
-				"}\n" +
 				".logo span {\n" +
 				"    line-height: 32px;\n" +
 				"    vertical-align: middle;\n" +
@@ -398,33 +395,37 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 	}
 
 	private void createHTMLpagination(StringBuilder html, ViewQuery query, ResultInfo info) {
-		long lastRow = (info.getStartIndex()+info.getPageSize());
-		long firstRow = info.getTotalSize()>0?(info.getStartIndex()+1):0;
-		html.append("<div style='padding-top:5px;'>rows from "+firstRow+" to "+lastRow+" out of "+info.getTotalSize()+" records");
-		if (info.isComplete()) {
-			html.append(" (the query is complete)");
+		if (info!=null) {
+			long lastRow = (info.getStartIndex()+info.getPageSize());
+			long firstRow = info.getTotalSize()>0?(info.getStartIndex()+1):0;
+			html.append("<div style='padding-top:5px;'>rows from "+firstRow+" to "+lastRow+" out of "+info.getTotalSize()+" records");
+			if (info.isComplete()) {
+				html.append(" (the query is complete)");
+			} else {
+				html.append(" (the query has more data)");
+			}
+			if (lastRow<info.getTotalSize()) {
+				// go to next page
+				HashMap<String, Object> override = new HashMap<>();
+				override.put(START_INDEX_PARAM, lastRow);
+				URI nextLink = service.buildAnalyticsViewURI(service.getUserContext(), query, null, null, Style.HTML, override);
+				html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(nextLink.toString())+"\">next</a>]");
+			}
+			html.append("</div>");
+			if (info.isFromSmartCache()) {
+				html.append("<div>data from smart-cache, last computed "+info.getExecutionDate()+"</div>");
+			} else if (info.isFromCache()) {
+				html.append("<div>data from cache, last computed "+info.getExecutionDate()+"</div>");
+			} else {
+				html.append("<div>fresh data just computed at "+info.getExecutionDate()+"</div>");
+			}
 		} else {
-			html.append(" (the query has more data)");
-		}
-		if (lastRow<info.getTotalSize()) {
-			// go to next page
-			HashMap<String, Object> override = new HashMap<>();
-			override.put(START_INDEX_PARAM, lastRow);
-			URI nextLink = service.buildAnalyticsViewURI(service.getUserContext(), query, null, null, Style.HTML, override);
-			html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(nextLink.toString())+"\">next</a>]");
-		}
-		html.append("</div>");
-		if (info.isFromSmartCache()) {
-			html.append("<div>data from smart-cache, last computed "+info.getExecutionDate()+"</div>");
-		} else if (info.isFromCache()) {
-			html.append("<div>data from cache, last computed "+info.getExecutionDate()+"</div>");
-		} else {
-			html.append("<div>fresh data just computed at "+info.getExecutionDate()+"</div>");
+			html.append("<div style='padding-top:5px;'>No results</div>");
 		}
 	}
 
 	/**
-	 * Simple page with SQL prettified
+	 * Simple page with SQL prettyfied
 	 * @param string
 	 * @return
 	 */
@@ -559,7 +560,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		html.append("<div style='width:50%;float:left;'>");
 		html.append("<div style='padding-right:15px;'>");
 		html.append("<h4 style='font-family:Helvetica Neue,Helvetica,Arial,sans-serif;'>Query Parameters</h4><hr>");
-		createHTMLswaggerLink(html, "runAnalysis");
+		html.append("<p id=\"query-instructions\"><i class=\"fa fa-info-circle fa-lg\" aria-hidden=\"true\"></i>&nbsp;You can either build expressions manually, or drag and drop objects from Query Scope to Query parameters.</p>");
 		createHTMLfilters(html, query);
 		html.append("<table style='width:100%;'>");
 		html.append("<tr><td valign='top' style='width:100px;'><a href=\"#\" data-toggle=\"tooltip\" data-placement=\"right\" title=\""+GROUPBY_DOC+"\">groupBy:</a>");
@@ -594,9 +595,14 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		html.append("</td><td>");
 		html.append("<input type=\"number\" required name=\"startIndex\" value=\""+getFieldValue(query.getStartIndex(),0)+"\">");
 		html.append("</td></tr>");
+		html.append("<tr><td valign='top'><a href=\"#\" data-toggle=\"tooltip\" data-placement=\"right\" title=\""+BEYOND_LIMIT_PARAM+"\">"+BEYOND_LIMIT_PARAM+":</a>");
+		html.append("</td><td>");
+		createHTMLinputArray(html, "text", AnalyticsServiceConstants.BEYOND_LIMIT_PARAM, query.getBeyondLimit());
+		html.append("</td></tr>");
 		html.append("</table>"
 				+ "<input type=\"hidden\" name=\"style\" value=\"HTML\">"
 				+ "<input type=\"hidden\" name=\"access_token\" value=\""+ctx.getToken().getOid()+"\">");
+		createHTMLswaggerLink(html, "runAnalysis");
 		html.append("</form>");
 		// the scope panel
 		html.append("</div></div><div style='width:50%;float:left;'>");
@@ -625,7 +631,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			if (reply.getSelection()!=null) {
 				AnalyticsSelection selection = reply.getSelection();
 				String message = "";
-				if (selection.getPeriod()!=null) {
+				if (selection.getPeriod()!=null && !selection.getPeriod().equals("")) {
 					SpaceScope scope = new SpaceScope(space);
 					IDomain image = scope.parseExpressionSafe(selection.getPeriod()).getImageDomain();
 					message += "results for the period <kbd>"+selection.getPeriod()+"</kbd> ";
@@ -677,13 +683,6 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			}
 			html.append("</tbody></table>");
 			html.append("</div>");
-			{ // for View
-				HashMap<String, Object> override = new HashMap<>();
-				override.put(LIMIT_PARAM, null);
-				override.put(MAX_RESULTS_PARAM, null);
-				service.buildAnalyticsViewURI(service.getUserContext(), new ViewQuery(query), null, "ALL", Style.HTML, override);
-			}
-
 		} else {
 			html.append("<i>Result is not available, it's probably due to an error</i>");
 			html.append("<div style='clear:both;'></div>");
@@ -695,7 +694,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 				override.put(LIMIT_PARAM, null);
 				override.put(MAX_RESULTS_PARAM, null);
 				URI viewLink = service.buildAnalyticsViewURI(service.getUserContext(), new ViewQuery(query), null, "ALL", Style.HTML, override);//(userContext, query, "SQL", null, Style.HTML, null);
-				html.append("<div style='padding:13px'><button type='submit' class='btn btn-lg' style='display:inline' value='Visualize' formaction=\""+StringEscapeUtils.escapeHtml4(viewLink.toString())+"\"><i class=\"fa fa-bar-chart\" aria-hidden=\"true\"></i>&nbsp;Visualize</button>");
+				html.append("<div style='padding:13px'><button type='submit' class='btn btn-lg' style='display:inline' value='Visualize' formaction=\""+StringEscapeUtils.escapeHtml4(viewLink.toString())+"\"><i class=\"fa fa-bar-chart\" aria-hidden=\"true\"></i>&nbsp;View</button>");
 			}
 			// save as bookmark using a modal
 			String popupTitle;
@@ -709,7 +708,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			builder.queryParam("access_token", service.getUserContext().getToken().getOid());
 			URI link = builder.build(query.getBBID());
 			html.append("<!-- Button trigger modal -->\n" + 
-					"<button type=\"button\" class=\"btn btn-lg\" style='display:inline' data-toggle=\"modal\" data-target=\"#myModal\">\n" + 
+					"<button type=\"submit\" class=\"btn btn-lg\" style='display:inline' data-toggle=\"modal\" data-target=\"#myModal\">\n" + 
 					"<i class=\"fa fa-cloud-upload\" aria-hidden=\"true\"></i> Bookmark\n" + 
 					"</button></div>\n" + 
 					"<!-- Modal -->\n" + 
@@ -767,6 +766,32 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			return space.getBookmark().getName();
 		}
 	}
+	
+	public Response createHTMLViewSnippet(AppContext ctx, Space space, ViewQuery view, ResultInfo info, ViewReply reply) {
+		String title = getPageTitle(space);
+		StringBuilder html = createHTMLHeader(title);
+		html.append("<script src=\"//d3js.org/d3.v3.min.js\" charset=\"utf-8\"></script>\n" +
+				"<script src=\"https://cdnjs.cloudflare.com/ajax/libs/vega/2.5.0/vega.min.js\"></script>\n" +
+				"  <script src=\"https://cdnjs.cloudflare.com/ajax/libs/vega-lite/1.0.7/vega-lite.min.js\"></script>\n" +
+				"<script src=\"https://cdnjs.cloudflare.com/ajax/libs/vega-embed/2.2.0/vega-embed.min.js\" charset=\"utf-8\"></script>");
+		html.append("<body>");
+		// vega lite preview
+		html.append("<div>");
+		Encoding channels = null;
+		if (reply.getResult()!=null) {
+			html.append("<div id=\"vis\"></div>\r\n\r\n<script>\r\nvar embedSpec = {\r\n  mode: \"vega-lite\", renderer:\"svg\",  spec:");
+			html.append(writeVegalightSpecs(reply.getResult()));
+			channels = reply.getResult().encoding;
+			html.append("}\r\nvg.embed(\"#vis\", embedSpec, function(error, result) {\r\n  // Callback receiving the View instance and parsed Vega spec\r\n  // result.view is the View, which resides under the '#vis' element\r\n});\r\n</script>\r\n");
+		} else {
+			html.append("<p>No Result</p>");
+			channels = new Encoding();// empty encoding
+		}
+		html.append("</body>\r\n</html>");
+		return Response.ok(html.toString(), "text/html; charset=UTF-8").build();
+	}
+	
+	private static final Mark[] MARKS = new Mark[]{Mark.bar, Mark.line, Mark.area, Mark.point ,Mark.circle, Mark.square, Mark.tick};
 
 	/**
 	 * the /view view (vegalite)
@@ -780,7 +805,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 	public Response createHTMLPageView(AppContext ctx, Space space, ViewQuery view, ResultInfo info, ViewReply reply) {
 		String title = getPageTitle(space);
 		String breadcrumbs = getBreadCrumbs(space);
-		StringBuilder html = createHTMLHeader( title + " - OB Query Builder");
+		StringBuilder html = createHTMLHeader( title + " - OB Query Viewer");
 		html.append("<script src=\"//d3js.org/d3.v3.min.js\" charset=\"utf-8\"></script>\n" +
 				"<script src=\"https://cdnjs.cloudflare.com/ajax/libs/vega/2.5.0/vega.min.js\"></script>\n" +
 				"  <script src=\"https://cdnjs.cloudflare.com/ajax/libs/vega-lite/1.0.7/vega-lite.min.js\"></script>\n" +
@@ -791,9 +816,121 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		// vega lite preview
 		html.append("<div>");
 		html.append("<h4 style='font-family:Helvetica Neue,Helvetica,Arial,sans-serif;'>View Result</h4><hr>");
-		html.append("<div id=\"vis\"></div>\r\n\r\n<script>\r\nvar embedSpec = {\r\n  mode: \"vega-lite\", renderer:\"svg\",  spec:");
 		Encoding channels = null;
-		if (reply.getResult()!=null) {
+		if (reply.getResult()!=null) {// switchers
+			html.append("<div class='btn-toolbar' role='toolbar' aria-label='vegalite settings'>");
+			boolean separator = false;
+			boolean group = false;
+			{ // for View snippet
+				HashMap<String, Object> override = new HashMap<>();
+				URI viewLink = service.buildAnalyticsViewURI(service.getUserContext(), view, null, "ALL", Style.SNIPPET, override);//(userContext, query, "SQL", null, Style.HTML, null);
+				html.append("<a class='btn btn-default' target='_blank' href=\""+StringEscapeUtils.escapeHtml4(viewLink.toString())+"\"><i class='fa fa-external-link' aria-hidden='true'></i>&nbsp;Snippet</a>");
+				separator = true;
+			}
+			{// x<->y
+				if (reply.getResult().encoding.x!=null && reply.getResult().encoding.x.type!=DataType.temporal) {
+					if (separator) html.append("<div class='btn-group' role='group'>");
+					ViewQuery copy = new ViewQuery(view);
+					copy.setX(view.getY());
+					copy.setY(view.getX());
+					URI viewLink = service.buildAnalyticsViewURI(service.getUserContext(), copy, null, "ALL", Style.HTML, null);
+					html.append("<a class='btn btn-default' href=\""+StringEscapeUtils.escapeHtml4(viewLink.toString())+"\">X <i class='fa fa-refresh' aria-hidden='true'></i> Y</a>");
+					separator = false;
+					group = true;
+				}
+			}
+			{// x<->color
+				if ((reply.getResult().encoding.x!=null && reply.getResult().encoding.x.type!=DataType.temporal) && reply.getResult().encoding.color!=null) {
+					if (separator)  html.append("<div class='btn-group' role='group'>");
+					ViewQuery copy = new ViewQuery(view);
+					copy.setX(view.getColor());
+					copy.setColor(view.getX());
+					URI viewLink = service.buildAnalyticsViewURI(service.getUserContext(), copy, null, "ALL", Style.HTML, null);
+					html.append("<a class='btn btn-default' href=\""+StringEscapeUtils.escapeHtml4(viewLink.toString())+"\">X <i class='fa fa-refresh' aria-hidden='true'></i> color</a>");
+					separator = false;
+					group = true;
+				}
+			}
+			{// color<->column
+				if (reply.getResult().encoding.color!=null || reply.getResult().encoding.column!=null) {
+					if (separator) html.append("<div class='btn-group' role='group'>");
+					ViewQuery copy = new ViewQuery(view);
+					copy.setColor(view.getColumn());
+					copy.setColumn(view.getColor());
+					URI viewLink = service.buildAnalyticsViewURI(service.getUserContext(), copy, null, "ALL", Style.HTML, null);
+					html.append("<a class='btn btn-default' href=\""+StringEscapeUtils.escapeHtml4(viewLink.toString())+"\">color <i class='fa fa-refresh' aria-hidden='true'></i> column</a>");
+					separator = false;
+					group = true;
+				}
+			}
+			{// column<->row
+				if (reply.getResult().encoding.column!=null || reply.getResult().encoding.row!=null) {
+					if (separator) html.append("<div class='btn-group' role='group'>");
+					ViewQuery copy = new ViewQuery(view);
+					copy.setColumn(view.getRow());
+					copy.setRow(view.getColumn());
+					URI viewLink = service.buildAnalyticsViewURI(service.getUserContext(), copy, null, "ALL", Style.HTML, null);
+					html.append("<a class='btn btn-default' href=\""+StringEscapeUtils.escapeHtml4(viewLink.toString())+"\">column <i class='fa fa-refresh' aria-hidden='true'></i> row</a>");
+					separator = false;
+					group = true;
+				}
+			}
+			if (group==true) {
+				html.append("</div>");
+				separator = true;
+				group = false;
+			}
+			{ // set mark option
+				for (Mark mark : MARKS) {
+					ViewQuery copy = new ViewQuery(view);
+					try {
+						// line and area are ony valid with ordinal/quantitative
+						if (mark.equals(Mark.line) || mark.equals(Mark.area)) {
+							if (!(reply.getResult().encoding.x!=null && (reply.getResult().encoding.x.type.equals(DataType.ordinal) || reply.getResult().encoding.x.type.equals(DataType.temporal))
+									&& reply.getResult().encoding.y!=null && reply.getResult().encoding.y.type.equals(DataType.quantitative))) {
+								continue;
+							}
+						}
+						Properties options = copy.getOptionsAsProperties(true);
+						options.put("mark", mark.name());
+						copy.setOptionsAsProperties(options);
+						URI viewLink = service.buildAnalyticsViewURI(service.getUserContext(), copy, null, "ALL", Style.HTML, null);
+						if (separator) html.append("<div class='btn-group' role='group'>");
+						if (reply.getResult().mark.equals(mark)) {
+							html.append("<button type='button' class='btn btn-default disabled'>");
+							html.append(mark.toString());
+							html.append("</button>");
+						} else {
+							html.append("<a class='btn btn-default' href=\""+StringEscapeUtils.escapeHtml4(viewLink.toString())+"\">"+mark.toString()+"</a>");
+						}
+						separator = false;
+						group = true;
+					} catch (IOException e) {
+						//
+					}
+				}
+			}
+			if (group==true) {
+				html.append("</div>");
+				separator = true;
+				group = false;
+			}
+			// stacked options
+			if ((reply.getResult().mark.equals(Mark.bar) || reply.getResult().mark.equals(Mark.area)) && reply.getResult().encoding.color!=null) {
+				html.append("<div class='btn-group' role='group'>");
+				createHTMLpageViewStackedOptions(html, view, reply);
+				html.append("</div>");
+			}
+			{// reset
+				if (true) {
+					ViewQuery copy = new ViewQuery((AnalyticsQuery)view);
+					URI viewLink = service.buildAnalyticsViewURI(service.getUserContext(), copy, null, "ALL", Style.HTML, null);
+					html.append("<a class='btn btn-default' href=\""+StringEscapeUtils.escapeHtml4(viewLink.toString())+"\"><i class='fa fa-times' aria-hidden='true'></i>reset</a>");
+				}
+			}
+			html.append("</div>");
+			// vegalite
+			html.append("<div id=\"vis\"></div>\r\n\r\n<script>\r\nvar embedSpec = {\r\n  mode: \"vega-lite\", renderer:\"svg\",  spec:");
 			html.append(writeVegalightSpecs(reply.getResult()));
 			channels = reply.getResult().encoding;
 			html.append("}\r\nvg.embed(\"#vis\", embedSpec, function(error, result) {\r\n  // Callback receiving the View instance and parsed Vega spec\r\n  // result.view is the View, which resides under the '#vis' element\r\n});\r\n</script>\r\n");
@@ -804,27 +941,28 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		html.append("<hr>");
 		// refresh
 		html.append("<form>");
-		html.append("<div style='float:left;padding:5px;'><button type='submit' value='View'><i class=\"fa fa-bar-chart\" aria-hidden=\"true\"></i>&nbsp;Visualize</button></div>");
+		html.append("<div style='float:left;padding:5px;'><button type='submit' value='View'><i class=\"fa fa-bar-chart\" aria-hidden=\"true\"></i>&nbsp;View</button></div>");
 		// data-link
 		URI querylink = service.buildAnalyticsQueryURI(service.getUserContext(), reply.getQuery(), "RECORDS", "ALL", Style.HTML, null);
 		html.append("<div style='float:left;padding:5px;'><button type='submit' value='Query' formaction=\""+StringEscapeUtils.escapeHtml4(querylink.toASCIIString())+"\"><i class=\"fa fa-refresh\" aria-hidden=\"true\"></i>&nbsp;Query</button></div>");
 		createHTMLpagination(html, view, info);
 		html.append("<div style='clear:both;'></div>");
-		html.append("</div>");
-		html.append("</div>");
 		// parameters
 		html.append("<div>");
 		html.append("<div style='width:50%;float:left;'>");
 		html.append("<div style='padding-right:15px;'>");
 		html.append("<h4 style='font-family:Helvetica Neue,Helvetica,Arial,sans-serif;'>View Parameters</h4><hr>");
+		html.append("<p id=\"query-instructions\"><i class=\"fa fa-info-circle fa-lg\" aria-hidden=\"true\"></i>&nbsp;You can either build expressions manually, or drag and drop objects from Query Scope to Query parameters.</p>");
 		// view parameter
 		html.append("<table style='width:100%;'>"
-				+ "<tr><td style='width:100px;'>x</td><td><input type=\"text\" style='width:100%;' name=\"x\" value=\""+getFieldValue(view.getX())+"\"><br>"+(channels.x!=null?"as <b>"+channels.x.field+"</b>":"")+"</td></tr>"
-				+ "<tr><td>y</td><td><input type=\"text\" style='width:100%;' name=\"y\" value=\""+getFieldValue(view.getY())+"\"><br>"+(channels.y!=null?"as <b>"+channels.y.field+"</b>":"")+"</td></tr>"
-				+ "<tr><td>color</td><td><input type=\"text\" style='width:100%;' name=\"color\" value=\""+getFieldValue(view.getColor())+"\"><br>"+(channels.color!=null?"as <b>"+channels.color.field+"</b>":"")+"</td></tr>"
-				+ "<tr><td>size</td><td><input type=\"text\" style='width:100%;' name=\"size\" value=\""+getFieldValue(view.getSize())+"\"><br>"+(channels.size!=null?"as <b>"+channels.size.field+"</b>":"")+"</td></tr>"
-				+ "<tr><td>column</td><td><input type=\"text\" style='width:100%;' name=\"column\" value=\""+getFieldValue(view.getColumn())+"\"><br>"+(channels.column!=null?"as <b>"+channels.column.field+"</b>":"")+"</td></tr>"
-				+ "<tr><td>row</td><td><input type=\"text\" style='width:100%;' name=\"row\" value=\""+getFieldValue(view.getRow())+"\"><br>"+(channels.row!=null?"as <b>"+channels.row.field+"</b>":"")+"</td></tr>");
+				+ "<tr><td style='width:100px;'>x</td><td><input type=\"search\" style='width:100%;' name=\"x\" value=\""+getFieldValue(view.getX())+"\"><br>"+(channels.x!=null?"as <b>"+channels.x.field+"</b>":"")+"</td></tr>"
+				+ "<tr><td>y</td><td><input type=\"search\" style='width:100%;' name=\"y\" value=\""+getFieldValue(view.getY())+"\"><br>"+(channels.y!=null?"as <b>"+channels.y.field+"</b>":"")+"</td></tr>"
+				+ "<tr><td>color</td><td><input type=\"search\" style='width:100%;' name=\"color\" value=\""+getFieldValue(view.getColor())+"\"><br>"+(channels.color!=null?"as <b>"+channels.color.field+"</b>":"")+"</td></tr>"
+				+ "<tr><td>size</td><td><input type=\"search\" style='width:100%;' name=\"size\" value=\""+getFieldValue(view.getSize())+"\"><br>"+(channels.size!=null?"as <b>"+channels.size.field+"</b>":"")+"</td></tr>"
+				+ "<tr><td>column</td><td><input type=\"search\" style='width:100%;' name=\"column\" value=\""+getFieldValue(view.getColumn())+"\"><br>"+(channels.column!=null?"as <b>"+channels.column.field+"</b>":"")+"</td></tr>"
+				+ "<tr><td>row</td><td><input type=\"search\" style='width:100%;' name=\"row\" value=\""+getFieldValue(view.getRow())+"\"><br>"+(channels.row!=null?"as <b>"+channels.row.field+"</b>":"")+"</td></tr>");
+		// options
+		html.append("<tr><td>options</td><td><input type=\"search\" style='width:100%;' name=\"row\" value=\""+getFieldValue(view.getOptions())+"\"></td></tr>");
 		html.append("</table>");
 		// the other (query) parameters
 		html.append("<h4 style='font-family:Helvetica Neue,Helvetica,Arial,sans-serif;'>Query Parameters</h4><hr>");
@@ -862,11 +1000,17 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		html.append("</td><td>");
 		html.append("<input type=\"text\" name=\"startIndex\" value=\""+getFieldValue(reply.getQuery().getStartIndex(),0)+"\">");
 		html.append("</td></tr>");
+		html.append("<tr><td valign='top'><a href=\"#\" data-toggle=\"tooltip\" data-placement=\"right\" title=\""+BEYOND_LIMIT_PARAM+"\">"+BEYOND_LIMIT_PARAM+":</a>");
+		html.append("</td><td>");
+		createHTMLinputArray(html, "text", AnalyticsServiceConstants.BEYOND_LIMIT_PARAM, reply.getQuery().getBeyondLimit());
+		html.append("</td></tr>");
 		html.append("</table>"
 				+ "<input type=\"hidden\" name=\"style\" value=\"HTML\">"
 				+ "<input type=\"hidden\" name=\"access_token\" value=\""+space.getUniverse().getContext().getToken().getOid()+"\">"
 				//+ "<input type=\"submit\" value=\"Refresh\">"
 				+ "</form>");
+		html.append("</div>");
+		html.append("</div>");
 		html.append("</div>");
 		html.append("</div>");
 		// scope
@@ -879,6 +1023,42 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		createFooter(html);
 		html.append("</body>\r\n</html>");
 		return Response.ok(html.toString(), "text/html; charset=UTF-8").build();
+	}
+	
+	private void createHTMLpageViewStackedOptions(StringBuilder html, ViewQuery view, ViewReply reply) {
+		// set stacked option
+		boolean separator = false;
+		if (reply.getResult().mark.equals(Mark.bar) || reply.getResult().mark.equals(Mark.area)) {
+			Stacked selected = null;
+			if (reply.getResult().config.mark!=null) selected = reply.getResult().config.mark.stacked;
+			for (Stacked stacked : Stacked.values()) {
+				separator = createHTMLpageViewSelectOption(html, separator, view, "mark.stacked", stacked.name(), stacked.toString(), stacked.equals(selected));
+			}
+		}
+	}
+	
+	private boolean createHTMLpageViewSelectOption(StringBuilder html, boolean separator, ViewQuery view, String option, String value, String name, boolean selected) {
+		ViewQuery copy = new ViewQuery(view);
+		try {
+			Properties options = copy.getOptionsAsProperties(true);
+			if (value!=null) {
+				options.put(option, value);
+			} else {
+				options.remove(option);
+			}
+			copy.setOptionsAsProperties(options);
+			URI viewLink = service.buildAnalyticsViewURI(service.getUserContext(), copy, null, "ALL", Style.HTML, null);
+			if (!selected) {
+				html.append("<button type='button' class='btn btn-default'>");
+				html.append("<a href=\""+StringEscapeUtils.escapeHtml4(viewLink.toString())+"\">"+name+"</a>");
+				html.append("</button>");
+			} else {
+				createHTMLpageViewSelectOption(html, false, view, "mark.stacked", null, "<i class='fa fa-times' aria-hidden='true'></i>"+name, false);
+			}
+			return true;
+		} catch (IOException e) {
+			return false;
+		}
 	}
 
 	/**
@@ -947,23 +1127,102 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			html.append("&nbsp;[<a href=\""+StringEscapeUtils.escapeHtml4(scopeLink.toASCIIString())+"\">/scope</a>]");
 			html.append("</p>");
 		}
-		//html.append("<i>This is the list of objects you can combine to build expressions in the query scope. Drag & Drop expression into input parameters on the left.</i>");
-		html.append("<p id=\"query-instructions\"><i class=\"fa fa-info-circle fa-lg\" aria-hidden=\"true\"></i>&nbsp;You can either build expressions manually, or drag and drop objects from Query Scope to Query parameters.</p>");
 		html.append("<div class=\"containerx\">");
 		html.append("<ul class='nav nav-tabs'>");
 		html.append("<li class=\"active\"><a data-toggle=\"tab\" href=\"#dimensions\">Dimensions</a></li>");
 		html.append("<li><a data-toggle=\"tab\" href=\"#metrics\">Metrics</a></li>");
 		html.append("<li><a data-toggle=\"tab\" href=\"#functions\">Functions</a></li>");
+		html.append("<li><a data-toggle=\"tab\" href=\"#shortcuts\">Shortcuts</a></li>");
 		html.append("</ul>");
 		html.append("<div class=\"tab-content\">");
 		html.append("<div id=\"dimensions\" class=\"tab-pane fade in active\">");
 		//html.append("<div style='max-height:300px;overflow:scroll;'>");
 		List<Axis> axisList = space.A(true);
 		int pageSize = 25;
-		int pages = 1+axisList.size()/pageSize;
 		int count = 0;
 		int page = 1;
 		StringBuilder dimensionContent = new StringBuilder();
+		ArrayList<String> pageTitle = new ArrayList<>();
+		HashMap<Space, List<Axis>> bySpace = new HashMap<>();
+		ArrayList<Space> spaces = new ArrayList<>();
+		HashMap<String, String> convertNames = new HashMap<>();
+		for (Axis axis : axisList) {
+			IDomain image = axis.getDefinitionSafe().getImageDomain();
+			if (!image.isInstanceOf(IDomain.OBJECT)) {
+				Space parent = axis.getParent();
+				List<Axis> content = bySpace.get(parent);
+				if (content==null) {
+					content = new ArrayList<>();
+					bySpace.put(parent, content);
+					spaces.add(parent);
+					/*
+					try {
+						DimensionIndex index = axis.getIndex();
+						if (index instanceof DimensionIndexProxy) {
+							DimensionIndexProxy proxy = (DimensionIndexProxy)index;
+							Axis source = proxy.getSource();
+							index = source.getIndex();
+							convertNames.put(parent.prettyPrint(), index.getDimensionName());
+						} else {
+							convertNames.put(parent.prettyPrint(), space.getDomain().getName());
+						}
+					} catch (ComputingException | InterruptedException e) {
+						convertNames.put(parent.prettyPrint(), parent.toString());
+					}
+					*/
+					if (parent.equals(space)) {
+						convertNames.put(parent.prettyPrint(), parent.toString());
+					} else {
+						String name = parent.toString();
+						if (name.startsWith(space.toString())) {
+							name = name.substring(space.toString().length()+1);
+						}
+						name = name.replace(".", " > ");
+						convertNames.put(parent.prettyPrint(), name);
+					}
+				}
+				content.add(axis);
+			}
+		}
+		for (Space parent : spaces) {
+			if (page>1) dimensionContent.append("</div>");
+			dimensionContent.append("<div style='max-height:550px;overflow:scroll;' id='axis"+page+"' class='tab-pane fade "+(page==1?"in active'>":"'>"));
+			page++;
+			pageTitle.add(convertNames.get(parent.prettyPrint()));
+			List<Axis> content = bySpace.get(parent);
+			for (Axis axis : content) {// only print the visible scope
+				try {
+					IDomain image = axis.getDefinitionSafe().getImageDomain();
+					if (!image.isInstanceOf(IDomain.OBJECT)) {
+						//
+						DimensionIndex index = axis.getIndex();
+						dimensionContent.append("<span draggable='true' style='"+axis_style+"'");
+						String name = index.getDimensionName().replaceAll("'", "&apos;").replaceAll("\"", "&quot;");
+						dimensionContent.append(" ondragstart='drag(event,\"&apos;"+name+"&apos;\")'>");
+						if (index.getErrorMessage()==null) {
+							dimensionContent.append("&nbsp;"+index.getDimensionName()+"&nbsp;");
+						} else {
+							dimensionContent.append("&nbsp;<del>"+index.getDimensionName()+"</del>&nbsp;");
+						}
+						dimensionContent.append("</span>");
+						// add description, type, error
+						ExpressionAST expr = axis.getDefinitionSafe();
+						dimensionContent.append(":"+getExpressionValueType(expr).toString());
+						if (index.getErrorMessage()!=null) {
+							dimensionContent.append("&nbsp;<b>Error:"+index.getErrorMessage()+"</b>");
+						}
+						if (axis.getDescription()!=null) {
+							dimensionContent.append("&nbsp;"+axis.getDescription());
+						}
+						dimensionContent.append("<br>\n");
+					}
+				} catch (Exception e) {
+					// ignore
+				}
+			}
+		}
+		/*
+		pageTitle.add("1");
 		for (Axis axis : axisList) {// only print the visible scope
 			try {
 				IDomain image = axis.getDefinitionSafe().getImageDomain();
@@ -971,6 +1230,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 					if (pages>1 && count % pageSize == 0) {
 						if (page>1) dimensionContent.append("</div>");
 						dimensionContent.append("<div id='axis"+page+"' class='tab-pane fade "+(page==1?"in active'>":"'>"));
+						pageTitle.add(""+page);
 						page++;
 					}
 					count++;
@@ -1000,17 +1260,17 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 				// ignore
 			}
 		}
-		if (pages>1) {
+		*/
+		if (page>1) {
 			if (page>1) dimensionContent.append("</div>");// closing last page
 			dimensionContent.append("</div>");// closing pages
 		}
 		// add the header
-		if (pages>1) {
-			int actualPages = 1+count/pageSize;
+		if (page>1) {
 			html.append("<ul class='pagination'>");
-			html.append("<li class='active'><a data-toggle='tab' href='#axis1'>1</a></li>");
-			for (int i=2;i<=actualPages;i++) {
-				html.append("<li><a data-toggle='tab' href='#axis"+i+"'>"+i+"</a></li>");
+			html.append("<li class='active'><a data-toggle='tab' href='#axis1'>"+pageTitle.get(0)+"</a></li>");
+			for (int i=2;i<=pageTitle.size();i++) {
+				html.append("<li><a data-toggle='tab' href='#axis"+i+"'>"+pageTitle.get(i-1)+"</a></li>");
 			}
 			html.append("</ul>");
 			html.append("<div class='tab-content'>");
@@ -1018,7 +1278,9 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		html.append(dimensionContent);
 		html.append("</div>");
 		html.append("<div id=\"metrics\" class=\"tab-pane fade\">");
-		//html.append("<div style='max-height:300px;overflow:scroll;'>");
+		// add some space
+		html.append("<ul class='pagination'></ul>");
+		html.append("<div class='tab-content'>");
 		for (Measure m : space.M()) {
 			if (m.getMetric()!=null && !m.getMetric().isDynamic()) {
 				html.append("<span draggable='true'  style='"+metric_style+"'");
@@ -1034,10 +1296,13 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			}
 		}
 		html.append("</div>");
+		html.append("</div>");
 		// -- functions
 		html.append("<div id=\"functions\" class=\"tab-pane fade\">");// style='max-height:600px;overflow:scroll;'>");
 		count = 0;
+		int actualPages = 0;
 		page = 1;
+		pageTitle = new ArrayList<>();
 		StringBuilder functionContent = new StringBuilder();
 		try {
 			SpaceScope scope = new SpaceScope(space);
@@ -1052,19 +1317,72 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 					}
 				}
 			});
+			OperatorDefinition previous = null;
+			HashMap<String, List<OperatorDefinition>> categories = new HashMap<>();
+			ArrayList<String> keys = new ArrayList<>();
+			for (OperatorDefinition opDef : ops) {
+				String cat = opDef.getCategoryTypeName();
+				List<OperatorDefinition> content = categories.get(cat);
+				if (content==null) {
+					content = new ArrayList<>();
+					categories.put(cat, content);
+					keys.add(cat);
+				}
+				content.add(opDef);
+			}
+			Collections.sort(keys);
+			for (String cat : keys) {
+				List<OperatorDefinition> content = categories.get(cat);
+				if (page>1) functionContent.append("</div>");
+				functionContent.append("<div style='max-height:550px;overflow:scroll;' id='fun"+page+"' class='tab-pane fade "+(page==1?"in active'>":"'>"));
+				page++;
+				pageTitle.add(cat);
+				actualPages++;
+				for (OperatorDefinition opDef : content) {
+					//if (opDef.getPosition()!=OperatorDefinition.INFIX_POSITION) {
+					ListContentAssistEntry listContentAssistEntry = opDef.getSimplifiedListContentAssistEntry();
+					if (listContentAssistEntry != null) {
+						if (listContentAssistEntry.getContentAssistEntries() != null) {
+							for (ContentAssistEntry contentAssistEntry : listContentAssistEntry.getContentAssistEntries()) {
+								count++;
+								previous = opDef;
+								String display = null;
+								if (opDef.getPosition()==OperatorDefinition.INFIX_POSITION){
+									display = opDef.getSymbol() ;
+								}else{
+									display =opDef.getSymbol() + "(" + contentAssistEntry.getLabel() + ")";
+								}
+								functionContent.append("<span draggable='true'  style='"+metric_style+"'");
+								functionContent.append(" ondragstart='drag(event,\""+display+"\")'");
+								functionContent.append(">&nbsp;"+display+"&nbsp;</span>: "+contentAssistEntry.getDescription()+"<br>");
+							}
+						}
+					}
+				}
+			}
+			/*
 			for (OperatorDefinition opDef : ops) {
 				//if (opDef.getPosition()!=OperatorDefinition.INFIX_POSITION) {
 				ListContentAssistEntry listContentAssistEntry = opDef.getSimplifiedListContentAssistEntry();
 				if (listContentAssistEntry != null) {
 					if (listContentAssistEntry.getContentAssistEntries() != null) {
-						for (ContentAssistEntry contentAssistEntry : listContentAssistEntry.getContentAssistEntries()) {
-							if (count % pageSize == 0) {
-								if (page>1) functionContent.append("</div>");
-								functionContent.append("<div id='fun"+page+"' class='tab-pane fade "+(page==1?"in active'>":"'>"));
-								page++;
+						if (count >= pageSize) {
+							count = 0; // reset
+						}
+						if (count == 0) {
+							if (page>1) functionContent.append("</div>");
+							functionContent.append("<div id='fun"+page+"' class='tab-pane fade "+(page==1?"in active'>":"'>"));
+							page++;
+							if (previous!=null) {
+								pageTitle.add(previous.getSymbol());
 							}
+							pageTitle.add(opDef.getSymbol());
+							actualPages++;
+						}
+						for (ContentAssistEntry contentAssistEntry : listContentAssistEntry.getContentAssistEntries()) {
 							count++;
-							String display="";
+							previous = opDef;
+							String display = null;
 							if (opDef.getPosition()==OperatorDefinition.INFIX_POSITION){
 								display = opDef.getSymbol() ;
 							}else{
@@ -1072,12 +1390,12 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 							}
 							functionContent.append("<span draggable='true'  style='"+metric_style+"'");
 							functionContent.append(" ondragstart='drag(event,\""+display+"\")'");
-							functionContent.append(">&nbsp;"+display+"&nbsp;</span><br>");
+							functionContent.append(">&nbsp;"+display+"&nbsp;</span>: "+contentAssistEntry.getDescription()+"<br>");
 						}
 					}
 				}
-				//}
 			}
+			*/
 		} catch (ScopeException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -1088,19 +1406,56 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		}
 		// add the header
 		if (true) {
-			int actualPages = 1+count/pageSize;
 			html.append("<ul class='pagination'>");
-			html.append("<li class='active'><a data-toggle='tab' href='#fun1'>1</a></li>");
+			html.append("<li class='active'><a data-toggle='tab' href='#fun1'>"+pageTitle.get(0)+"</a></li>");
 			for (int i=2;i<=actualPages;i++) {
-				html.append("<li><a data-toggle='tab' href='#fun"+i+"'>"+i+"</a></li>");
+				html.append("<li><a data-toggle='tab' href='#fun"+i+"'>"+pageTitle.get(i-1)+"</a></li>");
 			}
 			html.append("</ul>");
 			html.append("<div class='tab-content'>");
 		}
 		html.append(functionContent);
 		html.append("</div>");
+		// -- Shortcuts
+		html.append("<div id=\"shortcuts\" class=\"tab-pane fade in\">");
+		// add some space
+		html.append("<ul class='pagination'></ul>");
+		html.append("<div class='tab-content'>");
+		//
+		appendItem(html, other_style, "__PERIOD", "the default period dimension");
+		appendItem(html, other_style, "daily(__PERIOD)", "the default period in daily increment");
+		appendItem(html, other_style, "weekly(__PERIOD)", "the default period in weekly increment");
+		appendItem(html, other_style, "monthly(__PERIOD)", "the default period in monthly increment");
+		appendItem(html, other_style, "yearly(__PERIOD)", "the default period in yearly increment");
+		appendItem(html, other_style, "__LAST_7_DAYS", "set the timeframe to the last 7 days");
+		appendItem(html, other_style, "__CURRENT_MONTH", "set the timeframe to the current month");
+		appendItem(html, other_style, "__PREVIOUS_MONTH", "set the timeframe to the previous month");
+		appendItem(html, other_style, "__CURRENT_YEAR", "set the timeframe to the current year");
+		appendItem(html, other_style, "__PREVIOUS_YEAR", "set the timeframe to the previous year");
+		appendItem(html, other_style, "__COMPARE_TO_PREVIOUS_PERIOD", "compare the results with the previous period");
+		appendItem(html, other_style, "__COMPARE_TO_PREVIOUS_MONTH", "compare the results with the previous month");
+		appendItem(html, other_style, "__COMPARE_TO_PREVIOUS_YEAR", "compare the results with the previous year");
+		html.append("</div>");
+		html.append("</div>");
 		//---- container
 		html.append("</div>");
+	}
+	
+	private String displayRange(List<String> pages, int index) {
+		int pageIndex = index*2;
+		if (pageIndex+1<pages.size()) {
+			return pages.get(pageIndex) + " - " + pages.get(pageIndex+1);
+		} else {
+			return pages.get(pageIndex);
+		}
+	}
+	
+	private void appendItem(StringBuilder html, String style, String display, String comment) {
+		html.append("<span draggable='true'  style='"+style+"'");
+		html.append(" ondragstart='drag(event,\""+display+"\")'");
+		html.append(">&nbsp;"+display+"&nbsp;</span>");
+		if (comment!=null && !comment.equals("")) html.append(":"+comment);
+		html.append("<br>\n");
 	}
 
 	/**
