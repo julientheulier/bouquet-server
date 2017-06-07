@@ -38,6 +38,10 @@ public class ObjectNotFoundAPIException extends APIException {
         super(message, cause, noError);
     }
 
+    public ObjectNotFoundAPIException(Throwable cause) {
+        this(cause, false);
+    }
+
     public ObjectNotFoundAPIException(Throwable cause, boolean noError) {
         super(cause, noError);
     }

@@ -217,7 +217,7 @@ public class ProjectServiceBaseImpl extends GenericServiceImpl<Project, ProjectP
 	        }
 			return object;
 		} catch (ScopeException e) {
-			throw new ObjectNotFoundAPIException(e, true);
+			throw new ObjectNotFoundAPIException(e, ctx.isNoError());
 		}
 	}
     
