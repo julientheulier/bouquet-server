@@ -389,22 +389,13 @@ public class DynamicManager {
 								String rightName = target.getName();
 								samesame = dedupLinks.get(link);
 								if (samesame != null) {
-									for (KeyPair key : fk.getKeys()) {
-										leftName += " "+key.getPrimary().getName();
-										rightName += " "+key.getExported().getName();
-									}
-									//leftName += "[" + fk.getName() + "]";
-									//rightName += "[" + fk.getName() + "]";
+									leftName += "[" + fk.getName() + "]";
+									rightName += "[" + fk.getName() + "]";
 									if (samesame.first) {// it's the first
-										String samesameLeftName = samesame.rel.getLeftName();
-										String samesameRightName = samesame.rel.getRightName();
-										for (KeyPair key : samesame.fk.getKeys()) {
-											samesameLeftName += " "+key.getPrimary().getName();
-											samesameRightName += " "+key.getExported().getName();
-										}
-										samesame.rel.setLeftName(samesameLeftName);
-										samesame.rel.setRightName(samesameRightName);
-										samesame.first = false;// update only once
+										samesame.rel.setLeftName(
+												samesame.rel.getLeftName() + "[" + samesame.fk.getName() + "]");
+										samesame.rel.setRightName(
+												samesame.rel.getRightName() + "[" + samesame.fk.getName() + "]");
 									}
 								}
 								RelationPK relationPk = new RelationPK(project.getId(), digest);
