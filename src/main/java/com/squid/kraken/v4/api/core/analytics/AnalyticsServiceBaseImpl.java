@@ -1042,8 +1042,8 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			)
 	{
 		Space space = null;// if we can initialize it, fine to report in the catch block
+		//
 		try {
-			//
 			if (envelope==null) {
 				envelope = computeEnvelope(query);
 			}
@@ -1202,7 +1202,12 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 				reply.setQuery(query);
 				return generator.createHTMLPageTable(userContext, space, reply, null);
 			} else {
-				throw new APIException(e.getMessage(), true);
+				// Make sure runtime exceptions such as auth exceptions are thrown as is
+				if (e instanceof RuntimeException) {
+					throw (RuntimeException) e;
+				} else {
+					throw new RuntimeException(e);
+				}
 			}
 		}
 	}
