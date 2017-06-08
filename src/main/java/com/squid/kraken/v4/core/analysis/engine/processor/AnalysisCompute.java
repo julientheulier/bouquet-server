@@ -789,7 +789,13 @@ public class AnalysisCompute {
 						mx.getMapping().setName(mapping.getMapping().getName());
 					}
 				}
-				runQuery(queryBis, lazy, analysis, qw);
+				try{				
+					runQuery(queryBis, lazy, analysis, qw);
+				}catch(NotInCacheException e){
+					logger.info("Could not retrieve matrix, Genkey must be stale");
+					AnalysisSmartCache.INSTANCE.remove(match.getSignature());
+					throw e;
+				}
 				if (!lazy) {
 					// check that the DM is not too big
 					if (!qw.getDataMatrix().isFullset()) {

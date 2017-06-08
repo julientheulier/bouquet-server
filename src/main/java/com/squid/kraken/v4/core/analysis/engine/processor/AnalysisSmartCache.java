@@ -348,6 +348,26 @@ public class AnalysisSmartCache {
 		// else
 		return false;
 	}
+	
+	/**
+	 * @param signature
+	 */
+	public boolean remove(AnalysisSmartCacheSignature signature) {
+		
+		Map<String, HashSet<String>> sameAxes = lookup.get(signature.getAxesSignature());
+		if (sameAxes!=null) {
+			HashSet<String> sameFilters = sameAxes.get(signature.getFiltersSignature());
+			if (sameFilters!=null) {
+				String key = signature.buildCacheKey();
+				if (!sameFilters.contains(key)) {
+					boolean check = sameFilters.remove(key);
+					return check;
+				}
+			}
+		}
+		// else
+		return false;
+	}
 
 	/**
 	 * Store the signature in the Smart Cache
