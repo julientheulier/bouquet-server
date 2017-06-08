@@ -53,6 +53,7 @@ import com.squid.kraken.v4.model.DomainPK;
 import com.squid.kraken.v4.model.ExpressionSuggestion;
 import com.squid.kraken.v4.model.ValueType;
 import com.squid.kraken.v4.persistence.AppContext;
+
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
@@ -227,17 +228,18 @@ public class DimensionServiceRest extends BaseServiceRest {
 	@POST
 	@Path("")
 	@ApiOperation(value = "Creates a dimension")
-	public Dimension storeDimension(@PathParam("projectId") String projectId,
-			@PathParam("domainId") String domainId,@ApiParam(required = true) Dimension dimension) {
+	public Dimension storeDimension(@PathParam("projectId") String projectId, @PathParam("domainId") String domainId,
+			@ApiParam(required = true) Dimension dimension) {
+		setId(dimension, projectId, domainId, null);
 		return delegate.store(userContext, dimension);
 	}
 	
 	@POST
-	@Path("{"+PARAM_NAME+"}")
+	@Path("{" + PARAM_NAME + "}")
 	@ApiOperation(value = "Creates a dimension")
-	public Dimension storeDimension2(@PathParam("projectId") String projectId,
-			@PathParam("domainId") String domainId,
-			@PathParam(PARAM_NAME) String dimensionId,@ApiParam(required = true) Dimension dimension) {
+	public Dimension storeDimension2(@PathParam("projectId") String projectId, @PathParam("domainId") String domainId,
+			@PathParam(PARAM_NAME) String dimensionId, @ApiParam(required = true) Dimension dimension) {
+		setId(dimension, projectId, domainId, dimensionId);
 		return delegate.store(userContext, dimension);
 	}
 	
@@ -247,6 +249,15 @@ public class DimensionServiceRest extends BaseServiceRest {
 	public Dimension updateDimension(@PathParam("projectId") String projectId,
 			@PathParam("domainId") String domainId,
 			@PathParam(PARAM_NAME) String dimensionId,@ApiParam(required = true) Dimension dimension) {
+		setId(dimension, projectId, domainId, dimensionId);
+		return delegate.store(userContext, dimension);
+	}
+	
+	@PUT
+	@Path("{"+PARAM_NAME+"}")
+	@ApiOperation(value = "Updates a dimension")
+	public Dimension updateDimension2(@PathParam("projectId") String projectId,
+			@PathParam("domainId") String domainId,@ApiParam(required = true) Dimension dimension) {
 		return delegate.store(userContext, dimension);
 	}
 
@@ -303,6 +314,21 @@ public class DimensionServiceRest extends BaseServiceRest {
 			@PathParam(PARAM_NAME) String dimensionId) {
 		return delegate.readSubDimensions(userContext, new DimensionPK(
 				userContext.getCustomerId(), projectId, domainId, dimensionId));
+	}
+	
+	private void setId(Dimension dimension, String projectId,
+			String domainId,
+			String dimensionId) {
+		DomainPK domainPK = new DomainPK(userContext.getCustomerId(), projectId, domainId);
+		if (dimensionId == null) {
+			if (dimension.getId() != null) {
+				dimensionId = dimension.getId().getDimensionId();
+			} else {
+				dimensionId = null;
+			}
+		}
+		DimensionPK pk = new DimensionPK(domainPK, dimensionId);
+		dimension.setId(pk);
 	}
 
 }

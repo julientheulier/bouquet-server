@@ -21,82 +21,30 @@
  * you and Squid Solutions (above licenses and LICENSE.txt included).
  * See http://www.squidsolutions.com/EnterpriseBouquet/
  *******************************************************************************/
-package com.squid.kraken.v4.model;
+package com.squid.kraken.v4.api.core;
 
-/**
- * This is a simple pojo that wraps the navigation parameters
- * @author sergefantino
- *
- */
-public class NavigationQuery {
-	
-	public enum HierarchyMode {
-		NONE, TREE, FLAT
-	}
-	
-	public enum Style {
-		HUMAN, LEGACY, ROBOT, HTML, SNIPPET
-	}
-	
-	public enum Visibility {
-		ALL, VISIBLE, HIDDEN
-	}
-	
-	private String parent;
-	
-	private String q;
-	
-	private HierarchyMode hiearchy;
-	
-	private Style style;
-	
-	private Visibility visibility;
-	
-	/**
-	 * 
-	 */
-	public NavigationQuery() {
-		// TODO Auto-generated constructor stub
-	}
+@SuppressWarnings("serial")
+public class BadRequestAPIException extends APIException {
 
-	public String getParent() {
-		return parent;
-	}
+    public BadRequestAPIException(boolean noError) {
+        super(noError);
+    }
 
-	public void setParent(String parent) {
-		this.parent = parent;
-	}
+    public BadRequestAPIException(String message, boolean noError) {
+        super(message, noError);
+    }
 
-	public String getQ() {
-		return q;
-	}
+    public BadRequestAPIException(String message, Throwable cause, boolean noError) {
+        super(message, cause, noError);
+    }
 
-	public void setQ(String q) {
-		this.q = q;
-	}
+    public BadRequestAPIException(Throwable cause, boolean noError) {
+        super(cause, noError);
+    }
 
-	public HierarchyMode getHierarchy() {
-		return hiearchy;
-	}
-
-	public void setHiearchy(HierarchyMode hiearchy) {
-		this.hiearchy = hiearchy;
-	}
-
-	public Style getStyle() {
-		return style;
-	}
-
-	public void setStyle(Style style) {
-		this.style = style;
-	}
-
-	public Visibility getVisibility() {
-		return visibility;
-	}
-
-	public void setVisibility(Visibility visibility) {
-		this.visibility = visibility;
-	}
-
+    @Override
+    protected Integer getErrorCode() {
+    	return 400;
+    }
+    
 }

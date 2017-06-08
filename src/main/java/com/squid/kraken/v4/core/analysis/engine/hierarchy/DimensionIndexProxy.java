@@ -60,6 +60,13 @@ public class DimensionIndexProxy extends DimensionIndex {
 		return sourceIndex;
 	}
 	
+	/**
+	 * @return the source
+	 */
+	public Axis getSource() {
+		return source;
+	}
+	
 	
 	@Override
 	public IDimensionStore getStore() {

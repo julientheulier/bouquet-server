@@ -365,7 +365,7 @@ public class ExecuteHierarchyQuery implements CancellableCallable<ExecuteHierarc
 				m.getDimensionIndex().setPermanentError(e.getMessage());
 			}
 			if (!abort) {
-				logger.info("failed SQLQuery#" + item.getID() + " method=executeQuery" + " duration="
+				logger.info("failed SQLQuery#" +  (item != null ? item.getID() : "?") + " method=executeQuery" + " duration="
 						+ " error=true status=failed queryid=" + (item != null ? item.getID() : "?") + " "
 						+ e.getLocalizedMessage() + "task=" + this.getClass().getName());
 			}

@@ -38,6 +38,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -212,6 +213,7 @@ import com.squid.kraken.v4.vegalite.VegaliteSpecs.Mark;
 import com.squid.kraken.v4.vegalite.VegaliteSpecs.Operation;
 import com.squid.kraken.v4.vegalite.VegaliteSpecs.Order;
 import com.squid.kraken.v4.vegalite.VegaliteSpecs.Sort;
+import com.squid.kraken.v4.vegalite.VegaliteSpecs.Stacked;
 
 /**
  * @author sergefantino
@@ -2133,11 +2135,27 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 				Integer x = getIntegerValue(value);
 				if (x==null || x<0 && x>=query.getGroupBy().size()) {
 					x = query.getGroupBy().indexOf(value);
+					if (x<0) {
+						// try harder
+						try {
+							ExpressionAST valExpr = scope.parseExpression(value);
+							for (int i=0;i<query.getGroupBy().size();i++) {
+								ExpressionAST expr = scope.parseExpression(query.getGroupBy().get(i));
+								if (valExpr.equals(expr)) {
+									x = i;
+									break;
+								}
+							}
+						} catch (ScopeException e) {
+							// ignore
+						}
+					}
 				}
 				if (x==null || x<0) {
-					throw new ScopeException("invalid beyondLimit parameter: "+value+": must be an valid integer position or a groupBy expression");
+					query.add(new Problem(Severity.WARNING, "beyondLimit", "invalid beyondLimit parameter: "+value+": ignored:  must be an valid integer position or a groupBy expression"));
+				} else {
+					indexes.add(new Index(x));
 				}
-				indexes.add(new Index(x));
 			}
 			analysisJob.setBeyondLimit(indexes);
 		}
@@ -2753,6 +2771,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 	 * @param y
 	 * @param color
 	 * @param style 
+	 * @param options 
 	 * @param query
 	 * @return
 	 * @throws InterruptedException 
@@ -2828,13 +2847,25 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 					boolean metricsDone = false;
 					if (view.getGroupBy()!=null && view.getGroupBy().size()>0 && query.getGroupBy()!=null && query.getGroupBy().size()>0) {
 						int next = 0;
+						// reorder the dims to have the period first
+						ArrayList<Integer> reorder = new ArrayList<>();
+						for (int i=0;i<dims;i++) {
+							String dim = query.getGroupBy().get(i);
+							ExpressionAST expr = inputConfig.parse(dim);
+							boolean isTemporal = expr.getImageDomain().isInstanceOf(IDomain.TEMPORAL);
+							if (isTemporal) {
+								reorder.add(0, i);// put it in front
+							} else {
+								reorder.add(i);
+							}
+						}
 						while (next<dims) {
 							if (next==1) {
 								// insert the metrics after the first dimension
 								metricsDone = handleMetrics(query, inputConfig, view, channels, true);
 							}
-							if (!inputConfig.getRequired().getGroupBy().contains(query.getGroupBy().get(next))) {
-								String dim = query.getGroupBy().get(next++);
+							String dim = query.getGroupBy().get(reorder.get(next++));
+							if (!inputConfig.getRequired().getGroupBy().contains(dim)) {
 								ExpressionAST expr = inputConfig.parse(dim);
 								boolean isTemporal = expr.getImageDomain().isInstanceOf(IDomain.TEMPORAL);
 								if ((view.getX()==null || channels.encoding.x.type==DataType.quantitative) && view.getY()==null && !isTemporal) {// use Y only for categories and left a channel for the metrics
@@ -2861,6 +2892,12 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 									break;// no more channel available
 								}
 							}
+						}
+					} else {
+						// add the period if nothing is selected
+						if (view.getX()==null) {
+							view.setX("daily(__PERIOD)");
+							channels.encoding.x = inputConfig.createChannelDef("x", view.getX());
 						}
 					}
 					if (!metricsDone) {
@@ -3124,7 +3161,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 						}
 					}
 					if (!check) {
-						query.getOrderBy().add(0, "desc("+outputConfig.prettyPrint(m)+")");
+						query.getOrderBy().add("desc("+outputConfig.prettyPrint(m)+")");
 					}
 				}
 			}
@@ -3169,12 +3206,14 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 					}
 				}
 				specs.data = new Data();
-				HashMap<String, Object> options = new HashMap<>();
-				options.put(AnalyticsServiceConstants.COMPARETO_COMPUTE_GROWTH_PARAM, false);
-				if (!outputConfig.isHasMetricSeries()) {
-					specs.data.url = buildAnalyticsQueryURI(userContext, query, "RECORDS", "DATA", null/*default style*/, options).toString();
-				} else {
-					specs.data.url = buildAnalyticsQueryURI(userContext, query, "TRANSPOSE", "DATA", null/*default style*/, options).toString();
+				{
+					HashMap<String, Object> override = new HashMap<>();
+					override.put(AnalyticsServiceConstants.COMPARETO_COMPUTE_GROWTH_PARAM, false);
+					if (!outputConfig.isHasMetricSeries()) {
+						specs.data.url = buildAnalyticsQueryURI(userContext, query, "RECORDS", "DATA", null/*default style*/, override).toString();
+					} else {
+						specs.data.url = buildAnalyticsQueryURI(userContext, query, "TRANSPOSE", "DATA", null/*default style*/, override).toString();
+					}
 				}
 				specs.data.format = new Format();
 				specs.data.format.type = FormatType.json;// lowercase only!
@@ -3189,6 +3228,8 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 						// use ticks
 					 if (specs.encoding.size!=null) {
 						 specs.mark = Mark.circle;
+					 } else if (specs.encoding.x.bin || specs.encoding.y.bin) {
+						 specs.mark = Mark.bar;
 					 } else {
 						 specs.mark = Mark.point;
 					 }
@@ -3196,9 +3237,43 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 					 specs.mark = Mark.bar;
 				 }
 			}
+			// options
+			if (view.hasOptons()) {
+			    try {
+			    	Properties properties = view.getOptionsAsProperties(false);
+					// mark
+					Object omark = properties.get("mark");
+					if (omark!=null) {
+						try {
+							Mark mark = Mark.valueOf(omark.toString());
+							specs.mark = mark;
+						} catch (IllegalArgumentException e) {
+							query.add(new Problem(Severity.WARNING,"options","invalid options parameter 'mark': possible values are: "+toString(Mark.values())));
+						}
+					}
+					// mark-stacked
+					Object omarkStacked = properties.get("mark.stacked");
+					if (omarkStacked!=null) {
+						try {
+							Stacked stacked = Stacked.valueOf(omarkStacked.toString());
+							specs.config.mark = new VegaliteSpecs.MarkConfig();
+							specs.config.mark.stacked = stacked;
+							if (stacked==Stacked.none) {
+								specs.config.mark.opacity = 0.6;
+							}
+						} catch (IllegalArgumentException e) {
+							query.add(new Problem(Severity.WARNING,"options","invalid options parameter 'mark-stacked': possible values are: "+toString(Stacked.values())));
+						}
+					}
+				} catch (IOException e) {
+					query.add(new Problem(Severity.WARNING,"options","invalid options definition: must be: property1:value1;property2:value2;... where properties can be: mark"));
+				}
+			}
 			// size
 			if (specs.encoding.row==null && specs.encoding.column==null) {
 				specs.config.cell = new VegaliteSpecs.Cell(640,400);
+			} else {
+				specs.config.cell = new VegaliteSpecs.Cell(320,200);
 			}
 			//
 			ViewReply reply = new ViewReply();
@@ -3211,6 +3286,8 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			//
 			if (style!=null && style==Style.HTML) {
 				return generator.createHTMLPageView(userContext, space, view, info, reply);
+			} else if (style!=null && style==Style.SNIPPET) {
+					return generator.createHTMLViewSnippet(userContext, space, view, info, reply);
 			} else if (envelope==null || envelope.equals("") || envelope.equalsIgnoreCase("RESULT")) {
 				return Response.ok(reply.getResult(), MediaType.APPLICATION_JSON_TYPE.toString()).build();
 			} else if(envelope.equalsIgnoreCase("ALL")) {
@@ -3228,6 +3305,18 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 				throw new APIException(e.getMessage(), true);
 			}
 		}
+	}
+	
+	private String toString(Object[] array) {
+		String result = null;
+		for (Object x : array) {
+			if (result==null) {
+				result = x.toString();
+			} else {
+				result += ", "+x.toString();
+			}
+		}
+		return result;
 	}
 	
 	private boolean handleMetrics(AnalyticsQueryImpl query, VegaliteConfigurator inputConfig, ViewQuery view, VegaliteSpecs channels, boolean hasMoreDimensions) throws ScopeException {
@@ -3381,6 +3470,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		if (query.getSize()!=null) builder.queryParam(VIEW_SIZE_PARAM, query.getSize());
 		if (query.getColumn()!=null) builder.queryParam(VIEW_COLUMN_PARAM, query.getColumn());
 		if (query.getRow()!=null) builder.queryParam(VIEW_ROW_PARAM, query.getRow());
+		if (query.getOptions()!=null) builder.queryParam(VIEW_OPTIONS_PARAM, query.getOptions());
 		if (data!=null) builder.queryParam(DATA_PARAM, data);
 		if (envelope!=null) builder.queryParam(ENVELOPE_PARAM, envelope);
 		builder.queryParam("access_token", userContext.getToken().getOid());
@@ -3423,7 +3513,8 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		}
 		if (query.getFilters()!=null) {
 			for (String item : query.getFilters()) {
-				builder.queryParam(FILTERS_PARAM, item);
+				String value = item.replaceAll("%", "%25");
+				builder.queryParam(FILTERS_PARAM, value);
 			}
 		}
 		if (query.getPeriod()!=null) builder.queryParam(PERIOD_PARAM, query.getPeriod());

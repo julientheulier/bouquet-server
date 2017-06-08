@@ -26,6 +26,8 @@ public class BookmarkConfig {
 	
 	private String[] chosenDimensions;
 	
+	private String[] chosenFacets;
+
 	private String[] chosenMetrics;
 	
 	private String[] availableDimensions;
@@ -107,6 +109,14 @@ public class BookmarkConfig {
 
 	public void setChosenDimensions(String[] chosenDimensions) {
 		this.chosenDimensions = chosenDimensions;
+	}
+
+	public String[] getChosenFacets() {
+		return chosenFacets;
+	}
+
+	public void setChosenFacets(String[] chosenFacets) {
+		this.chosenFacets = chosenFacets;
 	}
 
 	public String[] getChosenMetrics() {

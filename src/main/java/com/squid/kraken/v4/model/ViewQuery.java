@@ -23,6 +23,13 @@
  *******************************************************************************/
 package com.squid.kraken.v4.model;
 
+import java.io.IOException;
+import java.io.StringReader;
+import java.io.StringWriter;
+import java.util.Properties;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 /**
  * Simple pojo to hold the analytics /view query parameters
  * @author sergefantino
@@ -42,6 +49,8 @@ public class ViewQuery extends AnalyticsQueryImpl {
 	
 	private String row;
 	
+	private String options;
+	
 	/**
 	 * 
 	 */
@@ -50,6 +59,17 @@ public class ViewQuery extends AnalyticsQueryImpl {
 	
 	public ViewQuery(AnalyticsQuery query) {
 		super(query);
+	}
+	
+	public ViewQuery(ViewQuery query) {
+		super(query);
+		this.x = query.x;
+		this.y = query.y;
+		this.color = query.color;
+		this.size = query.size;
+		this.column = query.column;
+		this.row = query.row;
+		this.options = query.options;
 	}
 
 	public String getX() {
@@ -98,6 +118,36 @@ public class ViewQuery extends AnalyticsQueryImpl {
 
 	public void setRow(String row) {
 		this.row = row;
+	}
+
+	public String getOptions() {
+		return options;
+	}
+	
+	public void setOptions(String options) {
+		this.options = options;
+	}
+	
+	public boolean hasOptons() {
+		return this.options!=null && !this.options.equals("");
+	}
+	
+	@JsonIgnore
+	public Properties getOptionsAsProperties(boolean safe) throws IOException {
+		Properties properties = new Properties();
+		try {
+			if (hasOptons()) properties.load(new StringReader(options.replaceAll(":","=").replaceAll(";", "\n")));
+		} catch (IOException e) {
+			if (!safe) throw e;
+		}
+		return properties;
+	}
+	
+	@JsonIgnore
+	public void setOptionsAsProperties(Properties options) throws IOException {
+		StringWriter writer = new StringWriter();
+		options.store(writer, "");
+		this.options = writer.toString().replaceAll("=", ":").replaceAll("\n", ";");
 	}
 
 }

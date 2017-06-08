@@ -595,7 +595,10 @@ public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implemen
 			@ApiParam(
 					value="define the result envelope",
 					allowableValues="ALL,RESULT")
-			@QueryParam(ENVELOPE_PARAM) String envelope
+			@QueryParam(ENVELOPE_PARAM) String envelope,
+			// vegalite options
+			@ApiParam(value="display options")
+			@QueryParam("options") String options
 	) throws ScopeException, ComputingException, InterruptedException
 	{
 		AppContext userContext = getUserContext(request);
@@ -607,6 +610,7 @@ public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implemen
 		view.setSize(size);
 		view.setColumn(column);
 		view.setRow(row);
+		view.setOptions(options);
 		return delegate(userContext).viewAnalysis(userContext, BBID, view, data, computeStyle(style), envelope);
 	}
 
