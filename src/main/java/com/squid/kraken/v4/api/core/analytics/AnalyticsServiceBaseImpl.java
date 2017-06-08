@@ -1202,6 +1202,10 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 				reply.setQuery(query);
 				return generator.createHTMLPageTable(userContext, space, reply, null);
 			} else {
+				// T3137
+				if (e instanceof ScopeException) {
+					throw new AnalyticsAPIException(e, 400, query);
+				}
 				// Make sure runtime exceptions such as auth exceptions are thrown as is
 				if (e instanceof RuntimeException) {
 					throw (RuntimeException) e;
