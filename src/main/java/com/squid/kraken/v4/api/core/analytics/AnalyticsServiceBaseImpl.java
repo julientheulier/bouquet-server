@@ -1202,6 +1202,10 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 				reply.setQuery(query);
 				return generator.createHTMLPageTable(userContext, space, reply, null);
 			} else {
+				// T3137
+				if (e instanceof ScopeException) {
+					throw new AnalyticsAPIException(e, 400, query);
+				}
 				// Make sure runtime exceptions such as auth exceptions are thrown as is
 				if (e instanceof RuntimeException) {
 					throw (RuntimeException) e;
@@ -2806,6 +2810,8 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			String domainBBID = "@'"+space.getUniverse().getProject().getOid()+"'.@'"+space.getDomain().getOid()+"'";
 			query.setBBID(domainBBID);
 			//
+			Properties options = view.getOptionsAsPropertiesSafe();
+			//
 			VegaliteConfigurator inputConfig = new VegaliteConfigurator(space, query);
 			// first check the provided parameters, because they must override the default
 			VegaliteSpecs channels = new VegaliteSpecs();
@@ -3240,7 +3246,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			// options
 			if (view.hasOptons()) {
 			    try {
-			    	Properties properties = view.getOptionsAsProperties(false);
+			    	Properties properties = view.getOptionsAsProperties();
 					// mark
 					Object omark = properties.get("mark");
 					if (omark!=null) {
