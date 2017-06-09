@@ -172,7 +172,6 @@ public class Analyzer extends AnalyzerMapping {
 			
 			ExpressionAST condition = createCondition(equi,filters, interval);
 			// then we need to apply to the right scope...
-			System.out.println(condition.toString());
 			Scope scope = mapping.scope;
 			Object x = scope.get(equi.getTable());
 			if (x!=null && x instanceof IFromPiece) {
