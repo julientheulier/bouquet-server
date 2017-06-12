@@ -25,7 +25,7 @@ package com.squid.kraken.v4.model;
 
 import java.io.IOException;
 import java.io.StringReader;
-import java.io.StringWriter;
+import java.util.Map.Entry;
 import java.util.Properties;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -133,21 +133,31 @@ public class ViewQuery extends AnalyticsQueryImpl {
 	}
 	
 	@JsonIgnore
-	public Properties getOptionsAsProperties(boolean safe) throws IOException {
+	public Properties getOptionsAsProperties() throws IOException {
 		Properties properties = new Properties();
-		try {
-			if (hasOptons()) properties.load(new StringReader(options.replaceAll(":","=").replaceAll(";", "\n")));
-		} catch (IOException e) {
-			if (!safe) throw e;
-		}
+		if (hasOptons()) properties.load(new StringReader(options.replaceAll(":","=").replaceAll(";", "\n")));
 		return properties;
+	}
+
+	
+	@JsonIgnore
+	public Properties getOptionsAsPropertiesSafe() {
+		try {
+			return getOptionsAsProperties();
+		} catch (IOException e) {
+			return new Properties();
+		}
 	}
 	
 	@JsonIgnore
 	public void setOptionsAsProperties(Properties options) throws IOException {
-		StringWriter writer = new StringWriter();
-		options.store(writer, "");
-		this.options = writer.toString().replaceAll("=", ":").replaceAll("\n", ";");
+		StringBuilder writer = new StringBuilder();
+		boolean first = true;
+		for (Entry<Object, Object> entry : options.entrySet()) {
+			if (!first) writer.append(";"); else first = false;
+			writer.append(entry.getKey()+":"+entry.getValue());
+		}
+		this.options = writer.toString();
 	}
 
 }
