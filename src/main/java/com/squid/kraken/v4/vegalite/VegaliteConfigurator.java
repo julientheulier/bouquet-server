@@ -25,6 +25,7 @@ package com.squid.kraken.v4.vegalite;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Properties;
 
 import com.squid.core.domain.IDomain;
 import com.squid.core.expression.ExpressionAST;
@@ -53,7 +54,7 @@ public class VegaliteConfigurator {
 	
 	private Space space;
 	private SpaceScope scope;
-	private PrettyPrintOptions options;
+	private PrettyPrintOptions prettyPrint;
 	
 	private boolean isTimeseries = false;// this is true if the user select a date for x axis
 	private String timeseriesField = null;
@@ -81,7 +82,7 @@ public class VegaliteConfigurator {
 				// ignore
 			}
 		}
-		options = new PrettyPrintOptions(ReferenceStyle.NAME, this.space.getImageDomain());
+		prettyPrint = new PrettyPrintOptions(ReferenceStyle.NAME, this.space.getImageDomain());
 	}
 
 	/**
@@ -96,7 +97,7 @@ public class VegaliteConfigurator {
 	}
 	
 	public String prettyPrint(ExpressionAST expression) {
-		return expression.prettyPrint(options);
+		return expression.prettyPrint(prettyPrint);
 	}
 	
 	/**
@@ -152,7 +153,7 @@ public class VegaliteConfigurator {
 		return -1;
 	}
 	
-	public ChannelDef createChannelDef(String channelName, String expr) throws ScopeException {
+	public ChannelDef createChannelDef(String channelName, String expr, Properties options) throws ScopeException {
 		if (expr!=null && !expr.equals("")) {
 			ChannelDef channel = null;
 			if (expr.equals(TransposeConverter.METRIC_SERIES_COLUMN)) {
@@ -184,7 +185,7 @@ public class VegaliteConfigurator {
 				channel.aggregate = Aggregate.sum;// add the sum in order so that VGL correctly stack values
 				required.getMetrics().addAll(query.getMetrics());// add all query metrics
 			} else {
-				channel = parseChannelDef(channelName, expr);
+				channel = parseChannelDef(channelName, expr, options);
 			}
 			return channel;
 		} else {
@@ -192,7 +193,7 @@ public class VegaliteConfigurator {
 		}
 	}
 	
-	private ChannelDef parseChannelDef(String channelName, String expr) throws ScopeException {
+	private ChannelDef parseChannelDef(String channelName, String expr, Properties options) throws ScopeException {
 		ExpressionAST ast = parse(expr);
 		IDomain image = ast.getImageDomain();
 		ChannelDef channel = new ChannelDef();
@@ -210,16 +211,13 @@ public class VegaliteConfigurator {
 		if (name==null) {
 			name = formatName(expr);
 		} else {
-			if (name.startsWith("$BIN")) {
-				channel.bin = true;
-			}
 			name = formatName(name);
 		}
 		// need to convert to lower-case because of CSV export...
 		name = name.toLowerCase();
 		ast.setName(name);
 		channel.field = name;
-		String namedExpression = ast.prettyPrint(options) + " as '" + name +"'";
+		String namedExpression = ast.prettyPrint(prettyPrint) + " as '" + name +"'";
 		if (image.isInstanceOf(IDomain.AGGREGATE)) {
 			channel.aggregate = Aggregate.sum;// add the sum in order so that VGL correctly stack values
 			if (!hasMetricSeries && !hasMetricValue) {// series get precedence
@@ -238,6 +236,17 @@ public class VegaliteConfigurator {
 		if (image.isInstanceOf(IDomain.AGGREGATE) && !channelName.equals("x") && !channelName.equals("y") && !channelName.equals("size") && !image.isInstanceOf(IDomain.AGGREGATE)) {
 			// try to bin
 			channel.bin = true;
+		}
+		if (options.containsKey("channel."+channelName+".bin")) {
+			Object value = options.get("channel."+channelName+".bin");
+			if (value.equals(true) || value.equals("true")) {
+				if (channel.type==DataType.quantitative) {
+					channel.bin = true;
+					channel.aggregate = null;// incompatible with binning
+				}
+			} else {
+				channel.bin = false;
+			}
 		}
 		return channel;
 	}
