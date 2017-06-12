@@ -33,6 +33,9 @@ public class ViewReply {
 	
 	private AnalyticsQuery query;
 	
+	// the analysis selection
+	private AnalyticsSelection selection;
+	
 	private VegaliteSpecs result;
 	
 	public ViewReply() {
@@ -44,6 +47,14 @@ public class ViewReply {
 
 	public void setQuery(AnalyticsQuery query) {
 		this.query = query;
+	}
+
+	public AnalyticsSelection getSelection() {
+		return selection;
+	}
+
+	public void setSelection(AnalyticsSelection selection) {
+		this.selection = selection;
 	}
 
 	public VegaliteSpecs getResult() {
