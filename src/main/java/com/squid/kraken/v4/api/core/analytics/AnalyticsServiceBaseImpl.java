@@ -2815,12 +2815,12 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			VegaliteConfigurator inputConfig = new VegaliteConfigurator(space, query);
 			// first check the provided parameters, because they must override the default
 			VegaliteSpecs channels = new VegaliteSpecs();
-			channels.encoding.x = inputConfig.createChannelDef("x", view.getX());
-			channels.encoding.y = inputConfig.createChannelDef("y", view.getY());
-			channels.encoding.color = inputConfig.createChannelDef("color", view.getColor());
-			channels.encoding.size = inputConfig.createChannelDef("size", view.getSize());
-			channels.encoding.column = inputConfig.createChannelDef("column", view.getColumn());
-			channels.encoding.row = inputConfig.createChannelDef("row", view.getRow());
+			channels.encoding.x = inputConfig.createChannelDef("x", view.getX(), options);
+			channels.encoding.y = inputConfig.createChannelDef("y", view.getY(), options);
+			channels.encoding.color = inputConfig.createChannelDef("color", view.getColor(), options);
+			channels.encoding.size = inputConfig.createChannelDef("size", view.getSize(), options);
+			channels.encoding.column = inputConfig.createChannelDef("column", view.getColumn(), options);
+			channels.encoding.row = inputConfig.createChannelDef("row", view.getRow(), options);
 			if (inputConfig.getRequired().getMetrics().size()>0) {
 				// override the default metrics
 				query.setMetrics(inputConfig.getRequired().getMetrics());
@@ -2868,7 +2868,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 						while (next<dims) {
 							if (next==1) {
 								// insert the metrics after the first dimension
-								metricsDone = handleMetrics(query, inputConfig, view, channels, true);
+								metricsDone = handleMetrics(query, inputConfig, view, options, channels, true);
 							}
 							String dim = query.getGroupBy().get(reorder.get(next++));
 							if (!inputConfig.getRequired().getGroupBy().contains(dim)) {
@@ -2877,23 +2877,23 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 								if ((view.getX()==null || channels.encoding.x.type==DataType.quantitative) && view.getY()==null && !isTemporal) {// use Y only for categories and left a channel for the metrics
 									// use it as the y
 									view.setY(dim);
-									channels.encoding.y = inputConfig.createChannelDef("y", view.getY());
+									channels.encoding.y = inputConfig.createChannelDef("y", view.getY(), options);
 								} else if ((view.getY()==null || channels.encoding.y.type==DataType.quantitative) && view.getX()==null) {
 									// use it as the x
 									view.setX(dim);
-									channels.encoding.x = inputConfig.createChannelDef("x", view.getX());
+									channels.encoding.x = inputConfig.createChannelDef("x", view.getX(), options);
 								} else if (view.getColor()==null) {
 									// use it as the color
 									view.setColor(dim);
-									channels.encoding.color = inputConfig.createChannelDef("color", view.getColor());
+									channels.encoding.color = inputConfig.createChannelDef("color", view.getColor(), options);
 								} else if (view.getColumn()==null) {
 									// use it as the column
 									view.setColumn(dim);
-									channels.encoding.column = inputConfig.createChannelDef("column", view.getColumn());
+									channels.encoding.column = inputConfig.createChannelDef("column", view.getColumn(), options);
 								} else if (view.getRow()==null) {
 									// use it as the column
 									view.setRow(dim);
-									channels.encoding.row = inputConfig.createChannelDef("row", view.getRow());
+									channels.encoding.row = inputConfig.createChannelDef("row", view.getRow(), options);
 								} else {
 									break;// no more channel available
 								}
@@ -2903,11 +2903,11 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 						// add the period if nothing is selected
 						if (view.getX()==null) {
 							view.setX("daily(__PERIOD)");
-							channels.encoding.x = inputConfig.createChannelDef("x", view.getX());
+							channels.encoding.x = inputConfig.createChannelDef("x", view.getX(), options);
 						}
 					}
 					if (!metricsDone) {
-						handleMetrics(query, inputConfig, view, channels, false);
+						handleMetrics(query, inputConfig, view, options, channels, false);
 					}
 					// add the period if no group set
 					if (view.getX()==null && !inputConfig.isTimeseries() && query.getPeriod()!=null) {
@@ -3089,12 +3089,12 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			//
 			//
 			VegaliteSpecs specs = new VegaliteSpecs();
-			specs.encoding.x = outputConfig.createChannelDef("x", view.getX());
-			specs.encoding.y = outputConfig.createChannelDef("y", view.getY());
-			specs.encoding.color = outputConfig.createChannelDef("color", view.getColor());
-			specs.encoding.size = outputConfig.createChannelDef("size", view.getSize());
-			specs.encoding.column = outputConfig.createChannelDef("column", view.getColumn());
-			specs.encoding.row = outputConfig.createChannelDef("row", view.getRow());
+			specs.encoding.x = outputConfig.createChannelDef("x", view.getX(), options);
+			specs.encoding.y = outputConfig.createChannelDef("y", view.getY(), options);
+			specs.encoding.color = outputConfig.createChannelDef("color", view.getColor(), options);
+			specs.encoding.size = outputConfig.createChannelDef("size", view.getSize(), options);
+			specs.encoding.column = outputConfig.createChannelDef("column", view.getColumn(), options);
+			specs.encoding.row = outputConfig.createChannelDef("row", view.getRow(), options);
 			//
 			if (specs.encoding.x!=null && specs.encoding.y!=null) {
 				if (specs.encoding.x.type==DataType.nominal && specs.encoding.y.type==DataType.quantitative) {
@@ -3283,6 +3283,9 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			}
 			//
 			ViewReply reply = new ViewReply();
+			// update the facet selection with actual values
+			FacetSelection actual = computeFacetSelection(space, selection); 
+			reply.setSelection(convertToSelection(userContext, query, space, job, actual));
 			reply.setQuery(query);
 			reply.setResult(specs);
 			//
@@ -3293,7 +3296,7 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 			if (style!=null && style==Style.HTML) {
 				return generator.createHTMLPageView(userContext, space, view, info, reply);
 			} else if (style!=null && style==Style.SNIPPET) {
-					return generator.createHTMLViewSnippet(userContext, space, view, info, reply);
+				return generator.createHTMLPageViewSnippet(userContext, space, view, info, reply);
 			} else if (envelope==null || envelope.equals("") || envelope.equalsIgnoreCase("RESULT")) {
 				return Response.ok(reply.getResult(), MediaType.APPLICATION_JSON_TYPE.toString()).build();
 			} else if(envelope.equalsIgnoreCase("ALL")) {
@@ -3325,17 +3328,17 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 		return result;
 	}
 	
-	private boolean handleMetrics(AnalyticsQueryImpl query, VegaliteConfigurator inputConfig, ViewQuery view, VegaliteSpecs channels, boolean hasMoreDimensions) throws ScopeException {
+	private boolean handleMetrics(AnalyticsQueryImpl query, VegaliteConfigurator inputConfig, ViewQuery view, Properties options, VegaliteSpecs channels, boolean hasMoreDimensions) throws ScopeException {
 		// add the metrics after the first dimension has been set
 		if (query.getMetrics()==null || query.getMetrics().size()==0) {
 			if (!inputConfig.isHasMetric()) {
 				// use count() for now
 				if (view.getX()==null) {
 					view.setX("count()");
-					channels.encoding.x = inputConfig.createChannelDef("x", view.getX());
+					channels.encoding.x = inputConfig.createChannelDef("x", view.getX(), options);
 				} else {
 					view.setY("count()");
-					channels.encoding.y = inputConfig.createChannelDef("y", view.getY());
+					channels.encoding.y = inputConfig.createChannelDef("y", view.getY(), options);
 				}
 			}
 		} else {
@@ -3347,31 +3350,31 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 						// handle it like a multi-variate
 						if (view.getX()==null) {
 							view.setX("__VALUE");
-							channels.encoding.x = inputConfig.createChannelDef("x", view.getX());
+							channels.encoding.x = inputConfig.createChannelDef("x", view.getX(), options);
 						} else if (view.getY()==null) {
 							view.setY("__VALUE");
-							channels.encoding.y = inputConfig.createChannelDef("y", view.getY());
+							channels.encoding.y = inputConfig.createChannelDef("y", view.getY(), options);
 						}
 						if (view.getY()==null) {
 							view.setY("__METRICS");
-							channels.encoding.y = inputConfig.createChannelDef("y", view.getY());
+							channels.encoding.y = inputConfig.createChannelDef("y", view.getY(), options);
 						} else if (view.getColor()==null) {
 							view.setColor("__METRICS");
-							channels.encoding.color = inputConfig.createChannelDef("color", view.getColor());
+							channels.encoding.color = inputConfig.createChannelDef("color", view.getColor(), options);
 						} else if (view.getColumn()==null) {
 							view.setColumn("__METRICS");
-							channels.encoding.column = inputConfig.createChannelDef("column", view.getColumn());
+							channels.encoding.column = inputConfig.createChannelDef("column", view.getColumn(), options);
 						} else if (view.getRow()==null) {
 							view.setRow("__METRICS");
-							channels.encoding.row = inputConfig.createChannelDef("row", view.getRow());
+							channels.encoding.row = inputConfig.createChannelDef("row", view.getRow(), options);
 						}
 					} else {
 						if (view.getX()==null) {
 							view.setX(query.getMetrics().get(0));
-							channels.encoding.x = inputConfig.createChannelDef("x", view.getX());
+							channels.encoding.x = inputConfig.createChannelDef("x", view.getX(), options);
 						} else if (view.getY()==null) {
 							view.setY(query.getMetrics().get(0));
-							channels.encoding.y = inputConfig.createChannelDef("y", view.getY());
+							channels.encoding.y = inputConfig.createChannelDef("y", view.getY(), options);
 						}
 					}
 				}
@@ -3381,26 +3384,26 @@ public class AnalyticsServiceBaseImpl implements AnalyticsServiceConstants {
 				if (!inputConfig.isHasMetricValue()) {
 					if (view.getX()==null) {
 						view.setX("__VALUE");
-						channels.encoding.x = inputConfig.createChannelDef("x", view.getX());
+						channels.encoding.x = inputConfig.createChannelDef("x", view.getX(), options);
 					} else {
 						view.setY("__VALUE");
-						channels.encoding.y = inputConfig.createChannelDef("y", view.getY());
+						channels.encoding.y = inputConfig.createChannelDef("y", view.getY(), options);
 					}
 				}
 				// set __METRICS
 				if (!inputConfig.isHasMetricSeries()) {
 					if (view.getY()==null) {
 						view.setY("__METRICS");
-						channels.encoding.y = inputConfig.createChannelDef("y", view.getY());
+						channels.encoding.y = inputConfig.createChannelDef("y", view.getY(), options);
 					} else if (view.getColor()==null && !hasMoreDimensions) {
 						view.setColor("__METRICS");
-						channels.encoding.color = inputConfig.createChannelDef("color", view.getColor());
+						channels.encoding.color = inputConfig.createChannelDef("color", view.getColor(), options);
 					} else if (view.getColumn()==null) {
 						view.setColumn("__METRICS");
-						channels.encoding.column = inputConfig.createChannelDef("column", view.getColumn());
+						channels.encoding.column = inputConfig.createChannelDef("column", view.getColumn(), options);
 					} else if (view.getRow()==null) {
 						view.setRow("__METRICS");
-						channels.encoding.row = inputConfig.createChannelDef("row", view.getRow());
+						channels.encoding.row = inputConfig.createChannelDef("row", view.getRow(), options);
 					}
 				}
 			}
