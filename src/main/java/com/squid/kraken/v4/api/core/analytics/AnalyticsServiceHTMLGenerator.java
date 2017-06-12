@@ -628,26 +628,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		if (!hasError) {
 			html.append("<h4 style='font-family:Helvetica Neue,Helvetica,Arial,sans-serif;'>Query Result</h4><hr>");
 			// display selection
-			if (reply.getSelection()!=null) {
-				AnalyticsSelection selection = reply.getSelection();
-				String message = "";
-				if (selection.getPeriod()!=null && !selection.getPeriod().equals("")) {
-					SpaceScope scope = new SpaceScope(space);
-					IDomain image = scope.parseExpressionSafe(selection.getPeriod()).getImageDomain();
-					message += "results for the period <kbd>"+selection.getPeriod()+"</kbd> ";
-					if (selection.getTimeframe()!=null && selection.getTimeframe().size()==2) {
-						message += "&nbsp;from <kbd>"+formatDate(image, selection.getTimeframe().get(0))+"</kbd>&nbsp;to <kbd>"+formatDate(image, selection.getTimeframe().get(1))+"</kbd> ";
-					} else if (selection.getTimeframe()!=null && selection.getTimeframe().size()==1) {
-						message += "&nbsp;for the <kbd>"+formatDate(image, selection.getTimeframe().get(0))+"</kbd> ";
-					}
-					if (selection.getCompareTo()!=null && selection.getCompareTo().size()==2) {
-						message += "&nbsp;compare to the <kbd>"+formatDate(image, selection.getCompareTo().get(0))+"</kbd> up to the <kbd>"+formatDate(image, selection.getCompareTo().get(1))+"</kbd> ";
-					} else if (selection.getCompareTo()!=null && selection.getCompareTo().size()==1) {
-						message += "&nbsp;compare to the <kbd>"+formatDate(image, selection.getCompareTo().get(0))+"</kbd> ";
-					}
-				}
-				html.append("<p>"+message+"</p>");
-			}
+			createHTMLQuerySelection(html, space, reply.getSelection());
 			html.append("<div style='max-height:600px;overflow:scroll;'>");
 			html.append("<table class='data'>");
 			html.append("<table class='data'><thead><tr>");
@@ -759,6 +740,33 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		return Response.ok(html.toString(),"text/html").build();
 	}
 
+	/**
+	 * @param html
+	 * @param reply 
+	 * @param space 
+	 */
+	private void createHTMLQuerySelection(StringBuilder html, Space space, AnalyticsSelection selection) {
+		if (selection!=null) {
+			String message = "";
+			if (selection.getPeriod()!=null && !selection.getPeriod().equals("")) {
+				SpaceScope scope = new SpaceScope(space);
+				IDomain image = scope.parseExpressionSafe(selection.getPeriod()).getImageDomain();
+				message += "results for the period <kbd>"+selection.getPeriod()+"</kbd> ";
+				if (selection.getTimeframe()!=null && selection.getTimeframe().size()==2) {
+					message += "&nbsp;from <kbd>"+formatDate(image, selection.getTimeframe().get(0))+"</kbd>&nbsp;to <kbd>"+formatDate(image, selection.getTimeframe().get(1))+"</kbd> ";
+				} else if (selection.getTimeframe()!=null && selection.getTimeframe().size()==1) {
+					message += "&nbsp;for the <kbd>"+formatDate(image, selection.getTimeframe().get(0))+"</kbd> ";
+				}
+				if (selection.getCompareTo()!=null && selection.getCompareTo().size()==2) {
+					message += "&nbsp;compare to the <kbd>"+formatDate(image, selection.getCompareTo().get(0))+"</kbd> up to the <kbd>"+formatDate(image, selection.getCompareTo().get(1))+"</kbd> ";
+				} else if (selection.getCompareTo()!=null && selection.getCompareTo().size()==1) {
+					message += "&nbsp;compare to the <kbd>"+formatDate(image, selection.getCompareTo().get(0))+"</kbd> ";
+				}
+			}
+			html.append("<p>"+message+"</p>");
+		}
+	}
+
 	private String getBookmarkName(Space space) {
 		if (space.getBookmark()==null) {
 			return space.getDomain().getName()+" Bookmark";
@@ -767,7 +775,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		}
 	}
 	
-	public Response createHTMLViewSnippet(AppContext ctx, Space space, ViewQuery view, ResultInfo info, ViewReply reply) {
+	public Response createHTMLPageViewSnippet(AppContext ctx, Space space, ViewQuery view, ResultInfo info, ViewReply reply) {
 		String title = getPageTitle(space);
 		StringBuilder html = createHTMLHeader(title);
 		html.append("<script src=\"//d3js.org/d3.v3.min.js\" charset=\"utf-8\"></script>\n" +
@@ -775,6 +783,8 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 				"  <script src=\"https://cdnjs.cloudflare.com/ajax/libs/vega-lite/1.0.7/vega-lite.min.js\"></script>\n" +
 				"<script src=\"https://cdnjs.cloudflare.com/ajax/libs/vega-embed/2.2.0/vega-embed.min.js\" charset=\"utf-8\"></script>");
 		html.append("<body>");
+		// display selection
+		//createHTMLQuerySelection(html, space, reply.getSelection());
 		// vega lite preview
 		html.append("<div>");
 		Encoding channels = null;
@@ -817,7 +827,10 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		html.append("<div>");
 		html.append("<h4 style='font-family:Helvetica Neue,Helvetica,Arial,sans-serif;'>View Result</h4><hr>");
 		Encoding channels = null;
-		if (reply.getResult()!=null) {// switchers
+		if (reply.getResult()!=null) {
+			// display selection
+			createHTMLQuerySelection(html, space, reply.getSelection());
+			// toolbar
 			html.append("<div class='btn-toolbar' role='toolbar' aria-label='vegalite settings'>");
 			boolean separator = false;
 			boolean group = false;
@@ -826,6 +839,38 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 				URI viewLink = service.buildAnalyticsViewURI(service.getUserContext(), view, null, "ALL", Style.SNIPPET, override);//(userContext, query, "SQL", null, Style.HTML, null);
 				html.append("<a class='btn btn-default' target='_blank' href=\""+StringEscapeUtils.escapeHtml4(viewLink.toString())+"\"><i class='fa fa-external-link' aria-hidden='true'></i>&nbsp;Snippet</a>");
 				separator = true;
+			}
+			{// bin x ?
+				if (reply.getResult().encoding.x!=null && reply.getResult().encoding.x.type==DataType.quantitative && reply.getResult().encoding.x.bin==false && reply.getResult().encoding.x.aggregate==null) {
+					try {
+						ViewQuery copy = new ViewQuery(view);
+						Properties options = copy.getOptionsAsProperties();
+						options.put("channel.x.bin","true");
+						copy.setOptionsAsProperties(options);
+						if (separator) html.append("<div class='btn-group' role='group'>");
+						URI viewLink = service.buildAnalyticsViewURI(service.getUserContext(), copy, null, "ALL", Style.HTML, null);
+						html.append("<a class='btn btn-default' href=\""+StringEscapeUtils.escapeHtml4(viewLink.toString())+"\">bin(X)</a>");
+						separator = false;
+						group = true;
+					} catch (IOException e) {
+						// ignore
+					}
+				}
+				if (reply.getResult().encoding.x!=null && reply.getResult().encoding.x.type==DataType.quantitative && reply.getResult().encoding.x.bin==true) {
+					try {
+						ViewQuery copy = new ViewQuery(view);
+						Properties options = copy.getOptionsAsProperties();
+						options.put("channel.x.bin","false");
+						copy.setOptionsAsProperties(options);
+						if (separator) html.append("<div class='btn-group' role='group'>");
+						URI viewLink = service.buildAnalyticsViewURI(service.getUserContext(), copy, null, "ALL", Style.HTML, null);
+						html.append("<a class='btn btn-default' href=\""+StringEscapeUtils.escapeHtml4(viewLink.toString())+"\"><i class='fa fa-check' aria-hidden='true'></i> bin(X)</a>");
+						separator = false;
+						group = true;
+					} catch (IOException e) {
+						// ignore
+					}
+				}
 			}
 			{// x<->y
 				if (reply.getResult().encoding.x!=null && reply.getResult().encoding.x.type!=DataType.temporal) {
@@ -847,6 +892,18 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 					copy.setColor(view.getX());
 					URI viewLink = service.buildAnalyticsViewURI(service.getUserContext(), copy, null, "ALL", Style.HTML, null);
 					html.append("<a class='btn btn-default' href=\""+StringEscapeUtils.escapeHtml4(viewLink.toString())+"\">X <i class='fa fa-refresh' aria-hidden='true'></i> color</a>");
+					separator = false;
+					group = true;
+				}
+			}
+			{// color<->size
+				if (reply.getResult().encoding.color!=null || reply.getResult().encoding.size!=null) {
+					if (separator) html.append("<div class='btn-group' role='group'>");
+					ViewQuery copy = new ViewQuery(view);
+					copy.setColor(view.getSize());
+					copy.setSize(view.getColor());
+					URI viewLink = service.buildAnalyticsViewURI(service.getUserContext(), copy, null, "ALL", Style.HTML, null);
+					html.append("<a class='btn btn-default' href=\""+StringEscapeUtils.escapeHtml4(viewLink.toString())+"\">color <i class='fa fa-refresh' aria-hidden='true'></i> size</a>");
 					separator = false;
 					group = true;
 				}
@@ -891,14 +948,14 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 								continue;
 							}
 						}
-						Properties options = copy.getOptionsAsProperties(true);
+						Properties options = copy.getOptionsAsProperties();
 						options.put("mark", mark.name());
 						copy.setOptionsAsProperties(options);
 						URI viewLink = service.buildAnalyticsViewURI(service.getUserContext(), copy, null, "ALL", Style.HTML, null);
 						if (separator) html.append("<div class='btn-group' role='group'>");
 						if (reply.getResult().mark.equals(mark)) {
 							html.append("<button type='button' class='btn btn-default disabled'>");
-							html.append(mark.toString());
+							html.append("<i class='fa fa-check' aria-hidden='true'></i> "+mark.toString());
 							html.append("</button>");
 						} else {
 							html.append("<a class='btn btn-default' href=\""+StringEscapeUtils.escapeHtml4(viewLink.toString())+"\">"+mark.toString()+"</a>");
@@ -925,7 +982,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 				if (true) {
 					ViewQuery copy = new ViewQuery((AnalyticsQuery)view);
 					URI viewLink = service.buildAnalyticsViewURI(service.getUserContext(), copy, null, "ALL", Style.HTML, null);
-					html.append("<a class='btn btn-default' href=\""+StringEscapeUtils.escapeHtml4(viewLink.toString())+"\"><i class='fa fa-times' aria-hidden='true'></i>reset</a>");
+					html.append("<a class='btn btn-default' href=\""+StringEscapeUtils.escapeHtml4(viewLink.toString())+"\"><i class='fa fa-times' aria-hidden='true'></i> reset</a>");
 				}
 			}
 			html.append("</div>");
@@ -1040,7 +1097,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 	private boolean createHTMLpageViewSelectOption(StringBuilder html, boolean separator, ViewQuery view, String option, String value, String name, boolean selected) {
 		ViewQuery copy = new ViewQuery(view);
 		try {
-			Properties options = copy.getOptionsAsProperties(true);
+			Properties options = copy.getOptionsAsProperties();
 			if (value!=null) {
 				options.put(option, value);
 			} else {
@@ -1049,11 +1106,9 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			copy.setOptionsAsProperties(options);
 			URI viewLink = service.buildAnalyticsViewURI(service.getUserContext(), copy, null, "ALL", Style.HTML, null);
 			if (!selected) {
-				html.append("<button type='button' class='btn btn-default'>");
-				html.append("<a href=\""+StringEscapeUtils.escapeHtml4(viewLink.toString())+"\">"+name+"</a>");
-				html.append("</button>");
+				html.append("<a class='btn btn-default' href=\""+StringEscapeUtils.escapeHtml4(viewLink.toString())+"\">"+name+"</a>");
 			} else {
-				createHTMLpageViewSelectOption(html, false, view, "mark.stacked", null, "<i class='fa fa-times' aria-hidden='true'></i>"+name, false);
+				createHTMLpageViewSelectOption(html, false, view, "mark.stacked", null, "<i class='fa fa-check' aria-hidden='true'></i> "+name, false);
 			}
 			return true;
 		} catch (IOException e) {
