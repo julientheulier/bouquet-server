@@ -102,6 +102,18 @@ public class DataMatrix {
 	private String redisKey;
 
 	private List<MeasureValues> measures = new ArrayList<MeasureValues>();
+	public List<MeasureValues> getMeasures() {
+		return measures;
+	}
+
+	public void setMeasures(List<MeasureValues> measures) {
+		this.measures = measures;
+	}
+
+	public void setAxes(List<AxisValues> axes) {
+		this.axes = axes;
+	}
+
 	private List<AxisValues> axes = new ArrayList<AxisValues>();
 
 	private int[] axesIndirection;
@@ -1159,6 +1171,23 @@ public class DataMatrix {
 
 	public Map<Property, Integer> getPropertyToInteger() {
 		return this.propertyToType;
+	}
+	
+
+	public int[] getAxesIndirection() {
+		return axesIndirection;
+	}
+
+	public void setAxesIndirection(int[] axesIndirection) {
+		this.axesIndirection = axesIndirection;
+	}
+
+	public int[] getDataIndirection() {
+		return dataIndirection;
+	}
+
+	public void setDataIndirection(int[] dataIndirection) {
+		this.dataIndirection = dataIndirection;
 	}
 
 	@Override

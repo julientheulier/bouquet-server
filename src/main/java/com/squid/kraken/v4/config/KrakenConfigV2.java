@@ -67,6 +67,7 @@ public class KrakenConfigV2 {
 
 	public String publicBaseUri;
 
+	public boolean  smartcacheEnabled= false;
 	
 	public String  localAdminPass;
 
@@ -83,6 +84,14 @@ public class KrakenConfigV2 {
 	}
 
 	
+	public boolean getSmartcacheEnabled() {
+		return smartcacheEnabled;
+	}
+
+	public void setSmartcacheEnabled(boolean smartcacheEnabled) {
+		this.smartcacheEnabled = smartcacheEnabled;
+	}
+
 	public String getPublicBaseUri() {
 		return publicBaseUri;
 	}

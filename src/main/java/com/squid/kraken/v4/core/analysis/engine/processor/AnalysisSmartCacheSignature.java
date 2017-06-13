@@ -74,6 +74,8 @@ public class AnalysisSmartCacheSignature {
 	
 	private Axis generalize = null;
 	
+	private String originalKey =null;
+	
 	/**
 	 * generalize the original signature by adding one axis
 	 * @param original
@@ -228,7 +230,14 @@ public class AnalysisSmartCacheSignature {
 	}
 	
 	public String buildCacheKey() {	
-		return RedisCacheManager.getInstance().buildCacheKey(SQL, dependencies);
+		String key= RedisCacheManager.getInstance().buildCacheKey(SQL, dependencies);
+		if (this.originalKey==null){
+			this.originalKey=key;
+		}
+		return key;
 	}
 
+	public String getOriginalKey(){
+		return this.originalKey;
+	}
 }

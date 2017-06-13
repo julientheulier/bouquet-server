@@ -195,6 +195,7 @@ public class KrakenConfig implements KrakenConfigConstants {
 						props.setProperty("localAdminPass", confV2.getLocalAdminPass());
 					}
 					
+					props.setProperty("feature.smartcache", Boolean.toString(confV2.getSmartcacheEnabled()));
 
 					props.setProperty("elastic.local", Boolean.toString(confV2.getElasticLocal()));
 					props.setProperty("feature.dynamic", Boolean.toString(confV2.getFeatureDynamic()));

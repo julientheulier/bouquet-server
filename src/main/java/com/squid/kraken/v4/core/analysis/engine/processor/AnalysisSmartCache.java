@@ -339,8 +339,30 @@ public class AnalysisSmartCache {
 			HashSet<String> sameFilters = sameAxes.get(request.getFiltersSignature());
 			if (sameFilters!=null) {
 				String key = request.getSignature().buildCacheKey();
-				if (!sameFilters.contains(key)) {
+				if (sameFilters.contains(key)) {
 					boolean check = sameFilters.remove(key);
+					cache.invalidate(key);
+					return check;
+				}
+			}
+		}
+		// else
+		return false;
+	}
+	
+	/**
+	 * @param signature
+	 */
+	public boolean remove(AnalysisSmartCacheSignature signature) {
+		
+		Map<String, HashSet<String>> sameAxes = lookup.get(signature.getAxesSignature());
+		if (sameAxes!=null) {
+			HashSet<String> sameFilters = sameAxes.get(signature.getFiltersSignature());
+			if (sameFilters!=null) {
+				String key = signature.getOriginalKey();
+				if (sameFilters.contains(key)) {
+					boolean check = sameFilters.remove(key);
+					cache.invalidate(key);
 					return check;
 				}
 			}
