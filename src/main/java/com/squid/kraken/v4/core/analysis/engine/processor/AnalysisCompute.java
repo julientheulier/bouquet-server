@@ -789,6 +789,8 @@ public class AnalysisCompute {
 						mx.getMapping().setName(mapping.getMapping().getName());
 					}
 				}
+
+				
 				try{				
 					runQuery(queryBis, lazy, analysis, qw);
 				}catch(NotInCacheException e){
@@ -806,8 +808,11 @@ public class AnalysisCompute {
 				for (DataMatrixTransform transform : match.getPostProcessing()) {
 					queryBis.addPostProcessing(transform);
 				}
+				
+				
 				// run the postprocessing now so it can fails
 				DataMatrix dm = qw.getDataMatrix();
+				queryBis.addPostProcessing(new DataMatrixTransformReorganiseColumns(queryBis.getMapper(), query.getMapper()));
 				if (dm != null) {
 					for (DataMatrixTransform transform : queryBis.getPostProcessing()) {
 						dm = transform.apply(dm);
