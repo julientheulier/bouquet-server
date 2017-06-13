@@ -195,24 +195,24 @@ public class UserDAO extends AccessRightsPersistentDAO<User, UserPK> {
 	public void update(AppContext ctx, User userData) {
 		User existingUser = DAOFactory.getDAOFactory().getDAO(User.class)
 				.readNotNull(ctx, userData.getId());
+		AppContext rootUserContext = ServiceUtils.getInstance()
+				.getRootUserContext(ctx.getCustomerId());
+		Customer customer = DAOFactory.getDAOFactory()
+				.getDAO(Customer.class)
+				.readNotNull(rootUserContext, ctx.getCustomerPk());
+		boolean isAdmin = AccessRightsUtils.getInstance().hasRole(ctx, customer,
+				Role.WRITE);
+		
 		if (userData.getPassword() != null) {
-
-			AppContext rootUserContext = ServiceUtils.getInstance()
-					.getRootUserContext(ctx.getCustomerId());
-			Customer customer = DAOFactory.getDAOFactory()
-					.getDAO(Customer.class)
-					.readNotNull(rootUserContext, ctx.getCustomerPk());
-			boolean doUpdate = false;
 			// check for conditions to update the password
+			boolean doUpdatePwd = false;
 			if ((ctx.getToken() != null)
 					&& (ctx.getToken().getType()
 							.equals(AccessToken.Type.RESET_PWD))) {
 				// the token is a reset pwd token
-				doUpdate = true;
-			} else if (AccessRightsUtils.getInstance().hasRole(ctx, customer,
-					Role.WRITE)) {
-				// the user is an admin
-				doUpdate = true;
+				doUpdatePwd = true;
+			} else if (isAdmin) {
+				doUpdatePwd = true;
 			} else {
 				int index = userData.getPassword().indexOf(" ");
 				if (index >= 0) {
@@ -221,7 +221,7 @@ public class UserDAO extends AccessRightsPersistentDAO<User, UserPK> {
 					if (ServiceUtils.getInstance().matchPassword(ctx,
 							existingUser, oldPassword)) {
 						// old and new passwords match
-						doUpdate = true;
+						doUpdatePwd = true;
 					}
 				} else {
 					throw new InvalidCredentialsAPIException(
@@ -229,7 +229,7 @@ public class UserDAO extends AccessRightsPersistentDAO<User, UserPK> {
 							ctx.isNoError());
 				}
 			}
-			if (doUpdate) {
+			if (doUpdatePwd) {
 				// update the password
 				String newPassword = userData.getPassword().substring(
 						userData.getPassword().indexOf(" ") + 1);
@@ -267,10 +267,6 @@ public class UserDAO extends AccessRightsPersistentDAO<User, UserPK> {
 
 		// caller != callee
 		if (!ctxUserId.equalsIgnoreCase(newUserId)) {
-			// get the customer and its access rights
-			Customer customer = DAOFactory.getDAOFactory()
-					.getDAO(Customer.class)
-					.readNotNull(ctx, ctx.getCustomerPk());
 			Set<AccessRight> accessRights = customer.getAccessRights();
 
 			// retrieve access rights of the context user and the new user from
@@ -311,6 +307,20 @@ public class UserDAO extends AccessRightsPersistentDAO<User, UserPK> {
 					throw new InvalidCredentialsAPIException(
 							"Insufficient privileges : caller hasn't WRITE/OWNER role on"
 									+ ctxUserId, ctx.isNoError());
+				}
+			}
+		} else {
+			// self update, check enforce usergroups/attributes update rules
+			// (T3097)
+			if (!isAdmin) {
+				if ((userData.getGroups() != null) && (!userData.getGroups().equals(existingUser.getGroups()))) {
+					throw new InvalidCredentialsAPIException("Insufficient privileges to update user groups",
+							ctx.isNoError());
+				}
+				if ((userData.getAttributes() != null) && (existingUser.getAttributes() == null
+						|| (!userData.getAttributes().equals(existingUser.getAttributes())))) {
+					throw new InvalidCredentialsAPIException("Insufficient privileges to update attributes",
+							ctx.isNoError());
 				}
 			}
 		}
