@@ -48,6 +48,19 @@ public class DataMatrixTransformReorganiseColumns implements DataMatrixTransform
 			}	
 		}
 				
+		// T1913
+		for (AxisMapping ax : srcQueryMapper.getAxisMapping()) {
+			AxisMapping mapping = destQueryMapper.find(ax.getAxis());
+			if (mapping != null && !mapping.getAxis().getName().equals(ax.getAxis().getName())) {
+				ax.getAxis().setName(mapping.getAxis().getName());
+			}
+		}
+		for (MeasureMapping mx : srcQueryMapper.getMeasureMapping()) {
+			MeasureMapping mapping = destQueryMapper.find(mx.getMapping());
+			if (mapping != null && !mapping.getMapping().getName().equals(mx.getMapping().getName())) {
+				mx.getMapping().setName(mapping.getMapping().getName());
+			}
+		}	
 	}
 	
 	

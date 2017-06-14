@@ -776,21 +776,6 @@ public class AnalysisCompute {
 			try {
 				SimpleQuery queryBis = this.genAnalysisQueryCachable(match.getAnalysis(), match.getMeasures(), optimize,
 						false);
-				// T1913
-				for (AxisMapping ax : queryBis.getMapper().getAxisMapping()) {
-					AxisMapping mapping = query.getMapper().find(ax.getAxis());
-					if (mapping != null && !mapping.getAxis().getName().equals(ax.getAxis().getName())) {
-						ax.getAxis().setName(mapping.getAxis().getName());
-					}
-				}
-				for (MeasureMapping mx : queryBis.getMapper().getMeasureMapping()) {
-					MeasureMapping mapping = query.getMapper().find(mx.getMapping());
-					if (mapping != null && !mapping.getMapping().getName().equals(mx.getMapping().getName())) {
-						mx.getMapping().setName(mapping.getMapping().getName());
-					}
-				}
-
-				
 				try{				
 					runQuery(queryBis, lazy, analysis, qw);
 				}catch(NotInCacheException e){
