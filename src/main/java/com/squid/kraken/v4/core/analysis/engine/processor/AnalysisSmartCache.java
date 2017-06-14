@@ -199,12 +199,6 @@ public class AnalysisSmartCache {
 					Set<Measure> o1 = new HashSet<>(request.getMeasures().getKPIs());
 					Set<Measure> o2 = new HashSet<>(candidate.getMeasures().getKPIs());
 					if (o2.containsAll(o1)) {
-						// hide not requested metrics
-						if (!o2.equals(o1)) {
-							if (o2.removeAll(o1) && !o2.isEmpty()) {
-								match.addPostProcessing(new DataMatrixTransformHideColumns<Measure>(o2));
-							}
-						}
 						// sort
 						if (request.getAnalysis().hasOrderBy()) {
 							if (!request.getAnalysis().getOrders().equals(match.getAnalysis().getOrders())) {
