@@ -50,6 +50,7 @@ import com.squid.kraken.v4.api.core.analytics.AnalyticsServiceRest;
 import com.squid.kraken.v4.api.core.customer.AdminServiceRest;
 import com.squid.kraken.v4.api.core.customer.CustomerServiceBaseImpl;
 import com.squid.kraken.v4.api.core.customer.CustomerServiceRest;
+import com.squid.kraken.v4.api.core.nlu.NluServiceRest;
 import com.squid.kraken.v4.api.core.websocket.NotificationWebsocketMetaModelObserver;
 import com.squid.kraken.v4.caching.redis.CacheInitPoint;
 import com.squid.kraken.v4.caching.redis.RedisCacheConfig;
@@ -102,7 +103,7 @@ public class CXFServletService extends CXFNonSpringJaxrsServlet {
 		if (facets.contains("front")) {
 			// init the API
 			logger.info("Facet: Front");
-			servletConf.setJaxrsServiceClassesParam(
+			servletConf.setJaxrsServiceClassesParam(NluServiceRest.class.getName() + "," +
 					AnalyticsServiceRest.class.getName() + "," + CustomerServiceRest.class.getName() + ","
 							+ AdminServiceRest.class.getName() + "," + ApiListingResource.class.getName());
 		} else {
