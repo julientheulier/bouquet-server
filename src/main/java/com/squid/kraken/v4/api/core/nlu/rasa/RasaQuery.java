@@ -21,73 +21,53 @@
  * you and Squid Solutions (above licenses and LICENSE.txt included).
  * See http://www.squidsolutions.com/EnterpriseBouquet/
  *******************************************************************************/
-package com.squid.kraken.v4.model;
+package com.squid.kraken.v4.api.core.nlu.rasa;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.squid.kraken.v4.core.analysis.universe.Space;
-
-import io.swagger.annotations.ApiModelProperty;
+import java.util.ArrayList;
 
 /**
- * This is the result of an analysis
  * @author sergefantino
  *
  */
-public class AnalyticsReply {
+public class RasaQuery {
 	
-	@JsonIgnore
-	private Space space;// this is for convenience
+	private String text;
 	
-	// this is the query that generated this analysis
-	private AnalyticsQuery query;
+	private Intent intent;
 	
-	// the analysis selection
-	private AnalyticsSelection selection;
-	
-	// the resulting dataTable
-	private Object result;// this may depend on the output format
+	private ArrayList<EntityExtraction> entities;
 	
 	/**
 	 * 
 	 */
-	public AnalyticsReply() {
+	public RasaQuery() {
 		// TODO Auto-generated constructor stub
 	}
 
-	public AnalyticsReply(Space space) {
-		this.space = space;
+	public String getText() {
+		return text;
 	}
 
-	public AnalyticsQuery getQuery() {
-		return query;
+	public void setText(String text) {
+		this.text = text;
 	}
 
-	public void setQuery(AnalyticsQuery query) {
-		this.query = query;
+	public Intent getIntent() {
+		return intent;
 	}
 
-	@ApiModelProperty(hidden=true)// only used for LEGACY mode, so don't mess user with it
-	public AnalyticsSelection getSelection() {
-		return selection;
+	public void setIntent(Intent intent) {
+		this.intent = intent;
 	}
 
-	public void setSelection(AnalyticsSelection selection) {
-		this.selection = selection;
+	public ArrayList<EntityExtraction> getEntities() {
+		return entities;
 	}
 
-	public Object getResult() {
-		return result;
-	}
-
-	public void setResult(Object result) {
-		this.result = result;
+	public void setEntities(ArrayList<EntityExtraction> entities) {
+		this.entities = entities;
 	}
 	
-	/**
-	 * @return the space
-	 */
-	public Space getSpace() {
-		return space;
-	}
+	
 
 }

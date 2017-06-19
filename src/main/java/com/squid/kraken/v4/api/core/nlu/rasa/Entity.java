@@ -21,73 +21,58 @@
  * you and Squid Solutions (above licenses and LICENSE.txt included).
  * See http://www.squidsolutions.com/EnterpriseBouquet/
  *******************************************************************************/
-package com.squid.kraken.v4.model;
-
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.squid.kraken.v4.core.analysis.universe.Space;
-
-import io.swagger.annotations.ApiModelProperty;
+package com.squid.kraken.v4.api.core.nlu.rasa;
 
 /**
- * This is the result of an analysis
  * @author sergefantino
  *
  */
-public class AnalyticsReply {
+public class Entity {
 	
-	@JsonIgnore
-	private Space space;// this is for convenience
-	
-	// this is the query that generated this analysis
-	private AnalyticsQuery query;
-	
-	// the analysis selection
-	private AnalyticsSelection selection;
-	
-	// the resulting dataTable
-	private Object result;// this may depend on the output format
+	private int start;
+	private int end;
+	private String value;
+	private String entity;
 	
 	/**
 	 * 
 	 */
-	public AnalyticsReply() {
+	public Entity() {
 		// TODO Auto-generated constructor stub
 	}
 
-	public AnalyticsReply(Space space) {
-		this.space = space;
+	public int getStart() {
+		return start;
 	}
 
-	public AnalyticsQuery getQuery() {
-		return query;
+	public void setStart(int start) {
+		this.start = start;
 	}
 
-	public void setQuery(AnalyticsQuery query) {
-		this.query = query;
+	public int getEnd() {
+		return end;
 	}
 
-	@ApiModelProperty(hidden=true)// only used for LEGACY mode, so don't mess user with it
-	public AnalyticsSelection getSelection() {
-		return selection;
+	public void setEnd(int end) {
+		this.end = end;
 	}
 
-	public void setSelection(AnalyticsSelection selection) {
-		this.selection = selection;
+	public String getValue() {
+		return value;
 	}
 
-	public Object getResult() {
-		return result;
+	public void setValue(String value) {
+		this.value = value;
 	}
 
-	public void setResult(Object result) {
-		this.result = result;
+	public String getEntity() {
+		return entity;
+	}
+
+	public void setEntity(String entity) {
+		this.entity = entity;
 	}
 	
-	/**
-	 * @return the space
-	 */
-	public Space getSpace() {
-		return space;
-	}
+	
 
 }

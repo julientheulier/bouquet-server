@@ -21,73 +21,33 @@
  * you and Squid Solutions (above licenses and LICENSE.txt included).
  * See http://www.squidsolutions.com/EnterpriseBouquet/
  *******************************************************************************/
-package com.squid.kraken.v4.model;
+package com.squid.kraken.v4.api.core.nlu.rasa;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.squid.kraken.v4.core.analysis.universe.Space;
-
-import io.swagger.annotations.ApiModelProperty;
+import java.util.ArrayList;
 
 /**
- * This is the result of an analysis
  * @author sergefantino
  *
  */
-public class AnalyticsReply {
+public class RasaNluData {
 	
-	@JsonIgnore
-	private Space space;// this is for convenience
-	
-	// this is the query that generated this analysis
-	private AnalyticsQuery query;
-	
-	// the analysis selection
-	private AnalyticsSelection selection;
-	
-	// the resulting dataTable
-	private Object result;// this may depend on the output format
+	private ArrayList<CommonExample> common_examples;
 	
 	/**
 	 * 
 	 */
-	public AnalyticsReply() {
+	public RasaNluData() {
 		// TODO Auto-generated constructor stub
 	}
 
-	public AnalyticsReply(Space space) {
-		this.space = space;
+	public ArrayList<CommonExample> getCommon_examples() {
+		return common_examples;
 	}
 
-	public AnalyticsQuery getQuery() {
-		return query;
-	}
-
-	public void setQuery(AnalyticsQuery query) {
-		this.query = query;
-	}
-
-	@ApiModelProperty(hidden=true)// only used for LEGACY mode, so don't mess user with it
-	public AnalyticsSelection getSelection() {
-		return selection;
-	}
-
-	public void setSelection(AnalyticsSelection selection) {
-		this.selection = selection;
-	}
-
-	public Object getResult() {
-		return result;
-	}
-
-	public void setResult(Object result) {
-		this.result = result;
+	public void setCommon_examples(ArrayList<CommonExample> common_examples) {
+		this.common_examples = common_examples;
 	}
 	
-	/**
-	 * @return the space
-	 */
-	public Space getSpace() {
-		return space;
-	}
+	
 
 }
