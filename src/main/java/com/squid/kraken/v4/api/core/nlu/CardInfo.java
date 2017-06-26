@@ -37,6 +37,8 @@ public class CardInfo implements Serializable {
 	private static final long serialVersionUID = -122869605941810955L;
 	private String message;
 	
+	private Object parserOutput = null;
+	
 	/**
 	 * 
 	 */
@@ -56,6 +58,20 @@ public class CardInfo implements Serializable {
 	 */
 	public void setMessage(String message) {
 		this.message = message;
+	}
+	
+	/**
+	 * @return the parserOutput
+	 */
+	public Object getParserOutput() {
+		return parserOutput;
+	}
+	
+	/**
+	 * @param parserOutput the parserOutput to set
+	 */
+	public void setParserOutput(Object parserOutput) {
+		this.parserOutput = parserOutput;
 	}
 
 }
