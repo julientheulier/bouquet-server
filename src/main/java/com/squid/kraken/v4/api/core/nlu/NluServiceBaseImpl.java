@@ -23,11 +23,18 @@
  *******************************************************************************/
 package com.squid.kraken.v4.api.core.nlu;
 
+import java.io.IOException;
+import java.net.URL;
+import java.net.URLConnection;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
+import java.util.concurrent.TimeoutException;
 
 import javax.ws.rs.core.UriInfo;
+
+import org.apache.commons.io.IOUtils;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -42,6 +49,9 @@ import com.squid.kraken.v4.api.core.nlu.rasa.EntityExtraction;
 import com.squid.kraken.v4.api.core.nlu.rasa.RasaNluData;
 import com.squid.kraken.v4.api.core.nlu.rasa.RasaQuery;
 import com.squid.kraken.v4.api.core.nlu.rasa.TrainingSet;
+import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
+import com.squid.kraken.v4.core.analysis.engine.processor.ComputingService;
+import com.squid.kraken.v4.core.analysis.model.DashboardSelection;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
 import com.squid.kraken.v4.core.analysis.universe.Measure;
 import com.squid.kraken.v4.core.analysis.universe.Space;
@@ -52,6 +62,9 @@ import com.squid.kraken.v4.model.DataHeader.Column;
 import com.squid.kraken.v4.model.DataHeader.Role;
 import com.squid.kraken.v4.model.DataLayout;
 import com.squid.kraken.v4.model.Dimension.Type;
+import com.squid.kraken.v4.model.Facet;
+import com.squid.kraken.v4.model.FacetMember;
+import com.squid.kraken.v4.model.FacetMemberString;
 import com.squid.kraken.v4.model.NavigationQuery.Style;
 import com.squid.kraken.v4.persistence.AppContext;
 
@@ -61,6 +74,34 @@ import com.squid.kraken.v4.persistence.AppContext;
  */
 public class NluServiceBaseImpl extends AnalyticsServiceCore {
 	
+	/**
+	 * 
+	 */
+	private static final String ITEM_ENTITY_PREFIX = "item:";
+	/**
+	 * 
+	 */
+	private static final String DIMENSION_ENTITY = "dimension";
+	/**
+	 * 
+	 */
+	private static final String METRIC_ENTITY = "metric";
+	/**
+	 * 
+	 */
+	private static final String BOOKMARK_DRILL_DOWN = "bookmark_drill_down";
+	/**
+	 * 
+	 */
+	private static final String BOOKMARK_TOP_DIMENSION = "bookmark_top_dimension";
+	/**
+	 * 
+	 */
+	private static final String BOOKMARK_OVERALL_METRIC = "bookmark_overall_metric";
+	/**
+	 * 
+	 */
+	private static final String BOOKMARK_OVERVIEW = "bookmark_overview";
 	private UriInfo uriInfo = null;
 	private AppContext userContext = null;
 
@@ -79,6 +120,8 @@ public class NluServiceBaseImpl extends AnalyticsServiceCore {
 	 * @return
 	 */
 	public TrainingSet generateTrainingSet(String BBID) {
+		//
+		ReferenceStyle defaultStyle = ReferenceStyle.NAME;
 		// looking for the subject
 		Space space = getSpace(userContext, BBID);
 		String contextName = getContextName(space);
@@ -95,32 +138,45 @@ public class NluServiceBaseImpl extends AnalyticsServiceCore {
 		common_examples.add(createExample("help", "Help?"));
 		common_examples.add(createExample("help", "What's your name?"));
 		// bookmark_overview: display all kpis for the current period
-		common_examples.add(createExample("bookmark_overview", "What are the numbers?"));
-		common_examples.add(createExample("bookmark_overview", "What are the total numbers?"));
-		common_examples.add(createExample("bookmark_overview", "What is the situation?"));
-		common_examples.add(createExample("bookmark_overview", "What are the key metrics?"));
-		common_examples.add(createExample("bookmark_overview", "What are the kpis?"));
-		common_examples.add(createExample("bookmark_overview", "What are the key metrics look like?"));
-		common_examples.add(createExample("bookmark_overview", "What are the kpis look like?"));
-		common_examples.add(createExample("bookmark_overview", "How is my business going?"));
-		common_examples.add(createExample("bookmark_overview", "How is my business doing?"));
-		common_examples.add(createExample("bookmark_overview", "What are the "+contextName+"?"));
-		common_examples.add(createExample("bookmark_overview", "What are the "+contextName+" kpis?"));
+		common_examples.add(createExample(BOOKMARK_OVERVIEW, "What are the overall results?"));
+		common_examples.add(createExample(BOOKMARK_OVERVIEW, "What are the numbers?"));
+		common_examples.add(createExample(BOOKMARK_OVERVIEW, "What are the total numbers?"));
+		common_examples.add(createExample(BOOKMARK_OVERVIEW, "What is the situation?"));
+		common_examples.add(createExample(BOOKMARK_OVERVIEW, "What are the key metrics?"));
+		common_examples.add(createExample(BOOKMARK_OVERVIEW, "What are the kpis?"));
+		common_examples.add(createExample(BOOKMARK_OVERVIEW, "What are the key metrics look like?"));
+		common_examples.add(createExample(BOOKMARK_OVERVIEW, "What are the kpis look like?"));
+		common_examples.add(createExample(BOOKMARK_OVERVIEW, "How is my business going?"));
+		common_examples.add(createExample(BOOKMARK_OVERVIEW, "How is my business doing?"));
+		common_examples.add(createExample(BOOKMARK_OVERVIEW, "What are the "+contextName+"?"));
+		common_examples.add(createExample(BOOKMARK_OVERVIEW, "What are the "+contextName+" kpis?"));
 		//
 		// bookmark_overall_metric: return a single metric for the current period, compare to previous period if set
 		//
 		for (Measure m : space.M()) {
 			if (m.getMetric()!=null && !m.getMetric().isDynamic()) {
 				String name = m.getName();
-				String ID = m.prettyPrint(new PrettyPrintOptions(ReferenceStyle.IDENTIFIER, null));
-				CommonExample example = createExample("bookmark_overall_metric", "What are the %metric ?");
-				if (addEntity(example,"metric",name,ID)) common_examples.add(example);
-				CommonExample example1 = createExample("bookmark_overall_metric", "What are the overall %metric ?");
-				if (addEntity(example1,"metric",name,ID)) common_examples.add(example1);
-				CommonExample example2 = createExample("bookmark_overall_metric", "What are the total %metric ?");
-				if (addEntity(example2,"metric",name,ID)) common_examples.add(example2);
+				String ID = m.prettyPrint(new PrettyPrintOptions(defaultStyle, null));
+				CommonExample example = createExample(BOOKMARK_OVERALL_METRIC, "What are the %metric ?");
+				if (addEntity(example,METRIC_ENTITY,name,ID)) common_examples.add(example);
+				CommonExample example1 = createExample(BOOKMARK_OVERALL_METRIC, "What are the %metric overview ?");
+				if (addEntity(example1,METRIC_ENTITY,name,ID)) common_examples.add(example1);
+				CommonExample example2 = createExample(BOOKMARK_OVERALL_METRIC, "What are the total %metric ?");
+				if (addEntity(example2,METRIC_ENTITY,name,ID)) common_examples.add(example2);
 			}
 		}
+		// trying the same but by using a different intent for each
+		/*
+		for (Measure m : space.M()) {
+			if (m.getMetric()!=null && !m.getMetric().isDynamic()) {
+				String name = m.getName();
+				String ID = m.prettyPrint(new PrettyPrintOptions(defaultStyle, null));
+				common_examples.add(createExample("bookmark_overall_metric:"+ID, "What are the "+name+" ?"));
+				common_examples.add(createExample("bookmark_overall_metric:"+ID, "What are the overall "+name+" ?"));
+				common_examples.add(createExample("bookmark_overall_metric:"+ID, "What are the total "+name+" ?"));
+			}
+		}
+		*/
 		//
 		// bookmark_top_dimension: return the top 5 dimension, for some metric, for the current period
 		//
@@ -129,24 +185,57 @@ public class NluServiceBaseImpl extends AnalyticsServiceCore {
 			if (!image.isInstanceOf(IDomain.OBJECT)) {
 				if (axis.getDimension().getType().equals(Type.CATEGORICAL)) {
 					String dim_name = getAxisSHortName(axis);
-					String dim_ID = axis.prettyPrint(new PrettyPrintOptions(ReferenceStyle.IDENTIFIER, null));
+					String dim_ID = axis.prettyPrint(new PrettyPrintOptions(defaultStyle, null));
 					{
-						CommonExample example = createExample("bookmark_top_dimension", "What are the top %dimension ?");
-						if (addEntity(example,"dimension",dim_name,dim_ID)) common_examples.add(example);
+						CommonExample example = createExample(BOOKMARK_TOP_DIMENSION, "What are the top %dimension ?");
+						if (addEntity(example,DIMENSION_ENTITY,dim_name,dim_ID)) common_examples.add(example);
 					}
 					for (Measure m : space.M()) {
 						if (m.getMetric()!=null && !m.getMetric().isDynamic()) {
 							String name = m.getName();
-							String ID = m.prettyPrint(new PrettyPrintOptions(ReferenceStyle.IDENTIFIER, null));
-							CommonExample example = createExample("bookmark_top_dimension", "What are the top %dimension by %metric ?");
-							if (addEntity(example,"dimension",dim_name,dim_ID) && addEntity(example,"metric",name,ID)) common_examples.add(example);
+							String ID = m.prettyPrint(new PrettyPrintOptions(defaultStyle, null));
+							CommonExample example = createExample(BOOKMARK_TOP_DIMENSION, "What are the top %dimension by %metric ?");
+							if (addEntity(example,DIMENSION_ENTITY,dim_name,dim_ID) && addEntity(example,METRIC_ENTITY,name,ID)) common_examples.add(example);
 						}
 					}
 				}
 			}
 		}
-		// bookmark_overview_for_dim_X: display all or specifc kpis for a given dimension value
 		//
+		// bookmark_drill_down: display all or specifc kpis for a given facet item
+		//
+		for (Axis axis : space.A(true)) {
+			IDomain image = axis.getDefinitionSafe().getImageDomain();
+			if (!image.isInstanceOf(IDomain.OBJECT) && image.isInstanceOf(IDomain.STRING)) {
+				if (axis.getDimension().getType().equals(Type.CATEGORICAL)) {
+					String dim_name = getAxisSHortName(axis);
+					String dim_ID = axis.prettyPrint(new PrettyPrintOptions(defaultStyle, null));
+					String intent_name = BOOKMARK_DRILL_DOWN;
+					// look for the facets
+					try {
+						DashboardSelection empty = new DashboardSelection();
+						Facet facet = ComputingService.INSTANCE.glitterFacet(space.getUniverse(),
+								space.getDomain(), empty, axis, "", 0, 50, null);
+						int count = 0;
+						for (FacetMember item : facet.getItems()) {
+							FacetMemberString member = (FacetMemberString)item;
+							{
+								CommonExample example = createExample(count<10?intent_name:null, "What are the results for %item:"+dim_ID+"?");
+								if (addEntity(example,ITEM_ENTITY_PREFIX+dim_ID,member.getValue(),"\""+member.getValue()+"\"")) common_examples.add(example);
+							}
+							if (count<10) {// the same by appending the dimension name, only for intent
+								CommonExample example = createExample(intent_name, "What are the results for %item:"+dim_ID+" "+dim_name+"?");
+								if (addEntity(example,ITEM_ENTITY_PREFIX+dim_ID,member.getValue(),"\""+member.getValue()+"\"")) common_examples.add(example);
+							}
+							// we could use the attributes too
+							count++;
+						}
+					} catch (TimeoutException | ComputingException | InterruptedException e) {
+						// ignore
+					}
+				}
+			}
+		}
 		return set;
 	}
 	
@@ -220,11 +309,60 @@ public class NluServiceBaseImpl extends AnalyticsServiceCore {
 		if (query.getIntent()==null) {
 			throw new ScopeException("404: no intent detected");
 		}
+		// bookmark drill-down
+		if (query.getIntent().getName().equals(BOOKMARK_DRILL_DOWN)) {
+			EntityExtraction item = getEntityByPrefix(query, ITEM_ENTITY_PREFIX);
+			if (item!=null) {
+				String dimension = item.getEntity().substring(ITEM_ENTITY_PREFIX.length());
+				String value = item.getValue();
+				// we need to lookup the actual value
+				Axis axis = space.getUniverse().axis(dimension);
+				if (!axis.getParent().getTop().equals(space)) {
+					throw new ScopeException("invalid dimension request - you are using the wrong model");
+				}
+				if (!value.startsWith("\"")) {
+					DashboardSelection empty = new DashboardSelection();
+					try {
+						Facet facet = ComputingService.INSTANCE.glitterFacet(space.getUniverse(),
+								space.getDomain(), empty, axis, value, 0, 50, null);
+						if (facet.getItems().isEmpty()) {
+							throw new ScopeException("I don't know any "+axis.getDimension().getName()+" that matchs "+value);
+						}
+						if (facet.getItems().size()>1) {
+							return addParserOutput(new CardInfo("The "+axis.getDimension().getName()+" that matchs "+value+" is ambiguous: would you want to say: "), query);
+						}
+						// just one
+						FacetMember checked = facet.getItems().get(0);
+						// query the bookmark without dimensions
+						AnalyticsQueryImpl aquery = new AnalyticsQueryImpl();
+						aquery.setGroupBy(new ArrayList<>());// empty - not sure it's going to work
+						// add filter
+						String filter = axis.prettyPrint(new PrettyPrintOptions(ReferenceStyle.IDENTIFIER, space.getImageDomain()));
+						filter += "=\""+checked+"\"";
+						aquery.setFilters(new ArrayList<>());
+						aquery.getFilters().add(filter);
+						return addParserOutput(runQuery(space, aquery, "results for "+checked+" "+axis.getDimension().getName()+": "), query);
+					} catch (ComputingException | InterruptedException | TimeoutException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+				} else {
+					AnalyticsQueryImpl aquery = new AnalyticsQueryImpl();
+					aquery.setGroupBy(new ArrayList<>());// empty - not sure it's going to work
+					// add filter
+					String filter = axis.prettyPrint(new PrettyPrintOptions(ReferenceStyle.IDENTIFIER, space.getImageDomain()));
+					filter += "="+value;
+					aquery.setFilters(new ArrayList<>());
+					aquery.getFilters().add(filter);
+					return addParserOutput(runQuery(space, aquery, "results for "+value+" "+axis.getDimension().getName()+": "), query);
+				}
+			}
+		}
 		// bookmark_top_dimension
-		if (query.getIntent().getName().equals("bookmark_top_dimension")) {
+		if (query.getIntent().getName().equals(BOOKMARK_TOP_DIMENSION)) {
 			String answer = "";
-			EntityExtraction dimension = getEntity(query, "dimension");
-			if (dimension!=null && dimension.getValue().startsWith("@")) {
+			EntityExtraction dimension = getEntity(query, DIMENSION_ENTITY);
+			if (dimension!=null && (dimension.getValue().startsWith("@") || dimension.getValue().startsWith("'"))) {
 				Axis axis = space.getUniverse().axis(dimension.getValue());
 				if (!axis.getParent().getTop().equals(space)) {
 					throw new ScopeException("invalid dimension request - you are using the wrong model");
@@ -238,7 +376,7 @@ public class NluServiceBaseImpl extends AnalyticsServiceCore {
 				aquery.setMetrics(new ArrayList<>());
 				aquery.setOrderBy(new ArrayList<>());
 				aquery.setLimit(5L);
-				EntityExtraction metric = getEntity(query, "metric");
+				EntityExtraction metric = getEntity(query, METRIC_ENTITY);
 				if (metric!=null && metric.getValue().startsWith("@")) {
 					// ok, we found one
 					Measure measure = space.getUniverse().measure(metric.getValue());
@@ -252,16 +390,16 @@ public class NluServiceBaseImpl extends AnalyticsServiceCore {
 					aquery.getMetrics().add("count()");
 					aquery.getOrderBy().add("DESC(count())");
 				}
-				return runQuery(space, aquery, answer+": ");
+				return addParserOutput(runQuery(space, aquery, answer+": "), query);
 			} else {
 				throw new ScopeException("I don't understand what dimension you are looking for. '"+dimension.getValue()+"' is not a valid dimension. You can try the following dimensions: NYI");
 			}
 		}
 		// bookmark_overall_metric
-		if (query.getIntent().getName().equals("bookmark_overall_metric")) {
-			EntityExtraction entity = getEntity(query, "metric");
+		if (query.getIntent().getName().equals(BOOKMARK_OVERALL_METRIC)) {
+			EntityExtraction entity = getEntity(query, METRIC_ENTITY);
 			if (entity==null) {
-				query.getIntent().setName("bookmark_overview");// redirect
+				query.getIntent().setName(BOOKMARK_OVERVIEW);// redirect
 			}
 			if (entity!=null && entity.getValue().startsWith("@")) {
 				// ok, we found one
@@ -274,20 +412,25 @@ public class NluServiceBaseImpl extends AnalyticsServiceCore {
 				aquery.setGroupBy(new ArrayList<>());// empty - not sure it's going to work
 				aquery.setMetrics(new ArrayList<>());
 				aquery.getMetrics().add(measure.prettyPrint(new PrettyPrintOptions(ReferenceStyle.IDENTIFIER, space.getImageDomain())));
-				return runQuery(space, aquery, "Here are the overall results for "+measure.getName()+": ");
+				return addParserOutput(runQuery(space, aquery, "Here are the overall results for "+measure.getName()+": "), query);
 			} else {
 				throw new ScopeException("I don't understand what metric you are looking for. '"+entity.getValue()+"' is not a valid metric. You can try the following metrics: NYI");
 			}
 		}
 		// bookmark_overview
-		if (query.getIntent().getName().equals("bookmark_overview")) {
+		if (query.getIntent().getName().equals(BOOKMARK_OVERVIEW)) {
 			// query the bookmark without dimensions
 			AnalyticsQueryImpl aquery = new AnalyticsQueryImpl();
 			aquery.setGroupBy(new ArrayList<>());// empty - not sure it's going to work
-			return runQuery(space, aquery, "Here are the overall results for "+getContextName(space)+": ");
+			return addParserOutput(runQuery(space, aquery, "Here are the overall results for "+getContextName(space)+": "), query);
 		}
 		// else
-		throw new ScopeException("404: intent not yet implemented");
+		throw new ScopeException("404: intent not yet implemented: "+message);
+	}
+	
+	private CardInfo addParserOutput(CardInfo info, RasaQuery query) {
+		info.setParserOutput(query);
+		return info;
 	}
 	
 	private CardInfo runQuery(Space space, AnalyticsQueryImpl query, String successMsg) throws ScopeException {
@@ -340,6 +483,23 @@ public class NluServiceBaseImpl extends AnalyticsServiceCore {
 		// else
 		return null;
 	}
+	
+	/**
+	 * @param query
+	 * @param string
+	 * @return
+	 */
+	private EntityExtraction getEntityByPrefix(RasaQuery query, String prefix) {
+		if (query.getEntities()!=null) {
+			for (EntityExtraction item : query.getEntities()) {
+				if (item.getEntity().startsWith(prefix)) {
+					return item;
+				}
+			}
+		}
+		// else
+		return null;
+	}
 
 	public RasaQuery readMessage(String message) throws ScopeException {
 		ObjectMapper mapper = new ObjectMapper();
@@ -350,6 +510,20 @@ public class NluServiceBaseImpl extends AnalyticsServiceCore {
 		} catch (Exception e) {
 			throw new ScopeException("cannot read the message, maybe you should try to say Hello!", e);
 		}
+	}
+
+	/**
+	 * @param bBID
+	 * @param message
+	 * @return
+	 * @throws IOException 
+	 * @throws ScopeException 
+	 */
+	public CardInfo chat(String BBID, String message) throws IOException, ScopeException {
+		URL parser = new URL("http://192.168.99.100:5000/parse?q="+URLEncoder.encode(message, "UTF-8"));
+		URLConnection parse = parser.openConnection();
+        String result = IOUtils.toString(parse.getInputStream(), StandardCharsets.UTF_8);
+        return query(BBID, result);
 	}
 
 }
