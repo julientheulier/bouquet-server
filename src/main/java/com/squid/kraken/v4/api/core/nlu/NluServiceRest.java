@@ -23,6 +23,8 @@
  *******************************************************************************/
 package com.squid.kraken.v4.api.core.nlu;
 
+import java.io.IOException;
+
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
@@ -80,6 +82,17 @@ public class NluServiceRest extends CoreAuthenticatedServiceRest {
 			@QueryParam(MESSAGE_PARAM_NAME) String message) throws ScopeException {
 		AppContext userContext = getUserContext(request);
 		return delegate(userContext).query(BBID, message);
+	}
+	
+	@GET
+	@Path("/nlu/{" + BBID_PARAM_NAME + "}/chat")
+	@ApiOperation(value = "chat test")
+	public CardInfo chat(
+			@Context HttpServletRequest request, 
+			@PathParam(BBID_PARAM_NAME) String BBID,
+			@QueryParam(MESSAGE_PARAM_NAME) String message) throws ScopeException, IOException {
+		AppContext userContext = getUserContext(request);
+		return delegate(userContext).chat(BBID, message);
 	}
 
 	/**
