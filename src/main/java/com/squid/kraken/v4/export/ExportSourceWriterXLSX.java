@@ -74,7 +74,6 @@ public class ExportSourceWriterXLSX implements ExportSelectionWriter {
 	@Override
 	public void setSelection(List<Selection> selection) {
 		this.selection = selection;
-
 	}
 
 	@Override
