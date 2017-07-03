@@ -786,16 +786,16 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		// display selection
 		//createHTMLQuerySelection(html, space, reply.getSelection());
 		// vega lite preview
-		html.append("<div>");
-		Encoding channels = null;
+		//html.append("<div>");
+		//Encoding channels = null;
 		if (reply.getResult()!=null) {
 			html.append("<div id=\"vis\"></div>\r\n\r\n<script>\r\nvar embedSpec = {\r\n  mode: \"vega-lite\", renderer:\"svg\",  spec:");
 			html.append(writeVegalightSpecs(reply.getResult()));
-			channels = reply.getResult().encoding;
+			//channels = reply.getResult().encoding;
 			html.append("}\r\nvg.embed(\"#vis\", embedSpec, function(error, result) {\r\n  // Callback receiving the View instance and parsed Vega spec\r\n  // result.view is the View, which resides under the '#vis' element\r\n});\r\n</script>\r\n");
 		} else {
 			html.append("<p>No Result</p>");
-			channels = new Encoding();// empty encoding
+			//channels = new Encoding();// empty encoding
 		}
 		html.append("</body>\r\n</html>");
 		return Response.ok(html.toString(), "text/html; charset=UTF-8").build();
