@@ -33,6 +33,7 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
 
 import com.squid.core.expression.scope.ScopeException;
@@ -74,14 +75,25 @@ public class NluServiceRest extends CoreAuthenticatedServiceRest {
 	}
 
 	@GET
+	@Path("/nlu/{" + BBID_PARAM_NAME + "}/test")
+	@ApiOperation(value = "test the model using the training corpus")
+	public Object runTest(
+			@Context HttpServletRequest request, 
+			@PathParam(BBID_PARAM_NAME) String BBID) throws ScopeException {
+		AppContext userContext = getUserContext(request);
+		return delegate(userContext).runTest(BBID);
+	}
+
+	@GET
 	@Path("/nlu/{" + BBID_PARAM_NAME + "}/query")
 	@ApiOperation(value = "proceed a query")
 	public Object query(
 			@Context HttpServletRequest request, 
 			@PathParam(BBID_PARAM_NAME) String BBID,
-			@QueryParam(MESSAGE_PARAM_NAME) String message) throws ScopeException {
+			@QueryParam(MESSAGE_PARAM_NAME) String message,
+			@QueryParam("state") String state) throws ScopeException {
 		AppContext userContext = getUserContext(request);
-		return delegate(userContext).query(BBID, message);
+		return delegate(userContext).query(BBID, message, state);
 	}
 	
 	@GET
@@ -93,6 +105,18 @@ public class NluServiceRest extends CoreAuthenticatedServiceRest {
 			@QueryParam(MESSAGE_PARAM_NAME) String message) throws ScopeException, IOException {
 		AppContext userContext = getUserContext(request);
 		return delegate(userContext).chat(BBID, message);
+	}
+	
+	@GET
+	@Path("/nlu/{" + BBID_PARAM_NAME + "}/ui")
+	@ApiOperation(value = "chat bot imple UI")
+	public Response generateUI(
+			@Context HttpServletRequest request, 
+			@PathParam(BBID_PARAM_NAME) String BBID,
+			@QueryParam(MESSAGE_PARAM_NAME) String message,
+			@QueryParam("state") String state) throws ScopeException, IOException {
+		AppContext userContext = getUserContext(request);
+		return delegate(userContext).generateUI(BBID, message, state);
 	}
 
 	/**

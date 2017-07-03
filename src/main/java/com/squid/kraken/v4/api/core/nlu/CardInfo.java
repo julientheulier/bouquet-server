@@ -24,6 +24,9 @@
 package com.squid.kraken.v4.api.core.nlu;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+
+import com.squid.kraken.v4.vegalite.VegaliteSpecs;
 
 /**
  * @author sergefantino
@@ -35,9 +38,18 @@ public class CardInfo implements Serializable {
 	 * 
 	 */
 	private static final long serialVersionUID = -122869605941810955L;
+	
 	private String message;
 	
 	private Object parserOutput = null;
+	
+	private Throwable error = null;
+	
+	private ArrayList<String> followUp = new ArrayList<>();
+	
+	private VegaliteSpecs dataviz = null;
+	
+	private String state = null;
 	
 	/**
 	 * 
@@ -73,5 +85,61 @@ public class CardInfo implements Serializable {
 	public void setParserOutput(Object parserOutput) {
 		this.parserOutput = parserOutput;
 	}
+	
+	/**
+	 * @return the error
+	 */
+	public Throwable getError() {
+		return error;
+	}
+	
+	/**
+	 * @param error the error to set
+	 */
+	public void setError(Throwable error) {
+		this.error = error;
+	}
 
+	/**
+	 * 
+	 */
+	public void addFollowUp(String message) {
+		this.followUp.add(message);
+	}
+	
+	/**
+	 * @return the followUp
+	 */
+	public ArrayList<String> getFollowUp() {
+		return followUp;
+	}
+	
+	/**
+	 * @return the dataviz
+	 */
+	public VegaliteSpecs getDataviz() {
+		return dataviz;
+	}
+	
+	/**
+	 * @param dataviz the dataviz to set
+	 */
+	public void setDataviz(VegaliteSpecs dataviz) {
+		this.dataviz = dataviz;
+	}
+	
+	/**
+	 * @return the state
+	 */
+	public String getState() {
+		return state;
+	}
+
+	/**
+	 * @param state the state to set
+	 */
+	public void setState(String state) {
+		this.state = state;
+	}
+	
 }
