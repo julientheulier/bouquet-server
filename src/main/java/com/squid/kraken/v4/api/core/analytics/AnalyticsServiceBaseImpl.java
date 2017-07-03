@@ -26,8 +26,6 @@ package com.squid.kraken.v4.api.core.analytics;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URI;
-import java.sql.Types;
-import java.text.DateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -37,14 +35,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
 import java.util.concurrent.TimeoutException;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.zip.GZIPOutputStream;
 
 import javax.ws.rs.WebApplicationException;
@@ -63,21 +54,12 @@ import org.slf4j.LoggerFactory;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.squid.core.concurrent.ExecutionManager;
 import com.squid.core.database.impl.DatabaseServiceException;
-import com.squid.core.domain.DomainNumericConstant;
 import com.squid.core.domain.IDomain;
-import com.squid.core.domain.analytics.AnalyticDomain;
-import com.squid.core.domain.operators.ExtendedType;
-import com.squid.core.domain.operators.IntrinsicOperators;
-import com.squid.core.domain.operators.OperatorDefinition;
 import com.squid.core.domain.sort.DomainSort;
 import com.squid.core.domain.sort.DomainSort.SortDirection;
 import com.squid.core.domain.sort.SortOperatorDefinition;
-import com.squid.core.domain.vector.VectorOperatorDefinition;
-import com.squid.core.expression.ConstantValue;
 import com.squid.core.expression.ExpressionAST;
-import com.squid.core.expression.NumericConstant;
 import com.squid.core.expression.Operator;
 import com.squid.core.expression.PrettyPrintOptions;
 import com.squid.core.expression.PrettyPrintOptions.ReferenceStyle;
@@ -86,8 +68,6 @@ import com.squid.core.expression.scope.ExpressionMaker;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.core.poi.ExcelFile;
 import com.squid.core.poi.ExcelSettingsBean;
-import com.squid.core.sql.model.SQLScopeException;
-import com.squid.core.sql.render.SQLSkin;
 import com.squid.kraken.v4.api.core.APIException;
 import com.squid.kraken.v4.api.core.AccessRightsUtils;
 import com.squid.kraken.v4.api.core.ComputingInProgressAPIException;
@@ -106,41 +86,25 @@ import com.squid.kraken.v4.api.core.projectanalysisjob.AnalysisJobComputer;
 import com.squid.kraken.v4.caching.NotInCacheException;
 import com.squid.kraken.v4.caching.redis.RedisCacheManager;
 import com.squid.kraken.v4.caching.redis.queryworkerserver.QueryWorkerJobStatus;
-import com.squid.kraken.v4.core.analysis.datamatrix.AxisValues;
 import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
-import com.squid.kraken.v4.core.analysis.datamatrix.IDataMatrixConverter;
-import com.squid.kraken.v4.core.analysis.datamatrix.MeasureValues;
-import com.squid.kraken.v4.core.analysis.datamatrix.RecordConverter;
-import com.squid.kraken.v4.core.analysis.datamatrix.TableConverter;
-import com.squid.kraken.v4.core.analysis.datamatrix.TransposeConverter;
 import com.squid.kraken.v4.core.analysis.engine.bookmark.BookmarkManager;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex.Status;
-import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionMember;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainHierarchy;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainHierarchyManager;
-import com.squid.kraken.v4.core.analysis.engine.hierarchy.FacetBuilder;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.SegmentManager;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingService;
 import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
 import com.squid.kraken.v4.core.analysis.model.DashboardAnalysis;
 import com.squid.kraken.v4.core.analysis.model.DashboardSelection;
-import com.squid.kraken.v4.core.analysis.model.DomainSelection;
-import com.squid.kraken.v4.core.analysis.model.ExpressionInput;
-import com.squid.kraken.v4.core.analysis.model.Intervalle;
 import com.squid.kraken.v4.core.analysis.scope.AxisExpression;
-import com.squid.kraken.v4.core.analysis.scope.GlobalExpressionScope;
 import com.squid.kraken.v4.core.analysis.scope.LexiconScope;
-import com.squid.kraken.v4.core.analysis.scope.MeasureExpression;
-import com.squid.kraken.v4.core.analysis.scope.SpaceExpression;
 import com.squid.kraken.v4.core.analysis.scope.SpaceScope;
 import com.squid.kraken.v4.core.analysis.scope.UniverseScope;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
-import com.squid.kraken.v4.core.analysis.universe.Measure;
 import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
-import com.squid.kraken.v4.core.expression.reference.DomainReference;
 import com.squid.kraken.v4.core.expression.scope.ExpressionSuggestionHandler;
 import com.squid.kraken.v4.core.expression.scope.RelationExpressionScope;
 import com.squid.kraken.v4.core.model.domain.DomainDomain;
@@ -152,30 +116,22 @@ import com.squid.kraken.v4.model.AnalyticsQuery;
 import com.squid.kraken.v4.model.AnalyticsQueryImpl;
 import com.squid.kraken.v4.model.AnalyticsReply;
 import com.squid.kraken.v4.model.AnalyticsResult;
-import com.squid.kraken.v4.model.AnalyticsSelection;
-import com.squid.kraken.v4.model.AnalyticsSelectionImpl;
 import com.squid.kraken.v4.model.Bookmark;
 import com.squid.kraken.v4.model.BookmarkConfig;
 import com.squid.kraken.v4.model.BookmarkFolderPK;
 import com.squid.kraken.v4.model.BookmarkPK;
-import com.squid.kraken.v4.model.DataHeader;
-import com.squid.kraken.v4.model.DataHeader.Column;
 import com.squid.kraken.v4.model.DataLayout;
 import com.squid.kraken.v4.model.DataTable;
-import com.squid.kraken.v4.model.Dimension;
 import com.squid.kraken.v4.model.Dimension.Type;
 import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.DomainPK;
-import com.squid.kraken.v4.model.Expression;
 import com.squid.kraken.v4.model.ExpressionSuggestion;
 import com.squid.kraken.v4.model.Facet;
-import com.squid.kraken.v4.model.FacetExpression;
 import com.squid.kraken.v4.model.FacetMember;
 import com.squid.kraken.v4.model.FacetMemberInterval;
 import com.squid.kraken.v4.model.FacetMemberString;
 import com.squid.kraken.v4.model.FacetSelection;
 import com.squid.kraken.v4.model.GenericPK;
-import com.squid.kraken.v4.model.Metric;
 import com.squid.kraken.v4.model.NavigationItem;
 import com.squid.kraken.v4.model.NavigationQuery;
 import com.squid.kraken.v4.model.NavigationQuery.HierarchyMode;
@@ -189,11 +145,8 @@ import com.squid.kraken.v4.model.Problem.Severity;
 import com.squid.kraken.v4.model.Project;
 import com.squid.kraken.v4.model.ProjectAnalysisJob;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.Direction;
-import com.squid.kraken.v4.model.ProjectAnalysisJob.Index;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.OrderBy;
-import com.squid.kraken.v4.model.ProjectAnalysisJob.Position;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.RollUp;
-import com.squid.kraken.v4.model.ProjectAnalysisJobPK;
 import com.squid.kraken.v4.model.ProjectFacetJob;
 import com.squid.kraken.v4.model.ProjectPK;
 import com.squid.kraken.v4.model.ResultInfo;
@@ -203,17 +156,6 @@ import com.squid.kraken.v4.model.ValueType;
 import com.squid.kraken.v4.model.ViewQuery;
 import com.squid.kraken.v4.model.ViewReply;
 import com.squid.kraken.v4.persistence.AppContext;
-import com.squid.kraken.v4.vegalite.VegaliteConfigurator;
-import com.squid.kraken.v4.vegalite.VegaliteSpecs;
-import com.squid.kraken.v4.vegalite.VegaliteSpecs.Data;
-import com.squid.kraken.v4.vegalite.VegaliteSpecs.DataType;
-import com.squid.kraken.v4.vegalite.VegaliteSpecs.Format;
-import com.squid.kraken.v4.vegalite.VegaliteSpecs.FormatType;
-import com.squid.kraken.v4.vegalite.VegaliteSpecs.Mark;
-import com.squid.kraken.v4.vegalite.VegaliteSpecs.Operation;
-import com.squid.kraken.v4.vegalite.VegaliteSpecs.Order;
-import com.squid.kraken.v4.vegalite.VegaliteSpecs.Sort;
-import com.squid.kraken.v4.vegalite.VegaliteSpecs.Stacked;
 
 /**
  * @author sergefantino
@@ -1243,70 +1185,6 @@ public class AnalyticsServiceBaseImpl extends AnalyticsServiceCore implements An
 		} 
 	}
 	
-	private BookmarkConfig createBookmarkConfig(Space space, AnalyticsQuery query) throws ScopeException {
-		SpaceScope scope = new SpaceScope(space);
-		BookmarkConfig config = new BookmarkConfig();
-		// set the project ID
-		config.setProject(space.getUniverse().getProject().getOid());
-		// config use the Domain OID
-		config.setDomain(space.getDomain().getOid());
-		//config.setSelection();
-		config.setLimit(query.getLimit());
-		//
-		if (query.getPeriod()!=null && !query.getPeriod().equals("")) {
-			config.setPeriod(null);
-		}
-		//
-		if (query.getGroupBy() != null) {
-			List<String> chosenDimensions = new ArrayList<>();
-			for (String facet : query.getGroupBy()) {
-				// add the domain scope
-				ExpressionAST expr = scope.parseExpression(facet);
-				chosenDimensions.add(rewriteExpressionToGlobalScope(expr, space));
-			}
-			String[] toArray = new String[chosenDimensions.size()];
-			config.setChosenDimensions(chosenDimensions.toArray(toArray));
-		}
-		if (query.getMetrics() != null) {
-			List<String> choosenMetrics = new ArrayList<>();
-			for (String facet : query.getMetrics()) {
-				ExpressionAST expr = scope.parseExpression(facet);
-				choosenMetrics.add(rewriteChoosenMetric(expr));
-			}
-			String[] toArray = new String[choosenMetrics.size()];
-			config.setChosenMetrics(choosenMetrics.toArray(toArray));
-		}
-		//
-		if (query.getOrderBy() != null) {
-			config.setOrderBy(new ArrayList<OrderBy>());
-			for (String orderBy : query.getOrderBy()) {
-				ExpressionAST expr = scope.parseExpression(orderBy);
-				Direction direction = getDirection(expr.getImageDomain());
-				expr = unwrapOrderByExpression(expr);
-				OrderBy copy = new OrderBy(new Expression(rewriteExpressionToGlobalScope(expr, space)), direction);
-				config.getOrderBy().add(copy);
-			}
-		}
-		//
-		if (query.getRollups() != null) {
-			config.setRollups(parseRollups(query.getRollups()));
-		}
-		// add the selection
-		FacetSelection selection = createFacetSelection(space, query);
-		config.setSelection(selection);
-		// period and compareTo
-		if (query.getPeriod()!=null && !query.getPeriod().equals("")) {
-			// add the period into the hashMap....
-			HashMap<String, String> map = new HashMap<>();
-			ExpressionAST expr = scope.parseExpression(query.getPeriod());
-			map.put(config.getDomain(), rewriteExpressionToGlobalScope(expr, space));
-			config.setPeriod(map);
-		}
-		//
-		config.setCurrentAnalysis(BookmarkConfig.TABLE_ANALYSIS);
-		return config;
-	}
-	
 	/**
 	 * if the orderBy expression is DESC(x) or ASC(x), just unwrap and return x
 	 * else do nothing
@@ -1326,17 +1204,6 @@ public class AnalyticsServiceBaseImpl extends AnalyticsServiceCore implements An
 		}	
 		// else do nothing
 		return expr;
-	}
-	
-	private String rewriteChoosenMetric(ExpressionAST expr) {
-		if (expr instanceof MeasureExpression) {
-			MeasureExpression measure = (MeasureExpression)expr;
-			if (measure.getMeasure().getMetric()!=null) {
-				return measure.getMeasure().getMetric().getOid();
-			}
-		}
-		// else
-		return expr.prettyPrint(PrettyPrintOptions.ROBOT_GLOBAL);
 	}
 	
 	/**
@@ -1749,22 +1616,7 @@ public class AnalyticsServiceBaseImpl extends AnalyticsServiceCore implements An
 			return expr.prettyPrint();
 		}
 	}
-
-	/**
-	 * @param uriInfo 
-	 * @param userContext
-	 * @param bBID
-	 * @param x
-	 * @param y
-	 * @param color
-	 * @param style 
-	 * @param options 
-	 * @param query
-	 * @return
-	 * @throws InterruptedException 
-	 * @throws ComputingException 
-	 * @throws ScopeException 
-	 */
+	
 	public Response viewAnalysis(
 			final AppContext userContext, 
 			String BBID,
@@ -1772,508 +1624,16 @@ public class AnalyticsServiceBaseImpl extends AnalyticsServiceCore implements An
 			String data,
 			Style style, 
 			String envelope) throws ScopeException, ComputingException, InterruptedException {
-		Space space = null;
+		//
 		try {
-			space = getSpace(userContext, BBID);
+			ViewReply reply = super.viewAnalysis(userContext, BBID, view, data, true, style.equals(Style.HTML));
 			//
-			if (data==null) data="URL";
-			boolean preFetch = true;// default to prefetch when data mode is URL
-			//
-			Bookmark bookmark = space.getBookmark();
-			BookmarkConfig config = BookmarkManager.INSTANCE.readConfig(bookmark);
-			//
-			// handle the limit
-			Long explicitLimit = view.getLimit();
-			AnalyticsQueryImpl query = new AnalyticsQueryImpl(view);
-			// merge the bookmark config with the query
-			mergeBookmarkConfig(space, query, config);
-			//
-			// change the query ref to use the domain one
-			// - we don't want to have side-effects
-			String domainBBID = "@'"+space.getUniverse().getProject().getOid()+"'.@'"+space.getDomain().getOid()+"'";
-			query.setBBID(domainBBID);
-			//
-			Properties options = view.getOptionsAsPropertiesSafe();
-			//
-			VegaliteConfigurator inputConfig = new VegaliteConfigurator(space, query);
-			// first check the provided parameters, because they must override the default
-			VegaliteSpecs channels = new VegaliteSpecs();
-			channels.encoding.x = inputConfig.createChannelDef("x", view.getX(), options);
-			channels.encoding.y = inputConfig.createChannelDef("y", view.getY(), options);
-			channels.encoding.color = inputConfig.createChannelDef("color", view.getColor(), options);
-			channels.encoding.size = inputConfig.createChannelDef("size", view.getSize(), options);
-			channels.encoding.column = inputConfig.createChannelDef("column", view.getColumn(), options);
-			channels.encoding.row = inputConfig.createChannelDef("row", view.getRow(), options);
-			if (inputConfig.getRequired().getMetrics().size()>0) {
-				// override the default metrics
-				query.setMetrics(inputConfig.getRequired().getMetrics());
-			}
-			if (inputConfig.getRequired().getGroupBy().size()>0) {
-				// override the default metrics
-				query.setGroupBy(inputConfig.getRequired().getGroupBy());
-			}
-			//
-			// add the compareTo() if needed
-			/*
-			if (query.getCompareframe()!=null && query.getMetrics()!=null && query.getMetrics().size()==1) {
-				String expression = query.getMetrics().get(0);
-				ExpressionAST ast = inputConfig.parse(expression);
-				query.getMetrics().add("compareTo("+inputConfig.prettyPrint(ast)+")");
-			}
-			*/
-			//
-			int dims = (query.getGroupBy()!=null)?query.getGroupBy().size():0;
-			int kpis = (query.getMetrics()!=null)?query.getMetrics().size():0;
-			// this will be the output config including the default settings
-			VegaliteConfigurator outputConfig = new VegaliteConfigurator(space, query);
-			//
-			// generate a default dataviz if x and y are not already sets
-			if (view.getX()==null || view.getY()==null) {
-				// DOMAIN
-				if (config==null) {
-					// not a bookmark, use default & specs if nothing provided
-					// T1935: if explicit groupBy, use it
-					boolean metricsDone = false;
-					if (view.getGroupBy()!=null && view.getGroupBy().size()>0 && query.getGroupBy()!=null && query.getGroupBy().size()>0) {
-						int next = 0;
-						// reorder the dims to have the period first
-						ArrayList<Integer> reorder = new ArrayList<>();
-						for (int i=0;i<dims;i++) {
-							String dim = query.getGroupBy().get(i);
-							ExpressionAST expr = inputConfig.parse(dim);
-							boolean isTemporal = expr.getImageDomain().isInstanceOf(IDomain.TEMPORAL);
-							if (isTemporal) {
-								reorder.add(0, i);// put it in front
-							} else {
-								reorder.add(i);
-							}
-						}
-						while (next<dims) {
-							if (next==1) {
-								// insert the metrics after the first dimension
-								metricsDone = handleMetrics(query, inputConfig, view, options, channels, true);
-							}
-							String dim = query.getGroupBy().get(reorder.get(next++));
-							if (!inputConfig.getRequired().getGroupBy().contains(dim)) {
-								ExpressionAST expr = inputConfig.parse(dim);
-								boolean isTemporal = expr.getImageDomain().isInstanceOf(IDomain.TEMPORAL);
-								if ((view.getX()==null || channels.encoding.x.type==DataType.quantitative) && view.getY()==null && !isTemporal) {// use Y only for categories and left a channel for the metrics
-									// use it as the y
-									view.setY(dim);
-									channels.encoding.y = inputConfig.createChannelDef("y", view.getY(), options);
-								} else if ((view.getY()==null || channels.encoding.y.type==DataType.quantitative) && view.getX()==null) {
-									// use it as the x
-									view.setX(dim);
-									channels.encoding.x = inputConfig.createChannelDef("x", view.getX(), options);
-								} else if (view.getColor()==null) {
-									// use it as the color
-									view.setColor(dim);
-									channels.encoding.color = inputConfig.createChannelDef("color", view.getColor(), options);
-								} else if (view.getColumn()==null) {
-									// use it as the column
-									view.setColumn(dim);
-									channels.encoding.column = inputConfig.createChannelDef("column", view.getColumn(), options);
-								} else if (view.getRow()==null) {
-									// use it as the column
-									view.setRow(dim);
-									channels.encoding.row = inputConfig.createChannelDef("row", view.getRow(), options);
-								} else {
-									break;// no more channel available
-								}
-							}
-						}
-					} else {
-						// add the period if nothing is selected
-						if (view.getX()==null) {
-							view.setX("daily(__PERIOD)");
-							channels.encoding.x = inputConfig.createChannelDef("x", view.getX(), options);
-						}
-					}
-					if (!metricsDone) {
-						handleMetrics(query, inputConfig, view, options, channels, false);
-					}
-					// add the period if no group set
-					if (view.getX()==null && !inputConfig.isTimeseries() && query.getPeriod()!=null) {
-						view.setX("__PERIOD");
-					}
-				// TIME-SERIES
-				} else if (config.getCurrentAnalysis()!=null && config.getCurrentAnalysis().equalsIgnoreCase(BookmarkConfig.TIMESERIES_ANALYSIS)) {
-					// use the period as the x
-					if (view.getX()==null && !inputConfig.isTimeseries()) {
-						view.setX("__PERIOD");
-					}
-					// take care of y axis and metrics
-					if (view.getY()==null && (!inputConfig.isHasMetric() || !inputConfig.isHasMetricValue())) {
-						if (kpis==0 && !inputConfig.isHasMetric()) {
-							// we need a default metric
-							view.setY("count() // this is the default metric");
-						} else if (kpis==1 && !inputConfig.isHasMetric()) {
-							// we can only use the first one for now
-							view.setY(query.getMetrics().get(0));
-						} else if (!inputConfig.isHasMetricValue()) {
-							view.setY(TransposeConverter.METRIC_VALUE_COLUMN);
-							if (!inputConfig.isHasMetricSeries()) {
-								if (view.getColor()==null) {
-									view.setColor(TransposeConverter.METRIC_SERIES_COLUMN);
-								} else if (view.getColumn()==null) {
-									view.setColumn(TransposeConverter.METRIC_SERIES_COLUMN);
-								} else if (view.getRow()==null) {
-									view.setRow(TransposeConverter.METRIC_SERIES_COLUMN);
-								}
-							}
-						}
-					}
-					// add reminding groupBy
-					int next = 0;
-					while (next<dims) {
-						String groupBy = query.getGroupBy().get(next++);
-						if (!groupBy.equals("__PERIOD") && !groupBy.equals(query.getPeriod()) && !inputConfig.getRequired().getGroupBy().contains(groupBy)) {
-							if (view.getColor()==null) {
-								// use it as the color
-								view.setColor(groupBy);
-							} else if (view.getColumn()==null) {
-								// use it as the column
-								view.setColumn(groupBy);
-							} else if (view.getRow()==null) {
-								// use it as the column
-								view.setRow(groupBy);
-							} else {
-								break;// no more channel available
-							}
-						}
-					}
-				// BARCHART 
-				} else if (config.getCurrentAnalysis()!=null && config.getCurrentAnalysis().equalsIgnoreCase(BookmarkConfig.BARCHART_ANALYSIS)) {
-					if (view.getY()==null && (!inputConfig.isHasMetric() || !inputConfig.isHasMetricValue())) {
-						if (kpis==0 && !inputConfig.isHasMetric()) {
-							// we need a default metric
-							view.setY("count() // this is the default metric");
-						} else if (kpis==1 && !inputConfig.isHasMetric()) {
-							// we can only use the first one for now
-							view.setY(query.getMetrics().get(0));
-						} else if (!inputConfig.isHasMetricValue()) {
-							view.setY(TransposeConverter.METRIC_VALUE_COLUMN);
-							if (!inputConfig.isHasMetricSeries()) {
-								if (view.getColor()==null) {
-									view.setColor(TransposeConverter.METRIC_SERIES_COLUMN);
-								} else if (view.getColumn()==null) {
-									view.setColumn(TransposeConverter.METRIC_SERIES_COLUMN);
-								} else if (view.getRow()==null) {
-									view.setRow(TransposeConverter.METRIC_SERIES_COLUMN);
-								}
-							}
-						}
-					}
-					// add reminding groupBy
-					int next = 0;
-					while (next<dims) {
-						if (!inputConfig.getRequired().getGroupBy().contains(query.getGroupBy().get(next))) {
-							if (view.getX()==null) {
-								// use it as the x
-								view.setX(query.getGroupBy().get(next++));
-							} else if (view.getColor()==null) {
-								// use it as the color
-								view.setColor(query.getGroupBy().get(next++));
-							} else if (view.getColumn()==null) {
-								// use it as the column
-								view.setColumn(query.getGroupBy().get(next++));
-							} else if (view.getRow()==null) {
-								// use it as the column
-								view.setRow(query.getGroupBy().get(next++));
-							} else {
-								break;// no more channel available
-							}
-						}
-					}
-				} else {// TABLE_ANALYSIS or unknown
-					if (kpis==0) {
-						// we need at least one dim
-						query.setMetrics(Collections.singletonList("count() // this is the default metric"));
-						kpis++;
-					}
-					if (dims==0) {
-						// just display the metrics
-						if (view.getX()==null && !inputConfig.isHasMetric() && !inputConfig.isHasMetricValue()) {
-							if (kpis==1) {
-								view.setX(query.getMetrics().get(0));
-							} else {
-								// multi-kpis
-								view.setX(TransposeConverter.METRIC_VALUE_COLUMN);
-								if (!inputConfig.isHasMetricSeries()) {
-									view.setY(TransposeConverter.METRIC_SERIES_COLUMN);
-								}
-							}
-						}
-					} else if (kpis==1) {
-						// display a barchart or timeseries
-						if (view.getY()==null && !inputConfig.isHasMetric() && !inputConfig.isHasMetricValue()) {
-							view.setY(query.getMetrics().get(0));
-						}
-						for (String next : query.getGroupBy()) {
-							if (view.getX()==null) {
-								if (!next.equals(query.getPeriod())) {
-									// change the barchart orientation
-									view.setX(view.getY());
-									view.setY(next);
-								} else {
-									view.setX(next);
-								}
-							} else if (view.getColor()==null) {
-								// use it as the column
-								view.setColor(next);
-							} else if (view.getColumn()==null) {
-								// use it as the column
-								view.setColumn(next);
-							} else if (view.getRow()==null) {
-								// use it as the column
-								view.setRow(next);
-							} else {
-								break;// no more channel available
-							}
-						}
-					} else {
-						// multiple kpis
-						if (view.getX()==null) {
-							view.setX(query.getGroupBy().get(0));
-						}
-						if (view.getY()==null && !inputConfig.isHasMetric()) {
-							if (!inputConfig.isHasMetricValue()) {
-								view.setY(TransposeConverter.METRIC_VALUE_COLUMN);
-							}
-							if (!inputConfig.isHasMetricSeries()) {
-								if (view.getColor()==null) {
-									view.setColor(TransposeConverter.METRIC_SERIES_COLUMN);
-								} else if (view.getColumn()==null) {
-									view.setColumn(TransposeConverter.METRIC_SERIES_COLUMN);
-								} else if (view.getRow()==null) {
-									view.setRow(TransposeConverter.METRIC_SERIES_COLUMN);
-								}
-							}
-						}
-						int next = 1;
-						while (next<dims) {
-							if (view.getColumn()==null) {
-								// use it as the column
-								view.setColumn(query.getGroupBy().get(next++));
-							} else if (view.getRow()==null) {
-								// use it as the column
-								view.setRow(query.getGroupBy().get(next++));
-							} else {
-								break;// no more channel available
-							}
-						}
-					}
-				}
-			}
-			// rollup is not supported
-			if (query.getRollups()!=null) {
-				query.setRollups(null);
-			}
-			//
-			//
-			VegaliteSpecs specs = new VegaliteSpecs();
-			specs.encoding.x = outputConfig.createChannelDef("x", view.getX(), options);
-			specs.encoding.y = outputConfig.createChannelDef("y", view.getY(), options);
-			specs.encoding.color = outputConfig.createChannelDef("color", view.getColor(), options);
-			specs.encoding.size = outputConfig.createChannelDef("size", view.getSize(), options);
-			specs.encoding.column = outputConfig.createChannelDef("column", view.getColumn(), options);
-			specs.encoding.row = outputConfig.createChannelDef("row", view.getRow(), options);
-			//
-			if (specs.encoding.x!=null && specs.encoding.y!=null) {
-				if (specs.encoding.x.type==DataType.nominal && specs.encoding.y.type==DataType.quantitative) {
-					// auto sort
-					specs.encoding.x.sort = new Sort(specs.encoding.y.field, Operation.max, Order.descending);
-				} else if (specs.encoding.y.type==DataType.nominal && specs.encoding.x.type==DataType.quantitative) {
-					// auto sort
-					specs.encoding.y.sort = new Sort(specs.encoding.x.field, Operation.max, Order.descending);
-				}
-			}
-			//
-			// force using required
-			query.setGroupBy(outputConfig.getRequired().getGroupBy());
-			query.setMetrics(outputConfig.getRequired().getMetrics());
-			//
-			// enforce the explicit limit
-			if (explicitLimit==null) {// compute the default
-				int validDimensions = dims;
-				if (outputConfig.isTimeseries()) validDimensions--;
-				if (outputConfig.isHasMetricSeries()) validDimensions--;// excluding the metrics series
-				if (dims>0) {
-					explicitLimit = 10L;// keep 10 for each dim
-					for (int i = validDimensions-1; i>0; i--) explicitLimit = explicitLimit*10;// get the power
-				}
-			}
-			if (explicitLimit!=null && // if time-series, there's not explicit limit
-					(query.getLimit()==null || query.getLimit()>explicitLimit)) {
-				query.setLimit(explicitLimit);
-			}
-			// beyond limit
-			if (outputConfig.isTimeseries()) {
-				query.setBeyondLimit(Collections.singletonList(Integer.toString(outputConfig.getTimeseriesPosition())));
-				query.setMaxResults(null);
-			} else {
-				//
-				// set limit of not defined
-				if (query.getLimit()==null) {
-					query.setLimit((long) 20);
-				}
-			}
-			final int startIndex = query.getStartIndex()!=null?query.getStartIndex():0;
-			final int maxResults = query.getMaxResults()!=null?query.getMaxResults():(query.getLimit()!=null?query.getLimit().intValue():100);
-			// make sure we order by something
-			if (query.getOrderBy()==null || query.getOrderBy().size()==0) {
-				if (query.getMetrics().size()>0) {
-					ExpressionAST m = outputConfig.parse(query.getMetrics().get(0));
-					query.setOrderBy(Collections.singletonList("desc("+outputConfig.prettyPrint(m)+")"));
-				} else {
-					query.setOrderBy(Collections.singletonList("desc(count())"));
-				}
-			} else {
-				// check orderBy
-				if (query.getMetrics().size()>0) {
-					ExpressionAST m = outputConfig.parse(query.getMetrics().get(0));
-					boolean check = false;
-					for (String orderBy : query.getOrderBy()) {
-						ExpressionAST o = outputConfig.parse(orderBy);
-						if (o.getImageDomain().isInstanceOf(DomainSort.DOMAIN) && o instanceof Operator) {
-							// remove the first operator
-							Operator op = (Operator)o;
-							if (op.getArguments().size()==1 
-									&& (op.getOperatorDefinition().getExtendedID().equals(SortOperatorDefinition.ASC_ID)
-									|| op.getOperatorDefinition().getExtendedID().equals(SortOperatorDefinition.DESC_ID))) 
-							{
-								o = op.getArguments().get(0);
-							}
-						}
-						if (o.equals(m)) {
-							check = true;
-						}
-					}
-					if (!check) {
-						query.getOrderBy().add("desc("+outputConfig.prettyPrint(m)+")");
-					}
-				}
-			}
-			//
-			// create the facet selection
-			FacetSelection selection = createFacetSelection(space, query);
-			final ProjectAnalysisJob job = createAnalysisJob(space, query, selection, OutputFormat.JSON);
-			//
-			// handling data
-			ResultInfo info = null;
-			if (data.equals("EMBEDED") || data.equals("EMBEDDED")) {
-				DataMatrix matrix = compute(userContext, job, query.getMaxResults(), query.getStartIndex(), false);
-				if (!outputConfig.isHasMetricSeries()) {
-					specs.data = transformToVegaData(query, matrix, DataLayout.RECORDS);
-				} else {
-					specs.data = transformToVegaData(query, matrix, DataLayout.TRANSPOSE);
-				}
-				int end = startIndex+maxResults;
-				if (end>matrix.getRows().size()) end=matrix.getRows().size();
-				info = getAnalyticsResultInfo(end-startIndex, startIndex, matrix);
-			} else if (data.equals("URL")) {
-				if (preFetch || style==Style.HTML) {// always prefetch if HTML
-					// run the query
-					Callable<DataMatrix> task = new Callable<DataMatrix>() {
-						@Override
-						public DataMatrix call() throws Exception {
-							return compute(userContext, job, maxResults, startIndex, false);
-						}
-					};
-					// execute the task, no need to wait for result
-					Future<DataMatrix> future = ExecutionManager.INSTANCE.submit(userContext.getCustomerId(), task);
-					if (style==Style.HTML) {
-						// in that case we want to wait for the result in order to get data info
-						try {
-							DataMatrix matrix = future.get();
-							int end = startIndex+maxResults;
-							if (end>matrix.getRows().size()) end=matrix.getRows().size();
-							info = getAnalyticsResultInfo(end-startIndex, startIndex, matrix);
-						} catch (ExecutionException e) {
-							throwCauseException(e);
-						}
-					}
-				}
-				specs.data = new Data();
-				{
-					HashMap<String, Object> override = new HashMap<>();
-					override.put(AnalyticsServiceConstants.COMPARETO_COMPUTE_GROWTH_PARAM, false);
-					if (!outputConfig.isHasMetricSeries()) {
-						specs.data.url = buildAnalyticsQueryURI(userContext, query, "RECORDS", "DATA", null/*default style*/, override).toString();
-					} else {
-						specs.data.url = buildAnalyticsQueryURI(userContext, query, "TRANSPOSE", "DATA", null/*default style*/, override).toString();
-					}
-				}
-				specs.data.format = new Format();
-				specs.data.format.type = FormatType.json;// lowercase only!
-			} else {
-				throw new APIException("undefined value for data parameter, must be EMBEDDED or URL");
-			}
-			// mark
-			if (outputConfig.isTimeseries()) {
-				specs.mark = Mark.line;
-			} else {
-				 if (specs.encoding.x!=null && specs.encoding.x.type==DataType.quantitative && specs.encoding.y!=null && specs.encoding.y.type==DataType.quantitative) {
-						// use ticks
-					 if (specs.encoding.size!=null) {
-						 specs.mark = Mark.circle;
-					 } else if (specs.encoding.x.bin || specs.encoding.y.bin) {
-						 specs.mark = Mark.bar;
-					 } else {
-						 specs.mark = Mark.point;
-					 }
-				 } else {
-					 specs.mark = Mark.bar;
-				 }
-			}
-			// options
-			if (view.hasOptons()) {
-			    try {
-			    	Properties properties = view.getOptionsAsProperties();
-					// mark
-					Object omark = properties.get("mark");
-					if (omark!=null) {
-						try {
-							Mark mark = Mark.valueOf(omark.toString());
-							specs.mark = mark;
-						} catch (IllegalArgumentException e) {
-							query.add(new Problem(Severity.WARNING,"options","invalid options parameter 'mark': possible values are: "+toString(Mark.values())));
-						}
-					}
-					// mark-stacked
-					Object omarkStacked = properties.get("mark.stacked");
-					if (omarkStacked!=null) {
-						try {
-							Stacked stacked = Stacked.valueOf(omarkStacked.toString());
-							specs.config.mark = new VegaliteSpecs.MarkConfig();
-							specs.config.mark.stacked = stacked;
-							if (stacked==Stacked.none) {
-								specs.config.mark.opacity = 0.6;
-							}
-						} catch (IllegalArgumentException e) {
-							query.add(new Problem(Severity.WARNING,"options","invalid options parameter 'mark-stacked': possible values are: "+toString(Stacked.values())));
-						}
-					}
-				} catch (IOException e) {
-					query.add(new Problem(Severity.WARNING,"options","invalid options definition: must be: property1:value1;property2:value2;... where properties can be: mark"));
-				}
-			}
-			// size
-			if (specs.encoding.row==null && specs.encoding.column==null) {
-				specs.config.cell = new VegaliteSpecs.Cell(640,400);
-			} else {
-				specs.config.cell = new VegaliteSpecs.Cell(320,200);
-			}
-			//
-			ViewReply reply = new ViewReply();
-			// update the facet selection with actual values
-			FacetSelection actual = computeFacetSelection(space, selection); 
-			reply.setSelection(convertToSelection(userContext, query, space, job, actual));
-			reply.setQuery(query);
-			reply.setResult(specs);
+			Space space = reply.getSpace();
+			view = reply.getView();// this is not necessary, but that makes the connection explicit
+			ResultInfo info = reply.getResultInfo();
 			//
 			if (envelope==null) {
-				envelope = computeEnvelope(query);
+				envelope = computeEnvelope(reply.getQuery());
 			}
 			//
 			if (style!=null && style==Style.HTML) {
@@ -2292,124 +1652,13 @@ public class AnalyticsServiceBaseImpl extends AnalyticsServiceCore implements An
 				view.add(new Problem(Severity.ERROR, "query", "unable to run the query, fatal error: " + e.getMessage(), e));
 				ViewReply reply = new ViewReply();
 				reply.setQuery(view);
+				Space space =  getSpace(userContext, BBID);
 				return generator.createHTMLPageView(userContext, space, view, null, reply);
 			} else {
 				throw new APIException(e.getMessage(), true);
 			}
 		}
 	}
-	
-	private String toString(Object[] array) {
-		String result = null;
-		for (Object x : array) {
-			if (result==null) {
-				result = x.toString();
-			} else {
-				result += ", "+x.toString();
-			}
-		}
-		return result;
-	}
-	
-	private boolean handleMetrics(AnalyticsQueryImpl query, VegaliteConfigurator inputConfig, ViewQuery view, Properties options, VegaliteSpecs channels, boolean hasMoreDimensions) throws ScopeException {
-		// add the metrics after the first dimension has been set
-		if (query.getMetrics()==null || query.getMetrics().size()==0) {
-			if (!inputConfig.isHasMetric()) {
-				// use count() for now
-				if (view.getX()==null) {
-					view.setX("count()");
-					channels.encoding.x = inputConfig.createChannelDef("x", view.getX(), options);
-				} else {
-					view.setY("count()");
-					channels.encoding.y = inputConfig.createChannelDef("y", view.getY(), options);
-				}
-			}
-		} else {
-			// display some metrics
-			// - single metric
-			if (query.getMetrics().size()==1) {
-				if (!inputConfig.isHasMetric()) {
-					if (query.getCompareTo()!=null && !query.getCompareTo().isEmpty() && !inputConfig.isHasMetricValue() && !inputConfig.isHasMetricValue()) {
-						// handle it like a multi-variate
-						if (view.getX()==null) {
-							view.setX("__VALUE");
-							channels.encoding.x = inputConfig.createChannelDef("x", view.getX(), options);
-						} else if (view.getY()==null) {
-							view.setY("__VALUE");
-							channels.encoding.y = inputConfig.createChannelDef("y", view.getY(), options);
-						}
-						if (view.getY()==null) {
-							view.setY("__METRICS");
-							channels.encoding.y = inputConfig.createChannelDef("y", view.getY(), options);
-						} else if (view.getColor()==null) {
-							view.setColor("__METRICS");
-							channels.encoding.color = inputConfig.createChannelDef("color", view.getColor(), options);
-						} else if (view.getColumn()==null) {
-							view.setColumn("__METRICS");
-							channels.encoding.column = inputConfig.createChannelDef("column", view.getColumn(), options);
-						} else if (view.getRow()==null) {
-							view.setRow("__METRICS");
-							channels.encoding.row = inputConfig.createChannelDef("row", view.getRow(), options);
-						}
-					} else {
-						if (view.getX()==null) {
-							view.setX(query.getMetrics().get(0));
-							channels.encoding.x = inputConfig.createChannelDef("x", view.getX(), options);
-						} else if (view.getY()==null) {
-							view.setY(query.getMetrics().get(0));
-							channels.encoding.y = inputConfig.createChannelDef("y", view.getY(), options);
-						}
-					}
-				}
-			// - multiple metrics
-			} else if (view.getY()==null || view.getColor()==null || view.getColumn()==null || view.getRow()==null) {
-				// set __VALUE
-				if (!inputConfig.isHasMetricValue()) {
-					if (view.getX()==null) {
-						view.setX("__VALUE");
-						channels.encoding.x = inputConfig.createChannelDef("x", view.getX(), options);
-					} else {
-						view.setY("__VALUE");
-						channels.encoding.y = inputConfig.createChannelDef("y", view.getY(), options);
-					}
-				}
-				// set __METRICS
-				if (!inputConfig.isHasMetricSeries()) {
-					if (view.getY()==null) {
-						view.setY("__METRICS");
-						channels.encoding.y = inputConfig.createChannelDef("y", view.getY(), options);
-					} else if (view.getColor()==null && !hasMoreDimensions) {
-						view.setColor("__METRICS");
-						channels.encoding.color = inputConfig.createChannelDef("color", view.getColor(), options);
-					} else if (view.getColumn()==null) {
-						view.setColumn("__METRICS");
-						channels.encoding.column = inputConfig.createChannelDef("column", view.getColumn(), options);
-					} else if (view.getRow()==null) {
-						view.setRow("__METRICS");
-						channels.encoding.row = inputConfig.createChannelDef("row", view.getRow(), options);
-					}
-				}
-			}
-		}
-		return true;
-	}
-	
-	/**
-	 * @param matrix
-	 * @return
-	 */
-	private ResultInfo getAnalyticsResultInfo(Integer pageSize, Integer startIndex, DataMatrix matrix) {
-		ResultInfo info = new ResultInfo();
-		info.setFromCache(matrix.isFromCache());
-		info.setFromSmartCache(matrix.isFromSmartCache());// actually we don't know the origin, see T1851
-		info.setExecutionDate(matrix.getExecutionDate().toString());
-		info.setStartIndex(startIndex);
-		info.setPageSize(pageSize);
-		info.setTotalSize(matrix.getRows().size());
-		info.setComplete(matrix.isFullset());
-		return info;
-	}
-
 
 	/**
 	 * @param id
@@ -2553,25 +1802,6 @@ public class AnalyticsServiceBaseImpl extends AnalyticsServiceCore implements An
 		if (style!=null) {
 			builder.queryParam(STYLE_PARAM, style);
 		} else if (query.getStyle()!=null) builder.queryParam(STYLE_PARAM, query.getStyle());
-	}
-	
-	private Data transformToVegaData(AnalyticsQuery query, DataMatrix matrix, DataLayout format) {
-		IDataMatrixConverter<Object[]> converter = getConverter(format);
-		Data data = new Data();
-		data.values = converter.convert(query, matrix);
-		return data;
-	}
-	
-	private IDataMatrixConverter<Object[]> getConverter(DataLayout format) {
-		if (format==DataLayout.TABLE) {
-			return new TableConverter();
-		} else if (format==DataLayout.RECORDS) {
-			return new RecordConverter();
-		} else if (format==DataLayout.TRANSPOSE) {
-			return new TransposeConverter();
-		} else {
-			throw new InvalidIdAPIException("invalid format="+format, true);
-		}
 	}
 	
 	/**
