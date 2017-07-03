@@ -37,6 +37,8 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
  */
 public class ViewQuery extends AnalyticsQueryImpl {
 	
+	public enum DataMode { URL, EMBEDDED };
+	
 	private String x;
 	
 	private String y;
