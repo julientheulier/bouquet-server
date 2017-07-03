@@ -23,6 +23,8 @@
  *******************************************************************************/
 package com.squid.kraken.v4.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.vegalite.VegaliteSpecs;
 
 /**
@@ -31,7 +33,14 @@ import com.squid.kraken.v4.vegalite.VegaliteSpecs;
  */
 public class ViewReply {
 	
+	@JsonIgnore
+	private Space space;// this is for convenience
+	
+	private ViewQuery view;
+	
 	private AnalyticsQuery query;
+	
+	private ResultInfo resultInfo;
 	
 	// the analysis selection
 	private AnalyticsSelection selection;
@@ -39,6 +48,24 @@ public class ViewReply {
 	private VegaliteSpecs result;
 	
 	public ViewReply() {
+	}
+	
+	/**
+	 * @return the view
+	 */
+	public ViewQuery getView() {
+		return view;
+	}
+	
+	/**
+	 * @param view the view to set
+	 */
+	public void setView(ViewQuery view) {
+		this.view = view;
+	}
+
+	public ViewReply(Space space) {
+		this.space = space;
 	}
 
 	public AnalyticsQuery getQuery() {
@@ -56,6 +83,20 @@ public class ViewReply {
 	public void setSelection(AnalyticsSelection selection) {
 		this.selection = selection;
 	}
+	
+	/**
+	 * @return the info
+	 */
+	public ResultInfo getResultInfo() {
+		return resultInfo;
+	}
+	
+	/**
+	 * @param info the info to set
+	 */
+	public void setResultInfo(ResultInfo info) {
+		this.resultInfo = info;
+	}
 
 	public VegaliteSpecs getResult() {
 		return result;
@@ -63,6 +104,13 @@ public class ViewReply {
 
 	public void setResult(VegaliteSpecs result) {
 		this.result = result;
+	}
+	
+	/**
+	 * @return the space
+	 */
+	public Space getSpace() {
+		return space;
 	}
 
 }
