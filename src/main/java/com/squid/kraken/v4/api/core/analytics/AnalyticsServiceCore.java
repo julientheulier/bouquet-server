@@ -340,7 +340,7 @@ public class AnalyticsServiceCore {
 	 * @throws ComputingException
 	 * @throws InterruptedException
 	 */
-	private void mergeBookmarkConfig(Space space, AnalyticsQuery query, BookmarkConfig config) throws ScopeException, ComputingException, InterruptedException {
+	protected void mergeBookmarkConfig(Space space, AnalyticsQuery query, BookmarkConfig config) throws ScopeException, ComputingException, InterruptedException {
 		ReferenceStyle prettyStyle = getReferenceStyle(query.getStyle());
 		PrettyPrintOptions globalOptions = new PrettyPrintOptions(prettyStyle, null);
 		UniverseScope globalScope = new UniverseScope(space.getUniverse());
@@ -888,6 +888,8 @@ public class AnalyticsServiceCore {
 		}
 		Universe universe = root.getUniverse();
 		Domain domain = root.getDomain();
+		UniverseScope globalScope = new UniverseScope(universe);
+
 		//AccessRightsUtils.getInstance().checkRole(universe.getContext(), domain, AccessRight.Role.READ);
 		// handle the columns
 		List<Metric> metrics = new ArrayList<Metric>();
@@ -1020,8 +1022,19 @@ public class AnalyticsServiceCore {
 							orderBy.add(new OrderBy(new Expression(universalExpression), direction));
 						}
 					} catch (ScopeException e) {
-						throw new ScopeException(
-								"unable to parse orderBy expression at position " + pos + ": " + e.getMessage(), e);
+						try {
+							
+							ExpressionAST expr = globalScope.parseExpression(order);
+							expr = unwrapOrderByExpression(expr);
+							IDomain image = expr.getImageDomain();
+							Direction direction = getDirection(image);
+							String universalExpression = rewriteExpressionToGlobalScope(expr, root);
+							orderBy.add(new OrderBy(new Expression(universalExpression), direction));
+									
+						}catch(ScopeException e1){
+						throw new ScopeException(								
+								"unable to parse orderBy expression at position " + pos + ": " + e1.getMessage(), e1);
+						}
 					}
 				}
 				pos++;

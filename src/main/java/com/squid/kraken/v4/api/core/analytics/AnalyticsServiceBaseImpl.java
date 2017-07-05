@@ -55,16 +55,8 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.squid.core.database.impl.DatabaseServiceException;
-import com.squid.core.domain.IDomain;
-import com.squid.core.domain.sort.DomainSort;
-import com.squid.core.domain.sort.DomainSort.SortDirection;
-import com.squid.core.domain.sort.SortOperatorDefinition;
 import com.squid.core.expression.ExpressionAST;
-import com.squid.core.expression.Operator;
-import com.squid.core.expression.PrettyPrintOptions;
-import com.squid.core.expression.PrettyPrintOptions.ReferenceStyle;
 import com.squid.core.expression.scope.DefaultScope;
-import com.squid.core.expression.scope.ExpressionMaker;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.core.poi.ExcelFile;
 import com.squid.core.poi.ExcelSettingsBean;
@@ -76,38 +68,29 @@ import com.squid.kraken.v4.api.core.InvalidCredentialsAPIException;
 import com.squid.kraken.v4.api.core.InvalidIdAPIException;
 import com.squid.kraken.v4.api.core.JobServiceBaseImpl.OutputCompression;
 import com.squid.kraken.v4.api.core.JobServiceBaseImpl.OutputFormat;
-import com.squid.kraken.v4.api.core.JobStats;
 import com.squid.kraken.v4.api.core.ObjectNotFoundAPIException;
 import com.squid.kraken.v4.api.core.ServiceUtils;
 import com.squid.kraken.v4.api.core.bookmark.BookmarkServiceBaseImpl;
 import com.squid.kraken.v4.api.core.customer.StateServiceBaseImpl;
 import com.squid.kraken.v4.api.core.project.ProjectServiceBaseImpl;
 import com.squid.kraken.v4.api.core.projectanalysisjob.AnalysisJobComputer;
-import com.squid.kraken.v4.caching.NotInCacheException;
 import com.squid.kraken.v4.caching.redis.RedisCacheManager;
 import com.squid.kraken.v4.caching.redis.queryworkerserver.QueryWorkerJobStatus;
-import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
 import com.squid.kraken.v4.core.analysis.engine.bookmark.BookmarkManager;
-import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex;
-import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionIndex.Status;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainHierarchy;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DomainHierarchyManager;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.SegmentManager;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingService;
 import com.squid.kraken.v4.core.analysis.engine.project.ProjectManager;
-import com.squid.kraken.v4.core.analysis.model.DashboardAnalysis;
 import com.squid.kraken.v4.core.analysis.model.DashboardSelection;
-import com.squid.kraken.v4.core.analysis.scope.AxisExpression;
 import com.squid.kraken.v4.core.analysis.scope.LexiconScope;
 import com.squid.kraken.v4.core.analysis.scope.SpaceScope;
-import com.squid.kraken.v4.core.analysis.scope.UniverseScope;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
 import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.kraken.v4.core.expression.scope.ExpressionSuggestionHandler;
 import com.squid.kraken.v4.core.expression.scope.RelationExpressionScope;
-import com.squid.kraken.v4.core.model.domain.DomainDomain;
 import com.squid.kraken.v4.export.ExportSourceWriter;
 import com.squid.kraken.v4.export.ExportSourceWriterCSV;
 import com.squid.kraken.v4.export.ExportSourceWriterXLSX;
@@ -122,14 +105,10 @@ import com.squid.kraken.v4.model.BookmarkFolderPK;
 import com.squid.kraken.v4.model.BookmarkPK;
 import com.squid.kraken.v4.model.DataLayout;
 import com.squid.kraken.v4.model.DataTable;
-import com.squid.kraken.v4.model.Dimension.Type;
 import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.DomainPK;
 import com.squid.kraken.v4.model.ExpressionSuggestion;
 import com.squid.kraken.v4.model.Facet;
-import com.squid.kraken.v4.model.FacetMember;
-import com.squid.kraken.v4.model.FacetMemberInterval;
-import com.squid.kraken.v4.model.FacetMemberString;
 import com.squid.kraken.v4.model.FacetSelection;
 import com.squid.kraken.v4.model.GenericPK;
 import com.squid.kraken.v4.model.NavigationItem;
@@ -144,9 +123,6 @@ import com.squid.kraken.v4.model.Problem;
 import com.squid.kraken.v4.model.Problem.Severity;
 import com.squid.kraken.v4.model.Project;
 import com.squid.kraken.v4.model.ProjectAnalysisJob;
-import com.squid.kraken.v4.model.ProjectAnalysisJob.Direction;
-import com.squid.kraken.v4.model.ProjectAnalysisJob.OrderBy;
-import com.squid.kraken.v4.model.ProjectAnalysisJob.RollUp;
 import com.squid.kraken.v4.model.ProjectFacetJob;
 import com.squid.kraken.v4.model.ProjectPK;
 import com.squid.kraken.v4.model.ResultInfo;
@@ -1161,462 +1137,6 @@ public class AnalyticsServiceBaseImpl extends AnalyticsServiceCore implements An
 		}
 	}
 	
-	private Direction getDirection(IDomain domain) {
-		if (domain.isInstanceOf(DomainSort.DOMAIN)) {
-			DomainSort sort = (DomainSort) domain.getAdapter(DomainSort.class);
-			if (sort != null) {
-				SortDirection direction = sort.getDirection();
-				if (direction != null) {
-					switch (direction) {
-					case ASC:
-						return Direction.ASC;
-					case DESC:
-						return Direction.DESC;
-					}
-				}
-			}
-		}
-		// else
-		// no desc | asc operator provided: use default
-		if (domain.isInstanceOf(IDomain.NUMERIC) || domain.isInstanceOf(IDomain.TEMPORAL)) {
-			return Direction.DESC;
-		} else { //if (image.isInstanceOf(IDomain.STRING)) {
-			return Direction.ASC;
-		} 
-	}
-	
-	/**
-	 * if the orderBy expression is DESC(x) or ASC(x), just unwrap and return x
-	 * else do nothing
-	 * @param orderBy
-	 * @return
-	 */
-	private ExpressionAST unwrapOrderByExpression(ExpressionAST expr) {
-		if (expr.getImageDomain().isInstanceOf(DomainSort.DOMAIN) && expr instanceof Operator) {
-			// remove the first operator
-			Operator op = (Operator)expr;
-			if (op.getArguments().size()==1 
-					&& (op.getOperatorDefinition().getExtendedID().equals(SortOperatorDefinition.ASC_ID)
-					|| op.getOperatorDefinition().getExtendedID().equals(SortOperatorDefinition.DESC_ID))) 
-			{
-				return op.getArguments().get(0);
-			}
-		}	
-		// else do nothing
-		return expr;
-	}
-	
-	/**
-	 * merge the bookmark config with the current query. It modifies the query. Query parameters take precedence over the bookmark config.
-	 * 
-	 * @param space
-	 * @param query
-	 * @param config
-	 * @throws ScopeException
-	 * @throws ComputingException
-	 * @throws InterruptedException
-	 */
-	private void mergeBookmarkConfig(Space space, AnalyticsQuery query, BookmarkConfig config) throws ScopeException, ComputingException, InterruptedException {
-		ReferenceStyle prettyStyle = getReferenceStyle(query.getStyle());
-		PrettyPrintOptions globalOptions = new PrettyPrintOptions(prettyStyle, null);
-		UniverseScope globalScope = new UniverseScope(space.getUniverse());
-		PrettyPrintOptions localOptions = new PrettyPrintOptions(prettyStyle, space.getTop().getImageDomain());
-		SpaceScope localScope = new SpaceScope(space);
-		if (query.getDomain() == null) {
-			query.setDomain(space.prettyPrint(globalOptions));
-		}
-		if (query.getLimit() == null) {
-			if (config!=null) {
-				query.setLimit(config.getLimit());
-			}
-		}
-		//
-		// handling the period
-		//
-		if (query.getPeriod()==null && config!=null && config.getPeriod()!=null && !config.getPeriod().isEmpty()) {
-			// look for this domain period
-			String domainID = space.getDomain().getOid();
-			String period = config.getPeriod().get(domainID);
-			if (period!=null) {
-				ExpressionAST expr = globalScope.parseExpression(period);
-				IDomain image = expr.getImageDomain();
-				if (image.isInstanceOf(IDomain.TEMPORAL)) {
-					// ok, it's a date
-					query.setPeriod(expr.prettyPrint(localOptions));
-				}
-			}
-		}
-		if (query.getPeriod()==null) {
-			DomainHierarchy hierarchy = DomainHierarchyManager.INSTANCE.getHierarchy(space.getUniverse().getProject().getId(), space.getDomain(), false);
-			for (DimensionIndex index : hierarchy.getDimensionIndexes()) {
-				if (index.isVisible() && index.getDimension().getType().equals(Type.CONTINUOUS) && index.getAxis().getDefinitionSafe().getImageDomain().isInstanceOf(IDomain.TEMPORAL)) {
-					// use it as period
-					Axis axis = index.getAxis();
-					ExpressionAST expr = new AxisExpression(axis);
-					query.setPeriod(expr.prettyPrint(localOptions));
-					if (query.getTimeframe()==null) {
-						query.setTimeframe(new ArrayList<>());
-						if (index.getStatus()==Status.DONE) {
-							query.getTimeframe().add("__CURRENT_MONTH");
-						} else {
-							query.getTimeframe().add("__ALL");
-						}
-					}
-					// quit the loop!
-					break;
-				}
-			}
-			if (query.getPeriod()==null) {
-				// nothing selected - double check and auto detect?
-				if (query.getTimeframe()!=null && query.getTimeframe().size()>0) {
-					query.add(new Problem(Severity.WARNING, "period", "No period defined: you cannot set the timeframe"));
-				}
-				if (query.getCompareTo()!=null && query.getCompareTo().size()>0) {
-					query.add(new Problem(Severity.WARNING, "period", "No period defined: you cannot set the compareTo"));
-				}
-			}
-		}
-		//
-		// merging groupBy
-		//
-		boolean groupbyWildcard = isWildcard(query.getGroupBy());
-		if (query.getGroupBy() == null || groupbyWildcard) {
-			List<String> groupBy = new ArrayList<String>();
-			if (config==null) {
-				// it is not a bookmark, then we will provide default select *
-				// only if there is nothing selected at all (groupBy & metrics)
-				// or user ask for it explicitly is wildcard
-				/*
-				if (groupbyWildcard || query.getMetrics() == null) {
-					boolean periodIsSet = false;
-					if (query.getPeriod()!=null) {
-						groupBy.add(query.getPeriod());
-						periodIsSet = true;
-					}
-					// use a default pivot selection...
-					// -- just list the content of the table
-					for (Dimension dimension : space.getDimensions()) {
-						Axis axis = space.A(dimension);
-						try {
-							DimensionIndex index = axis.getIndex();
-							IDomain image = axis.getDefinitionSafe().getImageDomain();
-							if (index!=null && index.isVisible() && index.getStatus()!=Status.ERROR && !image.isInstanceOf(IDomain.OBJECT)) {
-								boolean isTemporal = image.isInstanceOf(IDomain.TEMPORAL);
-								if (!isTemporal || !periodIsSet) {
-									groupBy.add(axis.prettyPrint(localOptions));
-									if (isTemporal) periodIsSet = true;
-								}
-							}
-						} catch (ComputingException | InterruptedException e) {
-							// ignore this one
-						}
-					}
-				}
-				*/
-			} else if (config.getChosenDimensions() != null) {
-				for (String chosenDimension : config.getChosenDimensions()) {
-					try {
-						String f = null;
-						if (chosenDimension.startsWith("@")) {
-							// need to fix the scope
-							ExpressionAST expr = globalScope.parseExpression(chosenDimension);
-							f = expr.prettyPrint(localOptions);//rewriteExpressionToLocalScope(expr, space);
-						} else {
-							// legacy support raw ID
-							// parse to validate and apply prettyPrint options
-							ExpressionAST expr = localScope.parseExpression("@'" + chosenDimension + "'");
-							f = expr.prettyPrint(localOptions);
-						}
-						groupBy.add(f);
-					} catch (ScopeException e) {
-						query.add(new Problem(Severity.WARNING, chosenDimension, "failed to parse bookmark dimension: " + e.getMessage(), e));
-					}
-				}
-			}
-			if (groupbyWildcard) {
-				query.getGroupBy().remove(0);// remove the first one
-				groupBy.addAll(query.getGroupBy());// add reminding
-			}
-			query.setGroupBy(groupBy);
-		}
-		// merging Metrics
-		boolean metricWildcard = isWildcard(query.getMetrics());
-		if (query.getMetrics() == null || metricWildcard) {
-			List<String> metrics = new ArrayList<>();
-			if (config==null) {
-				// T3036 - only keep the count()
-				boolean someIntrinsicMetric = false;
-				/*
-				for (Measure measure : space.M()) {
-					Metric metric = measure.getMetric();
-					if (metric!=null && !metric.isDynamic()) {
-						IDomain image = measure.getDefinitionSafe().getImageDomain();
-						if (image.isInstanceOf(IDomain.AGGREGATE)) {
-							Measure m = space.M(metric);
-							metrics.add((new MeasureExpression(m)).prettyPrint(localOptions));
-							//metrics.add(rewriteExpressionToLocalScope(new MeasureExpression(m), space));
-							someIntrinsicMetric = true;
-						}
-					}
-				}
-				*/
-				if (!someIntrinsicMetric) {
-					metrics.add("count() as 'Count'// default metric");
-				}
-			} else if (config.getChosenMetrics() != null) {
-				for (String chosenMetric : config.getChosenMetrics()) {
-					// parse to validate and reprint
-					try {
-						// this is for legacy compatibility...
-						ExpressionAST expr = localScope.parseExpression("@'" + chosenMetric + "'");
-						metrics.add(expr.prettyPrint(localOptions));
-					} catch (ScopeException e) {
-						try {
-							ExpressionAST expr = globalScope.parseExpression(chosenMetric);
-							metrics.add(expr.prettyPrint(localOptions));
-						} catch (ScopeException ee) {
-							query.add(new Problem(Severity.WARNING, chosenMetric, "failed to parse bookmark metric: " + ee.getMessage(), ee));
-						}
-					}
-				}
-			} else if (config.getAvailableMetrics()!=null && (query.getGroupBy()==null || query.getGroupBy().isEmpty())) {
-				// no axis selected, no choosen metrics, but available metrics
-				// this is an old bookmark (analytics), that used to display the KPIs
-				// so just compute the KPIs
-				for (String availableMetric : config.getAvailableMetrics()) {
-					// parse to validate and reprint
-					try {
-						ExpressionAST expr = localScope.parseExpression("@'" + availableMetric + "'");
-						metrics.add(expr.prettyPrint(localOptions));
-					} catch (ScopeException e) {
-						query.add(new Problem(Severity.WARNING, availableMetric, "failed to parse bookmark metric: " + e.getMessage(), e));
-					}
-				}
-			}
-			if (metricWildcard) {
-				query.getMetrics().remove(0);// remove the first one
-				metrics.addAll(query.getMetrics());// add reminding
-			}
-			query.setMetrics(metrics);
-		}
-		if (query.getOrderBy() == null) {
-			if (config!=null && config.getOrderBy()!=null) {
-				query.setOrderBy(new ArrayList<String>());
-				for (OrderBy orderBy : config.getOrderBy()) {
-					// legacy issue? in some case the bookmark contains invalid orderBy expressions
-					if (orderBy.getExpression()!=null) {
-						ExpressionAST expr = globalScope.parseExpression(orderBy.getExpression().getValue());
-						IDomain image = expr.getImageDomain();
-						if (!image.isInstanceOf(DomainSort.DOMAIN)) {
-							if (orderBy.getDirection()==Direction.ASC) {
-								expr = ExpressionMaker.ASC(expr);
-							} else {
-								expr = ExpressionMaker.DESC(expr);
-							}
-						}
-						query.getOrderBy().add(expr.prettyPrint(localOptions));
-					}
-				}
-			}
-		}
-		if (query.getRollups() == null) {
-			if (config!=null && config.getRollups()!=null && !config.getRollups().isEmpty()) {
-				query.setRollups(new ArrayList<>());
-				for (RollUp rollup : config.getRollups()) {
-					query.getRollups().add(rollup.toString());
-				}
-			}
-		}
-		//
-		// handling selection
-		//
-		FacetSelection selection = config!=null?config.getSelection():new FacetSelection();
-		boolean filterWildcard = isWildcardFilters(query.getFilters());
-		List<String> filters = query.getFilters()!=null?new ArrayList<>(query.getFilters()):new ArrayList<String>();
-		if (filterWildcard) {
-			filters.remove(0); // remove the *
-		}
-		String period = null;
-		if (query.getPeriod()!=null && query.getTimeframe()==null) {
-			ExpressionAST expr = localScope.parseExpression(query.getPeriod());
-			period = expr.prettyPrint(new PrettyPrintOptions(ReferenceStyle.IDENTIFIER, null));
-		}
-		
-		if (selection != null) {
-			if (!selection.getFacets().isEmpty()) {// always iterate over selection at least to capture the period
-				boolean keepConfig = filterWildcard || filters.isEmpty();
-				// look for the selection
-				for (Facet facet : selection.getFacets()) {
-					if (!facet.getSelectedItems().isEmpty()) {
-						if (facet.getId().equals(period)) {
-							// it's the period
-							List<FacetMember> items = facet.getSelectedItems();
-							if (items.size()==1) {
-								FacetMember timeframe = items.get(0);
-								if (timeframe instanceof FacetMemberInterval) {
-									String upperBound = ((FacetMemberInterval) timeframe).getUpperBound();
-									if (upperBound.startsWith("__")) {
-										// it's a shortcut
-										query.setTimeframe(Collections.singletonList(upperBound));
-									} else {
-										// it's a date
-										String lowerBound = ((FacetMemberInterval) timeframe).getLowerBound();
-										query.setTimeframe(new ArrayList<String>(2));
-										query.getTimeframe().add(lowerBound);
-										query.getTimeframe().add(upperBound);
-									}
-								}
-							}
-						} else if (SegmentManager.isSegmentFacet(facet) && keepConfig) {
-							// it's the segment facet
-							for (FacetMember item : facet.getSelectedItems()) {
-								if (item instanceof FacetMemberString) {
-									FacetMemberString member = (FacetMemberString)item;
-									if (SegmentManager.isOpenFilter(member)) {
-										// open filter is jut a formula
-										String formula = member.getValue();
-										if (formula.startsWith("=")) {
-											formula = formula.substring(1);
-										}
-										filters.add(formula);
-									} else {
-										// it's a segment name
-										// check the ID
-										try {
-											if (member.getId().startsWith("@")) {
-												ExpressionAST seg = globalScope.parseExpression(member.getId());
-												filters.add(seg.prettyPrint(localOptions));
-											} else {
-												// use the name
-												ExpressionAST seg = globalScope.parseExpression("'"+member.getValue()+"'");
-												filters.add(seg.prettyPrint(localOptions));
-											}
-										} catch (ScopeException e) {
-											query.add(new Problem(Severity.ERROR, member.getId(), "Unable to parse segment with value='"+member+"'", e));
-										}
-									}
-								}
-							}
-						} else if (keepConfig) {
-							ExpressionAST expr = globalScope.parseExpression(facet.getId());
-							String  filter = expr.prettyPrint(localOptions);
-							if (facet.getSelectedItems().size()==1) {
-								if (facet.getSelectedItems().get(0) instanceof FacetMemberString) {
-									filter += "=";
-									FacetMember member = facet.getSelectedItems().get(0);
-									filter += "\""+member.toString()+"\"";
-									filters.add(filter);
-								}
-							} else {
-								filter += " IN {";
-								boolean first = true;
-								for (FacetMember member : facet.getSelectedItems()) {
-									if (member instanceof FacetMemberString) {
-										if (!first) {
-											filter += " , ";
-										} else {
-											first = false;
-										}
-										filter += "\""+member.toString()+"\"";
-									}
-								}
-								filter += "}";
-								if (!first) {
-									filters.add(filter);
-								}
-							}
-						}
-					}
-				}
-			}
-			query.setFilters(filters);
-			//
-			// check compareTo
-
-			if (!selection.getCompareTo().isEmpty()) {
-				for (Facet facet : selection.getCompareTo()) {
-					if (!facet.getSelectedItems().isEmpty()) {
-						if (facet.getId().equals(period)) {
-							// it's the period
-							List<FacetMember> items = facet.getSelectedItems();
-							if (items.size()==1) {
-								FacetMember timeframe = items.get(0);
-								if (timeframe instanceof FacetMemberInterval) {
-									String upperBound = ((FacetMemberInterval) timeframe).getUpperBound();
-									if (upperBound.startsWith("__")) {
-										// it's a shortcut
-										query.setCompareTo(Collections.singletonList(upperBound));
-									} else {
-										// it's a date
-										String lowerBound = ((FacetMemberInterval) timeframe).getLowerBound();
-										query.setCompareTo(new ArrayList<String>(2));
-										query.getCompareTo().add(lowerBound);
-										query.getCompareTo().add(upperBound);
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-			//
-			// check timeframe again
-			if (query.getPeriod()!=null && (query.getTimeframe()==null || query.getTimeframe().size()==0)) {
-				// add a default timeframe
-				query.setTimeframe(Collections.singletonList("__CURRENT_MONTH"));
-			}
-		}
-	}
-	
-	private PrettyPrintOptions.ReferenceStyle getReferenceStyle(Style style) {
-		switch (style) {
-		case HUMAN:
-		case HTML:
-			return ReferenceStyle.NAME;
-		case LEGACY:
-			return ReferenceStyle.LEGACY;
-		case ROBOT:
-		default:
-			return ReferenceStyle.IDENTIFIER;
-		}
-	}
-	
-	private boolean isWildcard(List<String> facets) {
-		if (facets !=null && !facets.isEmpty()) {
-			String first = facets.get(0);
-			return first.equals("*");
-		}
-		// else
-		return false;
-	}
-	
-	private boolean isWildcardFilters(List<String> items) {
-		if (items !=null && !items.isEmpty()) {
-			String first = items.get(0);
-			return first.equals("*");
-		} else {
-			return false;// only return true if it is a real wildcard
-		}
-	}
-	
-	/**
-	 * rewrite a local expression valid in the root scope as a global expression
-	 * @param expr
-	 * @param root
-	 * @return
-	 * @throws ScopeException
-	 */
-	private String rewriteExpressionToGlobalScope(ExpressionAST expr, Space root) throws ScopeException {
-		IDomain source = expr.getSourceDomain();
-		if (!source.isInstanceOf(DomainDomain.DOMAIN)) {
-			String global = root.prettyPrint();
-			String value = expr.prettyPrint();
-			return global+".("+value+")";
-		} else {
-			return expr.prettyPrint();
-		}
-	}
-	
 	public Response viewAnalysis(
 			final AppContext userContext, 
 			String BBID,
@@ -1717,7 +1237,7 @@ public class AnalyticsServiceBaseImpl extends AnalyticsServiceCore implements An
 		builder.queryParam("access_token", userContext.getToken().getOid());
 		return builder.build(query.getBBID());
 	}
-	
+	@Override
 	protected URI buildAnalyticsQueryURI(AppContext userContext, AnalyticsQuery query, String data, String envelope, Style style, HashMap<String, Object> override) {
 		UriBuilder builder = getPublicBaseUriBuilder().
 			path("/analytics/{"+BBID_PARAM_NAME+"}/query");
@@ -1804,45 +1324,6 @@ public class AnalyticsServiceBaseImpl extends AnalyticsServiceCore implements An
 		} else if (query.getStyle()!=null) builder.queryParam(STYLE_PARAM, query.getStyle());
 	}
 	
-	/**
-	 * moved some legacy code out of AnalysisJobComputer
-	 * => still need to bypass the ProjectAnalysisJob
-	 * @param ctx
-	 * @param job
-	 * @param maxResults
-	 * @param startIndex
-	 * @param lazy
-	 * @return
-	 * @throws ComputingException
-	 * @throws InterruptedException
-	 */
-	private DataMatrix compute(AppContext ctx, ProjectAnalysisJob job, Integer maxResults, Integer startIndex,
-			boolean lazy) throws ComputingException, InterruptedException {
-		// build the analysis
-		long start = System.currentTimeMillis();
-		logger.info("Starting preview compute for job " + job.getId());
-		DashboardAnalysis analysis;
-		try {
-			analysis = AnalysisJobComputer.buildDashboardAnalysis(ctx, job, lazy);
-		} catch (Exception e) {
-			throw new ComputingException(e);
-		}
-		// run the analysis
-		DataMatrix datamatrix = ComputingService.INSTANCE.glitterAnalysis(analysis, null);
-		if (lazy && (datamatrix == null)) {
-			throw new NotInCacheException("Lazy preview, analysis " + analysis.getJobId() + "  not in cache");
-		} else {
-			job.setRedisKey(datamatrix.getRedisKey());
-			long stop = System.currentTimeMillis();
-			logger.info("task=" + this.getClass().getName() + " method=compute" + " jobid="
-					+ job.getId().getAnalysisJobId() + " duration=" + (stop - start));
-			JobStats queryLog = new JobStats(job.getId().getAnalysisJobId(), "AnalysisJobComputer.compute",
-					(stop - start), job.getId().getProjectId());
-			queryLog.setError(false);
-//			PerfDB.INSTANCE.save(queryLog);
-			return datamatrix;
-		}
-	}
 	
 	// Execution management
 	
