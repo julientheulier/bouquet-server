@@ -21,73 +21,39 @@
  * you and Squid Solutions (above licenses and LICENSE.txt included).
  * See http://www.squidsolutions.com/EnterpriseBouquet/
  *******************************************************************************/
-package com.squid.kraken.v4.model;
-
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.squid.kraken.v4.core.analysis.universe.Space;
-
-import io.swagger.annotations.ApiModelProperty;
+package com.squid.kraken.v4.api.core.nlu.rasa;
 
 /**
- * This is the result of an analysis
  * @author sergefantino
  *
  */
-public class AnalyticsReply {
+public class Intent {
 	
-	@JsonIgnore
-	private Space space;// this is for convenience
+	private String name;
 	
-	// this is the query that generated this analysis
-	private AnalyticsQuery query;
-	
-	// the analysis selection
-	private AnalyticsSelection selection;
-	
-	// the resulting dataTable
-	private Object result;// this may depend on the output format
+	private float confidence;
 	
 	/**
 	 * 
 	 */
-	public AnalyticsReply() {
+	public Intent() {
 		// TODO Auto-generated constructor stub
 	}
 
-	public AnalyticsReply(Space space) {
-		this.space = space;
+	public String getName() {
+		return name;
 	}
 
-	public AnalyticsQuery getQuery() {
-		return query;
+	public void setName(String name) {
+		this.name = name;
 	}
 
-	public void setQuery(AnalyticsQuery query) {
-		this.query = query;
+	public float getConfidence() {
+		return confidence;
 	}
 
-	@ApiModelProperty(hidden=true)// only used for LEGACY mode, so don't mess user with it
-	public AnalyticsSelection getSelection() {
-		return selection;
-	}
-
-	public void setSelection(AnalyticsSelection selection) {
-		this.selection = selection;
-	}
-
-	public Object getResult() {
-		return result;
-	}
-
-	public void setResult(Object result) {
-		this.result = result;
-	}
-	
-	/**
-	 * @return the space
-	 */
-	public Space getSpace() {
-		return space;
+	public void setConfidence(float confidence) {
+		this.confidence = confidence;
 	}
 
 }

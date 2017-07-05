@@ -21,73 +21,41 @@
  * you and Squid Solutions (above licenses and LICENSE.txt included).
  * See http://www.squidsolutions.com/EnterpriseBouquet/
  *******************************************************************************/
-package com.squid.kraken.v4.model;
+package com.squid.kraken.v4.api.core.nlu;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.squid.kraken.v4.core.analysis.universe.Space;
-
-import io.swagger.annotations.ApiModelProperty;
+import java.io.Serializable;
 
 /**
- * This is the result of an analysis
  * @author sergefantino
  *
  */
-public class AnalyticsReply {
-	
-	@JsonIgnore
-	private Space space;// this is for convenience
-	
-	// this is the query that generated this analysis
-	private AnalyticsQuery query;
-	
-	// the analysis selection
-	private AnalyticsSelection selection;
-	
-	// the resulting dataTable
-	private Object result;// this may depend on the output format
+public class CardInfo implements Serializable {
 	
 	/**
 	 * 
 	 */
-	public AnalyticsReply() {
-		// TODO Auto-generated constructor stub
-	}
-
-	public AnalyticsReply(Space space) {
-		this.space = space;
-	}
-
-	public AnalyticsQuery getQuery() {
-		return query;
-	}
-
-	public void setQuery(AnalyticsQuery query) {
-		this.query = query;
-	}
-
-	@ApiModelProperty(hidden=true)// only used for LEGACY mode, so don't mess user with it
-	public AnalyticsSelection getSelection() {
-		return selection;
-	}
-
-	public void setSelection(AnalyticsSelection selection) {
-		this.selection = selection;
-	}
-
-	public Object getResult() {
-		return result;
-	}
-
-	public void setResult(Object result) {
-		this.result = result;
+	private static final long serialVersionUID = -122869605941810955L;
+	private String message;
+	
+	/**
+	 * 
+	 */
+	public CardInfo(String message) {
+		this.message = message;
 	}
 	
 	/**
-	 * @return the space
+	 * @return the message
 	 */
-	public Space getSpace() {
-		return space;
+	public String getMessage() {
+		return message;
+	}
+	
+	/**
+	 * @param message the message to set
+	 */
+	public void setMessage(String message) {
+		this.message = message;
 	}
 
 }
