@@ -90,6 +90,7 @@ public class SimpleQuery extends BaseQuery {
 	// krkn-59: rollup support
 	private List<GroupByAxis> rollup = null;
 	private boolean rollupGrandTotal = false;
+	private GroupByAxis precomputedRollupAxis = null;
 
 	private boolean isAnalytics;
 
@@ -431,7 +432,7 @@ public class SimpleQuery extends BaseQuery {
 			}
 			return generateQualifyScript();
 		// krkn-59: rollup support
-		} else if (rollupGrandTotal || (rollup != null && !rollup.isEmpty())) {
+		} else if (precomputedRollupAxis!= null || rollupGrandTotal || (rollup != null && !rollup.isEmpty())) {
 			IRollupStrategy strategy = RollupStrategySelector.selectStrategy(this, select, rollup, rollupGrandTotal,
 					getMapper());
 			return strategy.generateScript();
@@ -654,5 +655,13 @@ public class SimpleQuery extends BaseQuery {
 
 	public boolean hasRollups() {
 		return rollupGrandTotal || (rollup != null && !rollup.isEmpty());
+	}
+
+	public GroupByAxis getPrecomputedRollupAxis() {
+		return precomputedRollupAxis;
+	}
+
+	public void setPrecomputedRollupAxis(GroupByAxis precomputedRollupAxis) {
+		this.precomputedRollupAxis = precomputedRollupAxis;
 	}
 }
