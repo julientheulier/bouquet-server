@@ -445,11 +445,17 @@ public class AnalyticsServiceCore {
 							// need to fix the scope
 							ExpressionAST expr = globalScope.parseExpression(chosenDimension);
 							f = expr.prettyPrint(localOptions);//rewriteExpressionToLocalScope(expr, space);
+							if (expr.getName() !=null && !expr.getName().isEmpty()){
+								f+= " as '"+expr.getName()+"'";
+							}
 						} else {
 							// legacy support raw ID
 							// parse to validate and apply prettyPrint options
 							ExpressionAST expr = localScope.parseExpression("@'" + chosenDimension + "'");
 							f = expr.prettyPrint(localOptions);
+							if (expr.getName() !=null && !expr.getName().isEmpty()){
+								f+= " as '"+expr.getName()+"'";
+							}
 						}
 						groupBy.add(f);
 					} catch (ScopeException e) {
@@ -493,11 +499,19 @@ public class AnalyticsServiceCore {
 					try {
 						// this is for legacy compatibility...
 						ExpressionAST expr = localScope.parseExpression("@'" + chosenMetric + "'");
-						metrics.add(expr.prettyPrint(localOptions));
+						String   m =expr.prettyPrint(localOptions) ;
+						if (expr.getName()!=null && !expr.getName().isEmpty()){
+							m+= " as '"+ expr.getName() +"'";
+						}
+						metrics.add(m);
 					} catch (ScopeException e) {
 						try {
 							ExpressionAST expr = globalScope.parseExpression(chosenMetric);
-							metrics.add(expr.prettyPrint(localOptions));
+							String   m =expr.prettyPrint(localOptions) ;
+							if (expr.getName()!=null && !expr.getName().isEmpty()){
+								m+= " as '"+ expr.getName() +"'";
+							}
+							metrics.add(m);
 						} catch (ScopeException ee) {
 							query.add(new Problem(Severity.WARNING, chosenMetric, "failed to parse bookmark metric: " + ee.getMessage(), ee));
 						}
@@ -1222,7 +1236,11 @@ public class AnalyticsServiceCore {
 			String value = expr.prettyPrint();
 			return global+".("+value+")";
 		} else {
-			return expr.prettyPrint();
+			if (expr.getName()!=null && ! expr.getName().isEmpty()){
+				return expr.prettyPrint() + " as '"  +  expr.getName() + "'";
+			} else {
+				return expr.prettyPrint();
+			}			
 		}
 	}
 	
@@ -2398,16 +2416,28 @@ public class AnalyticsServiceCore {
 		config.setCurrentAnalysis(BookmarkConfig.TABLE_ANALYSIS);
 		return config;
 	}
-
+	
 	private String rewriteChoosenMetric(ExpressionAST expr) {
-		if (expr instanceof MeasureExpression) {
-			MeasureExpression measure = (MeasureExpression)expr;
-			if (measure.getMeasure().getMetric()!=null) {
-				return measure.getMeasure().getMetric().getOid();
+		
+		String pref ="";
+		String alias="";
+		boolean hasAlias= expr.getName() != null && !expr.getName().isEmpty();
+		
+		if(hasAlias){
+			alias=" as '" + expr.getName() +"'";
+		}
+		if (!hasAlias){
+			if (expr instanceof MeasureExpression) {
+				MeasureExpression measure = (MeasureExpression)expr;
+				if (measure.getMeasure().getMetric()!=null) {					
+					return pref + measure.getMeasure().getMetric().getOid();
+				}
 			}
 		}
 		// else
-		return expr.prettyPrint(PrettyPrintOptions.ROBOT_GLOBAL);
+		String  exprGlobal = expr.prettyPrint(PrettyPrintOptions.ROBOT_GLOBAL); 
+	
+		return pref + exprGlobal + alias;
 	}
 
 }
