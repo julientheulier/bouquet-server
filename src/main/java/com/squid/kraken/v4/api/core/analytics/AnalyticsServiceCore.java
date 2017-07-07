@@ -451,10 +451,19 @@ public class AnalyticsServiceCore {
 						} else {
 							// legacy support raw ID
 							// parse to validate and apply prettyPrint options
-							ExpressionAST expr = localScope.parseExpression("@'" + chosenDimension + "'");
-							f = expr.prettyPrint(localOptions);
-							if (expr.getName() !=null && !expr.getName().isEmpty()){
-								f+= " as '"+expr.getName()+"'";
+							try{								
+								ExpressionAST expr = globalScope.parseExpression(chosenDimension );
+								f = expr.prettyPrint(localOptions);
+								if (expr.getName() !=null && !expr.getName().isEmpty()){
+									f+= " as '"+expr.getName()+"'";
+								}
+									
+							}catch(ScopeException e){
+								ExpressionAST expr = localScope.parseExpression("@'" + chosenDimension + "'");
+								f = expr.prettyPrint(localOptions);
+								if (expr.getName() !=null && !expr.getName().isEmpty()){
+									f+= " as '"+expr.getName()+"'";
+								}
 							}
 						}
 						groupBy.add(f);
