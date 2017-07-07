@@ -1014,12 +1014,14 @@ public class AnalysisCompute {
 			//
 			Axis axis = hook.A(groupBy.getAxis());
 
+			if (axis.getDimension() !=null){
 			List<Attribute> attributes = AttributeServiceBaseImpl.getInstance().readAll(universe.getContext(), axis.getDimension().getId());
 			if (attributes != null) {
 				for (Attribute attr: attributes) {
 					if (attr.getId().getAttributeId().equals("precomputedRollupLevels")) {
 						query.setPrecomputedRollupAxis(groupBy);
 					}
+				}
 				}
 			}
 			ISelectPiece piece = query.select(axis);
