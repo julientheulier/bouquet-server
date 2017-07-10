@@ -56,14 +56,13 @@ import com.squid.core.sql.model.SQLScopeException;
 import com.squid.core.sql.render.IOrderByPiece.ORDERING;
 import com.squid.core.sql.render.ISelectPiece;
 import com.squid.core.sql.render.RenderingException;
+import com.squid.kraken.v4.api.core.attribute.AttributeServiceBaseImpl;
 import com.squid.kraken.v4.core.analysis.datamatrix.AxisValues;
 import com.squid.kraken.v4.core.analysis.datamatrix.CompareMerger;
 import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionMember;
 import com.squid.kraken.v4.core.analysis.engine.query.QueryRunner;
 import com.squid.kraken.v4.core.analysis.engine.query.SimpleQuery;
-import com.squid.kraken.v4.core.analysis.engine.query.mapping.AxisMapping;
-import com.squid.kraken.v4.core.analysis.engine.query.mapping.MeasureMapping;
 import com.squid.kraken.v4.core.analysis.model.Dashboard;
 import com.squid.kraken.v4.core.analysis.model.DashboardAnalysis;
 import com.squid.kraken.v4.core.analysis.model.DashboardSelection;
@@ -78,6 +77,7 @@ import com.squid.kraken.v4.core.analysis.universe.Measure;
 import com.squid.kraken.v4.core.analysis.universe.Property.OriginType;
 import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
+import com.squid.kraken.v4.model.Attribute;
 import com.squid.kraken.v4.model.Dimension;
 import com.squid.kraken.v4.model.Dimension.Type;
 import com.squid.kraken.v4.model.Domain;
@@ -1013,6 +1013,17 @@ public class AnalysisCompute {
 			Space hook = computeSinglePath(analysis, master, groupBy.getAxis().getParent().getTop(), mandatory_link);
 			//
 			Axis axis = hook.A(groupBy.getAxis());
+
+			if (axis.getDimension() !=null){
+			List<Attribute> attributes = AttributeServiceBaseImpl.getInstance().readAll(universe.getContext(), axis.getDimension().getId());
+			if (attributes != null) {
+				for (Attribute attr: attributes) {
+					if (attr.getId().getAttributeId().equals("precomputedRollupLevels")) {
+						query.setPrecomputedRollupAxis(groupBy);
+					}
+				}
+				}
+			}
 			ISelectPiece piece = query.select(axis);
 			if (defaultOrder)
 				query.orderBy(piece, ORDERING.DESCENT);

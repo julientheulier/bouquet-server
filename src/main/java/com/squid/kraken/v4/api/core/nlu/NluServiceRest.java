@@ -23,6 +23,7 @@
  *******************************************************************************/
 package com.squid.kraken.v4.api.core.nlu;
 
+<<<<<<< HEAD
 import java.io.IOException;
 
 import javax.servlet.http.HttpServletRequest;
@@ -117,6 +118,65 @@ public class NluServiceRest extends CoreAuthenticatedServiceRest {
 			@QueryParam("state") String state) throws ScopeException, IOException {
 		AppContext userContext = getUserContext(request);
 		return delegate(userContext).generateUI(BBID, message, state);
+=======
+import javax.servlet.http.HttpServletRequest;
+import javax.ws.rs.GET;
+import javax.ws.rs.Path;
+import javax.ws.rs.PathParam;
+import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
+import javax.ws.rs.core.Context;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.UriInfo;
+
+import com.squid.core.expression.scope.ScopeException;
+import com.squid.kraken.v4.api.core.customer.CoreAuthenticatedServiceRest;
+import com.squid.kraken.v4.persistence.AppContext;
+
+import io.swagger.annotations.Api;
+import io.swagger.annotations.ApiOperation;
+import io.swagger.annotations.Authorization;
+import io.swagger.annotations.AuthorizationScope;
+
+/**
+ * @author sergefantino
+ *
+ */
+@Path("")
+@Api(
+		value = "nlu", 
+		hidden = false, 
+		description = "natural langage understanding support",
+		authorizations = { @Authorization(value = "kraken_auth", scopes = { @AuthorizationScope(scope = "access", description = "Access") }) })
+@Produces({ MediaType.APPLICATION_JSON })
+public class NluServiceRest extends CoreAuthenticatedServiceRest {
+	
+	private static final String BBID_PARAM_NAME = "REFERENCE";
+	private static final String MESSAGE_PARAM_NAME = "msg";
+	
+	@Context
+	UriInfo uriInfo;
+
+	@GET
+	@Path("/nlu/{" + BBID_PARAM_NAME + "}/train")
+	@ApiOperation(value = "generate a learning dataset for this bookmark")
+	public Object generateTrainingSet(
+			@Context HttpServletRequest request, 
+			@PathParam(BBID_PARAM_NAME) String BBID) throws ScopeException {
+		AppContext userContext = getUserContext(request);
+		return delegate(userContext).generateTrainingSet(BBID);
+	}
+
+	@GET
+	@Path("/nlu/{" + BBID_PARAM_NAME + "}/query")
+	@ApiOperation(value = "proceed a query")
+	public Object query(
+			@Context HttpServletRequest request, 
+			@PathParam(BBID_PARAM_NAME) String BBID,
+			@QueryParam(MESSAGE_PARAM_NAME) String message) throws ScopeException {
+		AppContext userContext = getUserContext(request);
+		return delegate(userContext).query(BBID, message);
+>>>>>>> refs/heads/develop
 	}
 
 	/**

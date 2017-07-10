@@ -50,7 +50,9 @@ public class RollupStrategySelector {
 			throw new SQLScopeException("this database does not support the ROLLUP feature");
 		} else {
 			IRollupStrategySupport strategy = (IRollupStrategySupport)support;
-			if (query.isAssociative()) {
+			if (query.getPrecomputedRollupAxis() != null) {
+				return new PrecomputedRollupStrategy(query, skin, select, rollup, grandTotal, copy);
+			} else if (query.isAssociative()) {
 				if (strategy.getStrategy().equals(IRollupStrategySupport.Strategy.USE_BUILTIN_SUPPORT)) {
 					return new NativeRollupStrategy(query, skin, select, rollup, grandTotal, copy);
 				} else if (strategy.getStrategy().equals(IRollupStrategySupport.Strategy.DO_NOT_OPTIMIZE)) {

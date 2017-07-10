@@ -981,7 +981,7 @@ public class DataMatrix {
 				if (dim != null) {
 					colType = getDataType(m.getAxis());
 					colExtType = getExtendedType(m.getAxis().getDefinitionSafe());
-					assert (colType.equals(DataType.values()[colExtType.getDataType()]));
+	//				assert (colType.equals(DataType.values()[colExtType.getDataType()]));
 					Col col = new Col(dim.getId(), m.getAxis().getName(), colExtType, Col.Role.DOMAIN, pos++);
 					col.setDefinition(m.getAxis().prettyPrint());
 					col.setOriginType(m.getAxis().getOriginType());

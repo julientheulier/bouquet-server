@@ -24,6 +24,7 @@
 package com.squid.kraken.v4.core.analysis.engine.query.rollup;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
@@ -110,7 +111,7 @@ public abstract class BaseRollupStrategy implements IRollupStrategy {
 	}
 	
 	protected List<GroupByAxis> getRollup() {
-		return rollup;
+		return rollup != null? rollup: Collections.emptyList();
 	}
 
 	// add all
@@ -238,7 +239,7 @@ public abstract class BaseRollupStrategy implements IRollupStrategy {
         Iterator<GroupByAxis> iter_rollup = getRollup().iterator();
         GroupByAxis next_rollup = null;
         ISelectPiece next_level = null;
-        if (iter_levels.hasNext()) {
+		if (iter_levels.hasNext() && iter_rollup.hasNext()) {
         	next_rollup = iter_rollup.next();
         	next_level = iter_levels.next();
         }
@@ -253,7 +254,7 @@ public abstract class BaseRollupStrategy implements IRollupStrategy {
         	if (axis==null || !axis.isParentDimension(next_rollup.getAxis())) {
         		// add the rollup
             	orderBy.add(new OrderByPiece(new SelectPieceReference(null, next_level),ordering(next_rollup.getRollupPosition())));
-            	if (iter_levels.hasNext()) {
+				if (iter_levels.hasNext() && iter_rollup.hasNext()) {
                 	next_rollup = iter_rollup.next();
                 	next_level = iter_levels.next();
                 } else {
@@ -274,7 +275,7 @@ public abstract class BaseRollupStrategy implements IRollupStrategy {
         // it will be one or another, not both
         while  (next_rollup!=null) {
         	orderBy.add(new OrderByPiece(new SelectPieceReference(null, next_level),ordering(next_rollup.getRollupPosition())));
-        	if (iter_levels.hasNext()) {
+			if (iter_levels.hasNext() && iter_rollup.hasNext()) {
             	next_rollup = iter_rollup.next();
             	next_level = iter_levels.next();
             } else {
@@ -295,7 +296,7 @@ public abstract class BaseRollupStrategy implements IRollupStrategy {
         return orderBy;
     }
     
-    private ORDERING ordering(Position position) {
+    protected ORDERING ordering(Position position) {
     	if (position==Position.FIRST) {
     		return ORDERING.DESCENT;
     	} else {

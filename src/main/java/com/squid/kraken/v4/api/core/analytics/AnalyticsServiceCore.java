@@ -340,7 +340,7 @@ public class AnalyticsServiceCore {
 	 * @throws ComputingException
 	 * @throws InterruptedException
 	 */
-	private void mergeBookmarkConfig(Space space, AnalyticsQuery query, BookmarkConfig config) throws ScopeException, ComputingException, InterruptedException {
+	protected void mergeBookmarkConfig(Space space, AnalyticsQuery query, BookmarkConfig config) throws ScopeException, ComputingException, InterruptedException {
 		ReferenceStyle prettyStyle = getReferenceStyle(query.getStyle());
 		PrettyPrintOptions globalOptions = new PrettyPrintOptions(prettyStyle, null);
 		UniverseScope globalScope = new UniverseScope(space.getUniverse());
@@ -445,11 +445,26 @@ public class AnalyticsServiceCore {
 							// need to fix the scope
 							ExpressionAST expr = globalScope.parseExpression(chosenDimension);
 							f = expr.prettyPrint(localOptions);//rewriteExpressionToLocalScope(expr, space);
+							if (expr.getName() !=null && !expr.getName().isEmpty()){
+								f+= " as '"+expr.getName()+"'";
+							}
 						} else {
 							// legacy support raw ID
 							// parse to validate and apply prettyPrint options
-							ExpressionAST expr = localScope.parseExpression("@'" + chosenDimension + "'");
-							f = expr.prettyPrint(localOptions);
+							try{								
+								ExpressionAST expr = globalScope.parseExpression(chosenDimension );
+								f = expr.prettyPrint(localOptions);
+								if (expr.getName() !=null && !expr.getName().isEmpty()){
+									f+= " as '"+expr.getName()+"'";
+								}
+									
+							}catch(ScopeException e){
+								ExpressionAST expr = localScope.parseExpression("@'" + chosenDimension + "'");
+								f = expr.prettyPrint(localOptions);
+								if (expr.getName() !=null && !expr.getName().isEmpty()){
+									f+= " as '"+expr.getName()+"'";
+								}
+							}
 						}
 						groupBy.add(f);
 					} catch (ScopeException e) {
@@ -493,11 +508,19 @@ public class AnalyticsServiceCore {
 					try {
 						// this is for legacy compatibility...
 						ExpressionAST expr = localScope.parseExpression("@'" + chosenMetric + "'");
-						metrics.add(expr.prettyPrint(localOptions));
+						String   m =expr.prettyPrint(localOptions) ;
+						if (expr.getName()!=null && !expr.getName().isEmpty()){
+							m+= " as '"+ expr.getName() +"'";
+						}
+						metrics.add(m);
 					} catch (ScopeException e) {
 						try {
 							ExpressionAST expr = globalScope.parseExpression(chosenMetric);
-							metrics.add(expr.prettyPrint(localOptions));
+							String   m =expr.prettyPrint(localOptions) ;
+							if (expr.getName()!=null && !expr.getName().isEmpty()){
+								m+= " as '"+ expr.getName() +"'";
+							}
+							metrics.add(m);
 						} catch (ScopeException ee) {
 							query.add(new Problem(Severity.WARNING, chosenMetric, "failed to parse bookmark metric: " + ee.getMessage(), ee));
 						}
@@ -888,6 +911,8 @@ public class AnalyticsServiceCore {
 		}
 		Universe universe = root.getUniverse();
 		Domain domain = root.getDomain();
+		UniverseScope globalScope = new UniverseScope(universe);
+
 		//AccessRightsUtils.getInstance().checkRole(universe.getContext(), domain, AccessRight.Role.READ);
 		// handle the columns
 		List<Metric> metrics = new ArrayList<Metric>();
@@ -1020,8 +1045,19 @@ public class AnalyticsServiceCore {
 							orderBy.add(new OrderBy(new Expression(universalExpression), direction));
 						}
 					} catch (ScopeException e) {
-						throw new ScopeException(
-								"unable to parse orderBy expression at position " + pos + ": " + e.getMessage(), e);
+						try {
+							
+							ExpressionAST expr = globalScope.parseExpression(order);
+							expr = unwrapOrderByExpression(expr);
+							IDomain image = expr.getImageDomain();
+							Direction direction = getDirection(image);
+							String universalExpression = rewriteExpressionToGlobalScope(expr, root);
+							orderBy.add(new OrderBy(new Expression(universalExpression), direction));
+									
+						}catch(ScopeException e1){
+						throw new ScopeException(								
+								"unable to parse orderBy expression at position " + pos + ": " + e1.getMessage(), e1);
+						}
 					}
 				}
 				pos++;
@@ -1209,7 +1245,11 @@ public class AnalyticsServiceCore {
 			String value = expr.prettyPrint();
 			return global+".("+value+")";
 		} else {
-			return expr.prettyPrint();
+			if (expr.getName()!=null && ! expr.getName().isEmpty()){
+				return expr.prettyPrint() + " as '"  +  expr.getName() + "'";
+			} else {
+				return expr.prettyPrint();
+			}			
 		}
 	}
 	
@@ -2385,16 +2425,28 @@ public class AnalyticsServiceCore {
 		config.setCurrentAnalysis(BookmarkConfig.TABLE_ANALYSIS);
 		return config;
 	}
-
+	
 	private String rewriteChoosenMetric(ExpressionAST expr) {
-		if (expr instanceof MeasureExpression) {
-			MeasureExpression measure = (MeasureExpression)expr;
-			if (measure.getMeasure().getMetric()!=null) {
-				return measure.getMeasure().getMetric().getOid();
+		
+		String pref ="";
+		String alias="";
+		boolean hasAlias= expr.getName() != null && !expr.getName().isEmpty();
+		
+		if(hasAlias){
+			alias=" as '" + expr.getName() +"'";
+		}
+		if (!hasAlias){
+			if (expr instanceof MeasureExpression) {
+				MeasureExpression measure = (MeasureExpression)expr;
+				if (measure.getMeasure().getMetric()!=null) {					
+					return pref + measure.getMeasure().getMetric().getOid();
+				}
 			}
 		}
 		// else
-		return expr.prettyPrint(PrettyPrintOptions.ROBOT_GLOBAL);
+		String  exprGlobal = expr.prettyPrint(PrettyPrintOptions.ROBOT_GLOBAL); 
+	
+		return pref + exprGlobal + alias;
 	}
 
 }

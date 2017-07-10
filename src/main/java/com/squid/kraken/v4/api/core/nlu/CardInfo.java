@@ -24,6 +24,7 @@
 package com.squid.kraken.v4.api.core.nlu;
 
 import java.io.Serializable;
+<<<<<<< HEAD
 import java.util.ArrayList;
 
 import com.squid.kraken.v4.vegalite.VegaliteSpecs;
@@ -142,4 +143,40 @@ public class CardInfo implements Serializable {
 		this.state = state;
 	}
 	
+=======
+
+/**
+ * @author sergefantino
+ *
+ */
+public class CardInfo implements Serializable {
+	
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = -122869605941810955L;
+	private String message;
+	
+	/**
+	 * 
+	 */
+	public CardInfo(String message) {
+		this.message = message;
+	}
+	
+	/**
+	 * @return the message
+	 */
+	public String getMessage() {
+		return message;
+	}
+	
+	/**
+	 * @param message the message to set
+	 */
+	public void setMessage(String message) {
+		this.message = message;
+	}
+
+>>>>>>> refs/heads/develop
 }
