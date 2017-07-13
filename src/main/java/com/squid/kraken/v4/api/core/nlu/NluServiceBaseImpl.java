@@ -50,6 +50,7 @@ import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.api.core.APIException;
 import com.squid.kraken.v4.api.core.analytics.AnalyticsServiceCore;
 import com.squid.kraken.v4.api.core.customer.StateServiceBaseImpl;
+import com.squid.kraken.v4.api.core.nlu.CardInfo.Status;
 import com.squid.kraken.v4.api.core.nlu.rasa.CommonExample;
 import com.squid.kraken.v4.api.core.nlu.rasa.Entity;
 import com.squid.kraken.v4.api.core.nlu.rasa.EntityExtraction;
@@ -292,7 +293,7 @@ public class NluServiceBaseImpl extends AnalyticsServiceCore {
 		//
 		for (Measure m : space.M()) {
 			if (m.getMetric()!=null && !m.getMetric().isDynamic()) {
-				String name = m.getName();
+				String name = normalize(m.getName());
 				String ID = m.prettyPrint(new PrettyPrintOptions(defaultStyle, null));
 				CommonExample example = createExample(BOOKMARK_OVERALL_METRIC, "What are the %metric ?");
 				if (addEntity(example,METRIC_ENTITY,name,ID)) common_examples.add(example);
@@ -321,7 +322,7 @@ public class NluServiceBaseImpl extends AnalyticsServiceCore {
 			IDomain image = axis.getDefinitionSafe().getImageDomain();
 			if (!image.isInstanceOf(IDomain.OBJECT)) {
 				if (axis.getDimension().getType().equals(Type.CATEGORICAL)) {
-					String dim_name = getAxisSHortName(axis);
+					String dim_name = normalize(getAxisSHortName(axis));
 					String dim_ID = axis.prettyPrint(new PrettyPrintOptions(defaultStyle, null));
 					{
 						CommonExample example = createExample(BOOKMARK_TOP_DIMENSION, "What are the top %dimension ?");
@@ -377,6 +378,14 @@ public class NluServiceBaseImpl extends AnalyticsServiceCore {
 		return set;
 	}
 	
+	/**
+	 * @param name
+	 * @return
+	 */
+	private String normalize(String name) {
+		return name.toLowerCase();
+	}
+
 	private String getAxisSHortName(Axis axis) {
 		return axis.getDimension()!=null?axis.getDimension().getName():axis.getName();
 	}
@@ -416,7 +425,7 @@ public class NluServiceBaseImpl extends AnalyticsServiceCore {
 		if (space.getBookmark()!=null) {
 			contextName = space.getBookmark().getName();
 		}
-		return contextName;
+		return normalize(contextName);
 	}
 
 	/**
@@ -529,7 +538,7 @@ public class NluServiceBaseImpl extends AnalyticsServiceCore {
 					aquery.setOrderBy(new ArrayList<>());
 					aquery.setLimit(5L);
 					EntityExtraction metric = getEntity(query, METRIC_ENTITY);
-					if (metric!=null && metric.getValue().startsWith("@")) {
+					if (metric!=null && (metric.getValue().startsWith("@") || metric.getValue().startsWith("'"))) {
 						// ok, we found one
 						Measure measure = space.getUniverse().measure(metric.getValue());
 						if (!measure.getParent().getTop().equals(space)) {
@@ -544,29 +553,33 @@ public class NluServiceBaseImpl extends AnalyticsServiceCore {
 					}
 					return addParserOutput(runQuery(space, state, aquery, answer+": "), query);
 				} else {
-					return addAvailableDimensions(new CardInfo("I don't understand what dimension you are looking for. '"+entity.getValue()+"' is not a valid dimension. You can try the following:"), space);
+					return addAvailableDimensions(CardInfo.incomplete("I don't understand what dimension you are looking for. '"+entity.getValue()+"' is not a valid dimension. You can try the following:"), space);
 				}
 			}
 			// bookmark_overall_metric
 			if (query.getIntent().getName().equals(BOOKMARK_OVERALL_METRIC)) {
-				EntityExtraction entity = getEntity(query, METRIC_ENTITY);
-				if (entity==null) {
+				EntityExtraction metric = getEntity(query, METRIC_ENTITY);
+				if (metric==null) {
 					query.getIntent().setName(BOOKMARK_OVERVIEW);// redirect
 				}
-				if (entity!=null && entity.getValue().startsWith("@")) {
+				if (metric!=null && (metric.getValue().startsWith("@") || metric.getValue().startsWith("'"))) {
 					// ok, we found one
-					Measure measure = space.getUniverse().measure(entity.getValue());
+					Measure measure = space.getUniverse().measure(metric.getValue());
 					if (!measure.getParent().getTop().equals(space)) {
 						throw new ScopeException("invalid metric request - you are using the wrong model");
 					}
 					// query the bookmark without dimensions
 					AnalyticsQueryImpl aquery = new AnalyticsQueryImpl();
-					aquery.setGroupBy(new ArrayList<>());// empty - not sure it's going to work
+					//aquery.setGroupBy(new ArrayList<>());// empty - not sure it's going to work
 					aquery.setMetrics(new ArrayList<>());
 					aquery.getMetrics().add(measure.prettyPrint(new PrettyPrintOptions(ReferenceStyle.IDENTIFIER, space.getImageDomain())));
 					return addParserOutput(runQuery(space, state, aquery, "Here are the overall results for "+measure.getName()+": "), query);
 				} else {
-					return new CardInfo("I don't understand what metric you are looking for. '"+entity.getValue()+"' is not a valid metric. You can try the following metrics: NYI");
+					if (metric!=null) {
+						return CardInfo.incomplete("I don't understand what metric you are looking for. '"+metric.getValue()+"' is not a valid metric. You can try the following metrics: NYI");
+					} else {
+						return CardInfo.incomplete("I don't understand what metric you are looking for. You can try the following metrics: NYI");
+					}
 				}
 			}
 			// bookmark_overview
@@ -655,16 +668,22 @@ public class NluServiceBaseImpl extends AnalyticsServiceCore {
 			AnalyticsReply reply = runAnalysis(userContext, space.getBBID(Style.ROBOT), state, query, DataLayout.RECORDS, false, true, null);
 			AnalyticsResult result = (AnalyticsResult)reply.getResult();
 			Object[] data = (Object[])result.getData();
+			ArrayList<String> followUp = new ArrayList<>();
 			if (result.getInfo().getTotalSize()>1) {
-				String rowAsString = null;
+				String rowAsString = "";
 				for (Object row : data) {
-					if (rowAsString==null) rowAsString = ""; else rowAsString += "\nn";
+					rowAsString += "<li>";
 					HashMap<String, Object> map = (HashMap<String, Object>)row;
 					for (Column col : result.getHeader().getColumns()) {
-						rowAsString += map.get(col.getName())+" ";
+						rowAsString += map.get(col.getName())+" | ";
+						if (col.getRole()==Role.GROUPBY) {
+							followUp.add("what are results for "+map.get(col.getName()));
+						}
 					}
 				}
 				CardInfo info = new CardInfo(successMsg.trim()+" "+rowAsString);
+				//
+				info.setFollowUp(followUp);
 				//
 				ViewQuery view = new ViewQuery(query);
 				ViewReply viz = viewAnalysis(userContext, space.getBBID(Style.ROBOT), view, ViewQuery.DataMode.EMBEDDED.toString(), true, true);
@@ -776,9 +795,10 @@ public class NluServiceBaseImpl extends AnalyticsServiceCore {
         StringBuilder html = createHTMLHeader("Chat Bot");
         html.append("<body>");
         if (message!=null && message.length()>0) {
-        	html.append("<p>You: "+message+"</p>");
+        	html.append("<p><span class='label label-primary'>You:</span>&nbsp;"+message+"</p>");
         }
-        html.append("<p>Bouquet: "+card.getMessage().replaceAll("\n", "<br>")+"</p>");
+        String status = card.getStatus()==Status.VALID?"success":(card.getStatus()==Status.INCOMPLETE?"warning":"error");
+        html.append("<p><span class='label label-"+status+"'>Bouquet:</span>&nbsp;"+card.getMessage().replaceAll("\n", "<br>")+"</p>");
         if (card.getDataviz()!=null) {
         	html.append("<script src=\"//d3js.org/d3.v3.min.js\" charset=\"utf-8\"></script>\n" +
     				"<script src=\"https://cdnjs.cloudflare.com/ajax/libs/vega/2.5.0/vega.min.js\"></script>\n" +
@@ -794,7 +814,7 @@ public class NluServiceBaseImpl extends AnalyticsServiceCore {
         		html.append("<li><a href='?msg="+followUp+"&access_token="+userContext.getToken().getOid()+"'>"+followUp+"</a>");
         	}
         }
-        html.append("<form><label>You :</label><input type='text' name='msg'>");
+        html.append("<form><label><span class='label label-primary'>You:</span></label><input type='text' name='msg' size=100>");
         html.append("<input type=\"hidden\" name=\"access_token\" value=\""+userContext.getToken().getOid()+"\">");
         if (card.getState()!=null && card.getState().length()>0) html.append("<input type=\"hidden\" name=\"state\" value=\""+card.getState()+"\">");
         html.append("</form>");
