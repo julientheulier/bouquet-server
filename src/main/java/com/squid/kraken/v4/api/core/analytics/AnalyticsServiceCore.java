@@ -196,8 +196,7 @@ public class AnalyticsServiceCore {
 		if (stateId!=null && !stateId.equals("")) {
 			// read the state
 			StatePK pk = new StatePK(userContext.getCustomerId(), stateId);
-			State state = StateServiceBaseImpl.getInstance().read(userContext, pk);
-			BookmarkConfig stateConfig = BookmarkManager.INSTANCE.readConfig(state);
+			BookmarkConfig stateConfig = BookmarkManager.INSTANCE.readConfig(userContext, pk);
 			if (stateConfig!=null) {
 				config = stateConfig;
 			}
