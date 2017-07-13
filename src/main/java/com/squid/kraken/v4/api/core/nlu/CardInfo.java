@@ -25,6 +25,7 @@ package com.squid.kraken.v4.api.core.nlu;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.List;
 
 import com.squid.kraken.v4.vegalite.VegaliteSpecs;
 
@@ -33,6 +34,8 @@ import com.squid.kraken.v4.vegalite.VegaliteSpecs;
  *
  */
 public class CardInfo implements Serializable {
+	
+	enum Status { VALID, INCOMPLETE, ERROR}
 	
 	/**
 	 * 
@@ -45,17 +48,42 @@ public class CardInfo implements Serializable {
 	
 	private Throwable error = null;
 	
-	private ArrayList<String> followUp = new ArrayList<>();
+	private List<String> followUp = new ArrayList<>();
 	
 	private VegaliteSpecs dataviz = null;
 	
 	private String state = null;
+	
+	private Status status = Status.VALID;
+	
+	public static final CardInfo valid(String message) {
+		return new CardInfo(message);
+	}
+	
+	public static final CardInfo incomplete(String message) {
+		return new CardInfo(message, Status.INCOMPLETE);
+	}
 	
 	/**
 	 * 
 	 */
 	public CardInfo(String message) {
 		this.message = message;
+	}
+	
+	/**
+	 * 
+	 */
+	public CardInfo(String message, Status status) {
+		this.message = message;
+		this.status = status;
+	}
+	
+	/**
+	 * @return the status
+	 */
+	public Status getStatus() {
+		return status;
 	}
 	
 	/**
@@ -108,9 +136,16 @@ public class CardInfo implements Serializable {
 	}
 	
 	/**
+	 * @param followUp the followUp to set
+	 */
+	public void setFollowUp(List<String> followUp) {
+		this.followUp = followUp;
+	}
+	
+	/**
 	 * @return the followUp
 	 */
-	public ArrayList<String> getFollowUp() {
+	public List<String> getFollowUp() {
 		return followUp;
 	}
 	
