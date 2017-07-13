@@ -29,6 +29,8 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Optional;
 import com.squid.core.expression.scope.ScopeException;
+import com.squid.kraken.v4.api.core.APIException;
+import com.squid.kraken.v4.api.core.customer.StateServiceBaseImpl;
 import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.kraken.v4.model.Bookmark;
@@ -37,6 +39,7 @@ import com.squid.kraken.v4.model.BookmarkPK;
 import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.DomainPK;
 import com.squid.kraken.v4.model.State;
+import com.squid.kraken.v4.model.StatePK;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DAOFactory;
 import com.squid.kraken.v4.persistence.dao.BookmarkDAO;
@@ -66,6 +69,16 @@ public class BookmarkManager {
 			return config;
 		} catch (Exception e) {
 			throw new ScopeException("unable to read the bookmark '"+bookmark.getReference()+"' config: "+e.getMessage(), e);
+		}
+	}
+
+	public BookmarkConfig readConfig(AppContext userContext, StatePK pk) throws ScopeException {
+		try {
+			State state = StateServiceBaseImpl.getInstance().read(userContext, pk);
+			return readConfig(state);
+		} catch (APIException e) {
+			// ok, just ignore the state in case we cannot read it for whatever reason
+			return null;
 		}
 	}
 	
