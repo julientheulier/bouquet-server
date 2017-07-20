@@ -33,6 +33,8 @@ import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import com.squid.kraken.v4.KrakenConfig;
 import com.squid.kraken.v4.api.core.PerfDB;
@@ -170,6 +172,27 @@ public class AnalysisCompute {
 			boolean optimize = SUPPORT_SOFT_FILTERS && !analysis.hasLimit() && !analysis.hasOffset()
 					&& !analysis.hasRollup();
 			return computeAnalysisSimple(analysis, optimize);
+		}
+	}
+	
+	private class ComputeCompareMatrix implements Callable<DataMatrix>{
+		private DashboardAnalysis currentAnalysis ;
+		private List<OrderBy> fixed ;
+		private boolean computationStarted = false;
+		public ComputeCompareMatrix(DashboardAnalysis currentAnalysis, List<OrderBy> fixed2 ){
+			this.currentAnalysis = currentAnalysis;
+			this.fixed=fixed2;
+		}
+
+		@Override
+		public DataMatrix call() throws Exception {
+			computationStarted=true;
+			DataMatrix present = computeAnalysisSimple(currentAnalysis, false);
+			present.orderBy(fixed);
+			return present;
+		}
+		public boolean isComputationStarted(){
+			return this.computationStarted;
 		}
 	}
 
@@ -374,23 +397,61 @@ public class AnalysisCompute {
 			compareToAnalysis.add(compareToKpi);
 		}
 
-		// compute present & past in //
-		Future<DataMatrix> future = ExecutionManager.INSTANCE.submit(universe.getContext().getCustomerId(),
-				new Callable<DataMatrix>() {
-					@Override
-					public DataMatrix call() throws Exception {
-						DataMatrix present = computeAnalysisSimple(currentAnalysis, false);
-						present.orderBy(fixed);
-						return present;
-					}
-				});
+		DataMatrix past;
+		DataMatrix present ;
 		try {
-			// compute past
-			DataMatrix past = computeAnalysisSimple(compareToAnalysis, false, true);
-			past.orderBy(fixed);
-			// wait for present
-			DataMatrix present = future.get();
+			//get lazy past and present
+			boolean currentLazy  = currentAnalysis.isLazy();
+			boolean pastLazy= compareToAnalysis.isLazy();
+			currentAnalysis.lazy(true);
+			compareToAnalysis.lazy(true);
+			try{
+				past = computeAnalysisSimple(compareToAnalysis, false, true);
+			}catch(NotInCacheException e){
+				past = null;
+			}
+			try{
+				present = computeAnalysisSimple(currentAnalysis, false, true);
+			}catch(NotInCacheException e){
+				present= null;			
+			}	
+			// reset lazy flags
+			currentAnalysis.lazy(currentLazy);
+			compareToAnalysis.lazy(pastLazy) ;
 
+			if(past== null && present==null){
+				// compute present & past in  //
+				ComputeCompareMatrix presentCompute= new ComputeCompareMatrix(currentAnalysis, fixed);
+				Future<DataMatrix> future = ExecutionManager.INSTANCE.submit(universe.getContext().getCustomerId(),
+						presentCompute);
+				// compute past
+				past = computeAnalysisSimple(compareToAnalysis, false, true);
+				past.orderBy(fixed);			
+				// wait for present
+				int timeoutinssec =30;
+				try{
+					present = future.get(timeoutinssec, TimeUnit.SECONDS);
+				}catch(TimeoutException e){
+					if (!presentCompute.isComputationStarted()){
+						logger.info("Past matrix computation could not start after " +timeoutinssec + " sec");	
+						future.cancel(true);				
+						throw new ComputingException();
+					}else{
+						present=future.get();
+					}
+				}
+			}else{
+				if (past==null){
+					past = computeAnalysisSimple(compareToAnalysis, false, true);
+					past.orderBy(fixed);			
+
+				}else{
+					if (present==null){
+						present = computeAnalysisSimple(currentAnalysis, false, true);
+						present.orderBy(fixed);			
+					}
+				}				
+			}
 			//
 			final Period offset = computeOffset(present, joinAxis, presentInterval, pastInterval);
 			//
