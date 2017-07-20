@@ -64,6 +64,18 @@ public class NluServiceRest extends CoreAuthenticatedServiceRest {
 	@Context
 	UriInfo uriInfo;
 
+
+	@GET
+	@Path("/wit/{" + BBID_PARAM_NAME + "}/entities")
+	@ApiOperation(value = "generate a learning dataset for this bookmark")
+	public Object generateWitEntities(
+			@Context HttpServletRequest request, 
+			@PathParam(BBID_PARAM_NAME) String BBID,
+			@QueryParam("sample") Integer sample) throws ScopeException {
+		AppContext userContext = getUserContext(request);
+		return delegate(userContext).generateWitEntities(BBID, sample);
+	}
+
 	@GET
 	@Path("/nlu/{" + BBID_PARAM_NAME + "}/train")
 	@ApiOperation(value = "generate a learning dataset for this bookmark")

@@ -57,6 +57,8 @@ import com.squid.kraken.v4.api.core.nlu.rasa.EntityExtraction;
 import com.squid.kraken.v4.api.core.nlu.rasa.RasaNluData;
 import com.squid.kraken.v4.api.core.nlu.rasa.RasaQuery;
 import com.squid.kraken.v4.api.core.nlu.rasa.TrainingSet;
+import com.squid.kraken.v4.api.core.nlu.wit.EntityDefinition;
+import com.squid.kraken.v4.api.core.nlu.wit.EntityValue;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingService;
 import com.squid.kraken.v4.core.analysis.model.DashboardSelection;
@@ -247,6 +249,48 @@ public class NluServiceBaseImpl extends AnalyticsServiceCore {
 			// just one
 			return facet.getItems().get(0);
 		}
+	}
+	
+	public Object generateWitEntities(String BBID, Integer sample) {
+		ArrayList<EntityDefinition> entities = new ArrayList<>();
+		Space space = getSpace(userContext, BBID);
+		for (Axis axis : space.A(true)) {
+			IDomain image = axis.getDefinitionSafe().getImageDomain();
+			if (!image.isInstanceOf(IDomain.OBJECT) && image.isInstanceOf(IDomain.STRING)) {
+				if (axis.getDimension().getType().equals(Type.CATEGORICAL)) {
+					String dim_name = axis.getDimension().getName();
+					String dim_ID = axis.prettyPrint(new PrettyPrintOptions(defaultStyle, null));
+					//
+					EntityDefinition entity = new EntityDefinition();
+					entities.add(entity);
+					entity.setId(ITEM_ENTITY_PREFIX+dim_name);
+					entity.setValues(new ArrayList<>());
+					//
+					int size = sample!=null?sample:10;
+					// look for the facets
+					try {
+						DashboardSelection empty = new DashboardSelection();
+						Facet facet = ComputingService.INSTANCE.glitterFacet(space.getUniverse(),
+								space.getDomain(), empty, axis, "", 0, size, null);
+						int count = 0;
+						for (FacetMember item : facet.getItems()) {
+							FacetMemberString member = (FacetMemberString)item;
+							EntityValue value = new EntityValue();
+							value.setValue(member.getValue());
+							value.setExpressions(new ArrayList<>());
+							value.getExpressions().add(member.getValue());
+							entity.getValues().add(value);
+							// we could use the attributes too
+							count++;
+						}
+					} catch (TimeoutException | ComputingException | InterruptedException e) {
+						// ignore
+					}
+				}
+			}
+		}
+		//
+		return entities;
 	}
 
 	public TrainingSet generateTrainingSet(String BBID) {
