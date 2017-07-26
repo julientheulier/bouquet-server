@@ -951,7 +951,7 @@ public class AnalyticsServiceBaseImpl extends AnalyticsServiceCore implements An
 			//
 			if (query.getStyle()==Style.HTML && data==DataLayout.SQL) {
 				return generator.createHTMLsql(reply.getResult().toString());
-			} else if (query.getStyle()==Style.HTML && data==DataLayout.LEGACY) {
+			} else if (query.getStyle()==Style.HTML) {
 				return generator.createHTMLPageTable(userContext, reply.getSpace(), reply, (DataTable)reply.getResult());
 			} else if (envelope.equalsIgnoreCase("ALL")) {
 				return Response.ok(reply).build();
@@ -967,6 +967,7 @@ public class AnalyticsServiceBaseImpl extends AnalyticsServiceCore implements An
 					return Response.ok(reply.getResult()).build();
 				}
 			} 
+			
 			//else
 			return Response.ok(reply).build();
 		} catch (TimeoutException e) {
