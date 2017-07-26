@@ -946,13 +946,7 @@ public class AnalyticsServiceBaseImpl extends AnalyticsServiceCore implements An
 			if (envelope==null) {
 				envelope = computeEnvelope(query);
 			}
-			if (query.getStyle()==Style.HTML) {
-				// change data format to legacy
-				data=DataLayout.LEGACY;
-			} else if (data==null) {
-				data=DataLayout.TABLE;
-			}
-			//
+	
 			AnalyticsReply reply = super.runAnalysis(userContext, BBID, stateId, query, data, computeGrowth, applyFormatting, timeout);
 			//
 			if (query.getStyle()==Style.HTML && data==DataLayout.SQL) {
