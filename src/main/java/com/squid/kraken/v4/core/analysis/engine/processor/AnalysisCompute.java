@@ -401,7 +401,7 @@ public class AnalysisCompute {
 		DataMatrix present ;
 		try {
 			//get lazy past and present
-			boolean currentLazy  = currentAnalysis.isLazy();
+/*			boolean currentLazy  = currentAnalysis.isLazy();
 			boolean pastLazy= compareToAnalysis.isLazy();
 			currentAnalysis.lazy(true);
 			compareToAnalysis.lazy(true);
@@ -451,8 +451,29 @@ public class AnalysisCompute {
 						present.orderBy(fixed);			
 					}
 				}				
-			}
+			} */
 			//
+			
+			// compute present & past in  //
+			ComputeCompareMatrix presentCompute= new ComputeCompareMatrix(currentAnalysis, fixed);
+			Future<DataMatrix> future = ExecutionManager.INSTANCE.submit(universe.getContext().getCustomerId(),
+					presentCompute);
+			// compute past
+			past = computeAnalysisSimple(compareToAnalysis, false, true);
+			past.orderBy(fixed);			
+			// wait for present
+			int timeoutinssec =60;
+			try{
+				present = future.get(timeoutinssec, TimeUnit.SECONDS);
+			}catch(TimeoutException e){
+				if (!presentCompute.isComputationStarted()){
+					logger.info("Past matrix computation could not start after " +timeoutinssec + " sec");	
+					future.cancel(true);				
+					throw new ComputingException();
+				}else{
+					present=future.get();
+				}
+			}
 			final Period offset = computeOffset(present, joinAxis, presentInterval, pastInterval);
 			//
 			Object computeGrowthOption = currentAnalysis.getOption(DashboardAnalysis.COMPUTE_GROWTH_OPTION_KEY);
