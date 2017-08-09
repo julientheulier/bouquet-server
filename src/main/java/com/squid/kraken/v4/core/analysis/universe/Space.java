@@ -509,7 +509,7 @@ public class Space {
 			if (a.getDimension()!=null) {
 				return space.A(a.getDimension()).withNickname(a);
 			} else {
-				return new Axis(space, a.getDefinition()).withNickname(a).withId(a.getId());
+				return new Axis(space, a.getDefinition()).withId(a.getId()).withNickname(a);
 			}
 		} else {
 			throw new ScopeException("cannot relink "+space.toString()+" with "+a.toString());

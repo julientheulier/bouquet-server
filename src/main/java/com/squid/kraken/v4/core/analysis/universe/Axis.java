@@ -131,8 +131,8 @@ public class Axis implements Property {
 	}
 
 	public Axis withNickname(Axis axis) {
-		if (axis.name!=null) {
-			this.name = axis.name;
+		if (axis.getName()!=null) {
+			this.name = axis.getName();
 		}
 		return this;
 	}

@@ -423,10 +423,11 @@ public class AnalysisCompute {
 								rootAxesWithOffset.add(ExpressionMaker.CASE(pastExpression, ExpressionMaker.ADD(expr, ExpressionMaker.MINUS(ExpressionMaker.CONSTANT(presentInterval.getLowerBound(), IDomain.DATE), ExpressionMaker.CONSTANT(pastInterval.getLowerBound(), IDomain.DATE))), expr));
 							} else {
 								int nrMonths = Months.monthsBetween(startPast, startPresent).getMonths();
-								rootAxesWithOffset.add(ExpressionMaker.ADD_MONTHS(expr, ExpressionMaker.CONSTANT(nrMonths)));
-							} } else {
-								rootAxesWithOffset.add(expr);
+								rootAxesWithOffset.add(ExpressionMaker.CASE(pastExpression, ExpressionMaker.ADD_MONTHS(expr, ExpressionMaker.CONSTANT(nrMonths)), expr));
 							}
+						} else {
+							rootAxesWithOffset.add(expr);
+						}
 						index++;
 					}
 					groupByExpr = ExpressionMaker.op(op.getOperatorDefinition(),rootAxesWithOffset);
@@ -435,7 +436,7 @@ public class AnalysisCompute {
 						groupByExpr = ExpressionMaker.CASE(pastExpression, ExpressionMaker.ADD(groupByExpr, ExpressionMaker.MINUS(ExpressionMaker.CONSTANT(presentInterval.getLowerBound(), IDomain.DATE), ExpressionMaker.CONSTANT(pastInterval.getLowerBound(), IDomain.DATE))), groupByExpr);
 					} else {
 						int nrMonths = Months.monthsBetween(startPast, startPresent).getMonths();
-						groupByExpr = ExpressionMaker.ADD_MONTHS(groupByExpr, ExpressionMaker.CONSTANT(nrMonths));
+						groupByExpr = ExpressionMaker.CASE(pastExpression, ExpressionMaker.ADD_MONTHS(groupByExpr, ExpressionMaker.CONSTANT(nrMonths)), groupByExpr);
 					}
 				}
 				Axis compareToAxis = new Axis(groupBy.getAxis().getParent(), groupByExpr);
