@@ -2,12 +2,12 @@
  * Copyright © Squid Solutions, 2016
  *
  * This file is part of Open Bouquet software.
- *  
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
  * published by the Free Software Foundation (version 3 of the License).
  *
- * There is a special FOSS exception to the terms and conditions of the 
+ * There is a special FOSS exception to the terms and conditions of the
  * licenses as they are applied to this program. See LICENSE.txt in
  * the directory of this program distribution.
  *
@@ -34,6 +34,7 @@ import java.util.HashSet;
 import java.util.IllegalFormatException;
 import java.util.List;
 import java.util.Map;
+import java.util.StringTokenizer;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -61,6 +62,7 @@ import com.squid.kraken.v4.core.analysis.model.OrderByGrowth;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
 import com.squid.kraken.v4.core.analysis.universe.Measure;
 import com.squid.kraken.v4.core.analysis.universe.Property;
+import com.squid.kraken.v4.model.CustomerPK;
 import com.squid.kraken.v4.model.DataTable;
 import com.squid.kraken.v4.model.DataTable.Col;
 import com.squid.kraken.v4.model.DataTable.Col.DataType;
@@ -68,12 +70,13 @@ import com.squid.kraken.v4.model.Dimension;
 import com.squid.kraken.v4.model.Dimension.Type;
 import com.squid.kraken.v4.model.DimensionPK;
 import com.squid.kraken.v4.model.Metric;
+import com.squid.kraken.v4.model.MetricPK;
 import com.squid.kraken.v4.persistence.AppContext;
 
 /**
  * A DataMatrix stores the result of a query. There are two part in the Matrix:
  * the AxisColumn storing metadata about the dimension, and the facts
- * 
+ *
  * @author sfantino
  *
  */
@@ -87,7 +90,7 @@ public class DataMatrix {
 	private boolean isSorted = false;// true when sorted
 
 	private Database database = null;// keep an eye on the database to check if
-										// results are stale
+	// results are stale
 	private DataMatrix parent = null;
 
 	private List<RawRow> rows = new ArrayList<RawRow>();
@@ -95,7 +98,7 @@ public class DataMatrix {
 	private boolean fromCache = false;// true if the data come from the cache
 
 	private boolean fromSmartCache = false;// true if the data come from the
-											// cache via the smart cache
+	// cache via the smart cache
 
 	private Date executionDate = null;// when did we compute the data
 
@@ -140,7 +143,7 @@ public class DataMatrix {
 	/**
 	 * create a matrix using the parent layout but with a new list of rows. Note
 	 * that the parent
-	 * 
+	 *
 	 * @param db
 	 * @param rows
 	 */
@@ -157,7 +160,7 @@ public class DataMatrix {
 	 * create a matrix with same layout but empty data. We keep a link to the
 	 * original matrix so we can check if a particular column is a sub-set of
 	 * the original one
-	 * 
+	 *
 	 * @param dm
 	 */
 	public DataMatrix(DataMatrix parent) {
@@ -254,9 +257,9 @@ public class DataMatrix {
 
 	/**
 	 * return the DimensionMember for the ith axis
-	 * 
+	 *
 	 * @param i
-	 * 
+	 *
 	 * @return
 	 */
 	public Object getAxisValue(int i, RawRow row) {
@@ -385,7 +388,7 @@ public class DataMatrix {
 	 * return the values for the given axis as stored in the matrix (we used to
 	 * store those values in a array, but since we are hardly using that
 	 * information better to compute it when needed only)
-	 * 
+	 *
 	 * @param axis
 	 * @return
 	 * @throws ComputingException
@@ -417,7 +420,7 @@ public class DataMatrix {
 
 	/**
 	 * orderBy this matrix
-	 * 
+	 *
 	 * @param orderBy
 	 */
 	public void orderBy(List<OrderBy> orderBy) {
@@ -506,7 +509,7 @@ public class DataMatrix {
 			return 0;
 		if ((v1 instanceof Comparable) && (v2 instanceof Comparable)) {
 			@SuppressWarnings({ "rawtypes", "unchecked" })
-			int cc = ((Comparable) v1).compareTo(((Comparable) v2));
+			int cc = ((Comparable) v1).compareTo((v2));
 			return cc;
 		} else {
 			int cc = v1.toString().compareTo(v2.toString());
@@ -518,12 +521,12 @@ public class DataMatrix {
 		int from = offsetValue != null ? ((int) Math.max(0, offsetValue)) : 0;
 		int to = limitValue != null ? ((int) Math.min(rows.size(), from + limitValue)) : rows.size();
 		this.rows = this.rows.subList(from, to);// this is not a copy, just a
-												// view
+		// view
 	}
 
 	/**
 	 * merge two matrix with different KPIs but must be on the same space
-	 * 
+	 *
 	 * @param that
 	 * @return
 	 * @throws ScopeException
@@ -541,7 +544,7 @@ public class DataMatrix {
 	 * filter the matrix given a selection to contain only the required rows
 	 * <br>
 	 * note: KPIs are not aggregated, it is not performing a roll-up
-	 * 
+	 *
 	 * @param selection
 	 * @return
 	 * @throws ScopeException
@@ -597,7 +600,7 @@ public class DataMatrix {
 
 	/**
 	 * Wrap a filter condition and apply it to a row
-	 * 
+	 *
 	 * @author sergefantino
 	 *
 	 */
@@ -665,7 +668,7 @@ public class DataMatrix {
 
 	/**
 	 * simple interface to filter a DataMatrix
-	 * 
+	 *
 	 * @author sfantino
 	 *
 	 */
@@ -677,7 +680,7 @@ public class DataMatrix {
 	 * filter the matrix given a selection to contain only the required rows
 	 * <br>
 	 * note: KPIs are not aggregated, it is not performing a roll-up
-	 * 
+	 *
 	 * @param selection
 	 * @return
 	 */
@@ -705,7 +708,7 @@ public class DataMatrix {
 								item = new ApplyFilterCondition(index, nullIsValid);
 								automaton.add(item);
 							}
-							item.add((DimensionMember) filter);
+							item.add(filter);
 						}
 					}
 				}
@@ -753,7 +756,7 @@ public class DataMatrix {
 	/**
 	 * return the data sorted; if the matrix is not sorted, it actually modify
 	 * the rows internally once.
-	 * 
+	 *
 	 * @return
 	 */
 	public List<RawRow> sortRows() {
@@ -779,7 +782,7 @@ public class DataMatrix {
 
 	/**
 	 * hypothesis: left and right rows belong to this matrix
-	 * 
+	 *
 	 * @param left
 	 * @param right
 	 * @return
@@ -796,7 +799,7 @@ public class DataMatrix {
 				return 0;
 			if ((getAxisValue(i, left) instanceof Comparable) && (getAxisValue(i, right) instanceof Comparable)) {
 				@SuppressWarnings({ "unchecked", "rawtypes" })
-				int cc = ((Comparable) getAxisValue(i, left)).compareTo(((Comparable) getAxisValue(i, right)));
+				int cc = ((Comparable) getAxisValue(i, left)).compareTo((getAxisValue(i, right)));
 				if (cc != 0)
 					return cc;
 			} else {
@@ -840,7 +843,7 @@ public class DataMatrix {
 				MeasureValues kpi = measures.get(k);
 				Object value = getDataValue(i, row);
 				output.append(kpi.getProperty().getName()).append("=").append(value != null ? value.toString() : "--")
-						.append(";");
+				.append(";");
 
 			}
 			//
@@ -884,9 +887,9 @@ public class DataMatrix {
 	}
 
 	/**
-	 * 
+	 *
 	 * get the number of rows
-	 * 
+	 *
 	 * @return
 	 */
 	public int getRowCount() {
@@ -923,22 +926,22 @@ public class DataMatrix {
 		}
 		if (image.isInstanceOf(IDomain.NUMERIC)) {
 			switch (type.getDataType()) {
-			case Types.INTEGER:
-			case Types.BIGINT:
-			case Types.SMALLINT:
-			case Types.TINYINT:
-				return "%,d";
-			case Types.DOUBLE:
-			case Types.DECIMAL:
-			case Types.FLOAT:
-			case Types.NUMERIC:
-				if (type.getScale() > 0) {
-					return "%,.2f";
-				} else {
+				case Types.INTEGER:
+				case Types.BIGINT:
+				case Types.SMALLINT:
+				case Types.TINYINT:
 					return "%,d";
-				}
-			default:
-				break;
+				case Types.DOUBLE:
+				case Types.DECIMAL:
+				case Types.FLOAT:
+				case Types.NUMERIC:
+					if (type.getScale() > 0) {
+						return "%,.2f";
+					} else {
+						return "%,d";
+					}
+				default:
+					break;
 			}
 		}
 		// else
@@ -963,7 +966,7 @@ public class DataMatrix {
 
 	/**
 	 * compute the table header definition
-	 * 
+	 *
 	 * @return
 	 */
 	public List<Col> getTableHeader() {
@@ -981,7 +984,7 @@ public class DataMatrix {
 				if (dim != null) {
 					colType = getDataType(m.getAxis());
 					colExtType = getExtendedType(m.getAxis().getDefinitionSafe());
-	//				assert (colType.equals(DataType.values()[colExtType.getDataType()]));
+					//				assert (colType.equals(DataType.values()[colExtType.getDataType()]));
 					Col col = new Col(dim.getId(), m.getAxis().getName(), colExtType, Col.Role.DOMAIN, pos++);
 					col.setDefinition(m.getAxis().prettyPrint());
 					col.setOriginType(m.getAxis().getOriginType());
@@ -1011,6 +1014,28 @@ public class DataMatrix {
 				Metric metric = m.getMetric();
 				ExtendedType type = getExtendedType(m.getDefinitionSafe());
 				Col col = new Col(metric != null ? metric.getId() : null, m.getName(), type, Col.Role.DATA, pos++);
+				//Non regression: Add an id so KPI widget can continue to work
+				if (metric == null) {
+					String id = m.getId();
+					if (id!= null) {
+						if(id.indexOf(":")!=-1) {
+							StringTokenizer st = new StringTokenizer(id, ":");
+							if (st.countTokens()>=4) {
+								String customerId = st.nextToken();
+								String projectId = st.nextToken();
+								String domainId = st.nextToken();
+								String metricId = st.nextToken();
+								if (metricId.indexOf("/")!=-1) {
+									domainId +=":"+metricId.substring(0, metricId.indexOf("/"));
+									metricId = metricId.substring( metricId.indexOf("/")+1);
+								}
+								col.setPk(new MetricPK(customerId, projectId, domainId, metricId));
+							}
+						} else {
+							col.setPk(new CustomerPK(id));
+						}
+					}
+				}
 				col.setDefinition(m.prettyPrint());
 				col.setOriginType(m.getOriginType());
 				col.setDescription(m.getDescription());
@@ -1024,9 +1049,9 @@ public class DataMatrix {
 	/**
 	 * convert the DataMatrix in a DataTable format that we can exchange through
 	 * the API
-	 * 
+	 *
 	 * @param ctx
-	 * 
+	 *
 	 * @return
 	 * @throws ComputingException
 	 */
@@ -1172,7 +1197,7 @@ public class DataMatrix {
 	public Map<Property, Integer> getPropertyToInteger() {
 		return this.propertyToType;
 	}
-	
+
 
 	public int[] getAxesIndirection() {
 		return axesIndirection;
@@ -1194,7 +1219,7 @@ public class DataMatrix {
 	public String toString() {
 		StringBuilder dump = new StringBuilder();
 		dump.append("DataMatrix: size=" + (axes.size() + measures.size()) + "x" + rows.size()
-				+ (fullset ? "(full)" : "(partial)"));
+		+ (fullset ? "(full)" : "(partial)"));
 		if (rows != null) {
 			int i = 0;
 			for (RawRow row : rows) {

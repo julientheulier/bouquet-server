@@ -2,12 +2,12 @@
  * Copyright © Squid Solutions, 2016
  *
  * This file is part of Open Bouquet software.
- *  
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
  * published by the Free Software Foundation (version 3 of the License).
  *
- * There is a special FOSS exception to the terms and conditions of the 
+ * There is a special FOSS exception to the terms and conditions of the
  * licenses as they are applied to this program. See LICENSE.txt in
  * the directory of this program distribution.
  *
@@ -58,16 +58,16 @@ public class Axis implements Property {
 	private Space parent = null;
 	private Dimension dimension;
 	private String ID = "";
-	
+
 	private String name = null;// this can be used to force the axis name
-	
+
 	private ExpressionAST def_cache;// cache the axis definition
-	
+
 	private OriginType originType = OriginType.USER; // default to User type
 
 	private String description = null;
 	private String format = null;
-	
+
 	/**
 	 * copy constructor
 	 * @param copy
@@ -79,11 +79,11 @@ public class Axis implements Property {
 		this.name = copy.name;
 		this.def_cache = copy.def_cache;
 	}
-	
-	protected Axis(Space parent, ExpressionAST expression) {
-        this.parent = parent;
-	    this.def_cache = expression;
-        this.ID =  (parent!=null?parent.getID()+"/":"")+expression.prettyPrint();
+
+	public Axis(Space parent, ExpressionAST expression) {
+		this.parent = parent;
+		this.def_cache = expression;
+		this.ID =  (parent!=null?parent.getID()+"/":"")+expression.prettyPrint();
 	}
 
 	protected Axis(Space parent, Dimension dimension) {
@@ -91,52 +91,52 @@ public class Axis implements Property {
 		this.dimension = dimension;
 		this.ID = (parent!=null?parent.getID()+"/":"")+dimension.getId().toUUID();
 	}
-	
+
 	protected Axis(Axis copy, String ID) {
-	    this.parent = copy.parent;
-	    this.dimension = copy.dimension;
-	    this.def_cache = copy.def_cache;
-	    this.ID = ID;
-    }
-	
+		this.parent = copy.parent;
+		this.dimension = copy.dimension;
+		this.def_cache = copy.def_cache;
+		this.ID = ID;
+	}
+
 	@Override
 	public OriginType getOriginType() {
 		return originType;
 	}
-	
+
 	public void setOriginType(OriginType originType) {
 		this.originType = originType;
 	}
 
-    public Axis withId(String ID) {
-	    return new Axis(this, ID);
+	public Axis withId(String ID) {
+		return new Axis(this, ID);
 	}
-    
-    /**
-     * override the standard name
-     * @param name
-     */
-    public void setName(String name) {
+
+	/**
+	 * override the standard name
+	 * @param name
+	 */
+	public void setName(String name) {
 		this.name = name;
 	}
-	
+
 	/**
 	 * set this axis name
 	 * @param name
 	 * @return
 	 */
 	public Axis withName(String name) {
-	    this.name = name;
-	    return this;
+		this.name = name;
+		return this;
 	}
-	
+
 	public Axis withNickname(Axis axis) {
 		if (axis.name!=null) {
 			this.name = axis.name;
 		}
 		return this;
 	}
-	
+
 	/**
 	 * check if the Axis has a name
 	 * @return
@@ -144,30 +144,30 @@ public class Axis implements Property {
 	public boolean hasName() {
 		return name!=null;
 	}
-    
-    public String getName() {
-    	if (name!=null) {
-    		return name;// use the provided one
-    	}
-        if (dimension!=null) {
-            DimensionIndex index;
-            try {
-                index = getIndex();
-            } catch (Exception e) {
-                return ID;
-            }
-            return index!=null?index.getDimensionName():dimension.getName();
-        } else {
-        	// kick hack to support column-reference
-        	if (this.def_cache!=null && this.def_cache instanceof ColumnReference) {
-        		return "#"+((ColumnReference)this.def_cache).getReferenceName();
-        	} else {
-        		// return human readable name
-        		return prettyPrint(PrettyPrintOptions.HUMAN_GLOBAL);
-        	}
-        }
-    }
-	
+
+	public String getName() {
+		if (name!=null) {
+			return name;// use the provided one
+		}
+		if (dimension!=null) {
+			DimensionIndex index;
+			try {
+				index = getIndex();
+			} catch (Exception e) {
+				return ID;
+			}
+			return index!=null?index.getDimensionName():dimension.getName();
+		} else {
+			// kick hack to support column-reference
+			if (this.def_cache!=null && this.def_cache instanceof ColumnReference) {
+				return "#"+((ColumnReference)this.def_cache).getReferenceName();
+			} else {
+				// return human readable name
+				return prettyPrint(PrettyPrintOptions.HUMAN_GLOBAL);
+			}
+		}
+	}
+
 	/* (non-Javadoc)
 	 * @see com.squid.kraken.v4.core.analysis.universe.Property#getDescription()
 	 */
@@ -175,14 +175,14 @@ public class Axis implements Property {
 	public String getDescription() {
 		return this.description!=null?this.description:(this.dimension!=null?this.dimension.getDescription():null);
 	}
-	
+
 	/**
 	 * @param description the description to set
 	 */
 	public void setDescription(String description) {
 		this.description = description;
 	}
-	
+
 	/* (non-Javadoc)
 	 * @see com.squid.kraken.v4.core.analysis.universe.Property#getFormat()
 	 */
@@ -190,28 +190,29 @@ public class Axis implements Property {
 	public String getFormat() {
 		return this.format;
 	}
-	
+
 	/**
 	 * @param format the format to set
 	 */
 	public void setFormat(String format) {
 		this.format = format;
 	}
-	
+
 	public String getId() {
 		return ID;
 	}
-	
+
+	@Override
 	public Space getParent() {
 		return parent;
 	}
-	
+
 	/**
 	 * check if this axis is a parent Dimension of the putativeChild
 	 * @param putativeChild
 	 * @return
-	 * @throws InterruptedException 
-	 * @throws ComputingException 
+	 * @throws InterruptedException
+	 * @throws ComputingException
 	 */
 	public boolean isParentDimension(Axis putativeChild) throws ComputingException, InterruptedException {
 		// check if the orderBy is a parent of a rollup
@@ -237,7 +238,7 @@ public class Axis implements Property {
 		// else
 		return false;
 	}
-	
+
 	public DimensionMember getMemberByID(Object ID) {
 		DimensionIndex index = null;
 		try {
@@ -252,13 +253,13 @@ public class Axis implements Property {
 			return new DimensionMember(-1, ID, 0);
 		}
 	}
-	
+
 	public DimensionIndex getIndex() throws ComputingException, InterruptedException {
 		return getIndex(true);
 	}
 
 	public DimensionIndex getIndex(boolean wait) throws ComputingException, InterruptedException {
-	    Universe universe = parent.getUniverse();
+		Universe universe = parent.getUniverse();
 		DomainHierarchy hierarchy = universe.getDomainHierarchy(parent.getRoot(), true);// the index is attached to the root; in case of a sub-dimension, the index is a proxy to the actual dimension. If you think it should be parent.getDomain(), that's not good...
 		if (hierarchy!=null) {
 			DimensionIndex res =  hierarchy.getDimensionIndex(this);
@@ -267,16 +268,16 @@ public class Axis implements Property {
 			return null;
 		}
 	}
-	
+
 	public Dimension getDimension() {
 		return dimension;
 	}
-	
+
 	@Override
 	public ExpressionObject<?> getExpressionObject() {
 		return dimension;
 	}
-	
+
 	public Type getDimensionType() {
 		if (dimension!=null) {
 			return dimension.getType();
@@ -284,11 +285,11 @@ public class Axis implements Property {
 			return Type.INDEX;
 		}
 	}
-	
+
 	public List<Attribute> getAttributes() {
 		return parent.getUniverse().getAttributes(dimension);
 	}
-	
+
 	/**
 	 * return the Axis definition which is equal to compose(space.getDefinition(),dimension.getDEfinition())
 	 * @return
@@ -308,7 +309,7 @@ public class Axis implements Property {
 		//
 		return def_cache;
 	}
-	
+
 	/**
 	 * return the axis definition. If the definition is invalid, return an UndefinedExpression wrapping the offending expression
 	 * @return
@@ -330,29 +331,29 @@ public class Axis implements Property {
 		}
 		throw new ScopeException("dimension not found: "+dimension);
 	}
-	
+
 	public Axis A(Dimension dimension) {
 		return new Axis(parent, dimension);
 	}
-	
+
 	/**
 	 * return this axis sub-hierarchy (dimension whit parent = this.axis.dimension)
 	 * @return
 	 */
-    public List<Axis> H() {
-        if (dimension!=null && dimension.getId().getDimensionId()!=null) {
-            ArrayList<Axis> axes = new ArrayList<Axis>();
-            for (Dimension dimension : getParent().getUniverse().getSubDimensions(this.dimension)) {
-                Axis a = new Axis(parent, dimension);
-                axes.add(a);
-            }
-            return axes;
-        } else {
-            return Collections.emptyList();
-        }
-    }
-	
-    @Deprecated
+	public List<Axis> H() {
+		if (dimension!=null && dimension.getId().getDimensionId()!=null) {
+			ArrayList<Axis> axes = new ArrayList<Axis>();
+			for (Dimension dimension : getParent().getUniverse().getSubDimensions(this.dimension)) {
+				Axis a = new Axis(parent, dimension);
+				axes.add(a);
+			}
+			return axes;
+		} else {
+			return Collections.emptyList();
+		}
+	}
+
+	@Deprecated
 	public Collection<DimensionMember> find(Object something) throws InterruptedException {
 		try {
 			return getIndex().simpleLookup(something);
@@ -360,12 +361,12 @@ public class Axis implements Property {
 			return Collections.emptyList();
 		}
 	}
-	
+
 	@Override
 	public boolean equals(Object obj) {
 		if (this==obj) {
 			return true;
-		} 
+		}
 		else if (obj instanceof Axis) {
 			Axis axis = (Axis)obj;
 			return this.getId().equals(axis.getId());
@@ -373,20 +374,20 @@ public class Axis implements Property {
 		else
 			return false;
 	}
-	
+
 	@Override
 	public int hashCode() {
 		return this.getId().hashCode();
 	}
 
-	
+
 	/**
 	 * return a V4 compatible expression attached to the provided scope: that is the expression could be parsed in this scope
 	 * @scope the parent scope or null for Universe
 	 * @return
 	 */
 	public String prettyPrint(PrettyPrintOptions options) {
-	    if (dimension!=null && dimension.getId().getDimensionId()!=null) {
+		if (dimension!=null && dimension.getId().getDimensionId()!=null) {
 			// check if we must take extra care with naming
 			String name = prettyPrintObject(getDimension(), options);
 			if (options!=null && options.getStyle()==ReferenceStyle.NAME && !options.isExplicitType()) {
@@ -397,26 +398,26 @@ public class Axis implements Property {
 					name = prettyPrintObject(getDimension(), new PrettyPrintOptions(options).setExplicitType(true));
 				}
 			}
-    		String pp = getParent().prettyPrint(options);
-    		if (pp!="") {
-    			pp += ".";
-    		}
-    		// krkn-84 use ID reference
+			String pp = getParent().prettyPrint(options);
+			if (pp!="") {
+				pp += ".";
+			}
+			// krkn-84 use ID reference
 			return pp+name;
-	    } else if (dimension!=null && dimension.getId().getDimensionId()==null && def_cache!=null) {
-	    	// krkn-93
-    		String pp = getParent().prettyPrint(options);
-    		if (pp!="") {
-    			pp += ".";
-    		}
-    		return pp+def_cache.prettyPrint(options);
-	    } else if (def_cache!=null) {
-	        return def_cache.prettyPrint(options);
-	    } else {
-	        return "**undefined**";
-	    }
+		} else if (dimension!=null && dimension.getId().getDimensionId()==null && def_cache!=null) {
+			// krkn-93
+			String pp = getParent().prettyPrint(options);
+			if (pp!="") {
+				pp += ".";
+			}
+			return pp+def_cache.prettyPrint(options);
+		} else if (def_cache!=null) {
+			return def_cache.prettyPrint(options);
+		} else {
+			return "**undefined**";
+		}
 	}
-	
+
 	/**
 	 * utility method to pretty-print a object id
 	 * @param object
@@ -436,12 +437,12 @@ public class Axis implements Property {
 			}
 		} else {// krkn-84: default is ID
 			return PrettyPrintConstant.IDENTIFIER_TAG
-	    			+PrettyPrintConstant.OPEN_IDENT
+					+PrettyPrintConstant.OPEN_IDENT
 					+object.getOid()
 					+PrettyPrintConstant.CLOSE_IDENT;
 		}
 	}
-	
+
 	/**
 	 * return a V4 compatible expression
 	 * @return
@@ -449,7 +450,7 @@ public class Axis implements Property {
 	public String prettyPrint() {
 		return prettyPrint(null);
 	}
-	
+
 	@Override
 	public String toString() {
 		return "Axis/"+getParent().toString()+"."+(dimension!=null?dimension.getName():(def_cache!=null?def_cache.prettyPrint(PrettyPrintOptions.HUMAN_GLOBAL):"???"));
@@ -460,52 +461,52 @@ public class Axis implements Property {
 	 * @return
 	 */
 	public Axis prune() {
-	    if (this.parent.getParent()==null) {
-	        return this;
-	    } else {
-	        Space root = new Space(this.parent.getUniverse(), this.getParent().getDomain());
-	        return root.A(this.dimension).withName(name);
-	    }
+		if (this.parent.getParent()==null) {
+			return this;
+		} else {
+			Space root = new Space(this.parent.getUniverse(), this.getParent().getDomain());
+			return root.A(this.dimension).withName(name);
+		}
 	}
-	
+
 	/**
 	 * cut the prefix part from the axis
 	 * @param prefix
 	 * @return
-	 * @throws ScopeException 
+	 * @throws ScopeException
 	 */
 	public Axis prune(Space prefix) throws ScopeException {
-	    Space pruned = parent.prune(prefix);
-        return pruned.A(dimension);
+		Space pruned = parent.prune(prefix);
+		return pruned.A(dimension);
 	}
-	
+
 	public float getEstimatedSize() {
 		try {
 			float stats = computeStatistics();
 			if (stats>=0) {
 				return stats;
 			} else {
-			    DimensionIndex index = getIndex(false);// prevent deadlock if called from the HierarchyCompute code
-			    if (index!=null) {
-    				stats = index.getMembers().size();
-    				return stats>0?stats:-1;
-			    } else {
-			        return -1;// we really don't know
-			    }
+				DimensionIndex index = getIndex(false);// prevent deadlock if called from the HierarchyCompute code
+				if (index!=null) {
+					stats = index.getMembers().size();
+					return stats>0?stats:-1;
+				} else {
+					return -1;// we really don't know
+				}
 			}
 		} catch (Exception e) {
 			return -1;
 		}
 	}
-	
+
 	protected float computeStatistics() throws ScopeException, ExecutionException {
 		ExpressionAST definition = getDefinition();
 		return DatabaseServiceImpl.INSTANCE.computeStatistics(getParent().getUniverse().getProject(), definition);
 	}
-	
+
 	@Override
 	public ExpressionAST getReference() {
 		return new AxisExpression(this);
 	}
-	
+
 }
