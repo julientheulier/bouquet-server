@@ -507,7 +507,7 @@ public class Space {
 	protected Axis relink(Space space, Axis a) throws ScopeException, ComputingException, InterruptedException {
 		if (a.getParent().getDomain().equals(space.getDomain())) {
 			if (a.getDimension()!=null) {
-				return space.A(a.getDimension()).withNickname(a);
+				return space.A(a.getDimension()).withDefinition(a.getDefinitionSafe()).withNickname(a);
 			} else {
 				return new Axis(space, a.getDefinition()).withId(a.getId()).withNickname(a);
 			}

@@ -116,6 +116,11 @@ public class Axis implements Property {
 		return new Axis(this, ID);
 	}
 
+	public Axis withDefinition(ExpressionAST definition) {
+		this.def_cache = definition;
+		return this;
+	}
+
 	/**
 	 * override the standard name
 	 * @param name
@@ -469,7 +474,7 @@ public class Axis implements Property {
 			return this;
 		} else {
 			Space root = new Space(this.parent.getUniverse(), this.getParent().getDomain());
-			return root.A(this.dimension).withName(name);
+			return root.A(this.dimension).withDefinition(this.getDefinitionSafe()).withName(name);
 		}
 	}
 

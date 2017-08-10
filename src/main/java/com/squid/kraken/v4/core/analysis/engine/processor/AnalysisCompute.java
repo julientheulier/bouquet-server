@@ -492,7 +492,7 @@ public class AnalysisCompute {
 			presentKpi.setDescription(kpi.getDescription());
 			//Measure compareToKpi = new Measure(kpi.getParent(), createMetricOffset(kpiExpr, pastExpression), kpi.getMetric().getId().getObjectId()+"_compare");
 			Measure compareToKpi = new Measure(kpi);
-			compareToKpi.setDefinition(createMetricOffset(kpiExpr, presentExpression));
+			compareToKpi.setDefinition(createMetricOffset(kpiExpr, pastExpression));
 			compareToKpi.setOriginType(OriginType.COMPARETO);
 			compareToKpi.setName(kpi.getName() + " [compare]");
 			compareToKpi.setDescription(kpi.getName() + " comparison on " + compareToWhat);
