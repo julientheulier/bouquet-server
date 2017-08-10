@@ -447,7 +447,7 @@ public class AnalysisCompute {
 				}
 				Axis compareToAxis = new Axis(groupBy.getAxis().getParent(), groupByExpr);
 				if (groupBy.getAxis().getDimension()!=null) {
-					compareToAxis = compareToAxis.withId(groupBy.getAxis().getDimension().getId().toUUID());
+					compareToAxis = compareToAxis.withId(groupBy.getAxis().getDimension().getId().getObjectId());
 				}
 				compareToAxis.setOriginType(OriginType.COMPARETO);
 				compareToAxis.setName(groupBy.getAxis().getName());
