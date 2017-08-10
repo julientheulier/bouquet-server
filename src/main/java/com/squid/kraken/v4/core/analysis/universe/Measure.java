@@ -102,7 +102,7 @@ public class Measure implements Property {
 		setDefinition(definition);
 	}
 
-	private void setDefinition(ExpressionAST definition) throws ScopeException {
+	public void setDefinition(ExpressionAST definition) throws ScopeException {
 		// check the image domain
 		IDomain image = definition.getImageDomain();
 		if (image.isInstanceOf(AnalyticDomain.DOMAIN)) {
@@ -314,7 +314,11 @@ public class Measure implements Property {
 
 	@Override
 	public int hashCode() {
-		return this.getId().hashCode();
+		if (originType.equals(OriginType.COMPARETO) || originType.equals(OriginType.GROWTH)) {
+			return (this.getId() + originType.toString()).hashCode();
+		} else {
+			return this.getId().hashCode();
+		}
 	}
 
 	@Override

@@ -487,11 +487,15 @@ public class AnalysisCompute {
 		// pastInterval)
 		for (Measure kpi : currentAnalysis.getKpis()) {
 			ExpressionAST kpiExpr = kpi.getDefinitionSafe();
-			Measure presentKpi = new Measure(kpi.getParent(), createMetricOffset(kpiExpr, presentExpression), kpi.getMetric().getId().getObjectId());
+			//Measure presentKpi = new Measure(kpi.getParent(), createMetricOffset(kpiExpr, presentExpression), kpi.getMetric().getId().getObjectId());
+			Measure presentKpi = new Measure(kpi);
+			presentKpi.setDefinition(createMetricOffset(kpiExpr, presentExpression));
 			presentKpi.setOriginType(kpi.getOriginType());
 			presentKpi.setName(kpi.getName());
 			presentKpi.setDescription(kpi.getDescription());
-			Measure compareToKpi = new Measure(kpi.getParent(), createMetricOffset(kpiExpr, pastExpression), kpi.getMetric().getId().getObjectId()+"_compare");
+			//Measure compareToKpi = new Measure(kpi.getParent(), createMetricOffset(kpiExpr, pastExpression), kpi.getMetric().getId().getObjectId()+"_compare");
+			Measure compareToKpi = new Measure(kpi);
+			compareToKpi.setDefinition(createMetricOffset(kpiExpr, presentExpression));
 			compareToKpi.setOriginType(OriginType.COMPARETO);
 			compareToKpi.setName(kpi.getName() + " [compare]");
 			compareToKpi.setDescription(kpi.getName() + " comparison on " + compareToWhat);
@@ -500,7 +504,8 @@ public class AnalysisCompute {
 			Measure growth = null;
 			if (computeGrowth) {
 				// add the growth definition...
-				growth = new Measure(kpi.getParent(), ExpressionMaker.DIV(ExpressionMaker.MINUS(presentKpi.getDefinitionSafe(), compareToKpi.getDefinitionSafe()), ExpressionMaker.DIV(compareToKpi.getDefinitionSafe(), ExpressionMaker.CONSTANT(100))), kpi.getMetric().getId().getObjectId()+"_growth");
+				growth = new Measure(kpi);
+				growth.setDefinition(ExpressionMaker.DIV(ExpressionMaker.MINUS(presentKpi.getDefinitionSafe(), compareToKpi.getDefinitionSafe()), ExpressionMaker.DIV(compareToKpi.getDefinitionSafe(), ExpressionMaker.CONSTANT(100))));
 				growth.setOriginType(OriginType.GROWTH);
 				growth.setName(kpi.getName() + " [growth%]");
 				growth.setFormat("%.2f");
