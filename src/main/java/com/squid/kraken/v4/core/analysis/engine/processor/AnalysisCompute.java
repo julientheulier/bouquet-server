@@ -511,15 +511,17 @@ public class AnalysisCompute {
 			for (int i=0; i< originalOrders.size(); i++) {
 				OrderBy orderBy = originalOrders.get(i);
 				if (orderBy.getExpression().equals(new MeasureExpression(kpi))) {
-					OrderBy newOrderBy = null;
 					if (orderBy instanceof OrderByGrowth && ((OrderByGrowth) orderBy).expr.getValue().startsWith("growth(")) {
-						newOrderBy = new OrderBy(orderBy.getPos(), new MeasureExpression(growth), orderBy.getOrdering());
+						comparedOrder.put(i, new OrderBy(orderBy.getPos(), new MeasureExpression(growth), orderBy.getOrdering()));
+						comparedOrder.put(i+1, new OrderBy(orderBy.getPos(), new MeasureExpression(presentKpi), orderBy.getOrdering()));
+						comparedOrder.put(i+2, new OrderBy(orderBy.getPos(), new MeasureExpression(compareToKpi), orderBy.getOrdering()));
 					} else if (orderBy instanceof OrderByGrowth && ((OrderByGrowth) orderBy).expr.getValue().startsWith("compareTo(")) {
-						newOrderBy = new OrderBy(orderBy.getPos(), new MeasureExpression(compareToKpi), orderBy.getOrdering());
+						comparedOrder.put(i, new OrderBy(orderBy.getPos(), new MeasureExpression(compareToKpi), orderBy.getOrdering()));
+						comparedOrder.put(i+1, new OrderBy(orderBy.getPos(), new MeasureExpression(presentKpi), orderBy.getOrdering()));
 					} else {
-						newOrderBy = new OrderBy(orderBy.getPos(), new MeasureExpression(presentKpi), orderBy.getOrdering());
+						comparedOrder.put(i, new OrderBy(orderBy.getPos(), new MeasureExpression(presentKpi), orderBy.getOrdering()));
+						comparedOrder.put(i+1, new OrderBy(orderBy.getPos(), new MeasureExpression(compareToKpi), orderBy.getOrdering()));
 					}
-					comparedOrder.put(i, newOrderBy);
 				}
 			}
 
