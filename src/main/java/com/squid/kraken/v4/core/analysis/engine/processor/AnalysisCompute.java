@@ -445,12 +445,9 @@ public class AnalysisCompute {
 						groupByExpr = ExpressionMaker.CASE(pastExpression, ExpressionMaker.ADD_MONTHS(groupByExpr, ExpressionMaker.CONSTANT(nrMonths)), groupByExpr);
 					}
 				}
-				Axis compareToAxis = new Axis(groupBy.getAxis().getParent(), groupByExpr);
-				if (groupBy.getAxis().getDimension()!=null) {
-					compareToAxis = compareToAxis.withId(groupBy.getAxis().getDimension().getId().getObjectId());
-				}
+				Axis compareToAxis = new Axis(groupBy.getAxis(), groupByExpr);
+
 				compareToAxis.setOriginType(OriginType.COMPARETO);
-				compareToAxis.setName(groupBy.getAxis().getName());
 
 				newGroupBy = compareToAnalysis.add(compareToAxis, groupBy.isRollup());
 				newGroupBy.setRollupPosition(groupBy.getRollupPosition());

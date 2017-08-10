@@ -73,11 +73,15 @@ public class Axis implements Property {
 	 * @param copy
 	 */
 	public Axis(Axis copy) {
+		this(copy, copy.def_cache);
+	}
+
+	public Axis(Axis copy, ExpressionAST expression) {
 		this.parent = copy.parent;
 		this.dimension = copy.dimension;
 		this.ID = copy.ID;
 		this.name = copy.name;
-		this.def_cache = copy.def_cache;
+		this.def_cache = expression;
 	}
 
 	public Axis(Space parent, ExpressionAST expression) {
