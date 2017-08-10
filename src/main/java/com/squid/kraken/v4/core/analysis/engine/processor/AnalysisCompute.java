@@ -30,6 +30,7 @@ import java.util.Date;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.TreeMap;
 import java.util.concurrent.Callable;
 
 import org.joda.time.DateTime;
@@ -72,6 +73,8 @@ import com.squid.kraken.v4.core.analysis.model.Intervalle;
 import com.squid.kraken.v4.core.analysis.model.IntervalleObject;
 import com.squid.kraken.v4.core.analysis.model.MeasureGroup;
 import com.squid.kraken.v4.core.analysis.model.OrderBy;
+import com.squid.kraken.v4.core.analysis.model.OrderByGrowth;
+import com.squid.kraken.v4.core.analysis.scope.AxisExpression;
 import com.squid.kraken.v4.core.analysis.scope.MeasureExpression;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
 import com.squid.kraken.v4.core.analysis.universe.Measure;
@@ -262,7 +265,10 @@ public class AnalysisCompute {
 		}
 		//
 		// handling orderBy in the proper way...
-		final List<OrderBy> fixed = new ArrayList<>();
+		// rebuild the full orderBy specs
+		List<OrderBy> originalOrders = currentAnalysis.getOrders();
+		final TreeMap<Integer,OrderBy> comparedOrder = new TreeMap<Integer,OrderBy>();
+		/*
 		List<OrderBy> remaining = new ArrayList<>();
 		int i = 0;
 		// list the dimensions
@@ -274,8 +280,6 @@ public class AnalysisCompute {
 		ArrayList<ExpressionAST> dimensionIndexes = new ArrayList<>(queue);
 		// will hold in which order to merge
 		int[] mergeOrder = new int[dimensionIndexes.size()];
-		// rebuild the full orderBy specs
-		List<OrderBy> originalOrders = currentAnalysis.getOrders();
 		//
 		// if there is a joinAxis, it must appear as the first orderBy
 		if (joinAxis != null) {
@@ -346,6 +350,7 @@ public class AnalysisCompute {
 				currentAnalysis.setOrders(fixed);
 			}
 		}
+		 */
 		//
 		// compute the past version
 		DashboardAnalysis compareToAnalysis = new DashboardAnalysis(universe);
@@ -408,6 +413,7 @@ public class AnalysisCompute {
 		ArrayList<GroupByAxis> compareBeyondLimit = currentAnalysis.hasBeyondLimit() ? new ArrayList<GroupByAxis>()
 				: null;
 		for (GroupByAxis groupBy : currentAnalysis.getGrouping()) {
+			GroupByAxis newGroupBy = null;
 			if (groupBy.getAxis().equals(joinAxis)) {
 				boolean hasSameNumberOfDays = (Days.daysBetween(startPresent, endPresent).getDays() == Days.daysBetween(startPast, endPast).getDays());
 				ExpressionAST groupByExpr = groupBy.getAxis().getDefinitionSafe();
@@ -418,7 +424,7 @@ public class AnalysisCompute {
 					List<ExpressionAST>  rootAxesWithOffset = new ArrayList<ExpressionAST>();
 					int index = 0;
 					for (ExpressionAST expr: rootAxes) {
-						if (index==0) {
+						if (index==0) { //This handles DateTruncate function / shortcut, date is the first/only arg
 							if (hasSameNumberOfDays) {
 								rootAxesWithOffset.add(ExpressionMaker.CASE(pastExpression, ExpressionMaker.ADD(expr, ExpressionMaker.MINUS(ExpressionMaker.CONSTANT(presentInterval.getLowerBound(), IDomain.DATE), ExpressionMaker.CONSTANT(pastInterval.getLowerBound(), IDomain.DATE))), expr));
 							} else {
@@ -446,11 +452,11 @@ public class AnalysisCompute {
 				compareToAxis.setOriginType(OriginType.COMPARETO);
 				compareToAxis.setName(groupBy.getAxis().getName());
 
-				GroupByAxis compareToGroupBy = compareToAnalysis.add(compareToAxis, groupBy.isRollup());
-				compareToGroupBy.setRollupPosition(groupBy.getRollupPosition());
+				newGroupBy = compareToAnalysis.add(compareToAxis, groupBy.isRollup());
+				newGroupBy.setRollupPosition(groupBy.getRollupPosition());
 				// update the beyondLimit
 				if (compareBeyondLimit != null && currentAnalysis.getBeyondLimit().contains(groupBy)) {
-					compareBeyondLimit.add(compareToGroupBy);
+					compareBeyondLimit.add(newGroupBy);
 				}
 			} else {
 				compareToAnalysis.add(groupBy);
@@ -458,24 +464,22 @@ public class AnalysisCompute {
 				if (compareBeyondLimit != null && currentAnalysis.getBeyondLimit().contains(groupBy)) {
 					compareBeyondLimit.add(groupBy);
 				}
+				newGroupBy = groupBy;
 			}
+			for (int i=0; i< originalOrders.size(); i++) {
+				OrderBy orderBy = originalOrders.get(i);
+				if (orderBy.getExpression().equals(new AxisExpression(groupBy.getAxis()))) {
+					comparedOrder.put(i, new OrderBy(orderBy.getPos(), new AxisExpression(newGroupBy.getAxis()), orderBy.getOrdering()));
+				}
+			}
+
 		}
 
 		compareToAnalysis.setSelection(pastSelection);
 		// T1890
 		// if (currentAnalysis.hasBeyondLimit()) {// T1042: handling beyondLimit
 		compareToAnalysis.setBeyondLimit(compareBeyondLimit);
-		// use the present selection to compute
 
-		/*
-		if (compareBeyondLimit  == null && joinAxis !=null){
-			compareBeyondLimit = new ArrayList<>();
-			compareBeyondLimit.add(new GroupByAxis(joinAxis));
-			compareToAnalysis.setBeyondLimit(compareBeyondLimit);
-		}
-		compareToAnalysis.setBeyondLimitSelection(presentSelection);
-		 */
-		// }
 		Object computeGrowthOption = currentAnalysis.getOption(DashboardAnalysis.COMPUTE_GROWTH_OPTION_KEY);
 		boolean computeGrowth = computeGrowthOption != null && computeGrowthOption.equals(true);
 
@@ -493,129 +497,34 @@ public class AnalysisCompute {
 			compareToKpi.setDescription(kpi.getName() + " comparison on " + compareToWhat);
 			compareToAnalysis.add(presentKpi);
 			compareToAnalysis.add(compareToKpi);
+			Measure growth = null;
 			if (computeGrowth) {
 				// add the growth definition...
-				Measure growth = new Measure(kpi.getParent(), ExpressionMaker.DIV(ExpressionMaker.MINUS(presentKpi.getDefinitionSafe(), compareToKpi.getDefinitionSafe()), ExpressionMaker.DIV(compareToKpi.getDefinitionSafe(), ExpressionMaker.CONSTANT(100))), kpi.getMetric().getId().getObjectId()+"_growth");
+				growth = new Measure(kpi.getParent(), ExpressionMaker.DIV(ExpressionMaker.MINUS(presentKpi.getDefinitionSafe(), compareToKpi.getDefinitionSafe()), ExpressionMaker.DIV(compareToKpi.getDefinitionSafe(), ExpressionMaker.CONSTANT(100))), kpi.getMetric().getId().getObjectId()+"_growth");
 				growth.setOriginType(OriginType.GROWTH);
 				growth.setName(kpi.getName() + " [growth%]");
 				growth.setFormat("%.2f");
 				compareToAnalysis.add(growth);
 			}
+			for (int i=0; i< originalOrders.size(); i++) {
+				OrderBy orderBy = originalOrders.get(i);
+				if (orderBy.getExpression().equals(new MeasureExpression(kpi))) {
+					OrderBy newOrderBy = null;
+					if (orderBy instanceof OrderByGrowth && ((OrderByGrowth) orderBy).expr.getValue().startsWith("growth(")) {
+						newOrderBy = new OrderBy(orderBy.getPos(), new MeasureExpression(growth), orderBy.getOrdering());
+					} else if (orderBy instanceof OrderByGrowth && ((OrderByGrowth) orderBy).expr.getValue().startsWith("compareTo(")) {
+						newOrderBy = new OrderBy(orderBy.getPos(), new MeasureExpression(compareToKpi), orderBy.getOrdering());
+					} else {
+						newOrderBy = new OrderBy(orderBy.getPos(), new MeasureExpression(presentKpi), orderBy.getOrdering());
+					}
+					comparedOrder.put(i, newOrderBy);
+				}
+			}
+
 		}
-		compareToAnalysis.setOrders(fixed);
-		//DataMatrix past;
-		//DataMatrix present ;
-		//try {
-		//get lazy past and present
-		/*			boolean currentLazy  = currentAnalysis.isLazy();
-			boolean pastLazy= compareToAnalysis.isLazy();
-			currentAnalysis.lazy(true);
-			compareToAnalysis.lazy(true);
-			try{
-				past = computeAnalysisSimple(compareToAnalysis, false, true);
-			}catch(NotInCacheException e){
-				past = null;
-			}
-			try{
-				present = computeAnalysisSimple(currentAnalysis, false, true);
-			}catch(NotInCacheException e){
-				present= null;
-			}
-			// reset lazy flags
-			currentAnalysis.lazy(currentLazy);
-			compareToAnalysis.lazy(pastLazy) ;
-
-			if(past== null && present==null){
-				// compute present & past in  //
-				ComputeCompareMatrix presentCompute= new ComputeCompareMatrix(currentAnalysis, fixed);
-				Future<DataMatrix> future = ExecutionManager.INSTANCE.submit(universe.getContext().getCustomerId(),
-						presentCompute);
-				// compute past
-				past = computeAnalysisSimple(compareToAnalysis, false, true);
-				past.orderBy(fixed);
-				// wait for present
-				int timeoutinssec =30;
-				try{
-					present = future.get(timeoutinssec, TimeUnit.SECONDS);
-				}catch(TimeoutException e){
-					if (!presentCompute.isComputationStarted()){
-						logger.info("Past matrix computation could not start after " +timeoutinssec + " sec");
-						future.cancel(true);
-						throw new ComputingException();
-					}else{
-						present=future.get();
-					}
-				}
-			}else{
-				if (past==null){
-					past = computeAnalysisSimple(compareToAnalysis, false, true);
-					past.orderBy(fixed);
-
-				}else{
-					if (present==null){
-						present = computeAnalysisSimple(currentAnalysis, false, true);
-						present.orderBy(fixed);
-					}
-				}
-			} */
-		//
+		compareToAnalysis.setOrders(new ArrayList<OrderBy>(comparedOrder.values()));
 
 		return computeAnalysisSimple(compareToAnalysis, false, false);
-		/*
-			// compute present & past in  //
-			ComputeCompareMatrix presentCompute= new ComputeCompareMatrix(currentAnalysis, fixed);
-			Future<DataMatrix> future = ExecutionManager.INSTANCE.submit(universe.getContext().getCustomerId(),
-					presentCompute);
-			// compute past
-			past = computeAnalysisSimple(compareToAnalysis, false, true);
-			past.orderBy(fixed);
-			// wait for present
-			int timeoutinssec =60;
-			try{
-				present = future.get(timeoutinssec, TimeUnit.SECONDS);
-			}catch(TimeoutException e){
-				if (!presentCompute.isComputationStarted()){
-					logger.info("Past matrix computation could not start after " +timeoutinssec + " sec");
-					future.cancel(true);
-					throw new ComputingException();
-				}else{
-					present=future.get();
-				}
-			}
-			final Period offset = computeOffset(present, joinAxis, presentInterval, pastInterval);
-			//
-			// T1890: the present & past matrices are sorted in post-processing according to the [fixed] order
-			// the CompareMerger only works if the matrices are fully sorted
-			CompareMerger merger = new CompareMerger(present, past, mergeOrder, joinAxis, offset, computeGrowth);
-			DataMatrix debug = merger.merge(false);
-			// apply the original order by directive (T1039)
-			if (!originalOrders.isEmpty()) {
-				debug.orderBy(originalOrders);
-			}
-			// T1897 - enforce limit & offset
-			if (currentAnalysis.hasLimit() && debug.getRows().size() > currentAnalysis.getLimit()) {
-				DataMatrixTransformTruncate truncate = new DataMatrixTransformTruncate(currentAnalysis.getLimit(),
-						currentAnalysis.getOffset());
-				debug = truncate.apply(debug);
-			}
-			return debug;
-
-
-		} catch (ExecutionException e) {
-			if (e.getCause() != null) {
-				if (e.getCause() instanceof RedisCacheException) {
-					throw (RedisCacheException) e.getCause();
-				}
-				if (e.getCause() instanceof NotInCacheException) {
-					throw (NotInCacheException) e.getCause();
-				}
-				if (e.getCause() instanceof ComputingException) {
-					throw (ComputingException) e.getCause();
-				}
-			}
-			throw new ComputingException(e.getCause());
-		}
-		 */
 	}
 
 	private IntervalleObject alignPastInterval(IntervalleObject presentInterval, IntervalleObject pastInterval,
