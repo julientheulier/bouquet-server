@@ -51,6 +51,7 @@ import com.squid.core.expression.Operator;
 import com.squid.core.expression.scope.ExpressionMaker;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.core.sql.model.SQLScopeException;
+import com.squid.core.sql.render.IOrderByPiece.NULLS_ORDERING;
 import com.squid.core.sql.render.IOrderByPiece.ORDERING;
 import com.squid.core.sql.render.ISelectPiece;
 import com.squid.core.sql.render.RenderingException;
@@ -512,15 +513,15 @@ public class AnalysisCompute {
 				OrderBy orderBy = originalOrders.get(i);
 				if (orderBy.getExpression().equals(new MeasureExpression(kpi))) {
 					if (orderBy instanceof OrderByGrowth && ((OrderByGrowth) orderBy).expr.getValue().startsWith("growth(")) {
-						comparedOrder.put(i, new OrderBy(orderBy.getPos(), new MeasureExpression(growth), orderBy.getOrdering()));
-						comparedOrder.put(i+1, new OrderBy(orderBy.getPos(), new MeasureExpression(presentKpi), orderBy.getOrdering()));
-						comparedOrder.put(i+2, new OrderBy(orderBy.getPos(), new MeasureExpression(compareToKpi), orderBy.getOrdering()));
+						comparedOrder.put(i, new OrderBy(orderBy.getPos(), new MeasureExpression(growth), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
+						comparedOrder.put(i+1, new OrderBy(orderBy.getPos(), new MeasureExpression(presentKpi), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
+						comparedOrder.put(i+2, new OrderBy(orderBy.getPos(), new MeasureExpression(compareToKpi), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
 					} else if (orderBy instanceof OrderByGrowth && ((OrderByGrowth) orderBy).expr.getValue().startsWith("compareTo(")) {
-						comparedOrder.put(i, new OrderBy(orderBy.getPos(), new MeasureExpression(compareToKpi), orderBy.getOrdering()));
-						comparedOrder.put(i+1, new OrderBy(orderBy.getPos(), new MeasureExpression(presentKpi), orderBy.getOrdering()));
+						comparedOrder.put(i, new OrderBy(orderBy.getPos(), new MeasureExpression(compareToKpi), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
+						comparedOrder.put(i+1, new OrderBy(orderBy.getPos(), new MeasureExpression(presentKpi), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
 					} else {
-						comparedOrder.put(i, new OrderBy(orderBy.getPos(), new MeasureExpression(presentKpi), orderBy.getOrdering()));
-						comparedOrder.put(i+1, new OrderBy(orderBy.getPos(), new MeasureExpression(compareToKpi), orderBy.getOrdering()));
+						comparedOrder.put(i, new OrderBy(orderBy.getPos(), new MeasureExpression(presentKpi), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
+						comparedOrder.put(i+1, new OrderBy(orderBy.getPos(), new MeasureExpression(compareToKpi), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
 					}
 				}
 			}

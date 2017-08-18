@@ -2,12 +2,12 @@
  * Copyright © Squid Solutions, 2016
  *
  * This file is part of Open Bouquet software.
- *  
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
  * published by the Free Software Foundation (version 3 of the License).
  *
- * There is a special FOSS exception to the terms and conditions of the 
+ * There is a special FOSS exception to the terms and conditions of the
  * licenses as they are applied to this program. See LICENSE.txt in
  * the directory of this program distribution.
  *
@@ -54,6 +54,7 @@ import com.squid.core.sql.render.IPiece;
 import com.squid.core.sql.render.ISelectPiece;
 import com.squid.core.sql.render.ISkinFeatureSupport;
 import com.squid.core.sql.render.IWherePiece;
+import com.squid.core.sql.render.OrderByPiece;
 import com.squid.core.sql.render.RenderingException;
 import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
 import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
@@ -78,7 +79,7 @@ import com.squid.kraken.v4.model.Domain;
 
 /**
  * Implements the IQuery interface on top of the SelctMapping
- * 
+ *
  * @author sfantino
  *
  */
@@ -90,7 +91,7 @@ public class BaseQuery implements IQuery {
 	protected SelectUniversal select;
 
 	private QueryMapper mapper = new QueryMapper();
-	
+
 	private List<DataMatrixTransform> postProcessing = new ArrayList<>();
 
 	public BaseQuery() {
@@ -121,7 +122,7 @@ public class BaseQuery implements IQuery {
 	public void addPostProcessing(DataMatrixTransform dataMatrixTransform) {
 		this.postProcessing.add(dataMatrixTransform);
 	}
-	
+
 	/**
 	 * Get all the defined postProcessing steps
 	 * @return the postProcessing
@@ -130,6 +131,7 @@ public class BaseQuery implements IQuery {
 		return postProcessing;
 	}
 
+	@Override
 	public SelectUniversal getSelect() {
 		return select;
 	}
@@ -162,7 +164,7 @@ public class BaseQuery implements IQuery {
 
 	/**
 	 * add an global order by clause to the select indexes are column indexes
-	 * 
+	 *
 	 * @param indexes
 	 * @throws SQLScopeException
 	 * @throws ScopeException
@@ -170,7 +172,7 @@ public class BaseQuery implements IQuery {
 	public void orderBy(List<OrderBy> orders) throws ScopeException, SQLScopeException {
 		orderBy(orders, mapper, select);
 	}
-	
+
 
 	public void orderBy(List<OrderBy> orders, QueryMapper mapper, SelectUniversal select) throws ScopeException, SQLScopeException {
 		boolean hasSimpleOrders = true;
@@ -179,7 +181,9 @@ public class BaseQuery implements IQuery {
 			SimpleMapping m = mapper.find(order.getExpression());
 			if (m != null) {
 				m.setOrdering(order.getOrdering());
-				select.orderBy(m.getPiece()).setOrdering(order.getOrdering());
+				OrderByPiece orderPiece = select.orderBy(m.getPiece());
+				orderPiece.setOrdering(order.getOrdering());
+				orderPiece.setNullsOrdering(order.getNullsOrdering());
 			} else {
 				if (checkAllowOrderBy(order)) {
 					// the order by will imply a new group by, but because it is
@@ -189,7 +193,9 @@ public class BaseQuery implements IQuery {
 					// e.g. if group by city and I want to orderBy country, I
 					// d'ont have to display the country
 					IPiece piece = select.createPiece(Context.ORDERBY, order.getExpression());
-					select.orderBy(piece).setOrdering(order.getOrdering());
+					OrderByPiece orderPiece = select.orderBy(piece);
+					orderPiece.setOrdering(order.getOrdering());
+					orderPiece.setNullsOrdering(order.getNullsOrdering());
 					hasSimpleOrders = hasSimpleOrders && this.isSimpleOrderBy(order);
 				} else {
 					// throw new ScopeException("invalid orderBy expression
@@ -206,7 +212,7 @@ public class BaseQuery implements IQuery {
 	/**
 	 * Check if it's ok to orderBy an expression which is not yet selected, but
 	 * only if a child of the dimension is selected
-	 * 
+	 *
 	 * @param order
 	 * @return
 	 * @throws ScopeException
@@ -223,7 +229,7 @@ public class BaseQuery implements IQuery {
 			Axis axis = universe.asAxis(order.getExpression());
 			if (axis == null) {
 				return false;
-			} else {				
+			} else {
 				for (AxisMapping ax : getMapper().getAxisMapping()) {
 					try {
 						if (axis.isParentDimension(ax.getAxis())) {
@@ -239,7 +245,7 @@ public class BaseQuery implements IQuery {
 					} catch (ComputingException | InterruptedException e) {
 						// ignore
 					}
-				}				
+				}
 			}
 			AxisListExtractor ex = new AxisListExtractor();
 			Set<Axis> orderByAxes = ex.eval(expr);
@@ -250,10 +256,10 @@ public class BaseQuery implements IQuery {
 			for (AxisMapping ax : getMapper().getAxisMapping()) {
 				expressionAxes.add(ax.getAxis());
 			}
-			return (expressionAxes.containsAll(orderByAxes));						
+			return (expressionAxes.containsAll(orderByAxes));
 		}
 	}
-	
+
 	private boolean isSimpleOrderBy(OrderBy order) throws ScopeException{
 		ExpressionAST expr = order.getExpression();
 		IDomain image = expr.getImageDomain();
@@ -263,7 +269,7 @@ public class BaseQuery implements IQuery {
 		Axis axis = universe.asAxis(order.getExpression());
 		if (axis == null){
 			return false;
-		}		
+		}
 		if (expr instanceof AxisExpression){
 			return true;
 		}
@@ -273,11 +279,11 @@ public class BaseQuery implements IQuery {
 				return false;
 			}else{
 				return operator.getArguments().get(0) instanceof AxisExpression  ;
-			}						
-		}	
+			}
+		}
 		return false;
 	}
-	
+
 	public List<OrderBy> getOrderBy() {
 		return orderBy;
 	}
@@ -315,6 +321,7 @@ public class BaseQuery implements IQuery {
 		}
 	}
 
+	@Override
 	public String render() throws RenderingException {
 		try {
 			return generateScript().render();
@@ -345,7 +352,7 @@ public class BaseQuery implements IQuery {
 
 	/**
 	 * compute the dependencies for the query
-	 * 
+	 *
 	 * @param deps
 	 */
 	public List<String> computeDependencies() {
@@ -353,7 +360,7 @@ public class BaseQuery implements IQuery {
 		deps.add(getUniverse().getProject().getId().toUUID());
 		return deps;
 	}
-	
+
 	protected DataMatrix computeDataMatrix(Database database, RawMatrix rawMatrix) throws ScopeException {
 		return new DataMatrix( database,  rawMatrix, mapper);
 	}
@@ -362,7 +369,7 @@ public class BaseQuery implements IQuery {
 	/**
 	 * helper method that construct the formula: (expr>intervalle.min and
 	 * expr<intervalle.max)
-	 * 
+	 *
 	 * @param expr
 	 * @param intervalle
 	 * @return
@@ -426,13 +433,13 @@ public class BaseQuery implements IQuery {
 
 		public void applyFilter(SelectUniversal select) throws ScopeException, SQLScopeException {
 			switch (getType()) {
-			case WHERE:
-				where(select, getAxis(), getFilters());
-				break;
-			case EXISTS:
-				SelectUniversal subselect = select.exists(getAxis());
-				where(subselect, getAxis(), getFilters());
-				break;
+				case WHERE:
+					where(select, getAxis(), getFilters());
+					break;
+				case EXISTS:
+					SelectUniversal subselect = select.exists(getAxis());
+					where(subselect, getAxis(), getFilters());
+					break;
 			}
 		}
 
@@ -471,7 +478,7 @@ public class BaseQuery implements IQuery {
 	private List<ExpressionAST> conditions = null;
 
 	private boolean isQualify = false;// check if any condition implies a
-										// Qualify
+	// Qualify
 
 	public List<ExpressionAST> getConditions() {
 		if (conditions == null) {
@@ -499,7 +506,7 @@ public class BaseQuery implements IQuery {
 	/**
 	 * apply the filters to the axis and modify the select accordingly. Return
 	 * true if the select has been actually modified
-	 * 
+	 *
 	 * @param select
 	 * @param axis
 	 * @param filters
