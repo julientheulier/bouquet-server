@@ -274,7 +274,7 @@ public class AnalysisCompute {
 		// rebuild the full orderBy specs
 		List<OrderBy> originalOrders = currentAnalysis.getOrders();
 		final TreeMap<Integer,OrderBy> comparedOrder = new TreeMap<Integer,OrderBy>();
-		/*
+
 		List<OrderBy> remaining = new ArrayList<>();
 		int i = 0;
 		// list the dimensions
@@ -287,6 +287,8 @@ public class AnalysisCompute {
 		// will hold in which order to merge
 		int[] mergeOrder = new int[dimensionIndexes.size()];
 		//
+
+		ArrayList<OrderBy> fixed = new ArrayList<OrderBy>();
 		// if there is a joinAxis, it must appear as the first orderBy
 		if (joinAxis != null) {
 			OrderBy order = null;
@@ -325,7 +327,12 @@ public class AnalysisCompute {
 			} else {
 				// assuming it is a metric or something else, keep it but at the
 				// end
-				remaining.add(order);// don't know the position yet
+				// Else if axis doesn't exist yet, add it
+				if (order.getExpression() instanceof AxisExpression) {
+					currentAnalysis.getGrouping().add(new GroupByAxis(((AxisExpression)order.getExpression()).getAxis()));
+				} else {
+					remaining.add(order);// don't know the position yet
+				}
 			}
 		}
 		// handling the dimensions not sorted
@@ -333,7 +340,8 @@ public class AnalysisCompute {
 			for (ExpressionAST dim : queue) {
 				if (joinAxis == null || !joinAxis.getReference().equals(dim)) {
 					// check the best order
-					IDomain image = dim.getImageDomain();					fixed.add(new OrderBy(i, dim, image.isInstanceOf(IDomain.TEMPORAL)?ORDERING.DESCENT:ORDERING.ASCENT));
+					IDomain image = dim.getImageDomain();
+					fixed.add(new OrderBy(i, dim, image.isInstanceOf(IDomain.TEMPORAL)?ORDERING.DESCENT:ORDERING.ASCENT));
 					mergeOrder[i++] = dimensionIndexes.indexOf(dim);
 				}
 			}
@@ -356,7 +364,7 @@ public class AnalysisCompute {
 				currentAnalysis.setOrders(fixed);
 			}
 		}
-		 */
+
 		//
 		// compute the past version
 		DashboardAnalysis compareToAnalysis = new DashboardAnalysis(universe);
@@ -416,6 +424,8 @@ public class AnalysisCompute {
 		 * currentAnalysis.hasBeyondLimit() ? new ArrayList<GroupByAxis>() :
 		 * null;
 		 */
+		int ij = 0;
+
 		ArrayList<GroupByAxis> compareBeyondLimit = currentAnalysis.hasBeyondLimit() ? new ArrayList<GroupByAxis>()
 				: null;
 		for (GroupByAxis groupBy : currentAnalysis.getGrouping()) {
@@ -469,10 +479,11 @@ public class AnalysisCompute {
 				}
 				newGroupBy = groupBy;
 			}
-			for (int i=0; i< originalOrders.size(); i++) {
-				OrderBy orderBy = originalOrders.get(i);
+
+			for (int ix=0; ix< currentAnalysis.getOrders().size(); ix++) {
+				OrderBy orderBy = currentAnalysis.getOrders().get(ix);
 				if (orderBy.getExpression().equals(new AxisExpression(groupBy.getAxis()))) {
-					comparedOrder.put(i, new OrderBy(orderBy.getPos(), new AxisExpression(newGroupBy.getAxis()), orderBy.getOrdering()));
+					comparedOrder.put(ij++, new OrderBy(orderBy.getPos(), new AxisExpression(newGroupBy.getAxis()), orderBy.getOrdering()));
 				}
 			}
 
@@ -514,21 +525,67 @@ public class AnalysisCompute {
 				growth.setFormat("%.2f");
 				compareToAnalysis.add(growth);
 			}
-			for (int i=0; i< originalOrders.size(); i++) {
-				OrderBy orderBy = originalOrders.get(i);
+			/*
+			for (int ij=0; ij< originalOrders.size(); ij++) {
+				OrderBy orderBy = originalOrders.get(ij);
 				if (orderBy.getExpression().equals(new MeasureExpression(kpi))) {
 					if (orderBy instanceof OrderByGrowth && ((OrderByGrowth) orderBy).expr.getValue().startsWith("growth(")) {
-						comparedOrder.put(i, new OrderBy(orderBy.getPos(), new MeasureExpression(growth), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
-						comparedOrder.put(i+1, new OrderBy(orderBy.getPos(), new MeasureExpression(presentKpi), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
-						comparedOrder.put(i+2, new OrderBy(orderBy.getPos(), new MeasureExpression(compareToKpi), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
+						comparedOrder.put(ij, new OrderBy(orderBy.getPos(), new MeasureExpression(growth), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
+						comparedOrder.put(ij+1, new OrderBy(orderBy.getPos(), new MeasureExpression(presentKpi), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
+						comparedOrder.put(ij+2, new OrderBy(orderBy.getPos(), new MeasureExpression(compareToKpi), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
 					} else if (orderBy instanceof OrderByGrowth && ((OrderByGrowth) orderBy).expr.getValue().startsWith("compareTo(")) {
-						comparedOrder.put(i, new OrderBy(orderBy.getPos(), new MeasureExpression(compareToKpi), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
-						comparedOrder.put(i+1, new OrderBy(orderBy.getPos(), new MeasureExpression(presentKpi), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
+						comparedOrder.put(ij, new OrderBy(orderBy.getPos(), new MeasureExpression(compareToKpi), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
+						comparedOrder.put(ij+1, new OrderBy(orderBy.getPos(), new MeasureExpression(presentKpi), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
 					} else {
-						comparedOrder.put(i, new OrderBy(orderBy.getPos(), new MeasureExpression(presentKpi), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
-						comparedOrder.put(i+1, new OrderBy(orderBy.getPos(), new MeasureExpression(compareToKpi), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
+						comparedOrder.put(ij, new OrderBy(orderBy.getPos(), new MeasureExpression(presentKpi), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
+						comparedOrder.put(ij+1, new OrderBy(orderBy.getPos(), new MeasureExpression(compareToKpi), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
 					}
 				}
+			}
+			 */
+		}
+		for (int ix=0; ix<currentAnalysis.getOrders().size(); ix++) {
+			OrderBy orderBy = currentAnalysis.getOrders().get(ix);
+			if (orderBy.getExpression() instanceof AxisExpression) {
+				//do nothing
+
+			} else if (orderBy.getExpression() instanceof MeasureExpression) {
+				Measure kpi = ((MeasureExpression) orderBy.getExpression()).getMeasure();
+				ExpressionAST kpiExpr = kpi.getDefinitionSafe();
+				Measure presentKpi = new Measure(kpi);
+				presentKpi.setDefinition(createMetricOffset(kpiExpr, presentExpression));
+				presentKpi.setOriginType(kpi.getOriginType());
+				presentKpi.setName(kpi.getName());
+				presentKpi.setDescription(kpi.getDescription());
+				//Measure compareToKpi = new Measure(kpi.getParent(), createMetricOffset(kpiExpr, pastExpression), kpi.getMetric().getId().getObjectId()+"_compare");
+				Measure compareToKpi = new Measure(kpi);
+				compareToKpi.setDefinition(createMetricOffset(kpiExpr, pastExpression));
+				compareToKpi.setOriginType(OriginType.COMPARETO);
+				compareToKpi.setName(kpi.getName() + " [compare]");
+				compareToKpi.setDescription(kpi.getName() + " comparison on " + compareToWhat);
+				Measure growth = null;
+				if (computeGrowth) {
+					// add the growth definition...
+					growth = new Measure(kpi);
+					growth.setDefinition(ExpressionMaker.DIV(ExpressionMaker.MINUS(presentKpi.getDefinitionSafe(), compareToKpi.getDefinitionSafe()), ExpressionMaker.DIV(compareToKpi.getDefinitionSafe(), ExpressionMaker.CONSTANT(100))));
+					growth.setOriginType(OriginType.GROWTH);
+					growth.setName(kpi.getName() + " [growth%]");
+					growth.setFormat("%.2f");
+				}
+
+				if (orderBy instanceof OrderByGrowth && ((OrderByGrowth) orderBy).expr.getValue().startsWith("growth(")) {
+					comparedOrder.put(ij++, new OrderBy(orderBy.getPos(), new MeasureExpression(growth), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
+					comparedOrder.put(ij++, new OrderBy(orderBy.getPos(), new MeasureExpression(presentKpi), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
+					comparedOrder.put(ij++, new OrderBy(orderBy.getPos(), new MeasureExpression(compareToKpi), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
+				} else if (orderBy instanceof OrderByGrowth && ((OrderByGrowth) orderBy).expr.getValue().startsWith("compareTo(")) {
+					comparedOrder.put(ij++, new OrderBy(orderBy.getPos(), new MeasureExpression(compareToKpi), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
+					comparedOrder.put(ij++, new OrderBy(orderBy.getPos(), new MeasureExpression(presentKpi), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
+				} else {
+					comparedOrder.put(ij++, new OrderBy(orderBy.getPos(), new MeasureExpression(presentKpi), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
+					comparedOrder.put(ij++, new OrderBy(orderBy.getPos(), new MeasureExpression(compareToKpi), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
+				}
+			} else {
+				throw new RenderingException("Could not rentder result set ordering");
 			}
 
 		}
