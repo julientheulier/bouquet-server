@@ -140,7 +140,7 @@ public class Axis implements Property {
 	}
 
 	public Axis withNickname(Axis axis) {
-		if (axis.getName()!=null) {
+		if (axis.hasName()) {
 			this.name = axis.getName();
 		}
 		return this;
@@ -474,7 +474,7 @@ public class Axis implements Property {
 			return this;
 		} else {
 			Space root = new Space(this.parent.getUniverse(), this.getParent().getDomain());
-			return root.A(this.dimension).withDefinition(this.getDefinitionSafe()).withName(name);
+			return root.A(this.dimension).withName(name).withDefinition(this.getDefinitionSafe());
 		}
 	}
 

@@ -507,9 +507,14 @@ public class Space {
 	protected Axis relink(Space space, Axis a) throws ScopeException, ComputingException, InterruptedException {
 		if (a.getParent().getDomain().equals(space.getDomain())) {
 			if (a.getDimension()!=null) {
-				return space.A(a.getDimension()).withDefinition(a.getDefinitionSafe()).withNickname(a);
+				//T3207 hack to get correctly the axis in case of a filtering throudh dimension (counter for ex)
+				Axis a1 =  space.A(a.getDimension()).withNickname(a);
+				if (space.getParent() == null) {
+					return a1.withDefinition(a.getDefinitionSafe());
+				}
+				return a1;
 			} else {
-				return new Axis(space, a.getDefinition()).withId(a.getId()).withNickname(a);
+				return new Axis(space, a.getDefinition()).withNickname(a).withId(a.getId());
 			}
 		} else {
 			throw new ScopeException("cannot relink "+space.toString()+" with "+a.toString());
