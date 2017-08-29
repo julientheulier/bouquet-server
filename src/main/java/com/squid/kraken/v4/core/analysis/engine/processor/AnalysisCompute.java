@@ -479,14 +479,14 @@ public class AnalysisCompute {
 				}
 				newGroupBy = groupBy;
 			}
-
+			/*
 			for (int ix=0; ix< currentAnalysis.getOrders().size(); ix++) {
 				OrderBy orderBy = currentAnalysis.getOrders().get(ix);
 				if (orderBy.getExpression().equals(new AxisExpression(groupBy.getAxis()))) {
 					comparedOrder.put(ij++, new OrderBy(orderBy.getPos(), new AxisExpression(newGroupBy.getAxis()), orderBy.getOrdering()));
 				}
 			}
-
+			 */
 		}
 
 		compareToAnalysis.setSelection(pastSelection);
@@ -547,8 +547,11 @@ public class AnalysisCompute {
 		for (int ix=0; ix<currentAnalysis.getOrders().size(); ix++) {
 			OrderBy orderBy = currentAnalysis.getOrders().get(ix);
 			if (orderBy.getExpression() instanceof AxisExpression) {
-				//do nothing
-
+				for (GroupByAxis groupBy: compareToAnalysis.getGrouping()) {
+					if (orderBy.getExpression().equals(new AxisExpression(groupBy.getAxis()))) {
+						comparedOrder.put(ij++, new OrderBy(orderBy.getPos(), new AxisExpression(groupBy.getAxis()), orderBy.getOrdering()));
+					}
+				}
 			} else if (orderBy.getExpression() instanceof MeasureExpression) {
 				Measure kpi = ((MeasureExpression) orderBy.getExpression()).getMeasure();
 				ExpressionAST kpiExpr = kpi.getDefinitionSafe();
