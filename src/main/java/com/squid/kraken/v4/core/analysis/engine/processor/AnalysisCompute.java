@@ -226,12 +226,17 @@ public class AnalysisCompute {
 			Operator op = (Operator) kpiExpr;
 			List<ExpressionAST> exprs = op.getArguments();
 			List<ExpressionAST> newExprs = new ArrayList<ExpressionAST>();
-			for (ExpressionAST expr:exprs) {
-				if (op.getOperatorDefinition().getDomain().isInstanceOf(IDomain.AGGREGATE)) {
-					newExprs.add(ExpressionMaker.CASE(offsetExpression, expr));
-				} else{
-					newExprs.add(createMetricOffset(expr, offsetExpression));
+			if (exprs.size()>0) {
+				for (ExpressionAST expr:exprs) {
+					if (op.getOperatorDefinition().getDomain().isInstanceOf(IDomain.AGGREGATE)) {
+						newExprs.add(ExpressionMaker.CASE(offsetExpression, expr));
+					} else{
+						newExprs.add(createMetricOffset(expr, offsetExpression));
+					}
 				}
+			} else {
+				//No args, it is a count(*) like expression
+				newExprs.add(ExpressionMaker.CASE(offsetExpression,ExpressionMaker.CONSTANT(1)));
 			}
 			return ExpressionMaker.op(op.getOperatorDefinition(),newExprs);
 		} else if (kpiExpr instanceof MeasureExpression) {
