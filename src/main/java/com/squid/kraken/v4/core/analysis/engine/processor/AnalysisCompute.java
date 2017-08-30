@@ -59,7 +59,6 @@ import com.squid.kraken.v4.KrakenConfig;
 import com.squid.kraken.v4.api.core.SQLStats;
 import com.squid.kraken.v4.api.core.attribute.AttributeServiceBaseImpl;
 import com.squid.kraken.v4.caching.NotInCacheException;
-import com.squid.kraken.v4.core.analysis.datamatrix.AxisValues;
 import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionMember;
 import com.squid.kraken.v4.core.analysis.engine.query.QueryRunner;
@@ -482,14 +481,6 @@ public class AnalysisCompute {
 				}
 				newGroupBy = groupBy;
 			}
-			/*
-			for (int ix=0; ix< currentAnalysis.getOrders().size(); ix++) {
-				OrderBy orderBy = currentAnalysis.getOrders().get(ix);
-				if (orderBy.getExpression().equals(new AxisExpression(groupBy.getAxis()))) {
-					comparedOrder.put(ij++, new OrderBy(orderBy.getPos(), new AxisExpression(newGroupBy.getAxis()), orderBy.getOrdering()));
-				}
-			}
-			 */
 		}
 
 		compareToAnalysis.setSelection(pastSelection);
@@ -528,24 +519,6 @@ public class AnalysisCompute {
 				growth.setFormat("%.2f");
 				compareToAnalysis.add(growth);
 			}
-			/*
-			for (int ij=0; ij< originalOrders.size(); ij++) {
-				OrderBy orderBy = originalOrders.get(ij);
-				if (orderBy.getExpression().equals(new MeasureExpression(kpi))) {
-					if (orderBy instanceof OrderByGrowth && ((OrderByGrowth) orderBy).expr.getValue().startsWith("growth(")) {
-						comparedOrder.put(ij, new OrderBy(orderBy.getPos(), new MeasureExpression(growth), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
-						comparedOrder.put(ij+1, new OrderBy(orderBy.getPos(), new MeasureExpression(presentKpi), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
-						comparedOrder.put(ij+2, new OrderBy(orderBy.getPos(), new MeasureExpression(compareToKpi), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
-					} else if (orderBy instanceof OrderByGrowth && ((OrderByGrowth) orderBy).expr.getValue().startsWith("compareTo(")) {
-						comparedOrder.put(ij, new OrderBy(orderBy.getPos(), new MeasureExpression(compareToKpi), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
-						comparedOrder.put(ij+1, new OrderBy(orderBy.getPos(), new MeasureExpression(presentKpi), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
-					} else {
-						comparedOrder.put(ij, new OrderBy(orderBy.getPos(), new MeasureExpression(presentKpi), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
-						comparedOrder.put(ij+1, new OrderBy(orderBy.getPos(), new MeasureExpression(compareToKpi), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
-					}
-				}
-			}
-			 */
 		}
 		for (int ix=0; ix<currentAnalysis.getOrders().size(); ix++) {
 			OrderBy orderBy = currentAnalysis.getOrders().get(ix);
@@ -773,98 +746,6 @@ public class AnalysisCompute {
 		}
 		// else
 		return null;
-	}
-
-	private Period computeOffset(DataMatrix present, Axis joinAxis, IntervalleObject presentInterval,
-			IntervalleObject pastInterval) throws ScopeException {
-		if (joinAxis == null || presentInterval == null || pastInterval == null) {
-			return null;
-		} else {
-			AxisValues check = present.find(joinAxis);
-			if (check == null) {
-				return null;// no need to bother
-			} else {
-				return computeOffset(presentInterval, pastInterval, check);
-			}
-		}
-	}
-
-	private Period computeOffset(IntervalleObject presentInterval, IntervalleObject pastInterval, AxisValues joinAxis)
-			throws ScopeException {
-		// it is better to compare on the lower bound because alignment on the
-		// end of month is not accurate
-		Object present = presentInterval.getLowerBound();
-		Object past = pastInterval.getLowerBound();
-		//
-
-		IDomain image = joinAxis.getAxis().getDefinition().getImageDomain();
-		PeriodType type = computePeriodType(image);
-		//
-		if (present instanceof Date && past instanceof Date) {
-
-			Period presentPeriod = new Period(new LocalDate(((Date) presentInterval.getLowerBound()).getTime()),
-					new LocalDate(((Date) presentInterval.getUpperBound()).getTime()).plusDays(1), type);
-
-			Period pastPeriod = new Period(new LocalDate(((Date) pastInterval.getLowerBound()).getTime()),
-					new LocalDate(((Date) pastInterval.getUpperBound()).getTime()).plusDays(1), type);
-
-			Date pastDate = (Date) past;
-			DateTime dt = new DateTime(pastDate);
-			if (image.isInstanceOf(IDomain.YEARLY)) {
-				if (presentPeriod.getYears() > pastPeriod.getYears()) {
-					// e.g. presentPeriod of 365 days ->
-					// presentPeriod.getYears=1 && past year of 366 days ->
-					// pastPeriod.getYears=0
-					DateTime newDT = new DateTime(dt.getYear(), 1, 1, 0, 0);
-					pastDate = newDT.toDate();
-				} else {
-					if (dt.getDayOfYear() != 1) {
-						// e.g present period of 366 days -> past date at dec 31
-						DateTime newDT = new DateTime(dt.getYear() + 1, 1, 1, 0, 0);
-						pastDate = newDT.toDate();
-					}
-				}
-			} else if (image.isInstanceOf(IDomain.QUARTERLY) || image.isInstanceOf(IDomain.MONTHLY)) {
-
-				if (presentPeriod.getMonths() > pastPeriod.getMonths()) {
-					// e.g present period of 28 days(February) ->
-					// pastPeriod.getMonths() = 0 (January has 31 days)
-					DateTime newDT = new DateTime(dt.getYear(), dt.getMonthOfYear(), 1, 0, 0);
-					pastDate = newDT.toDate();
-				} else {
-					if (dt.getDayOfMonth() != 1) {
-						// e.g. present period of 31 day(March) pastDate = Feb 6
-						if (dt.getMonthOfYear() == 12) {
-							DateTime newDT = new DateTime(dt.getYear() + 1, 1, 1, 0, 0);
-							pastDate = newDT.toDate();
-						} else {
-							DateTime newDT = new DateTime(dt.getYear(), dt.getMonthOfYear() + 1, 1, 0, 0);
-							pastDate = newDT.toDate();
-						}
-					}
-				}
-			} else {
-				// daily, keep Date as it is
-			}
-			return new Period(new LocalDate((pastDate).getTime()), new LocalDate(((Date) present).getTime()), type);
-
-		} else {
-			return null;
-		}
-	}
-
-	private PeriodType computePeriodType(IDomain image) {
-		if (image.isInstanceOf(IDomain.YEARLY)) {
-			return PeriodType.years();
-		} else if (image.isInstanceOf(IDomain.QUARTERLY)) {
-			return PeriodType.months();
-		} else if (image.isInstanceOf(IDomain.MONTHLY)) {
-			return PeriodType.months();
-		} else if (image.isInstanceOf(IDomain.WEEKLY)) {
-			return PeriodType.weeks();
-		} else {
-			return PeriodType.days();
-		}
 	}
 
 	private IntervalleObject computeMinMax(Collection<DimensionMember> members) throws ScopeException {
