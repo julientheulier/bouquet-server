@@ -431,7 +431,12 @@ public class AnalysisCompute {
 		for (GroupByAxis groupBy : currentAnalysis.getGrouping()) {
 			GroupByAxis newGroupBy = null;
 			if (groupBy.getAxis().equals(joinAxis)) {
-				boolean hasSameNumberOfDays = (Days.daysBetween(startPresent, endPresent).getDays() == Days.daysBetween(startPast, endPast).getDays());
+				boolean offsetByDay = (Days.daysBetween(startPresent, endPresent).getDays() == Days.daysBetween(startPast, endPast).getDays());
+				int nrMonths = Months.monthsBetween(startPast, startPresent).getMonths();
+				//AddMonths is handling properly last day offset for months with different days
+				if (startPresent.equals(startPast.plusMonths(nrMonths)) && (endPresent.equals(endPast.plusMonths(nrMonths)) || endPresent.isAfter(endPast.plusMonths(nrMonths)))) {
+					offsetByDay = false;
+				}
 				ExpressionAST groupByExpr = groupBy.getAxis().getDefinitionSafe();
 				if (groupByExpr instanceof Operator && (((Operator) groupByExpr).getOperatorDefinition() instanceof DateTruncateShortcutsOperatorDefinition
 						||((Operator) groupByExpr).getOperatorDefinition() instanceof DateTruncateOperatorDefinition)) {
@@ -441,10 +446,9 @@ public class AnalysisCompute {
 					int index = 0;
 					for (ExpressionAST expr: rootAxes) {
 						if (index==0) { //This handles DateTruncate function / shortcut, date is the first/only arg
-							if (hasSameNumberOfDays) {
+							if (offsetByDay) {
 								rootAxesWithOffset.add(ExpressionMaker.CASE(pastExpression, ExpressionMaker.ADD(expr, ExpressionMaker.MINUS(ExpressionMaker.CONSTANT(presentInterval.getLowerBound(), IDomain.DATE), ExpressionMaker.CONSTANT(pastInterval.getLowerBound(), IDomain.DATE))), expr));
 							} else {
-								int nrMonths = Months.monthsBetween(startPast, startPresent).getMonths();
 								rootAxesWithOffset.add(ExpressionMaker.CASE(pastExpression, ExpressionMaker.ADD_MONTHS(expr, ExpressionMaker.CONSTANT(nrMonths)), expr));
 							}
 						} else {
@@ -454,10 +458,9 @@ public class AnalysisCompute {
 					}
 					groupByExpr = ExpressionMaker.op(op.getOperatorDefinition(),rootAxesWithOffset);
 				} else {
-					if (hasSameNumberOfDays) {
+					if (offsetByDay) {
 						groupByExpr = ExpressionMaker.CASE(pastExpression, ExpressionMaker.ADD(groupByExpr, ExpressionMaker.MINUS(ExpressionMaker.CONSTANT(presentInterval.getLowerBound(), IDomain.DATE), ExpressionMaker.CONSTANT(pastInterval.getLowerBound(), IDomain.DATE))), groupByExpr);
 					} else {
-						int nrMonths = Months.monthsBetween(startPast, startPresent).getMonths();
 						groupByExpr = ExpressionMaker.CASE(pastExpression, ExpressionMaker.ADD_MONTHS(groupByExpr, ExpressionMaker.CONSTANT(nrMonths)), groupByExpr);
 					}
 				}
