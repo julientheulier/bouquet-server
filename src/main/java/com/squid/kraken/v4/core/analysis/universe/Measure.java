@@ -28,7 +28,6 @@ import com.squid.core.domain.IDomain;
 import com.squid.core.domain.aggregate.AggregateDomain;
 import com.squid.core.domain.analytics.AnalyticDomain;
 import com.squid.core.domain.associative.AssociativeDomainInformation;
-import com.squid.core.domain.operators.OperatorScope;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.PrettyPrintConstant;
 import com.squid.core.expression.PrettyPrintOptions;
@@ -306,7 +305,7 @@ public class Measure implements Property {
 		}
 		else if (obj instanceof Measure) {
 			Measure measure = (Measure)obj;
-			return this.getId().equals(measure.getId());
+			return this.getId().equals(measure.getId()) && this.getOriginType() == measure.getOriginType();
 		}
 		else
 			return false;
@@ -333,11 +332,11 @@ public class Measure implements Property {
 
 	@Override
 	public ExpressionAST getReference() {
-		if (originType==OriginType.COMPARETO) {
-			return ExpressionMaker.op(OperatorScope.getDefault().lookupByExtendedID("ext.compareTo.apply"), new MeasureExpression(this));
-		} else {
-			return new MeasureExpression(this);
-		}
+		//if (originType==OriginType.COMPARETO) {
+		//	return ExpressionMaker.op(OperatorScope.getDefault().lookupByExtendedID("ext.compareTo.apply"), new MeasureExpression(this));
+		//} else {
+		return new MeasureExpression(this);
+		//}
 	}
 
 }

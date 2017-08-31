@@ -44,6 +44,7 @@ import com.squid.core.domain.IDomain;
 import com.squid.core.domain.operators.ExtendedType;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.scope.ScopeException;
+import com.squid.core.sql.render.IOrderByPiece.NULLS_ORDERING;
 import com.squid.core.sql.render.IOrderByPiece.ORDERING;
 import com.squid.kraken.v4.caching.redis.datastruct.RawMatrix;
 import com.squid.kraken.v4.caching.redis.datastruct.RawRow;
@@ -426,6 +427,7 @@ public class DataMatrix {
 	public void orderBy(List<OrderBy> orderBy) {
 		final List<Integer> ordering = new ArrayList<>();
 		final List<ORDERING> direction = new ArrayList<>();
+		final List<NULLS_ORDERING> nulls = new ArrayList<>();
 		for (OrderBy item : orderBy) {
 			ExpressionAST itemExpr = item.getExpression();
 			int pos = 0;
@@ -446,8 +448,10 @@ public class DataMatrix {
 					if (ok) {
 						ordering.add(pos);
 						direction.add(item.getOrdering());
+						nulls.add(item.getNullsOrdering());
 						// T1890: update the axis too
 						axis.setOrdering(item.getOrdering());
+						axis.setNullsOrdering(item.getNullsOrdering());
 						check = true;
 						pos++;
 						break;
@@ -463,7 +467,9 @@ public class DataMatrix {
 						if (v.getMeasure().prettyPrint().equalsIgnoreCase(((OrderByGrowth) item).expr.getValue())) {
 							ordering.add(pos);
 							direction.add(item.getOrdering());
+							nulls.add(item.getNullsOrdering());
 							v.setOrdering(item.getOrdering());
+							v.setNullsOrdering(item.getNullsOrdering());
 							check = true;
 							break;
 						}
@@ -471,7 +477,9 @@ public class DataMatrix {
 						if (v.getMeasure().getReference().equals(itemExpr)) {
 							ordering.add(pos);
 							direction.add(item.getOrdering());
+							nulls.add(item.getNullsOrdering());
 							v.setOrdering(item.getOrdering());
+							v.setNullsOrdering(item.getNullsOrdering());
 							check = true;
 							break;
 						}
@@ -491,6 +499,15 @@ public class DataMatrix {
 					int cc = compareValues(v1, v2);
 					if (direction.get(i) == ORDERING.DESCENT)
 						cc = -cc;// reverse
+					if (nulls.get(i) != NULLS_ORDERING.UNDEFINED) {
+						if ((v1 == null && v2 != null) || (v1 != null && v2 == null) ) {
+							if (nulls.get(i) == NULLS_ORDERING.NULLS_FIRST) {
+								cc = (v1==null?-1:1);
+							} else {
+								cc = (v1==null?1:-1);
+							}
+						}
+					}
 					if (cc != 0)
 						return cc;
 				}

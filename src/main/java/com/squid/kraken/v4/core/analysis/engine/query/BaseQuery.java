@@ -48,6 +48,7 @@ import com.squid.core.expression.scope.ScopeException;
 import com.squid.core.sql.Context;
 import com.squid.core.sql.db.features.QualifySupport;
 import com.squid.core.sql.model.SQLScopeException;
+import com.squid.core.sql.render.IOrderByPiece;
 import com.squid.core.sql.render.IOrderByPiece.ORDERING;
 import com.squid.core.sql.render.IPiece;
 import com.squid.core.sql.render.ISelectPiece;
@@ -331,11 +332,11 @@ public class BaseQuery implements IQuery {
 
 	public String renderNoLimitNoOrderBy() throws RenderingException {
 		long limit = this.select.getStatement().getLimitValue();
-		//ArrayList<IOrderByPiece> orderByPieces = (ArrayList<IOrderByPiece>) this.select.getStatement()
-		//		.getOrderByPieces();
+		ArrayList<IOrderByPiece> orderByPieces = (ArrayList<IOrderByPiece>) this.select.getStatement()
+				.getOrderByPieces();
 
 		this.select.getStatement().setLimitValue(-1);
-		//this.select.getStatement().setOrderByPieces(new ArrayList<IOrderByPiece>());
+		this.select.getStatement().setOrderByPieces(new ArrayList<IOrderByPiece>());
 
 		String sqlNoLimit;
 		try {
@@ -346,7 +347,7 @@ public class BaseQuery implements IQuery {
 		}
 
 		this.select.getStatement().setLimitValue(limit);
-		//this.select.getStatement().setOrderByPieces(orderByPieces);
+		this.select.getStatement().setOrderByPieces(orderByPieces);
 
 		return sqlNoLimit;
 	}
