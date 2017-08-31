@@ -499,7 +499,7 @@ public class DataMatrix {
 					int cc = compareValues(v1, v2);
 					if (direction.get(i) == ORDERING.DESCENT)
 						cc = -cc;// reverse
-					if (nulls.get(i) != NULLS_ORDERING.UNDEFINED) {
+					if (nulls.get(i) == NULLS_ORDERING.NULLS_FIRST || nulls.get(i) == NULLS_ORDERING.NULLS_LAST) {
 						if ((v1 == null && v2 != null) || (v1 != null && v2 == null) ) {
 							if (nulls.get(i) == NULLS_ORDERING.NULLS_FIRST) {
 								cc = (v1==null?-1:1);
