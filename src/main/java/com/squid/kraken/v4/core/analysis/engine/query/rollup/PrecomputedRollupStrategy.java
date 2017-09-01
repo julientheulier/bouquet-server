@@ -50,12 +50,14 @@ import com.squid.kraken.v4.model.Attribute;
 
 /**
  * How to use:
- * 	1. Flag a dimension indicating the the number of rollup levels of the data.
- *     For that, add an attribute precomputedRollupLevels with the number of rollup levels (incl. raw data)
+ * 	1. Flag a dimension indicating the number of rollup levels for every row returned by the query.
+ *     For that, add an attribute precomputedRollupLevels with the number of rollup levels (incl. raw data).
+ *     This dimension is an integer, with the following values definition
  * 		- null: no aggregation
  * 		- -1 : grant total rollup
- * 		- 1: top rollup aggregation
- * 		- 2: 2nd rollup aggregation if any
+ * 		- 1: top level rollup aggregation
+ * 		- 2: 	2nd level rollup aggregation if any
+ * 		- 3: 	3rd level rollup aggregation if any
  * 		... & so on
  * 	2. Define a bookmark selecting data & this dimension
  *  3. This can be combined with rollup info in analysis
