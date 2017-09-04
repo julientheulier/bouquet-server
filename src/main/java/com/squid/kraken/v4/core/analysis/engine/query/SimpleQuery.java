@@ -2,12 +2,12 @@
  * Copyright © Squid Solutions, 2016
  *
  * This file is part of Open Bouquet software.
- *  
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
  * published by the Free Software Foundation (version 3 of the License).
  *
- * There is a special FOSS exception to the terms and conditions of the 
+ * There is a special FOSS exception to the terms and conditions of the
  * licenses as they are applied to this program. See LICENSE.txt in
  * the directory of this program distribution.
  *
@@ -69,6 +69,7 @@ import com.squid.kraken.v4.core.analysis.model.OrderBy;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
 import com.squid.kraken.v4.core.analysis.universe.Measure;
 import com.squid.kraken.v4.core.analysis.universe.Space;
+import com.squid.kraken.v4.core.analysis.universe.Universe;
 import com.squid.kraken.v4.core.expression.reference.RelationReference;
 import com.squid.kraken.v4.core.sql.FromSelectUniversal;
 import com.squid.kraken.v4.core.sql.SelectUniversal;
@@ -79,7 +80,7 @@ import com.squid.kraken.v4.model.Relation;
 /**
  * this is the Query for computing analysis, that manages measures, axes and
  * filters KRKN-59: now also support rollup
- * 
+ *
  * @author sfantino
  *
  */
@@ -99,6 +100,11 @@ public class SimpleQuery extends BaseQuery {
 		this.subject = subject.getRoot();
 	}
 
+	public SimpleQuery(Universe universe, Domain subject, SelectUniversal select) throws SQLScopeException, ScopeException {
+		super(universe, select);
+		this.subject = subject;
+	}
+
 	public Domain getSubject() {
 		return subject;
 	}
@@ -113,7 +119,7 @@ public class SimpleQuery extends BaseQuery {
 			piece.addComment(name + " (Metric)");
 			setComment("\ncomputing KPI '" + name + "'");
 			select.getScope().put(measure, expr);// register the measure in the
-													// select context
+			// select context
 			MeasureMapping kx = new MeasureMapping(piece, measure);
 			add(kx);
 		} catch (ScopeException e) {
@@ -131,7 +137,7 @@ public class SimpleQuery extends BaseQuery {
 			Domain a_domain = axis.getParent().getRoot();
 			if (!this.subject.equals(a_domain)) {
 				throw new ScopeException("cannot select '" + axis.prettyPrint() + "': domain '" + a_domain.getName()
-						+ "' does not match select domain '" + this.subject.getName() + "'");
+				+ "' does not match select domain '" + this.subject.getName() + "'");
 			}
 			ExpressionAST expr = axis.getDefinition();
 			IDomain image = expr.getImageDomain();
@@ -145,14 +151,14 @@ public class SimpleQuery extends BaseQuery {
 			}
 			/*
 			 * JTH 20170524 : remove this ugly Nautilus thing
-			 * https://phab.squidsolutions.com/T3110 
+			 * https://phab.squidsolutions.com/T3110
 			// ticket:3014 - handles predicate as case(P,true,null): we don't
 			// want to index false values
 			if (image.isInstanceOf(IDomain.CONDITIONAL)) {
 				// transform expr into case(expr,true,null)
 				expr = ExpressionMaker.CASE(expr, ExpressionMaker.TRUE(), ExpressionMaker.NULL());
 			}
-			*/
+			 */
 			//
 			if (image.isInstanceOf(IDomain.OBJECT)) {
 				// ok, try to identify the foreign-key...
@@ -184,7 +190,7 @@ public class SimpleQuery extends BaseQuery {
 			Compose compose = (Compose) expr;
 			ExpressionAST exported = extractRelation(axis, compose.getHead());
 			return new Compose(compose.getTail(), exported);// relink exported
-															// key
+			// key
 		} else {
 			throw new SQLScopeException("Domain dimension not supported: " + axis.getName());
 		}
@@ -209,7 +215,7 @@ public class SimpleQuery extends BaseQuery {
 	protected ISelectPiece selectDimension(Axis axis, ExpressionAST expr) throws ScopeException, SQLScopeException {
 		ISelectPiece piece = select.select(expr, axis.getName());
 		select.getScope().put(axis, expr);// register the axis in the select
-											// context
+		// context
 		AxisMapping ax = new AxisMapping(piece, axis);
 		add(ax);
 		//
@@ -267,7 +273,7 @@ public class SimpleQuery extends BaseQuery {
 	/**
 	 * test if the space is already selected, i.e. included in the FROM
 	 * statement; if so will return the selected part as a Space
-	 * 
+	 *
 	 * @param space
 	 * @return
 	 */
@@ -346,7 +352,7 @@ public class SimpleQuery extends BaseQuery {
 
 	/**
 	 * join this query with the inner SimpleQuery based on the axes equi- join
-	 * 
+	 *
 	 * @param axes
 	 * @param inner
 	 * @return
@@ -383,7 +389,7 @@ public class SimpleQuery extends BaseQuery {
 
 	/**
 	 * define a rollup
-	 * 
+	 *
 	 * @param axis
 	 * @throws ScopeException
 	 * @throws SQLScopeException
@@ -402,21 +408,21 @@ public class SimpleQuery extends BaseQuery {
 				// check for availability in the parent scope
 				Object object = source.getAdapter(Domain.class);
 				if (object != null && object instanceof Domain) {
-					mapping = select.getScope().get(((Domain) object));
+					mapping = select.getScope().get((object));
 				} else {
 					object = source.getAdapter(Table.class);
 					if (object != null && object instanceof Table) {
-						mapping = select.getScope().get((Table) object);
+						mapping = select.getScope().get(object);
 					}
 				}
 			}
 			if (mapping == null && !source.equals(IDomain.NULL)) { // null
-																	// domain
-																	// will be
-																	// automatically
-																	// bound to
-																	// the main
-																	// scope
+				// domain
+				// will be
+				// automatically
+				// bound to
+				// the main
+				// scope
 				throw new SQLScopeException("the source domain is not bound");
 			}
 			//
@@ -431,7 +437,7 @@ public class SimpleQuery extends BaseQuery {
 				throw new SQLScopeException("mixing rollup and analytics feature is not supported");
 			}
 			return generateQualifyScript();
-		// krkn-59: rollup support
+			// krkn-59: rollup support
 		} else if (precomputedRollupAxis!= null || rollupGrandTotal || (rollup != null && !rollup.isEmpty())) {
 			IRollupStrategy strategy = RollupStrategySelector.selectStrategy(this, select, rollup, rollupGrandTotal,
 					getMapper());
@@ -472,7 +478,7 @@ public class SimpleQuery extends BaseQuery {
 						where.addComment("QUALIFY clause: " + condition.prettyPrint());
 					} catch (SQLScopeException | ScopeException e) {
 						throw new SQLScopeException("cannot rewrite QuUALIFY condition: " + condition.prettyPrint()
-								+ " caused by:\n" + e.getLocalizedMessage());
+						+ " caused by:\n" + e.getLocalizedMessage());
 					}
 				} else if (condition.getImageDomain().isInstanceOf(IDomain.AGGREGATE)) {
 					IWherePiece where = main.where(condition);
@@ -483,10 +489,10 @@ public class SimpleQuery extends BaseQuery {
 					inner.where(condition);
 				}
 			}
-	        // standard filters
-	        for (Filter filter : getFilters()) {
-	            filter.applyFilter(inner);
-	        }
+			// standard filters
+			for (Filter filter : getFilters()) {
+				filter.applyFilter(inner);
+			}
 			// select the measures
 			for (MeasureMapping mx : getMapper().getMeasureMapping()) {
 				ExpressionAST measure = mx.getMapping().getDefinition();
@@ -497,10 +503,10 @@ public class SimpleQuery extends BaseQuery {
 						mx.setPiece(piece);// update the mapping... that's dangerous!
 					} catch (SQLScopeException | ScopeException e) {
 						throw new SQLScopeException("cannot rewrite analytics measure: " + measure.prettyPrint()
-								+ " caused by:\n" + e.getLocalizedMessage());
+						+ " caused by:\n" + e.getLocalizedMessage());
 					}
 				} else {
-		            ISelectPiece piece = main.select(mx.getMapping().getDefinition(),mx.getPiece().getAlias());
+					ISelectPiece piece = main.select(mx.getMapping().getDefinition(),mx.getPiece().getAlias());
 					piece.addComment(mx.getMapping().getName() + " (Metric)");
 					mx.setPiece(piece);// update the mapping... that's dangerous!
 				}
@@ -536,12 +542,12 @@ public class SimpleQuery extends BaseQuery {
 			for (AxisMapping ax : getMapper().getAxisMapping()) {
 				SubSelectReferencePiece pieceRef = new SubSelectReferencePiece(from, ax.getPiece());
 				ISelectPiece piece = main.select(pieceRef, ax.getPiece().getAlias());// make
-																						// sure
-																						// to
-																						// use
-																						// the
-																						// same
-																						// alias
+				// sure
+				// to
+				// use
+				// the
+				// same
+				// alias
 				piece.addComment("copy of " + ax.getAxis().getName() + " (Dimension)");
 				ax.setPiece(piece);// update the mapping... that's dangerous!
 			}
@@ -556,7 +562,7 @@ public class SimpleQuery extends BaseQuery {
 						where.addComment("QUALIFY clause: " + condition.prettyPrint());
 					} catch (SQLScopeException | ScopeException e) {
 						throw new SQLScopeException("cannot rewrite QuUALIFY condition: " + condition.prettyPrint()
-								+ " caused by:\n" + e.getLocalizedMessage());
+						+ " caused by:\n" + e.getLocalizedMessage());
 					}
 				}
 			}
@@ -565,12 +571,12 @@ public class SimpleQuery extends BaseQuery {
 			for (MeasureMapping mx : getMapper().getMeasureMapping()) {
 				SubSelectReferencePiece pieceRef = new SubSelectReferencePiece(from, mx.getPiece());
 				ISelectPiece piece = main.select(pieceRef, mx.getPiece().getAlias());// make
-																						// sure
-																						// to
-																						// use
-																						// the
-																						// same
-																						// alias
+				// sure
+				// to
+				// use
+				// the
+				// same
+				// alias
 				piece.addComment("copy of " + mx.getMapping().getName() + " (Metric)");
 				mx.setPiece(piece);// update the mapping... that's dangerous!
 			}
@@ -623,12 +629,12 @@ public class SimpleQuery extends BaseQuery {
 					ISelectPiece piece = select.select(measure.getDefinition(), measure.getName());
 					piece.addComment(measure.getName() + " (Qualify)");
 					select.getScope().put(measure, measure.getDefinitionSafe());// register
-																				// the
-																				// measure
-																				// in
-																				// the
-																				// select
-																				// context
+					// the
+					// measure
+					// in
+					// the
+					// select
+					// context
 					// register the piece in the main select
 					SubSelectReferencePiece pieceRef = new SubSelectReferencePiece(from, piece);
 					mainSelect.getScope().put(ref, pieceRef);

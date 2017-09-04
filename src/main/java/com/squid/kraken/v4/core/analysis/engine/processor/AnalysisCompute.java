@@ -31,7 +31,6 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.TreeMap;
-import java.util.concurrent.Callable;
 
 import org.joda.time.DateTime;
 import org.joda.time.Days;
@@ -45,16 +44,29 @@ import org.slf4j.LoggerFactory;
 import com.squid.core.domain.IDomain;
 import com.squid.core.domain.extensions.date.DateTruncateOperatorDefinition;
 import com.squid.core.domain.extensions.date.DateTruncateShortcutsOperatorDefinition;
+import com.squid.core.domain.operators.ExtendedType;
+import com.squid.core.domain.operators.OperatorDefinition;
+import com.squid.core.domain.operators.Operators;
 import com.squid.core.domain.set.SetDomain;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.Operator;
 import com.squid.core.expression.scope.ExpressionMaker;
 import com.squid.core.expression.scope.ScopeException;
+import com.squid.core.sql.model.IAlias;
 import com.squid.core.sql.model.SQLScopeException;
+import com.squid.core.sql.render.ExpressionListPiece;
+import com.squid.core.sql.render.IOrderByPiece;
 import com.squid.core.sql.render.IOrderByPiece.NULLS_ORDERING;
 import com.squid.core.sql.render.IOrderByPiece.ORDERING;
+import com.squid.core.sql.render.IPiece;
 import com.squid.core.sql.render.ISelectPiece;
+import com.squid.core.sql.render.ITypedPiece;
+import com.squid.core.sql.render.OperatorPiece;
 import com.squid.core.sql.render.RenderingException;
+import com.squid.core.sql.render.SelectPiece;
+import com.squid.core.sql.render.SelectPieceReference;
+import com.squid.core.sql.render.SimpleConstantValuePiece;
+import com.squid.core.sql.render.SubSelectReferencePiece;
 import com.squid.kraken.v4.KrakenConfig;
 import com.squid.kraken.v4.api.core.SQLStats;
 import com.squid.kraken.v4.api.core.attribute.AttributeServiceBaseImpl;
@@ -63,6 +75,9 @@ import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionMember;
 import com.squid.kraken.v4.core.analysis.engine.query.QueryRunner;
 import com.squid.kraken.v4.core.analysis.engine.query.SimpleQuery;
+import com.squid.kraken.v4.core.analysis.engine.query.mapping.AxisMapping;
+import com.squid.kraken.v4.core.analysis.engine.query.mapping.MeasureMapping;
+import com.squid.kraken.v4.core.analysis.engine.query.mapping.QueryMapper;
 import com.squid.kraken.v4.core.analysis.model.Dashboard;
 import com.squid.kraken.v4.core.analysis.model.DashboardAnalysis;
 import com.squid.kraken.v4.core.analysis.model.DashboardSelection;
@@ -81,6 +96,8 @@ import com.squid.kraken.v4.core.analysis.universe.Measure;
 import com.squid.kraken.v4.core.analysis.universe.Property.OriginType;
 import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
+import com.squid.kraken.v4.core.sql.FromSelectUniversal;
+import com.squid.kraken.v4.core.sql.SelectUniversal;
 import com.squid.kraken.v4.model.Attribute;
 import com.squid.kraken.v4.model.Dimension;
 import com.squid.kraken.v4.model.Dimension.Type;
@@ -167,34 +184,11 @@ public class AnalysisCompute {
 				}
 			}
 			return dm;
-		} else if (analysis.getSelection().hasCompareToSelection()) {
-			return computeAnalysisCompareTo(analysis);
 		} else {
 			// disable the optimizing when using the limit feature
 			boolean optimize = SUPPORT_SOFT_FILTERS && !analysis.hasLimit() && !analysis.hasOffset()
 					&& !analysis.hasRollup();
 			return computeAnalysisSimple(analysis, optimize);
-		}
-	}
-
-	private class ComputeCompareMatrix implements Callable<DataMatrix>{
-		private DashboardAnalysis currentAnalysis ;
-		private List<OrderBy> fixed ;
-		private boolean computationStarted = false;
-		public ComputeCompareMatrix(DashboardAnalysis currentAnalysis, List<OrderBy> fixed2 ){
-			this.currentAnalysis = currentAnalysis;
-			this.fixed=fixed2;
-		}
-
-		@Override
-		public DataMatrix call() throws Exception {
-			computationStarted=true;
-			DataMatrix present = computeAnalysisSimple(currentAnalysis, false);
-			present.orderBy(fixed);
-			return present;
-		}
-		public boolean isComputationStarted(){
-			return this.computationStarted;
 		}
 	}
 
@@ -245,7 +239,7 @@ public class AnalysisCompute {
 	}
 
 	// handle compare T947
-	public DataMatrix computeAnalysisCompareTo(final DashboardAnalysis currentAnalysis)
+	public DashboardAnalysis generateAnalysisCompareTo(final DashboardAnalysis currentAnalysis, boolean hasOverlap, boolean isCompareOverlap)
 			throws ScopeException, ComputingException, SQLScopeException, InterruptedException, RenderingException {
 		// preparing the selection
 		DashboardSelection presentSelection = currentAnalysis.getSelection();
@@ -353,7 +347,7 @@ public class AnalysisCompute {
 		}
 		// T1890 - need to be careful if there is a limit
 		// in that case we should always have an explicit orderBy
-		if (originalOrders.isEmpty() && currentAnalysis.getGrouping().size()>=1) {
+		if (!hasOverlap && originalOrders.isEmpty() && currentAnalysis.getGrouping().size()>=1) {
 			// no orderBy specified, but there is a limit.
 			// In order to keep results consistent between each call we need to add an orderBy
 			// so we can apply the fixed list which is never empty
@@ -384,9 +378,13 @@ public class AnalysisCompute {
 		ExpressionAST pastExpression = null;
 		ExpressionAST presentExpression = null;
 		for (Axis filter : compare.getFilters()) {
-			Collection<DimensionMember> cols = presentSelection.getMembers(filter);
-			pastSelection.clear(filter);
+			Collection<DimensionMember> presentPeriod = presentSelection.getMembers(filter);
+			Collection<DimensionMember> cols = new ArrayList<DimensionMember>();
+			if (!isCompareOverlap) {
+				cols.addAll(presentPeriod);
+			}
 			cols.addAll(compare.getMembers(filter));
+			pastSelection.clear(filter);
 			pastSelection.add(filter, cols);
 			if (joinAxis != null && compareAxis(filter, joinAxis)) {
 				pastInterval = computeMinMax(compare.getMembers(filter));
@@ -398,7 +396,6 @@ public class AnalysisCompute {
 				}
 			}
 			//
-			Collection<DimensionMember> presentPeriod = presentSelection.getMembers(filter);
 			presentPeriod.removeAll(compare.getMembers(filter));
 			presentInterval = computeMinMax(presentPeriod);
 			pastInterval = computeMinMax(compare.getMembers(filter));
@@ -429,7 +426,7 @@ public class AnalysisCompute {
 				: null;
 		for (GroupByAxis groupBy : currentAnalysis.getGrouping()) {
 			GroupByAxis newGroupBy = null;
-			if (groupBy.getAxis().equals(joinAxis)) {
+			if (groupBy.getAxis().equals(joinAxis) && (!hasOverlap || isCompareOverlap)) {
 				boolean offsetByDay = (Days.daysBetween(startPresent, endPresent).getDays() == Days.daysBetween(startPast, endPast).getDays());
 				int nrMonths = Months.monthsBetween(startPast, startPresent).getMonths();
 				//AddMonths is handling properly last day offset for months with different days
@@ -482,8 +479,18 @@ public class AnalysisCompute {
 				newGroupBy = groupBy;
 			}
 		}
-
-		compareToAnalysis.setSelection(pastSelection);
+		if (hasOverlap) {
+			ExpressionAST overlapType = ExpressionMaker.CONSTANT(isCompareOverlap?false:true);
+			Axis overlapAxis= new Axis(currentAnalysis.getMainDomain(), overlapType);
+			overlapAxis.setOriginType(OriginType.USER);
+			overlapAxis.setName("__ispresentperiod");
+			compareToAnalysis.add(overlapAxis);
+		}
+		if (!hasOverlap || isCompareOverlap) {
+			compareToAnalysis.setSelection(pastSelection);
+		} else {
+			compareToAnalysis.setSelection(presentSelection);
+		}
 		// T1890
 		// if (currentAnalysis.hasBeyondLimit()) {// T1042: handling beyondLimit
 		compareToAnalysis.setBeyondLimit(compareBeyondLimit);
@@ -497,51 +504,21 @@ public class AnalysisCompute {
 			ExpressionAST kpiExpr = kpi.getDefinitionSafe();
 			//Measure presentKpi = new Measure(kpi.getParent(), createMetricOffset(kpiExpr, presentExpression), kpi.getMetric().getId().getObjectId());
 			Measure presentKpi = new Measure(kpi);
-			presentKpi.setDefinition(createMetricOffset(kpiExpr, presentExpression));
+			if (!hasOverlap) {
+				presentKpi.setDefinition(createMetricOffset(kpiExpr, presentExpression));
+			}
 			presentKpi.setOriginType(kpi.getOriginType());
 			presentKpi.setName(kpi.getName());
 			presentKpi.setDescription(kpi.getDescription());
-			//Measure compareToKpi = new Measure(kpi.getParent(), createMetricOffset(kpiExpr, pastExpression), kpi.getMetric().getId().getObjectId()+"_compare");
-			Measure compareToKpi = new Measure(kpi);
-			compareToKpi.setDefinition(createMetricOffset(kpiExpr, pastExpression));
-			compareToKpi.setOriginType(OriginType.COMPARETO);
-			compareToKpi.setName(kpi.getName() + " [compare]");
-			compareToKpi.setDescription(kpi.getName() + " comparison on " + compareToWhat);
 			compareToAnalysis.add(presentKpi);
-			compareToAnalysis.add(compareToKpi);
-			Measure growth = null;
-			if (computeGrowth) {
-				// add the growth definition...
-				growth = new Measure(kpi);
-				growth.setDefinition(ExpressionMaker.DIV(ExpressionMaker.MINUS(presentKpi.getDefinitionSafe(), compareToKpi.getDefinitionSafe()), ExpressionMaker.DIV(compareToKpi.getDefinitionSafe(), ExpressionMaker.CONSTANT(100))));
-				growth.setOriginType(OriginType.GROWTH);
-				growth.setName(kpi.getName() + " [growth%]");
-				growth.setFormat("%.2f");
-				compareToAnalysis.add(growth);
-			}
-		}
-		for (int ix=0; ix<currentAnalysis.getOrders().size(); ix++) {
-			OrderBy orderBy = currentAnalysis.getOrders().get(ix);
-			if (orderBy.getExpression() instanceof AxisExpression) {
-				for (GroupByAxis groupBy: compareToAnalysis.getGrouping()) {
-					if (orderBy.getExpression().equals(new AxisExpression(groupBy.getAxis()))) {
-						comparedOrder.put(ij++, new OrderBy(orderBy.getPos(), new AxisExpression(groupBy.getAxis()), orderBy.getOrdering()));
-					}
-				}
-			} else if (orderBy.getExpression() instanceof MeasureExpression) {
-				Measure kpi = ((MeasureExpression) orderBy.getExpression()).getMeasure();
-				ExpressionAST kpiExpr = kpi.getDefinitionSafe();
-				Measure presentKpi = new Measure(kpi);
-				presentKpi.setDefinition(createMetricOffset(kpiExpr, presentExpression));
-				presentKpi.setOriginType(kpi.getOriginType());
-				presentKpi.setName(kpi.getName());
-				presentKpi.setDescription(kpi.getDescription());
+			if (!hasOverlap) {
 				//Measure compareToKpi = new Measure(kpi.getParent(), createMetricOffset(kpiExpr, pastExpression), kpi.getMetric().getId().getObjectId()+"_compare");
 				Measure compareToKpi = new Measure(kpi);
 				compareToKpi.setDefinition(createMetricOffset(kpiExpr, pastExpression));
 				compareToKpi.setOriginType(OriginType.COMPARETO);
 				compareToKpi.setName(kpi.getName() + " [compare]");
 				compareToKpi.setDescription(kpi.getName() + " comparison on " + compareToWhat);
+				compareToAnalysis.add(compareToKpi);
 				Measure growth = null;
 				if (computeGrowth) {
 					// add the growth definition...
@@ -550,27 +527,62 @@ public class AnalysisCompute {
 					growth.setOriginType(OriginType.GROWTH);
 					growth.setName(kpi.getName() + " [growth%]");
 					growth.setFormat("%.2f");
+					compareToAnalysis.add(growth);
 				}
-
-				if (orderBy instanceof OrderByGrowth && ((OrderByGrowth) orderBy).expr.getValue().startsWith("growth(")) {
-					comparedOrder.put(ij++, new OrderBy(orderBy.getPos(), new MeasureExpression(growth), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
-					comparedOrder.put(ij++, new OrderBy(orderBy.getPos(), new MeasureExpression(presentKpi), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
-					comparedOrder.put(ij++, new OrderBy(orderBy.getPos(), new MeasureExpression(compareToKpi), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
-				} else if (orderBy instanceof OrderByGrowth && ((OrderByGrowth) orderBy).expr.getValue().startsWith("compareTo(")) {
-					comparedOrder.put(ij++, new OrderBy(orderBy.getPos(), new MeasureExpression(compareToKpi), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
-					comparedOrder.put(ij++, new OrderBy(orderBy.getPos(), new MeasureExpression(presentKpi), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
-				} else {
-					comparedOrder.put(ij++, new OrderBy(orderBy.getPos(), new MeasureExpression(presentKpi), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
-					comparedOrder.put(ij++, new OrderBy(orderBy.getPos(), new MeasureExpression(compareToKpi), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
-				}
-			} else {
-				throw new RenderingException("Could not rentder result set ordering");
 			}
-
 		}
-		compareToAnalysis.setOrders(new ArrayList<OrderBy>(comparedOrder.values()));
+		if (!hasOverlap) {
+			for (int ix=0; ix<currentAnalysis.getOrders().size(); ix++) {
+				OrderBy orderBy = currentAnalysis.getOrders().get(ix);
+				if (orderBy.getExpression() instanceof AxisExpression) {
+					for (GroupByAxis groupBy: compareToAnalysis.getGrouping()) {
+						if (orderBy.getExpression().equals(new AxisExpression(groupBy.getAxis()))) {
+							comparedOrder.put(ij++, new OrderBy(orderBy.getPos(), new AxisExpression(groupBy.getAxis()), orderBy.getOrdering()));
+						}
+					}
+				} else if (orderBy.getExpression() instanceof MeasureExpression) {
+					Measure kpi = ((MeasureExpression) orderBy.getExpression()).getMeasure();
+					ExpressionAST kpiExpr = kpi.getDefinitionSafe();
+					Measure presentKpi = new Measure(kpi);
+					presentKpi.setDefinition(createMetricOffset(kpiExpr, presentExpression));
+					presentKpi.setOriginType(kpi.getOriginType());
+					presentKpi.setName(kpi.getName());
+					presentKpi.setDescription(kpi.getDescription());
+					//Measure compareToKpi = new Measure(kpi.getParent(), createMetricOffset(kpiExpr, pastExpression), kpi.getMetric().getId().getObjectId()+"_compare");
+					Measure compareToKpi = new Measure(kpi);
+					compareToKpi.setDefinition(createMetricOffset(kpiExpr, pastExpression));
+					compareToKpi.setOriginType(OriginType.COMPARETO);
+					compareToKpi.setName(kpi.getName() + " [compare]");
+					compareToKpi.setDescription(kpi.getName() + " comparison on " + compareToWhat);
+					Measure growth = null;
+					if (computeGrowth) {
+						// add the growth definition...
+						growth = new Measure(kpi);
+						growth.setDefinition(ExpressionMaker.DIV(ExpressionMaker.MINUS(presentKpi.getDefinitionSafe(), compareToKpi.getDefinitionSafe()), ExpressionMaker.DIV(compareToKpi.getDefinitionSafe(), ExpressionMaker.CONSTANT(100))));
+						growth.setOriginType(OriginType.GROWTH);
+						growth.setName(kpi.getName() + " [growth%]");
+						growth.setFormat("%.2f");
+					}
 
-		return computeAnalysisSimple(compareToAnalysis, false, false);
+					if (orderBy instanceof OrderByGrowth && ((OrderByGrowth) orderBy).expr.getValue().startsWith("growth(")) {
+						comparedOrder.put(ij++, new OrderBy(orderBy.getPos(), new MeasureExpression(growth), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
+						comparedOrder.put(ij++, new OrderBy(orderBy.getPos(), new MeasureExpression(presentKpi), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
+						comparedOrder.put(ij++, new OrderBy(orderBy.getPos(), new MeasureExpression(compareToKpi), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
+					} else if (orderBy instanceof OrderByGrowth && ((OrderByGrowth) orderBy).expr.getValue().startsWith("compareTo(")) {
+						comparedOrder.put(ij++, new OrderBy(orderBy.getPos(), new MeasureExpression(compareToKpi), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
+						comparedOrder.put(ij++, new OrderBy(orderBy.getPos(), new MeasureExpression(presentKpi), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
+					} else {
+						comparedOrder.put(ij++, new OrderBy(orderBy.getPos(), new MeasureExpression(presentKpi), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
+						comparedOrder.put(ij++, new OrderBy(orderBy.getPos(), new MeasureExpression(compareToKpi), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
+					}
+				} else {
+					throw new RenderingException("Could not rentder result set ordering");
+				}
+
+			}
+			compareToAnalysis.setOrders(new ArrayList<OrderBy>(comparedOrder.values()));
+		}
+		return compareToAnalysis;
 	}
 
 	private IntervalleObject alignPastInterval(IntervalleObject presentInterval, IntervalleObject pastInterval,
@@ -786,9 +798,9 @@ public class AnalysisCompute {
 			throws ScopeException, ComputingException, SQLScopeException, InterruptedException, RenderingException {
 		// select with one or several KPI groups
 		DataMatrix result = null;
-		for (MeasureGroup group : analysis.getGroups()) {
+		for (int i= 0; i< analysis.getGroups().size(); i++) {
 			//
-			DataMatrix dm = computeAnalysisSimpleForGroup(analysis, group, optimize, forceBeyondLimit);
+			DataMatrix dm = computeAnalysisSimpleForGroup(analysis, i, optimize, forceBeyondLimit);
 			if (dm != null) {
 
 				// merge if needed
@@ -875,12 +887,187 @@ public class AnalysisCompute {
 		// reason
 	}
 
-	protected DataMatrix computeAnalysisSimpleForGroup(DashboardAnalysis analysis, MeasureGroup group, boolean optimize,
+	protected DataMatrix computeAnalysisSimpleForGroup(DashboardAnalysis analysis, int measureGroupIdx, boolean optimize,
+			boolean forceBeyondLimit)
+					throws ScopeException, SQLScopeException, ComputingException, InterruptedException, RenderingException {
+		SimpleQuery query = null;
+		if (analysis.getSelection().hasCompareToSelection()) {
+
+			//Check if compare overlaps
+			DashboardSelection presentSelection = analysis.getSelection();
+			DomainSelection compare = presentSelection.getCompareToSelection();
+			IntervalleObject presentInterval = null;
+			IntervalleObject pastInterval = null;
+			// compute the joinAxis if exists, i.e. if one of the groupBy dimension is part of the comparison
+
+			for (Axis filter : compare.getFilters()) {
+				pastInterval = computeMinMax(compare.getMembers(filter));
+				// check if the filter is a join
+				Collection<DimensionMember> presentPeriod = presentSelection.getMembers(filter);
+				presentPeriod.removeAll(compare.getMembers(filter));
+				presentInterval = computeMinMax(presentPeriod);
+			}
+
+			Object lowerPresent = presentInterval.getLowerBound();
+			Object lowerPast = pastInterval.getLowerBound();
+			Object upperPresent = presentInterval.getUpperBound();
+			Object upperPast = pastInterval.getUpperBound();
+			//
+			boolean overlaps = false;
+			if (lowerPresent instanceof Date && lowerPast instanceof Date) {
+				DateTime lowerPastDT = new DateTime(lowerPast);
+				DateTime lowerPresentDT = new DateTime(lowerPresent);
+				DateTime upperPresentDT = new DateTime(upperPresent);
+				DateTime upperPastDT = new DateTime(upperPast);
+				if (upperPastDT.compareTo(lowerPresentDT)>=0 || lowerPastDT.compareTo(upperPresentDT)>=0) {
+					overlaps = true;
+				}
+			} else {
+				throw new RenderingException ("Comparison doesn't support non date dimension");
+			}
+			DashboardAnalysis compareAnalysis = null;
+			compareAnalysis = generateAnalysisCompareTo(analysis, false, false);
+			query = this.genAnalysisQueryCachable(compareAnalysis, compareAnalysis.getGroups().get(measureGroupIdx), optimize, forceBeyondLimit);
+			if (overlaps) {
+				query = generateCompareQuery(analysis, measureGroupIdx,  optimize, forceBeyondLimit, compareAnalysis, query.getMapper());
+			}
+			return computeAnalysisSimpleForGroup(compareAnalysis,  query,  analysis.getGroups().get(measureGroupIdx),  optimize, forceBeyondLimit);
+		} else {
+			query = this.genAnalysisQueryCachable(analysis, analysis.getGroups().get(measureGroupIdx), optimize, forceBeyondLimit);
+			return computeAnalysisSimpleForGroup(analysis,  query,  analysis.getGroups().get(measureGroupIdx),  optimize, forceBeyondLimit);
+		}
+	}
+
+	protected SimpleQuery generateCompareQuery(final DashboardAnalysis currentAnalysis, int measureGroupIdx, boolean optimize, boolean forceBeyondLimit, final DashboardAnalysis compareAnalysis, QueryMapper qm) throws ScopeException, SQLScopeException, ComputingException, InterruptedException, RenderingException {
+		DashboardAnalysis innerAnalysis = generateAnalysisCompareTo(currentAnalysis, true, false);
+		DashboardAnalysis innerCompareAnalysis = generateAnalysisCompareTo(currentAnalysis, true, true);
+		SimpleQuery inner = this.genAnalysisQueryCachable(innerAnalysis, innerAnalysis.getGroups().get(measureGroupIdx), optimize, forceBeyondLimit);
+		SimpleQuery innerCompare = this.genAnalysisQueryCachable(innerCompareAnalysis, innerCompareAnalysis.getGroups().get(measureGroupIdx), optimize, forceBeyondLimit);
+
+		Object computeGrowthOption = currentAnalysis.getOption(DashboardAnalysis.COMPUTE_GROWTH_OPTION_KEY);
+		boolean computeGrowth = computeGrowthOption != null && computeGrowthOption.equals(true);
+
+		long limit = inner.getSelect().getStatement().getLimitValue();
+		long offset = inner.getSelect().getStatement().getOffsetValue();
+		//List<IOrderByPiece> orders = inner.getSelect().getStatement().getOrderByPieces();
+		inner.limit(-1);
+		inner.getSelect().getStatement().setOrderByPieces(new ArrayList<IOrderByPiece>());
+		innerCompare.limit(-1);
+		innerCompare.getSelect().getStatement().setOrderByPieces(new ArrayList<IOrderByPiece>());
+
+		SelectUniversal main = new SelectUniversal(inner.getUniverse());
+		FromSelectUniversal from = main.from(inner.getSelect());
+		from.getSelect().add(innerCompare.getSelect().getStatement());
+		main.getScope().put(inner.getSubject(), from);
+		main.getStatement().setLimitValue(limit);
+		main.getStatement().setOffsetValue(offset);
+		main.setForceGroupBy(true);
+
+		List<AxisMapping> axisMappings = new ArrayList<AxisMapping>();
+		AxisMapping offsetMapping = null;
+		for (AxisMapping ax : inner.getMapper().getAxisMapping()) {
+			//ISelectPiece piece = main.select(ax.getAxis().getDefinition(),ax.getPiece().getAlias());
+			ISelectPiece piece = ax.getPiece();
+			if ("__ispresentperiod".equals(piece.getAlias())) {
+				offsetMapping = ax;
+			} else {
+				SubSelectReferencePiece ref = new SubSelectReferencePiece(from, piece);
+				// make sure to use the same alias
+				ISelectPiece sel = main.select(ref, piece.getAlias());
+				ax.setPiece(sel);// update the mapping... that's dangerous!
+				AxisMapping compareAx = qm.find(ax.getAxis());
+				axisMappings.add(new AxisMapping(sel, compareAx.getAxis()));
+			}
+		}
+		if (offsetMapping == null) {
+			throw new RenderingException("Offset column can't be found");
+		}
+		IAlias tempTableAlias = new IAlias() {
+			@Override
+			public String getAlias() {
+				return from.getAlias();
+			}
+		};
+		OperatorDefinition opDef = Operators.SUM;
+		OperatorDefinition caseDef = Operators.CASE;
+		OperatorDefinition notDef = Operators.EQUAL;
+		ISelectPiece offsetMappingPiece = offsetMapping.getPiece();
+		IPiece notOffsetPiece =new SelectPiece(from.getScope(), new OperatorPiece(notDef,  new IPiece[]{ new SelectPieceReference(tempTableAlias, offsetMappingPiece), new SimpleConstantValuePiece(true,ExtendedType.BOOLEAN)}), null);
+		IPiece offsetPiece = new SelectPiece(from.getScope(), new OperatorPiece(notDef,  new IPiece[]{ new SelectPieceReference(tempTableAlias, offsetMappingPiece), new SimpleConstantValuePiece(false,ExtendedType.BOOLEAN)}), null);
+
+		List<MeasureMapping> measureMappings = new ArrayList<MeasureMapping>();
+		for (MeasureMapping mx : inner.getMapper().getMeasureMapping()) {
+			ExtendedType extendedType = ExtendedType.UNDEFINED;
+			if (mx.getPiece() instanceof ITypedPiece) {
+				extendedType = ((ITypedPiece)mx.getPiece()).getType();
+			}
+			IPiece measurePiece =new SelectPieceReference(tempTableAlias, mx.getPiece());
+			IPiece[] currentArgs = new IPiece[]{notOffsetPiece, measurePiece};
+			IPiece currentPiece = new OperatorPiece(opDef, new IPiece[]{new OperatorPiece(caseDef, currentArgs)}, new ExtendedType[] {extendedType});
+			IPiece[] previousArgs = new IPiece[]{offsetPiece, measurePiece};
+			IPiece previousPiece = new OperatorPiece(opDef, new IPiece[]{new OperatorPiece(caseDef, previousArgs)}, new ExtendedType[] {extendedType});
+			ISelectPiece sel = main.select(currentPiece, mx.getPiece().getAlias());
+			ISelectPiece compareSel = main.select(previousPiece, mx.getPiece().getAlias()+"_compare");
+			mx.setPiece(sel);
+			MeasureMapping compareAx = qm.find(mx.getMapping());
+			measureMappings.add(new MeasureMapping(sel, compareAx.getMapping()));
+			for (MeasureMapping m:qm.getMeasureMapping()) {
+				if (m.getMapping().getId().equals(compareAx.getMapping().getId())) {
+					if (m.getMapping().getOriginType() == OriginType.COMPARETO) {
+						measureMappings.add(new MeasureMapping(compareSel, m.getMapping()));
+					}
+				}
+			}
+
+			if (computeGrowth) {
+				IPiece growthPiece = new OperatorPiece(Operators.DIVIDE,
+						new IPiece[]{new ExpressionListPiece(new OperatorPiece(Operators.SUBTRACTION, new IPiece[]{currentPiece, previousPiece}, new ExtendedType[] {extendedType, extendedType})), previousPiece}, new ExtendedType[] {extendedType, extendedType});
+				ISelectPiece growthSel = main.select(growthPiece, mx.getPiece().getAlias()+"_growth");
+				for (MeasureMapping m:qm.getMeasureMapping()) {
+					if (m.getMapping().getId().equals(compareAx.getMapping().getId())) {
+						if (computeGrowth && m.getMapping().getOriginType() == OriginType.GROWTH) {
+							measureMappings.add(new MeasureMapping(growthSel, m.getMapping()));
+						}
+					}
+				}
+			}
+		}
+
+		SimpleQuery newQuery = new SimpleQuery(inner.getUniverse(), inner.getSubject(), main);
+		for (AxisMapping am : qm.getAxisMapping()) {
+			newQuery.getMapper().add(am);
+		}
+		for (MeasureMapping mm : measureMappings) {
+			newQuery.getMapper().add(mm);
+		}
+		List<OrderBy> newOrderBy = new ArrayList<OrderBy>();
+		for (OrderBy orderBy: compareAnalysis.getOrders()) {
+			newOrderBy.add(new OrderBy(orderBy.getPos(), orderBy.getExpression(), orderBy.getOrdering(), orderBy.getNullsOrdering()));
+		}
+		newQuery.orderBy(newOrderBy);
+		return newQuery;
+	}
+
+	/**
+	 * Allow to overwrite the query from the default analysis
+	 * @param analysis
+	 * @param query
+	 * @param group
+	 * @param optimize
+	 * @param forceBeyondLimit
+	 * @return
+	 * @throws ScopeException
+	 * @throws SQLScopeException
+	 * @throws ComputingException
+	 * @throws InterruptedException
+	 * @throws RenderingException
+	 */
+	protected DataMatrix computeAnalysisSimpleForGroup(DashboardAnalysis analysis, SimpleQuery query, MeasureGroup group, boolean optimize,
 			boolean forceBeyondLimit)
 					throws ScopeException, SQLScopeException, ComputingException, InterruptedException, RenderingException {
 		// generate the query
 		PreviewWriter qw = new PreviewWriter();
-		SimpleQuery query = this.genAnalysisQueryCachable(analysis, group, optimize, forceBeyondLimit);
+
 		// compute the signature: do it after generating the query to take into
 		// account side-effects
 		boolean smartCache = SUPPORT_SMART_CACHE && !analysis.hasRollup();

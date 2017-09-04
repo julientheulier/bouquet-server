@@ -514,7 +514,7 @@ public class Space {
 				}
 				return a1;
 			} else {
-				return new Axis(space, a.getDefinition()).withNickname(a).withId(a.getId());
+				return new Axis(space, a.getDefinition()).withId(a.getId()).withNickname(a);
 			}
 		} else {
 			throw new ScopeException("cannot relink "+space.toString()+" with "+a.toString());

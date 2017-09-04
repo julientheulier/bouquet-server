@@ -139,7 +139,7 @@ public class AnalysisJobComputer implements JobComputer<ProjectAnalysisJob, Proj
 			JobStats queryLog = new JobStats(job.getId().getAnalysisJobId(), "AnalysisJobComputer.compute",
 					(stop - start), job.getId().getProjectId());
 			queryLog.setError(false);
-//			PerfDB.INSTANCE.save(queryLog);
+			//			PerfDB.INSTANCE.save(queryLog);
 			DataTable res = datamatrix.toDataTable(ctx, maxResults, startIndex, false, job.getOptionKeys());
 			logger.debug("Is result set in REDIS complete? " + res.getFullset());
 			return res;
@@ -185,9 +185,8 @@ public class AnalysisJobComputer implements JobComputer<ProjectAnalysisJob, Proj
 		// "ms" );
 		logger.info("task=" + this.getClass().getName() + " method=compute" + " jobid="
 				+ job.getOid() + " status=done duration=" + (stop - start));
-		JobStats queryLog = new JobStats(job.getId().toString(), "FacetJobComputer", (stop - start),
+		new JobStats(job.getId().toString(), "FacetJobComputer", (stop - start),
 				job.getId().getProjectId());
-		//PerfDB.INSTANCE.save(queryLog);
 
 		return results;
 	}
@@ -264,67 +263,67 @@ public class AnalysisJobComputer implements JobComputer<ProjectAnalysisJob, Proj
 		// krkn-61: list the domains
 		List<Domain> domains = new ArrayList<Domain>();
 
-		if (metrics.isEmpty()) {
-			// ticket:2905 if metric is empty, do not run group-by analyze but
-			// just a simple select
-			domains = readDomains(ctx, job);
-			if (domains.size() != 1) {
-				long stop = System.currentTimeMillis();
-				/*
-				 * logger.info("AnalysisJobComputer.buildDashboardAnalysis() " +
-				 * job.getId().toString() + " ended in " + (stop - start) +
-				 * "ms with error" +
-				 * "if no kpi is defined, must have one single domain");
-				 */
-				PerfDB.logPerf(logger, job, "AnalysisJobComputer.buildDashboardAnalysis()", true, (stop - start),
-						"if no kpi is defined, must have one single domain");
+		//if (metrics.isEmpty()) {
+		// ticket:2905 if metric is empty, do not run group-by analyze but
+		// just a simple select
+		domains = readDomains(ctx, job);
+		if (domains.size() != 1) {
+			long stop = System.currentTimeMillis();
+			/*
+			 * logger.info("AnalysisJobComputer.buildDashboardAnalysis() " +
+			 * job.getId().toString() + " ended in " + (stop - start) +
+			 * "ms with error" +
+			 * "if no kpi is defined, must have one single domain");
+			 */
+			PerfDB.logPerf(logger, job, "AnalysisJobComputer.buildDashboardAnalysis()", true, (stop - start),
+					"if no kpi is defined, must have one single domain");
 
-				throw new ComputingException("if no kpi is defined, must have one single domain");
-			}
-			Space space = universe.S(domains.get(0));
-			dash.setMainDomain(space);
-		} else {
-			// build the metrics set from the analysis job's
-			for (Metric metricData : metrics) {
-				MetricPK metricId = metricData.getId();
-				if (metricId != null) {
-					// define a measure
-					DomainPK domainPk = new DomainPK(metricId.getCustomerId(), metricId.getProjectId(),
-							metricId.getDomainId());
-					Domain domain = ProjectManager.INSTANCE.getDomain(ctx, domainPk);
-					// Metric is referenced by id
-					DomainHierarchy hierarchy = universe.getDomainHierarchy(domain, true);
-					Metric metric = hierarchy.getMetric(ctx, metricId.getMetricId());
-					if (metric == null)
-						throw new ScopeException("cannot lockup metric ID=" + metricId.getMetricId());
-					//
-					domains.add(domain);// krkn-61: add the direct parent
-					Space space = universe.S(domain);
-					Measure measure = space.M(metric);
-					// override the name using the analysis definition
-					if (metricData.getName() != null) {
-						measure.withName(metricData.getName());
-					} else if (metricData.getLName() != null) {
-						measure.withName(metricData.getLName());
-					}
-					// define a kpi
-					dash.add(measure);
-				} else {
-					// Metric is just an expression
-					Expression expr = metricData.getExpression();
-					Measure measure = universe.measure(expr.getValue());
-					if (metricData.getName() != null) {
-						measure.withName(metricData.getName());
-					} else if (metricData.getLName() != null) {
-						measure.withName(metricData.getLName());
-					}
-					// add only the root domain
-					domains.add(measure.getParent().getRoot());
-					// define a kpi
-					dash.add(measure);
+			throw new ComputingException("if no kpi is defined, must have one single domain");
+		}
+		Space mainSpace = universe.S(domains.get(0));
+		dash.setMainDomain(mainSpace);
+		//} else {
+		// build the metrics set from the analysis job's
+		for (Metric metricData : metrics) {
+			MetricPK metricId = metricData.getId();
+			if (metricId != null) {
+				// define a measure
+				DomainPK domainPk = new DomainPK(metricId.getCustomerId(), metricId.getProjectId(),
+						metricId.getDomainId());
+				Domain domain = ProjectManager.INSTANCE.getDomain(ctx, domainPk);
+				// Metric is referenced by id
+				DomainHierarchy hierarchy = universe.getDomainHierarchy(domain, true);
+				Metric metric = hierarchy.getMetric(ctx, metricId.getMetricId());
+				if (metric == null)
+					throw new ScopeException("cannot lockup metric ID=" + metricId.getMetricId());
+				//
+				domains.add(domain);// krkn-61: add the direct parent
+				Space space = universe.S(domain);
+				Measure measure = space.M(metric);
+				// override the name using the analysis definition
+				if (metricData.getName() != null) {
+					measure.withName(metricData.getName());
+				} else if (metricData.getLName() != null) {
+					measure.withName(metricData.getLName());
 				}
+				// define a kpi
+				dash.add(measure);
+			} else {
+				// Metric is just an expression
+				Expression expr = metricData.getExpression();
+				Measure measure = universe.measure(expr.getValue());
+				if (metricData.getName() != null) {
+					measure.withName(metricData.getName());
+				} else if (metricData.getLName() != null) {
+					measure.withName(metricData.getLName());
+				}
+				// add only the root domain
+				domains.add(measure.getParent().getRoot());
+				// define a kpi
+				dash.add(measure);
 			}
 		}
+		//}
 
 		// krkn-61: we need a list of domains before intializing the selection
 		// setup the selection
