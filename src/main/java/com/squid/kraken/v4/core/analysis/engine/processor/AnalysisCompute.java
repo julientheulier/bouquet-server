@@ -434,6 +434,9 @@ public class AnalysisCompute {
 					offsetByDay = false;
 				}
 				ExpressionAST groupByExpr = groupBy.getAxis().getDefinitionSafe();
+				ExpressionMaker.MINUS(ExpressionMaker.CONSTANT(presentInterval.getLowerBound(), IDomain.DATE), ExpressionMaker.CONSTANT(pastInterval.getLowerBound(), IDomain.DATE));
+				int nrDays = Days.daysBetween(startPresent, startPast).getDays();
+				OperatorDefinition dateOperator = nrDays < 0 ? Operators.DATE_ADD: Operators.DATE_SUB;
 				if (groupByExpr instanceof Operator && (((Operator) groupByExpr).getOperatorDefinition() instanceof DateTruncateShortcutsOperatorDefinition
 						||((Operator) groupByExpr).getOperatorDefinition() instanceof DateTruncateOperatorDefinition)) {
 					Operator op = (Operator) groupByExpr;
@@ -443,7 +446,7 @@ public class AnalysisCompute {
 					for (ExpressionAST expr: rootAxes) {
 						if (index==0) { //This handles DateTruncate function / shortcut, date is the first/only arg
 							if (offsetByDay) {
-								rootAxesWithOffset.add(ExpressionMaker.CASE(pastExpression, ExpressionMaker.ADD(expr, ExpressionMaker.MINUS(ExpressionMaker.CONSTANT(presentInterval.getLowerBound(), IDomain.DATE), ExpressionMaker.CONSTANT(pastInterval.getLowerBound(), IDomain.DATE))), expr));
+								rootAxesWithOffset.add(ExpressionMaker.CASE(pastExpression, ExpressionMaker.op(dateOperator, expr, ExpressionMaker.CONSTANT(Math.abs(nrDays)), ExpressionMaker.CONSTANT("DAY")), expr));
 							} else {
 								rootAxesWithOffset.add(ExpressionMaker.CASE(pastExpression, ExpressionMaker.ADD_MONTHS(expr, ExpressionMaker.CONSTANT(nrMonths)), expr));
 							}
@@ -455,7 +458,7 @@ public class AnalysisCompute {
 					groupByExpr = ExpressionMaker.op(op.getOperatorDefinition(),rootAxesWithOffset);
 				} else {
 					if (offsetByDay) {
-						groupByExpr = ExpressionMaker.CASE(pastExpression, ExpressionMaker.ADD(groupByExpr, ExpressionMaker.MINUS(ExpressionMaker.CONSTANT(presentInterval.getLowerBound(), IDomain.DATE), ExpressionMaker.CONSTANT(pastInterval.getLowerBound(), IDomain.DATE))), groupByExpr);
+						groupByExpr = ExpressionMaker.CASE(pastExpression, ExpressionMaker.op(dateOperator, groupByExpr, ExpressionMaker.CONSTANT(Math.abs(nrDays)), ExpressionMaker.CONSTANT("DAY")), groupByExpr);
 					} else {
 						groupByExpr = ExpressionMaker.CASE(pastExpression, ExpressionMaker.ADD_MONTHS(groupByExpr, ExpressionMaker.CONSTANT(nrMonths)), groupByExpr);
 					}
