@@ -2,12 +2,12 @@
  * Copyright © Squid Solutions, 2016
  *
  * This file is part of Open Bouquet software.
- *  
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
  * published by the Free Software Foundation (version 3 of the License).
  *
- * There is a special FOSS exception to the terms and conditions of the 
+ * There is a special FOSS exception to the terms and conditions of the
  * licenses as they are applied to this program. See LICENSE.txt in
  * the directory of this program distribution.
  *
@@ -56,8 +56,8 @@ import com.squid.kraken.v4.model.Domain;
 import com.squid.kraken.v4.model.DomainOption;
 import com.squid.kraken.v4.model.ExpressionObject;
 import com.squid.kraken.v4.model.Metric;
-import com.squid.kraken.v4.model.Relation;
 import com.squid.kraken.v4.model.NavigationQuery.Style;
+import com.squid.kraken.v4.model.Relation;
 
 /**
  * A Space identifies a Domain
@@ -78,18 +78,18 @@ public class Space {
 
 	private ExpressionAST def_cache;//cache the space definition
 	private Bookmark bookmark;
-	
+
 	public Space(Universe universe, Domain domain) {
 		this.universe = universe;
 		this.rootDomain = domain;
 		this.domain = domain;
 		this.ID = domain.getId().toUUID();
 	}
-	
+
 	public Space(Space parent, Relation relation) throws ScopeException {
 		this(parent, relation, relation.getDirection(parent.getDomain().getId()));
 	}
-	
+
 	public Space(Space parent, Relation relation, RelationDirection direction) throws ScopeException {
 		this.universe = parent.getUniverse();
 		this.rootDomain = parent.rootDomain;
@@ -109,7 +109,7 @@ public class Space {
 			this.bookmark = parent.bookmark;
 		}
 	}
-	
+
 	/**
 	 * This constructor allows to associate a bookmark to the Space definition.
 	 * The bookmark will be propagated to any sub-space.
@@ -121,7 +121,7 @@ public class Space {
 		this(universe, domain);
 		this.bookmark = bookmark;
 	}
-	
+
 	/**
 	 * check if the space or any parent has a bookmark associated with its definition
 	 * @return
@@ -129,15 +129,15 @@ public class Space {
 	public boolean hasBookmark() {
 		return bookmark!=null;
 	}
-	
+
 	public Bookmark getBookmark() {
 		return bookmark;
 	}
-	
+
 	// local cache the config
 	private BookmarkConfig bookmarkConfig = null;
 	private boolean bookmarkConfigError = false;
-	
+
 	/**
 	 * get the bookmark config or null if cannot evaluate
 	 * @return
@@ -163,17 +163,17 @@ public class Space {
 		RelationDirection direction = relation.getDirection(this.getDomain().getId());
 		return direction!=RelationDirection.NO_WAY;
 	}
-	
+
 	public Space asRootUserContext() throws ScopeException {
-	    if (parent==null) {
-	        Universe universeAsRoot = universe.asRootUserContext();
-	        return new Space(universeAsRoot, rootDomain);
-	    } else {
-	        Space parentAsRoot = this.parent.asRootUserContext();
-	        return new Space(parentAsRoot, this.relation, this.direction);
-	    }
+		if (parent==null) {
+			Universe universeAsRoot = universe.asRootUserContext();
+			return new Space(universeAsRoot, rootDomain);
+		} else {
+			Space parentAsRoot = this.parent.asRootUserContext();
+			return new Space(parentAsRoot, this.relation, this.direction);
+		}
 	}
-	
+
 	/**
 	 * return the space length = number of parents
 	 * @return
@@ -185,41 +185,41 @@ public class Space {
 			return 1+parent.length();
 		}
 	}
-	
+
 	@Override
 	public boolean equals(Object obj) {
 		if (obj==this) {
 			return true;
 		} else
-		if (obj instanceof Space) {
-			return this.ID.equals(((Space)obj).ID);
-		}
-		else
-			return false;
+			if (obj instanceof Space) {
+				return this.ID.equals(((Space)obj).ID);
+			}
+			else
+				return false;
 	}
-	
+
 	@Override
 	public int hashCode() {
 		return this.ID.hashCode();
 	}
 
-    public IDomain getSourceDomain() {
-        return new ProxyDomainDomain(universe, getRoot());
-    }
+	public IDomain getSourceDomain() {
+		return new ProxyDomainDomain(universe, getRoot());
+	}
 
-    public IDomain getImageDomain() {
-    	if (getParent()!=null) {
-    		// to support SET
-    		return getDefinitionSafe().getImageDomain();
-    	} else {
-    		return new ProxyDomainDomain(universe, getDomain());
-    	}
-    }
-	
+	public IDomain getImageDomain() {
+		if (getParent()!=null) {
+			// to support SET
+			return getDefinitionSafe().getImageDomain();
+		} else {
+			return new ProxyDomainDomain(universe, getDomain());
+		}
+	}
+
 	public String getID() {
 		return ID;
 	}
-	
+
 	public String getBBID(Style style) {
 		if (style==Style.HUMAN) {
 			return "'"+getUniverse().getProject().getName()+"'.'"+domain.getName()+"'";
@@ -243,23 +243,23 @@ public class Space {
 	public Table getTable() throws ScopeException {
 		return universe.getTable(getDomain());
 	}
-	
+
 	/**
 	 * return an UUID for the associated table
 	 * @return
 	 */
-    public String getTableUUID() {
-        try {
-            return universe.getTableUUID(getTable());
-        } catch (ScopeException e) {
-            return null;
-        }
-    }
-	
+	public String getTableUUID() {
+		try {
+			return universe.getTableUUID(getTable());
+		} catch (ScopeException e) {
+			return null;
+		}
+	}
+
 	public Relation getRelation() {
 		return relation;
 	}
-	
+
 	public String getRelationName() {
 		if (this.relation!=null && getParent()!=null && getParent().getDomain()!=null) {
 			if (direction==RelationDirection.LEFT_TO_RIGHT) {
@@ -294,38 +294,38 @@ public class Space {
 	 * return the chain of domains
 	 * @return
 	 */
-    public List<Domain> getDomains() {
-        ArrayList<Domain> path = new ArrayList<>();
-        path.add(this.domain);
-        Space parent = this.parent;
-        while (parent!=null) {
-            path.add(parent.getDomain());
-            parent = parent.getParent();
-        }
-        return path;
-    }
-	
+	public List<Domain> getDomains() {
+		ArrayList<Domain> path = new ArrayList<>();
+		path.add(this.domain);
+		Space parent = this.parent;
+		while (parent!=null) {
+			path.add(parent.getDomain());
+			parent = parent.getParent();
+		}
+		return path;
+	}
+
 	/**
 	 * return the top parent
 	 * @return
 	 */
 	public Space getTop() {
-	    Space top = this;
-	    while (top.parent!=null) {
-	        top = top.parent;
-	    }
-	    return top;
+		Space top = this;
+		while (top.parent!=null) {
+			top = top.parent;
+		}
+		return top;
 	}
-	
+
 	public Space getLeaf() {
 		return new Space(universe, domain);
 	}
-	
+
 	/**
 	 * create a sub-space given its name
 	 * @param relation
 	 * @return
-	 * @throws ScopeException 
+	 * @throws ScopeException
 	 */
 	public Space S(String relationName) throws ScopeException {
 		Relation relation = universe.getRelation(domain, relationName);
@@ -335,7 +335,7 @@ public class Space {
 			throw new ScopeException("relation '"+relationName+"' not found/applicable for source domain '"+domain.getName()+"'");
 		}
 	}
-	
+
 	public Relation findRelation(String relationName) {
 		try {
 			return universe.getRelation(domain, relationName);
@@ -344,73 +344,73 @@ public class Space {
 			return null;
 		}
 	}
-	
+
 	public Space S(Space subspace) throws ScopeException {
 		if (!subspace.getRoot().equals(getDomain())) {
 			throw new ScopeException("the SubSpace '"+subspace.getPath()+"' is incompatible with that Space '"+this.getPath()+"'");
 		}
 		return relink(subspace);
 	}
-	
+
 	/**
 	 * apply the relation to this space and return the target space
 	 * @param relation
 	 * @return
-	 * @throws ScopeException 
+	 * @throws ScopeException
 	 */
 	public Space S(Relation relation) throws ScopeException {
 		return new Space(this, relation);
 	}
 
-    
-    /**
-     * construct a space from a expression
-     * <li> the expression image domain must be a Domain Object
-     * @param expression
-     * @return
-     * @throws ScopeException 
-     */
-    public Space S(ExpressionAST expression) throws ScopeException {
-        IDomain image = expression.getImageDomain();
-        if (image.isInstanceOf(IDomain.OBJECT)) {
-            Object adapter = image.getAdapter(Domain.class);
-            if (adapter!=null && adapter instanceof Domain) {
-                if (expression instanceof Compose) {
-                    Compose compose = (Compose)expression;
-                    Space result = this;
-                    for (ExpressionAST part : compose.getBody()) {
-                        if (part instanceof RelationReference) {
-                            RelationReference ref = (RelationReference)part;
-                            result = result.S(ref.getRelation());
-                        } else {
-                            throw new ScopeException("Invalid expression");
-                        }
-                    }
-                    return result;
-                } else if (expression instanceof RelationReference) {
-                    RelationReference ref = (RelationReference)expression;
-                    return S(ref.getRelation());
-                } else {
-                    throw new ScopeException("Invalid expression");
-                }
-            }
-        } 
-        // else
-        throw new ScopeException("Invalid expression type, must be a Domain Object");
-    }
-	
+
+	/**
+	 * construct a space from a expression
+	 * <li> the expression image domain must be a Domain Object
+	 * @param expression
+	 * @return
+	 * @throws ScopeException
+	 */
+	public Space S(ExpressionAST expression) throws ScopeException {
+		IDomain image = expression.getImageDomain();
+		if (image.isInstanceOf(IDomain.OBJECT)) {
+			Object adapter = image.getAdapter(Domain.class);
+			if (adapter!=null && adapter instanceof Domain) {
+				if (expression instanceof Compose) {
+					Compose compose = (Compose)expression;
+					Space result = this;
+					for (ExpressionAST part : compose.getBody()) {
+						if (part instanceof RelationReference) {
+							RelationReference ref = (RelationReference)part;
+							result = result.S(ref.getRelation());
+						} else {
+							throw new ScopeException("Invalid expression");
+						}
+					}
+					return result;
+				} else if (expression instanceof RelationReference) {
+					RelationReference ref = (RelationReference)expression;
+					return S(ref.getRelation());
+				} else {
+					throw new ScopeException("Invalid expression");
+				}
+			}
+		}
+		// else
+		throw new ScopeException("Invalid expression type, must be a Domain Object");
+	}
+
 	/**
 	 * return all sub-spaces
 	 * @return
-	 * @throws ScopeException 
-	 * @throws ComputingException 
+	 * @throws ScopeException
+	 * @throws ComputingException
 	 */
 	public List<Space> S() throws ScopeException, ComputingException {
 		return universe.
 				getCartography().
 				getSubspaces(universe,this);
 	}
-	
+
 	/**
 	 * construct an axis by it's dimension name
 	 * @param dimension name
@@ -431,7 +431,7 @@ public class Space {
 		// else
 		return null;
 	}
-	
+
 	public Axis A(Dimension dimension) {
 		return new Axis(this, dimension);
 	}
@@ -439,9 +439,9 @@ public class Space {
 	/**
 	 * combine an Axis with that Space: the Axis root must match this Space
 	 * @param a
-	 * @throws ScopeException 
-	 * @throws ComputingException 
-	 * @throws InterruptedException 
+	 * @throws ScopeException
+	 * @throws ComputingException
+	 * @throws InterruptedException
 	 */
 	public Axis A(Axis a) throws ScopeException, ComputingException, InterruptedException {
 		if (!a.getParent().getRoot().equals(getDomain())) {
@@ -503,19 +503,24 @@ public class Space {
 		}
 		return axes;
 	}
-	
+
 	protected Axis relink(Space space, Axis a) throws ScopeException, ComputingException, InterruptedException {
 		if (a.getParent().getDomain().equals(space.getDomain())) {
 			if (a.getDimension()!=null) {
-				return space.A(a.getDimension()).withNickname(a);
+				//T3207 hack to get correctly the axis in case of a filtering throudh dimension (counter for ex)
+				Axis a1 =  space.A(a.getDimension()).withNickname(a);
+				if (space.getParent() == null) {
+					return a1.withDefinition(a.getDefinitionSafe());
+				}
+				return a1;
 			} else {
-				return new Axis(space, a.getDefinition()).withNickname(a);
+				return new Axis(space, a.getDefinition()).withId(a.getId()).withNickname(a);
 			}
 		} else {
 			throw new ScopeException("cannot relink "+space.toString()+" with "+a.toString());
 		}
 	}
-	
+
 	protected Space relink(Space space) throws ScopeException {
 		if (space.getParent()==null && space.getDomain().equals(getDomain())) {//T830:beware the self join
 			return this;
@@ -526,42 +531,42 @@ public class Space {
 			return x.S(space.getRelation());
 		}
 	}
-	
+
 	/**
 	 * prune this space using the given prefix
 	 * @param prefix
 	 * @return
-	 * @throws ScopeException 
+	 * @throws ScopeException
 	 */
 	public Space prune(Space prefix) throws ScopeException {
-	    Space x = this;
-	    ArrayList<Space> stack = new ArrayList<>();
-	    while (x!=null && !x.equals(prefix)) {
-	        stack.add(0,x);
-	        x = x.getParent();
-	    }
-	    if (x==null) {
-	        throw new ScopeException("cannot prune distinct spaces");
-	    } else {
-	        Space result = new Space(universe, x.getDomain());
-	        for (Space space : stack) {
-	            result = result.S(space.getRelation());
-	        }
-	        return result;
-	    }
+		Space x = this;
+		ArrayList<Space> stack = new ArrayList<>();
+		while (x!=null && !x.equals(prefix)) {
+			stack.add(0,x);
+			x = x.getParent();
+		}
+		if (x==null) {
+			throw new ScopeException("cannot prune distinct spaces");
+		} else {
+			Space result = new Space(universe, x.getDomain());
+			for (Space space : stack) {
+				result = result.S(space.getRelation());
+			}
+			return result;
+		}
 	}
-	
+
 	public Measure M(String metric) throws ScopeException {
 		return new Measure(this, metric);
 	}
-	
+
 	public Measure M(Metric metric) {
 		return new Measure(this, metric);
 	}
-    
-    public Measure M(ExpressionAST expr) throws ScopeException {
-        return new Measure(this, expr);
-    }
+
+	public Measure M(ExpressionAST expr) throws ScopeException {
+		return new Measure(this, expr);
+	}
 
 	/**
 	 * return all the measures
@@ -595,11 +600,11 @@ public class Space {
 			throw new ScopeException("invalid object");
 		}
 	}
-	
+
 	public String getPath() {
-	    return ">"+this.domain.getName()+((parent != null)?parent.getPath():"");
+		return ">"+this.domain.getName()+((parent != null)?parent.getPath():"");
 	}
-	
+
 	/**
 	 * return a V4 compatible expression
 	 * @return
@@ -645,8 +650,8 @@ public class Space {
 	private static String prettyPrintDomain(Space space, PrettyPrintOptions options) {
 		if (options!=null && options.getStyle()==ReferenceStyle.NAME) {
 			return PrettyPrintConstant.OPEN_IDENT
-	    			+space.getDomain().getName()
-	    			+PrettyPrintConstant.CLOSE_IDENT;
+					+space.getDomain().getName()
+					+PrettyPrintConstant.CLOSE_IDENT;
 		} else {// krkn-84: default is ID
 			return PrettyPrintConstant.IDENTIFIER_TAG
 					+PrettyPrintConstant.OPEN_IDENT
@@ -664,8 +669,8 @@ public class Space {
 	private static String prettyPrintRelation(Space space, PrettyPrintOptions options) {
 		if (options!=null && options.getStyle()==ReferenceStyle.NAME) {
 			return PrettyPrintConstant.OPEN_IDENT
-	    			+space.getRelationName()
-	    			+PrettyPrintConstant.CLOSE_IDENT;
+					+space.getRelationName()
+					+PrettyPrintConstant.CLOSE_IDENT;
 		} else {// krkn-84: default is ID
 			return PrettyPrintConstant.IDENTIFIER_TAG
 					+PrettyPrintConstant.OPEN_IDENT
@@ -706,7 +711,7 @@ public class Space {
 		//
 		return def_cache;
 	}
-	
+
 	public ExpressionAST getDefinitionSafe() {
 		try {
 			return getDefinition();
@@ -720,7 +725,7 @@ public class Space {
 		explored.add(this);
 		return computeDirectExtensionRec(this,explored);
 	}
-	
+
 	private Set<Space> computeDirectExtensionRec(Space root, Set<Space> explored) throws ScopeException, ComputingException {
 		HashSet<Space> frontier = new HashSet<Space>();
 		ArrayList<Space> subspaces = new ArrayList<Space>(universe.S(root.getDomain()).S());// ignore path
@@ -755,5 +760,5 @@ public class Space {
 			return definition;
 		}
 	}
-	
+
 }

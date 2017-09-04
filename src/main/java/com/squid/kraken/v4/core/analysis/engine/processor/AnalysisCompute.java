@@ -2,12 +2,12 @@
  * Copyright © Squid Solutions, 2016
  *
  * This file is part of Open Bouquet software.
- *  
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
  * published by the Free Software Foundation (version 3 of the License).
  *
- * There is a special FOSS exception to the terms and conditions of the 
+ * There is a special FOSS exception to the terms and conditions of the
  * licenses as they are applied to this program. See LICENSE.txt in
  * the directory of this program distribution.
  *
@@ -30,53 +30,74 @@ import java.util.Date;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
-
-import com.squid.kraken.v4.KrakenConfig;
-import com.squid.kraken.v4.api.core.PerfDB;
-import com.squid.kraken.v4.api.core.SQLStats;
-import com.squid.kraken.v4.caching.NotInCacheException;
-import com.squid.kraken.v4.caching.redis.RedisCacheException;
+import java.util.TreeMap;
 
 import org.joda.time.DateTime;
+import org.joda.time.Days;
 import org.joda.time.LocalDate;
+import org.joda.time.Months;
 import org.joda.time.Period;
 import org.joda.time.PeriodType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.squid.core.concurrent.ExecutionManager;
 import com.squid.core.domain.IDomain;
+import com.squid.core.domain.extensions.date.DateTruncateOperatorDefinition;
+import com.squid.core.domain.extensions.date.DateTruncateShortcutsOperatorDefinition;
+import com.squid.core.domain.operators.ExtendedType;
+import com.squid.core.domain.operators.OperatorDefinition;
+import com.squid.core.domain.operators.Operators;
 import com.squid.core.domain.set.SetDomain;
 import com.squid.core.expression.ExpressionAST;
+import com.squid.core.expression.Operator;
+import com.squid.core.expression.scope.ExpressionMaker;
 import com.squid.core.expression.scope.ScopeException;
+import com.squid.core.sql.model.IAlias;
 import com.squid.core.sql.model.SQLScopeException;
+import com.squid.core.sql.render.ExpressionListPiece;
+import com.squid.core.sql.render.IOrderByPiece;
+import com.squid.core.sql.render.IOrderByPiece.NULLS_ORDERING;
 import com.squid.core.sql.render.IOrderByPiece.ORDERING;
+import com.squid.core.sql.render.IPiece;
 import com.squid.core.sql.render.ISelectPiece;
+import com.squid.core.sql.render.ITypedPiece;
+import com.squid.core.sql.render.OperatorPiece;
 import com.squid.core.sql.render.RenderingException;
+import com.squid.core.sql.render.SelectPiece;
+import com.squid.core.sql.render.SelectPieceReference;
+import com.squid.core.sql.render.SimpleConstantValuePiece;
+import com.squid.core.sql.render.SubSelectReferencePiece;
+import com.squid.kraken.v4.KrakenConfig;
+import com.squid.kraken.v4.api.core.SQLStats;
 import com.squid.kraken.v4.api.core.attribute.AttributeServiceBaseImpl;
-import com.squid.kraken.v4.core.analysis.datamatrix.AxisValues;
-import com.squid.kraken.v4.core.analysis.datamatrix.CompareMerger;
+import com.squid.kraken.v4.caching.NotInCacheException;
 import com.squid.kraken.v4.core.analysis.datamatrix.DataMatrix;
 import com.squid.kraken.v4.core.analysis.engine.hierarchy.DimensionMember;
 import com.squid.kraken.v4.core.analysis.engine.query.QueryRunner;
 import com.squid.kraken.v4.core.analysis.engine.query.SimpleQuery;
+import com.squid.kraken.v4.core.analysis.engine.query.mapping.AxisMapping;
+import com.squid.kraken.v4.core.analysis.engine.query.mapping.MeasureMapping;
+import com.squid.kraken.v4.core.analysis.engine.query.mapping.QueryMapper;
 import com.squid.kraken.v4.core.analysis.model.Dashboard;
 import com.squid.kraken.v4.core.analysis.model.DashboardAnalysis;
 import com.squid.kraken.v4.core.analysis.model.DashboardSelection;
 import com.squid.kraken.v4.core.analysis.model.DomainSelection;
 import com.squid.kraken.v4.core.analysis.model.ExpressionInput;
 import com.squid.kraken.v4.core.analysis.model.GroupByAxis;
+import com.squid.kraken.v4.core.analysis.model.Intervalle;
 import com.squid.kraken.v4.core.analysis.model.IntervalleObject;
 import com.squid.kraken.v4.core.analysis.model.MeasureGroup;
 import com.squid.kraken.v4.core.analysis.model.OrderBy;
+import com.squid.kraken.v4.core.analysis.model.OrderByGrowth;
+import com.squid.kraken.v4.core.analysis.scope.AxisExpression;
+import com.squid.kraken.v4.core.analysis.scope.MeasureExpression;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
 import com.squid.kraken.v4.core.analysis.universe.Measure;
 import com.squid.kraken.v4.core.analysis.universe.Property.OriginType;
 import com.squid.kraken.v4.core.analysis.universe.Space;
 import com.squid.kraken.v4.core.analysis.universe.Universe;
+import com.squid.kraken.v4.core.sql.FromSelectUniversal;
+import com.squid.kraken.v4.core.sql.SelectUniversal;
 import com.squid.kraken.v4.model.Attribute;
 import com.squid.kraken.v4.model.Dimension;
 import com.squid.kraken.v4.model.Dimension.Type;
@@ -87,7 +108,7 @@ import com.squid.kraken.v4.writers.QueryWriter;
 /**
  * this is where the actual computations take place, in relation with a given
  * GBall/Universe
- * 
+ *
  * @author sfantino
  *
  */
@@ -163,8 +184,6 @@ public class AnalysisCompute {
 				}
 			}
 			return dm;
-		} else if (analysis.getSelection().hasCompareToSelection()) {
-			return computeAnalysisCompareTo(analysis);
 		} else {
 			// disable the optimizing when using the limit feature
 			boolean optimize = SUPPORT_SOFT_FILTERS && !analysis.hasLimit() && !analysis.hasOffset()
@@ -173,8 +192,54 @@ public class AnalysisCompute {
 		}
 	}
 
+	protected ExpressionAST convertToInterval(ExpressionAST expr, Intervalle intervalle) throws ScopeException {
+		ExpressionAST where = null;
+		ExpressionAST lower = intervalle.getLowerBoundExpression();
+		ExpressionAST upper = intervalle.getUpperBoundExpression();
+		where = createIntervalle(expr, expr, lower, upper);
+		return where != null ? ExpressionMaker.GROUP(where) : null;
+	}
+
+	protected ExpressionAST createIntervalle(ExpressionAST start, ExpressionAST end, ExpressionAST lower,
+			ExpressionAST upper) {
+		if (lower != null && upper != null) {
+			return ExpressionMaker.AND(ExpressionMaker.GREATER(start, lower, false),
+					ExpressionMaker.LESS(end, upper, false));
+		} else if (lower != null) {
+			return ExpressionMaker.GREATER(start, lower, false);
+		} else if (upper != null) {
+			return ExpressionMaker.LESS(end, upper, false);
+		} else {
+			return null;
+		}
+	}
+
+	protected ExpressionAST createMetricOffset(ExpressionAST kpiExpr, ExpressionAST offsetExpression) {
+		if (kpiExpr instanceof Operator) {
+			Operator op = (Operator) kpiExpr;
+			List<ExpressionAST> exprs = op.getArguments();
+			List<ExpressionAST> newExprs = new ArrayList<ExpressionAST>();
+			if (exprs.size()>0) {
+				for (ExpressionAST expr:exprs) {
+					if (op.getOperatorDefinition().getDomain().isInstanceOf(IDomain.AGGREGATE)) {
+						newExprs.add(ExpressionMaker.CASE(offsetExpression, expr));
+					} else{
+						newExprs.add(createMetricOffset(expr, offsetExpression));
+					}
+				}
+			} else {
+				//No args, it is a count(*) like expression
+				newExprs.add(ExpressionMaker.CASE(offsetExpression,ExpressionMaker.CONSTANT(1)));
+			}
+			return ExpressionMaker.op(op.getOperatorDefinition(),newExprs);
+		} else if (kpiExpr instanceof MeasureExpression) {
+			return createMetricOffset(((MeasureExpression) kpiExpr).getMeasure().getDefinitionSafe(), offsetExpression);
+		}
+		return kpiExpr;
+	}
+
 	// handle compare T947
-	public DataMatrix computeAnalysisCompareTo(final DashboardAnalysis currentAnalysis)
+	public DashboardAnalysis generateAnalysisCompareTo(final DashboardAnalysis currentAnalysis, boolean hasOverlap, boolean isCompareOverlap)
 			throws ScopeException, ComputingException, SQLScopeException, InterruptedException, RenderingException {
 		// preparing the selection
 		DashboardSelection presentSelection = currentAnalysis.getSelection();
@@ -182,7 +247,7 @@ public class AnalysisCompute {
 		Axis joinAxis = null;
 		IntervalleObject presentInterval = null;
 		IntervalleObject pastInterval = null;
-				// compute the joinAxis if exists, i.e. if one of the groupBy dimension is part of the comparison
+		// compute the joinAxis if exists, i.e. if one of the groupBy dimension is part of the comparison
 
 		for (Axis filter : compare.getFilters()) {
 			// check if the filter is a join
@@ -199,21 +264,24 @@ public class AnalysisCompute {
 		}
 		//
 		// handling orderBy in the proper way...
-		final List<OrderBy> fixed = new ArrayList<>();
+		// rebuild the full orderBy specs
+		List<OrderBy> originalOrders = currentAnalysis.getOrders();
+		final TreeMap<Integer,OrderBy> comparedOrder = new TreeMap<Integer,OrderBy>();
+
 		List<OrderBy> remaining = new ArrayList<>();
- 		int i = 0;
- 		// list the dimensions
+		int i = 0;
+		// list the dimensions
 		ArrayList<ExpressionAST> queue = new ArrayList<>();// order matter
- 		for (GroupByAxis group : currentAnalysis.getGrouping()) {
+		for (GroupByAxis group : currentAnalysis.getGrouping()) {
 			queue.add(group.getAxis().getReference());
- 		}
+		}
 		// use this list to compute the dimension index
 		ArrayList<ExpressionAST> dimensionIndexes = new ArrayList<>(queue);
- 		// will hold in which order to merge
+		// will hold in which order to merge
 		int[] mergeOrder = new int[dimensionIndexes.size()];
-		// rebuild the full orderBy specs
- 		List<OrderBy> originalOrders = currentAnalysis.getOrders();
 		//
+
+		ArrayList<OrderBy> fixed = new ArrayList<OrderBy>();
 		// if there is a joinAxis, it must appear as the first orderBy
 		if (joinAxis != null) {
 			OrderBy order = null;
@@ -224,8 +292,8 @@ public class AnalysisCompute {
 						order = check;
 						break;// quit the loop
 					}
- 				}
- 			}
+				}
+			}
 			if (order==null) {
 				// not defined, create a default one
 				order = new OrderBy(0, joinAxis.getReference(), ORDERING.DESCENT);
@@ -236,7 +304,7 @@ public class AnalysisCompute {
 		//
 		// check the explicit orderBy
 		for (OrderBy order : originalOrders) {
- 			// check if it is a dimension
+			// check if it is a dimension
 			if (queue.contains(order.getExpression())) {
 				// is it the joinAxis ?
 				if (joinAxis!=null && order.getExpression().equals(joinAxis.getReference())) {
@@ -249,18 +317,24 @@ public class AnalysisCompute {
 					// and remove the dimension from the list
 					queue.remove(order.getExpression());
 				}
- 			} else {
- 				// assuming it is a metric or something else, keep it but at the
- 				// end
- 				remaining.add(order);// don't know the position yet
- 			}
- 		}
+			} else {
+				// assuming it is a metric or something else, keep it but at the
+				// end
+				// Else if axis doesn't exist yet, add it
+				if (order.getExpression() instanceof AxisExpression) {
+					currentAnalysis.getGrouping().add(new GroupByAxis(((AxisExpression)order.getExpression()).getAxis()));
+				} else {
+					remaining.add(order);// don't know the position yet
+				}
+			}
+		}
 		// handling the dimensions not sorted
 		if (!queue.isEmpty()) {
 			for (ExpressionAST dim : queue) {
- 				if (joinAxis == null || !joinAxis.getReference().equals(dim)) {
- 					// check the best order
- 					IDomain image = dim.getImageDomain();					fixed.add(new OrderBy(i, dim, image.isInstanceOf(IDomain.TEMPORAL)?ORDERING.DESCENT:ORDERING.ASCENT));
+				if (joinAxis == null || !joinAxis.getReference().equals(dim)) {
+					// check the best order
+					IDomain image = dim.getImageDomain();
+					fixed.add(new OrderBy(i, dim, image.isInstanceOf(IDomain.TEMPORAL)?ORDERING.DESCENT:ORDERING.ASCENT));
 					mergeOrder[i++] = dimensionIndexes.indexOf(dim);
 				}
 			}
@@ -273,7 +347,7 @@ public class AnalysisCompute {
 		}
 		// T1890 - need to be careful if there is a limit
 		// in that case we should always have an explicit orderBy
-		if (originalOrders.isEmpty() && currentAnalysis.getGrouping().size()>=1) {
+		if (!hasOverlap && originalOrders.isEmpty() && currentAnalysis.getGrouping().size()>=1) {
 			// no orderBy specified, but there is a limit.
 			// In order to keep results consistent between each call we need to add an orderBy
 			// so we can apply the fixed list which is never empty
@@ -283,36 +357,10 @@ public class AnalysisCompute {
 				currentAnalysis.setOrders(fixed);
 			}
 		}
+
 		//
 		// compute the past version
 		DashboardAnalysis compareToAnalysis = new DashboardAnalysis(universe);
-		// copy dimensions
-		/*
-		 * ArrayList<GroupByAxis> compareBeyondLimit =
-		 * currentAnalysis.hasBeyondLimit() ? new ArrayList<GroupByAxis>() :
-		 * null;
-		 */
-		ArrayList<GroupByAxis> compareBeyondLimit = currentAnalysis.hasBeyondLimit() ? new ArrayList<GroupByAxis>()
-				: null;
-		for (GroupByAxis groupBy : currentAnalysis.getGrouping()) {
-			if (groupBy.getAxis().equals(joinAxis)) {
-				Axis compareToAxis = new Axis(groupBy.getAxis());
-				compareToAxis.setOriginType(OriginType.COMPARETO);
-				compareToAxis.setName(groupBy.getAxis().getName() + " [compare]");
-				GroupByAxis compareToGroupBy = compareToAnalysis.add(compareToAxis, groupBy.isRollup());
-				compareToGroupBy.setRollupPosition(groupBy.getRollupPosition());
-				// update the beyondLimit
-				if (compareBeyondLimit != null && currentAnalysis.getBeyondLimit().contains(groupBy)) {
-					compareBeyondLimit.add(compareToGroupBy);
-				}
-			} else {
-				compareToAnalysis.add(groupBy);
-				// update the beyondLimit
-				if (compareBeyondLimit != null && currentAnalysis.getBeyondLimit().contains(groupBy)) {
-					compareBeyondLimit.add(groupBy);
-				}
-			}
-		}
 
 		// copy stuff
 		if (currentAnalysis.hasLimit())
@@ -327,9 +375,17 @@ public class AnalysisCompute {
 		// copy the selection and replace with compare filters
 		DashboardSelection pastSelection = new DashboardSelection(presentSelection);
 		String compareToWhat = "";
+		ExpressionAST pastExpression = null;
+		ExpressionAST presentExpression = null;
 		for (Axis filter : compare.getFilters()) {
+			Collection<DimensionMember> presentPeriod = presentSelection.getMembers(filter);
+			Collection<DimensionMember> cols = new ArrayList<DimensionMember>();
+			if (!isCompareOverlap) {
+				cols.addAll(presentPeriod);
+			}
+			cols.addAll(compare.getMembers(filter));
 			pastSelection.clear(filter);
-			pastSelection.add(filter, compare.getMembers(filter));
+			pastSelection.add(filter, cols);
 			if (joinAxis != null && compareAxis(filter, joinAxis)) {
 				pastInterval = computeMinMax(compare.getMembers(filter));
 				IntervalleObject alignedPastInterval = this.alignPastInterval(presentInterval, pastInterval, joinAxis);
@@ -340,91 +396,196 @@ public class AnalysisCompute {
 				}
 			}
 			//
-			IntervalleObject isInterval = computeMinMax(compare.getMembers(filter));
+			presentPeriod.removeAll(compare.getMembers(filter));
+			presentInterval = computeMinMax(presentPeriod);
+			pastInterval = computeMinMax(compare.getMembers(filter));
+			pastExpression = convertToInterval(filter.getDefinitionSafe(), pastInterval);
+			presentExpression = convertToInterval(filter.getDefinitionSafe(), presentInterval);
 			if (!compareToWhat.equals(""))
 				compareToWhat += " and ";
-			if (isInterval != null) {
-				compareToWhat += isInterval.toString();
+			if (pastInterval != null) {
+				compareToWhat += pastInterval.toString();
 			} else {
 				compareToWhat += "[" + (compare.getMembers(filter)).toString() + "]";
 			}
 		}
-		compareToAnalysis.setSelection(pastSelection);
+		DateTime startPresent = new DateTime(presentInterval.getLowerBound());
+		DateTime endPresent = new DateTime(presentInterval.getUpperBound());
+		DateTime startPast = new DateTime(pastInterval.getLowerBound());
+		DateTime endPast = new DateTime(pastInterval.getUpperBound());
+
+		// copy dimensions
+		/*
+		 * ArrayList<GroupByAxis> compareBeyondLimit =
+		 * currentAnalysis.hasBeyondLimit() ? new ArrayList<GroupByAxis>() :
+		 * null;
+		 */
+		int ij = 0;
+
+		ArrayList<GroupByAxis> compareBeyondLimit = currentAnalysis.hasBeyondLimit() ? new ArrayList<GroupByAxis>()
+				: null;
+		for (GroupByAxis groupBy : currentAnalysis.getGrouping()) {
+			GroupByAxis newGroupBy = null;
+			if (groupBy.getAxis().equals(joinAxis) && (!hasOverlap || isCompareOverlap)) {
+				boolean offsetByDay = (Days.daysBetween(startPresent, endPresent).getDays() == Days.daysBetween(startPast, endPast).getDays());
+				int nrMonths = Months.monthsBetween(startPast, startPresent).getMonths();
+				//AddMonths is handling properly last day offset for months with different days
+				if (startPresent.equals(startPast.plusMonths(nrMonths)) && (endPresent.equals(endPast.plusMonths(nrMonths)) || endPresent.isAfter(endPast.plusMonths(nrMonths)))) {
+					offsetByDay = false;
+				}
+				ExpressionAST groupByExpr = groupBy.getAxis().getDefinitionSafe();
+				ExpressionMaker.MINUS(ExpressionMaker.CONSTANT(presentInterval.getLowerBound(), IDomain.DATE), ExpressionMaker.CONSTANT(pastInterval.getLowerBound(), IDomain.DATE));
+				int nrDays = Days.daysBetween(startPresent, startPast).getDays();
+				OperatorDefinition dateOperator = nrDays < 0 ? Operators.DATE_ADD: Operators.DATE_SUB;
+				if (groupByExpr instanceof Operator && (((Operator) groupByExpr).getOperatorDefinition() instanceof DateTruncateShortcutsOperatorDefinition
+						||((Operator) groupByExpr).getOperatorDefinition() instanceof DateTruncateOperatorDefinition)) {
+					Operator op = (Operator) groupByExpr;
+					List<ExpressionAST>  rootAxes = op.getArguments();
+					List<ExpressionAST>  rootAxesWithOffset = new ArrayList<ExpressionAST>();
+					int index = 0;
+					for (ExpressionAST expr: rootAxes) {
+						if (index==0) { //This handles DateTruncate function / shortcut, date is the first/only arg
+							if (offsetByDay) {
+								rootAxesWithOffset.add(ExpressionMaker.CASE(pastExpression, ExpressionMaker.op(dateOperator, expr, ExpressionMaker.CONSTANT(Math.abs(nrDays)), ExpressionMaker.CONSTANT("DAY")), expr));
+							} else {
+								rootAxesWithOffset.add(ExpressionMaker.CASE(pastExpression, ExpressionMaker.ADD_MONTHS(expr, ExpressionMaker.CONSTANT(nrMonths)), expr));
+							}
+						} else {
+							rootAxesWithOffset.add(expr);
+						}
+						index++;
+					}
+					groupByExpr = ExpressionMaker.op(op.getOperatorDefinition(),rootAxesWithOffset);
+				} else {
+					if (offsetByDay) {
+						groupByExpr = ExpressionMaker.CASE(pastExpression, ExpressionMaker.op(dateOperator, groupByExpr, ExpressionMaker.CONSTANT(Math.abs(nrDays)), ExpressionMaker.CONSTANT("DAY")), groupByExpr);
+					} else {
+						groupByExpr = ExpressionMaker.CASE(pastExpression, ExpressionMaker.ADD_MONTHS(groupByExpr, ExpressionMaker.CONSTANT(nrMonths)), groupByExpr);
+					}
+				}
+				Axis compareToAxis = new Axis(groupBy.getAxis(), groupByExpr);
+
+				compareToAxis.setOriginType(OriginType.COMPARETO);
+
+				newGroupBy = compareToAnalysis.add(compareToAxis, groupBy.isRollup());
+				newGroupBy.setRollupPosition(groupBy.getRollupPosition());
+				// update the beyondLimit
+				if (compareBeyondLimit != null && currentAnalysis.getBeyondLimit().contains(groupBy)) {
+					compareBeyondLimit.add(newGroupBy);
+				}
+			} else {
+				compareToAnalysis.add(groupBy);
+				// update the beyondLimit
+				if (compareBeyondLimit != null && currentAnalysis.getBeyondLimit().contains(groupBy)) {
+					compareBeyondLimit.add(groupBy);
+				}
+				newGroupBy = groupBy;
+			}
+		}
+		if (hasOverlap) {
+			ExpressionAST overlapType = ExpressionMaker.CONSTANT(isCompareOverlap?false:true);
+			Axis overlapAxis= new Axis(currentAnalysis.getMainDomain(), overlapType);
+			overlapAxis.setOriginType(OriginType.USER);
+			overlapAxis.setName("__ispresentperiod");
+			compareToAnalysis.add(overlapAxis);
+		}
+		if (!hasOverlap || isCompareOverlap) {
+			compareToAnalysis.setSelection(pastSelection);
+		} else {
+			compareToAnalysis.setSelection(presentSelection);
+		}
 		// T1890
 		// if (currentAnalysis.hasBeyondLimit()) {// T1042: handling beyondLimit
 		compareToAnalysis.setBeyondLimit(compareBeyondLimit);
-		// use the present selection to compute
-		
-		if (compareBeyondLimit  == null && joinAxis !=null){
-			compareBeyondLimit = new ArrayList<>();
-			compareBeyondLimit.add(new GroupByAxis(joinAxis));
-			compareToAnalysis.setBeyondLimit(compareBeyondLimit);
-		}
-		compareToAnalysis.setBeyondLimitSelection(presentSelection);
-		
-		// }
+
+		Object computeGrowthOption = currentAnalysis.getOption(DashboardAnalysis.COMPUTE_GROWTH_OPTION_KEY);
+		boolean computeGrowth = computeGrowthOption != null && computeGrowthOption.equals(true);
 
 		// copy metrics (do it after in order to be able to use the
 		// pastInterval)
 		for (Measure kpi : currentAnalysis.getKpis()) {
-			Measure compareToKpi = new Measure(kpi);
-			compareToKpi.setOriginType(OriginType.COMPARETO);
-			compareToKpi.setName(kpi.getName() + " [compare]");
-			compareToKpi.setDescription(kpi.getName() + " comparison on " + compareToWhat);
-			compareToAnalysis.add(compareToKpi);
+			ExpressionAST kpiExpr = kpi.getDefinitionSafe();
+			//Measure presentKpi = new Measure(kpi.getParent(), createMetricOffset(kpiExpr, presentExpression), kpi.getMetric().getId().getObjectId());
+			Measure presentKpi = new Measure(kpi);
+			if (!hasOverlap) {
+				presentKpi.setDefinition(createMetricOffset(kpiExpr, presentExpression));
+			}
+			presentKpi.setOriginType(kpi.getOriginType());
+			presentKpi.setName(kpi.getName());
+			presentKpi.setDescription(kpi.getDescription());
+			compareToAnalysis.add(presentKpi);
+			if (!hasOverlap) {
+				//Measure compareToKpi = new Measure(kpi.getParent(), createMetricOffset(kpiExpr, pastExpression), kpi.getMetric().getId().getObjectId()+"_compare");
+				Measure compareToKpi = new Measure(kpi);
+				compareToKpi.setDefinition(createMetricOffset(kpiExpr, pastExpression));
+				compareToKpi.setOriginType(OriginType.COMPARETO);
+				compareToKpi.setName(kpi.getName() + " [compare]");
+				compareToKpi.setDescription(kpi.getName() + " comparison on " + compareToWhat);
+				compareToAnalysis.add(compareToKpi);
+				Measure growth = null;
+				if (computeGrowth) {
+					// add the growth definition...
+					growth = new Measure(kpi);
+					growth.setDefinition(ExpressionMaker.DIV(ExpressionMaker.MINUS(presentKpi.getDefinitionSafe(), compareToKpi.getDefinitionSafe()), ExpressionMaker.DIV(compareToKpi.getDefinitionSafe(), ExpressionMaker.CONSTANT(100))));
+					growth.setOriginType(OriginType.GROWTH);
+					growth.setName(kpi.getName() + " [growth%]");
+					growth.setFormat("%.2f");
+					compareToAnalysis.add(growth);
+				}
+			}
 		}
-
-		// compute present & past in //
-		Future<DataMatrix> future = ExecutionManager.INSTANCE.submit(universe.getContext().getCustomerId(),
-				new Callable<DataMatrix>() {
-					@Override
-					public DataMatrix call() throws Exception {
-						DataMatrix present = computeAnalysisSimple(currentAnalysis, false);
-						present.orderBy(fixed);
-						return present;
+		if (!hasOverlap) {
+			for (int ix=0; ix<currentAnalysis.getOrders().size(); ix++) {
+				OrderBy orderBy = currentAnalysis.getOrders().get(ix);
+				if (orderBy.getExpression() instanceof AxisExpression) {
+					for (GroupByAxis groupBy: compareToAnalysis.getGrouping()) {
+						if (orderBy.getExpression().equals(new AxisExpression(groupBy.getAxis()))) {
+							comparedOrder.put(ij++, new OrderBy(orderBy.getPos(), new AxisExpression(groupBy.getAxis()), orderBy.getOrdering()));
+						}
 					}
-				});
-		try {
-			// compute past
-			DataMatrix past = computeAnalysisSimple(compareToAnalysis, false, true);
-			past.orderBy(fixed);
-			// wait for present
-			DataMatrix present = future.get();
+				} else if (orderBy.getExpression() instanceof MeasureExpression) {
+					Measure kpi = ((MeasureExpression) orderBy.getExpression()).getMeasure();
+					ExpressionAST kpiExpr = kpi.getDefinitionSafe();
+					Measure presentKpi = new Measure(kpi);
+					presentKpi.setDefinition(createMetricOffset(kpiExpr, presentExpression));
+					presentKpi.setOriginType(kpi.getOriginType());
+					presentKpi.setName(kpi.getName());
+					presentKpi.setDescription(kpi.getDescription());
+					//Measure compareToKpi = new Measure(kpi.getParent(), createMetricOffset(kpiExpr, pastExpression), kpi.getMetric().getId().getObjectId()+"_compare");
+					Measure compareToKpi = new Measure(kpi);
+					compareToKpi.setDefinition(createMetricOffset(kpiExpr, pastExpression));
+					compareToKpi.setOriginType(OriginType.COMPARETO);
+					compareToKpi.setName(kpi.getName() + " [compare]");
+					compareToKpi.setDescription(kpi.getName() + " comparison on " + compareToWhat);
+					Measure growth = null;
+					if (computeGrowth) {
+						// add the growth definition...
+						growth = new Measure(kpi);
+						growth.setDefinition(ExpressionMaker.DIV(ExpressionMaker.MINUS(presentKpi.getDefinitionSafe(), compareToKpi.getDefinitionSafe()), ExpressionMaker.DIV(compareToKpi.getDefinitionSafe(), ExpressionMaker.CONSTANT(100))));
+						growth.setOriginType(OriginType.GROWTH);
+						growth.setName(kpi.getName() + " [growth%]");
+						growth.setFormat("%.2f");
+					}
 
-			//
-			final Period offset = computeOffset(present, joinAxis, presentInterval, pastInterval);
-			//
-			Object computeGrowthOption = currentAnalysis.getOption(DashboardAnalysis.COMPUTE_GROWTH_OPTION_KEY);
-			boolean computeGrowth = computeGrowthOption != null && computeGrowthOption.equals(true);
-			// T1890: the present & past matrices are sorted in post-processing according to the [fixed] order
-			// the CompareMerger only works if the matrices are fully sorted
-			CompareMerger merger = new CompareMerger(present, past, mergeOrder, joinAxis, offset, computeGrowth);
-			DataMatrix debug = merger.merge(false);
-			// apply the original order by directive (T1039)
-			if (!originalOrders.isEmpty()) {
-				debug.orderBy(originalOrders);
-			}
-			// T1897 - enforce limit & offset
-			if (currentAnalysis.hasLimit() && debug.getRows().size() > currentAnalysis.getLimit()) {
-				DataMatrixTransformTruncate truncate = new DataMatrixTransformTruncate(currentAnalysis.getLimit(),
-						currentAnalysis.getOffset());
-				debug = truncate.apply(debug);
-			}
-			return debug;
-		} catch (ExecutionException e) {
-			if (e.getCause() != null) {
-				if (e.getCause() instanceof RedisCacheException) {
-					throw (RedisCacheException) e.getCause();
+					if (orderBy instanceof OrderByGrowth && ((OrderByGrowth) orderBy).expr.getValue().startsWith("growth(")) {
+						comparedOrder.put(ij++, new OrderBy(orderBy.getPos(), new MeasureExpression(growth), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
+						comparedOrder.put(ij++, new OrderBy(orderBy.getPos(), new MeasureExpression(presentKpi), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
+						comparedOrder.put(ij++, new OrderBy(orderBy.getPos(), new MeasureExpression(compareToKpi), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
+					} else if (orderBy instanceof OrderByGrowth && ((OrderByGrowth) orderBy).expr.getValue().startsWith("compareTo(")) {
+						comparedOrder.put(ij++, new OrderBy(orderBy.getPos(), new MeasureExpression(compareToKpi), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
+						comparedOrder.put(ij++, new OrderBy(orderBy.getPos(), new MeasureExpression(presentKpi), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
+					} else {
+						comparedOrder.put(ij++, new OrderBy(orderBy.getPos(), new MeasureExpression(presentKpi), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
+						comparedOrder.put(ij++, new OrderBy(orderBy.getPos(), new MeasureExpression(compareToKpi), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
+					}
+				} else {
+					throw new RenderingException("Could not rentder result set ordering");
 				}
-				if (e.getCause() instanceof NotInCacheException) {
-					throw (NotInCacheException) e.getCause();
-				}
-				if (e.getCause() instanceof ComputingException) {
-					throw (ComputingException) e.getCause();
-				}
+
 			}
-			throw new ComputingException(e.getCause());
+			compareToAnalysis.setOrders(new ArrayList<OrderBy>(comparedOrder.values()));
 		}
+		return compareToAnalysis;
 	}
 
 	private IntervalleObject alignPastInterval(IntervalleObject presentInterval, IntervalleObject pastInterval,
@@ -440,10 +601,10 @@ public class AnalysisCompute {
 			IDomain image = joinAxis.getDefinition().getImageDomain();
 			if (lowerPresent instanceof Date && lowerPast instanceof Date) {
 
-				DateTime lowerPastDT = new DateTime((Date) lowerPast);
-				DateTime lowerPresentDT = new DateTime((Date) lowerPresent);
-				DateTime upperPresentDT = new DateTime((Date) upperPresent);
-				DateTime upperPastDT = new DateTime((Date) upperPast);
+				DateTime lowerPastDT = new DateTime(lowerPast);
+				DateTime lowerPresentDT = new DateTime(lowerPresent);
+				DateTime upperPresentDT = new DateTime(upperPresent);
+				DateTime upperPastDT = new DateTime(upperPast);
 
 				// realign
 				if (image.isInstanceOf(IDomain.YEARLY)) {
@@ -602,98 +763,6 @@ public class AnalysisCompute {
 		return null;
 	}
 
-	private Period computeOffset(DataMatrix present, Axis joinAxis, IntervalleObject presentInterval,
-			IntervalleObject pastInterval) throws ScopeException {
-		if (joinAxis == null || presentInterval == null || pastInterval == null) {
-			return null;
-		} else {	
-			AxisValues check = present.find(joinAxis);
-			if (check == null) {
-				return null;// no need to bother
-			} else {
-				return computeOffset(presentInterval, pastInterval, check);
-			}
-		}
-	}
-
-	private Period computeOffset(IntervalleObject presentInterval, IntervalleObject pastInterval, AxisValues joinAxis)
-			throws ScopeException {
-		// it is better to compare on the lower bound because alignment on the
-		// end of month is not accurate
-		Object present = presentInterval.getLowerBound();
-		Object past = pastInterval.getLowerBound();
-		//
-
-		IDomain image = joinAxis.getAxis().getDefinition().getImageDomain();
-		PeriodType type = computePeriodType(image);
-		//
-		if (present instanceof Date && past instanceof Date) {
-
-			Period presentPeriod = new Period(new LocalDate(((Date) presentInterval.getLowerBound()).getTime()),
-					new LocalDate(((Date) presentInterval.getUpperBound()).getTime()).plusDays(1), type);
-
-			Period pastPeriod = new Period(new LocalDate(((Date) pastInterval.getLowerBound()).getTime()),
-					new LocalDate(((Date) pastInterval.getUpperBound()).getTime()).plusDays(1), type);
-
-			Date pastDate = (Date) past;
-			DateTime dt = new DateTime(pastDate);
-			if (image.isInstanceOf(IDomain.YEARLY)) {
-				if (presentPeriod.getYears() > pastPeriod.getYears()) {
-					// e.g. presentPeriod of 365 days ->
-					// presentPeriod.getYears=1 && past year of 366 days ->
-					// pastPeriod.getYears=0
-					DateTime newDT = new DateTime(dt.getYear(), 1, 1, 0, 0);
-					pastDate = newDT.toDate();
-				} else {
-					if (dt.getDayOfYear() != 1) {
-						// e.g present period of 366 days -> past date at dec 31
-						DateTime newDT = new DateTime(dt.getYear() + 1, 1, 1, 0, 0);
-						pastDate = newDT.toDate();
-					}
-				}
-			} else if (image.isInstanceOf(IDomain.QUARTERLY) || image.isInstanceOf(IDomain.MONTHLY)) {
-
-				if (presentPeriod.getMonths() > pastPeriod.getMonths()) {
-					// e.g present period of 28 days(February) ->
-					// pastPeriod.getMonths() = 0 (January has 31 days)
-					DateTime newDT = new DateTime(dt.getYear(), dt.getMonthOfYear(), 1, 0, 0);
-					pastDate = newDT.toDate();
-				} else {
-					if (dt.getDayOfMonth() != 1) {
-						// e.g. present period of 31 day(March) pastDate = Feb 6
-						if (dt.getMonthOfYear() == 12) {
-							DateTime newDT = new DateTime(dt.getYear() + 1, 1, 1, 0, 0);
-							pastDate = newDT.toDate();
-						} else {
-							DateTime newDT = new DateTime(dt.getYear(), dt.getMonthOfYear() + 1, 1, 0, 0);
-							pastDate = newDT.toDate();
-						}
-					}
-				}
-			} else {
-				// daily, keep Date as it is
-			}
-			return new Period(new LocalDate((pastDate).getTime()), new LocalDate(((Date) present).getTime()), type);
-
-		} else {
-			return null;
-		}
-	}
-
-	private PeriodType computePeriodType(IDomain image) {
-		if (image.isInstanceOf(IDomain.YEARLY)) {
-			return PeriodType.years();
-		} else if (image.isInstanceOf(IDomain.QUARTERLY)) {
-			return PeriodType.months();
-		} else if (image.isInstanceOf(IDomain.MONTHLY)) {
-			return PeriodType.months();
-		} else if (image.isInstanceOf(IDomain.WEEKLY)) {
-			return PeriodType.weeks();
-		} else {
-			return PeriodType.days();
-		}
-	}
-
 	private IntervalleObject computeMinMax(Collection<DimensionMember> members) throws ScopeException {
 		IntervalleObject result = null;
 		for (DimensionMember member : members) {
@@ -718,7 +787,7 @@ public class AnalysisCompute {
 	/**
 	 * This method expect to compute a "simple" analysis, that is not requiring
 	 * a compareTo operation It supports the BeyondLimit parameter.
-	 * 
+	 *
 	 * @param analysis
 	 * @param optimize
 	 * @return
@@ -732,9 +801,9 @@ public class AnalysisCompute {
 			throws ScopeException, ComputingException, SQLScopeException, InterruptedException, RenderingException {
 		// select with one or several KPI groups
 		DataMatrix result = null;
-		for (MeasureGroup group : analysis.getGroups()) {
+		for (int i= 0; i< analysis.getGroups().size(); i++) {
 			//
-			DataMatrix dm = computeAnalysisSimpleForGroup(analysis, group, optimize, forceBeyondLimit);
+			DataMatrix dm = computeAnalysisSimpleForGroup(analysis, i, optimize, forceBeyondLimit);
 			if (dm != null) {
 
 				// merge if needed
@@ -776,7 +845,7 @@ public class AnalysisCompute {
 			try {
 				SimpleQuery queryBis = this.genAnalysisQueryCachable(match.getAnalysis(), match.getMeasures(), optimize,
 						false);
-				try{				
+				try{
 					runQuery(queryBis, lazy, analysis, qw);
 				}catch(NotInCacheException e){
 					logger.info("Could not retrieve matrix, Genkey must be stale");
@@ -793,8 +862,8 @@ public class AnalysisCompute {
 				for (DataMatrixTransform transform : match.getPostProcessing()) {
 					queryBis.addPostProcessing(transform);
 				}
-				
-				
+
+
 				// run the postprocessing now so it can fails
 				DataMatrix dm = qw.getDataMatrix();
 				queryBis.addPostProcessing(new DataMatrixTransformReorganiseColumns(queryBis.getMapper(), query.getMapper()));
@@ -817,99 +886,274 @@ public class AnalysisCompute {
 		}
 		// else
 		throw new NotInCacheException("cannot use this cached datamatrix");// for
-																			// any
-																			// reason
+		// any
+		// reason
 	}
 
-	protected DataMatrix computeAnalysisSimpleForGroup(DashboardAnalysis analysis, MeasureGroup group, boolean optimize,
+	protected DataMatrix computeAnalysisSimpleForGroup(DashboardAnalysis analysis, int measureGroupIdx, boolean optimize,
 			boolean forceBeyondLimit)
-			throws ScopeException, SQLScopeException, ComputingException, InterruptedException, RenderingException {
+					throws ScopeException, SQLScopeException, ComputingException, InterruptedException, RenderingException {
+		SimpleQuery query = null;
+		if (analysis.getSelection().hasCompareToSelection()) {
+
+			//Check if compare overlaps
+			DashboardSelection presentSelection = analysis.getSelection();
+			DomainSelection compare = presentSelection.getCompareToSelection();
+			IntervalleObject presentInterval = null;
+			IntervalleObject pastInterval = null;
+			// compute the joinAxis if exists, i.e. if one of the groupBy dimension is part of the comparison
+
+			for (Axis filter : compare.getFilters()) {
+				pastInterval = computeMinMax(compare.getMembers(filter));
+				// check if the filter is a join
+				Collection<DimensionMember> presentPeriod = presentSelection.getMembers(filter);
+				presentPeriod.removeAll(compare.getMembers(filter));
+				presentInterval = computeMinMax(presentPeriod);
+			}
+
+			Object lowerPresent = presentInterval.getLowerBound();
+			Object lowerPast = pastInterval.getLowerBound();
+			Object upperPresent = presentInterval.getUpperBound();
+			Object upperPast = pastInterval.getUpperBound();
+			//
+			boolean overlaps = false;
+			if (lowerPresent instanceof Date && lowerPast instanceof Date) {
+				DateTime lowerPastDT = new DateTime(lowerPast);
+				DateTime lowerPresentDT = new DateTime(lowerPresent);
+				DateTime upperPresentDT = new DateTime(upperPresent);
+				DateTime upperPastDT = new DateTime(upperPast);
+				if (upperPastDT.compareTo(lowerPresentDT)>=0 || lowerPastDT.compareTo(upperPresentDT)>=0) {
+					overlaps = true;
+				}
+			} else {
+				throw new RenderingException ("Comparison doesn't support non date dimension");
+			}
+			DashboardAnalysis compareAnalysis = null;
+			compareAnalysis = generateAnalysisCompareTo(analysis, false, false);
+			query = this.genAnalysisQueryCachable(compareAnalysis, compareAnalysis.getGroups().get(measureGroupIdx), optimize, forceBeyondLimit);
+			if (overlaps) {
+				query = generateCompareQuery(analysis, measureGroupIdx,  optimize, forceBeyondLimit, compareAnalysis, query.getMapper());
+			}
+			return computeAnalysisSimpleForGroup(compareAnalysis,  query,  analysis.getGroups().get(measureGroupIdx),  optimize, forceBeyondLimit);
+		} else {
+			query = this.genAnalysisQueryCachable(analysis, analysis.getGroups().get(measureGroupIdx), optimize, forceBeyondLimit);
+			return computeAnalysisSimpleForGroup(analysis,  query,  analysis.getGroups().get(measureGroupIdx),  optimize, forceBeyondLimit);
+		}
+	}
+
+	protected SimpleQuery generateCompareQuery(final DashboardAnalysis currentAnalysis, int measureGroupIdx, boolean optimize, boolean forceBeyondLimit, final DashboardAnalysis compareAnalysis, QueryMapper qm) throws ScopeException, SQLScopeException, ComputingException, InterruptedException, RenderingException {
+		DashboardAnalysis innerAnalysis = generateAnalysisCompareTo(currentAnalysis, true, false);
+		DashboardAnalysis innerCompareAnalysis = generateAnalysisCompareTo(currentAnalysis, true, true);
+		SimpleQuery inner = this.genAnalysisQueryCachable(innerAnalysis, innerAnalysis.getGroups().get(measureGroupIdx), optimize, forceBeyondLimit);
+		SimpleQuery innerCompare = this.genAnalysisQueryCachable(innerCompareAnalysis, innerCompareAnalysis.getGroups().get(measureGroupIdx), optimize, forceBeyondLimit);
+
+		Object computeGrowthOption = currentAnalysis.getOption(DashboardAnalysis.COMPUTE_GROWTH_OPTION_KEY);
+		boolean computeGrowth = computeGrowthOption != null && computeGrowthOption.equals(true);
+
+		long limit = inner.getSelect().getStatement().getLimitValue();
+		long offset = inner.getSelect().getStatement().getOffsetValue();
+		//List<IOrderByPiece> orders = inner.getSelect().getStatement().getOrderByPieces();
+		inner.limit(-1);
+		inner.getSelect().getStatement().setOrderByPieces(new ArrayList<IOrderByPiece>());
+		innerCompare.limit(-1);
+		innerCompare.getSelect().getStatement().setOrderByPieces(new ArrayList<IOrderByPiece>());
+
+		SelectUniversal main = new SelectUniversal(inner.getUniverse());
+		FromSelectUniversal from = main.from(inner.getSelect());
+		from.getSelect().add(innerCompare.getSelect().getStatement());
+		main.getScope().put(inner.getSubject(), from);
+		main.getStatement().setLimitValue(limit);
+		main.getStatement().setOffsetValue(offset);
+		main.setForceGroupBy(true);
+
+		List<AxisMapping> axisMappings = new ArrayList<AxisMapping>();
+		AxisMapping offsetMapping = null;
+		for (AxisMapping ax : inner.getMapper().getAxisMapping()) {
+			//ISelectPiece piece = main.select(ax.getAxis().getDefinition(),ax.getPiece().getAlias());
+			ISelectPiece piece = ax.getPiece();
+			if ("__ispresentperiod".equals(piece.getAlias())) {
+				offsetMapping = ax;
+			} else {
+				SubSelectReferencePiece ref = new SubSelectReferencePiece(from, piece);
+				// make sure to use the same alias
+				ISelectPiece sel = main.select(ref, piece.getAlias());
+				ax.setPiece(sel);// update the mapping... that's dangerous!
+				AxisMapping compareAx = qm.find(ax.getAxis());
+				axisMappings.add(new AxisMapping(sel, compareAx.getAxis()));
+			}
+		}
+		if (offsetMapping == null) {
+			throw new RenderingException("Offset column can't be found");
+		}
+		IAlias tempTableAlias = new IAlias() {
+			@Override
+			public String getAlias() {
+				return from.getAlias();
+			}
+		};
+		OperatorDefinition opDef = Operators.SUM;
+		OperatorDefinition caseDef = Operators.CASE;
+		OperatorDefinition notDef = Operators.EQUAL;
+		ISelectPiece offsetMappingPiece = offsetMapping.getPiece();
+		IPiece notOffsetPiece =new SelectPiece(from.getScope(), new OperatorPiece(notDef,  new IPiece[]{ new SelectPieceReference(tempTableAlias, offsetMappingPiece), new SimpleConstantValuePiece(true,ExtendedType.BOOLEAN)}), null);
+		IPiece offsetPiece = new SelectPiece(from.getScope(), new OperatorPiece(notDef,  new IPiece[]{ new SelectPieceReference(tempTableAlias, offsetMappingPiece), new SimpleConstantValuePiece(false,ExtendedType.BOOLEAN)}), null);
+
+		List<MeasureMapping> measureMappings = new ArrayList<MeasureMapping>();
+		for (MeasureMapping mx : inner.getMapper().getMeasureMapping()) {
+			ExtendedType extendedType = ExtendedType.UNDEFINED;
+			if (mx.getPiece() instanceof ITypedPiece) {
+				extendedType = ((ITypedPiece)mx.getPiece()).getType();
+			}
+			IPiece measurePiece =new SelectPieceReference(tempTableAlias, mx.getPiece());
+			IPiece[] currentArgs = new IPiece[]{notOffsetPiece, measurePiece};
+			IPiece currentPiece = new OperatorPiece(opDef, new IPiece[]{new OperatorPiece(caseDef, currentArgs)}, new ExtendedType[] {extendedType});
+			IPiece[] previousArgs = new IPiece[]{offsetPiece, measurePiece};
+			IPiece previousPiece = new OperatorPiece(opDef, new IPiece[]{new OperatorPiece(caseDef, previousArgs)}, new ExtendedType[] {extendedType});
+			ISelectPiece sel = main.select(currentPiece, mx.getPiece().getAlias());
+			ISelectPiece compareSel = main.select(previousPiece, mx.getPiece().getAlias()+"_compare");
+			mx.setPiece(sel);
+			MeasureMapping compareAx = qm.find(mx.getMapping());
+			measureMappings.add(new MeasureMapping(sel, compareAx.getMapping()));
+			for (MeasureMapping m:qm.getMeasureMapping()) {
+				if (m.getMapping().getId().equals(compareAx.getMapping().getId())) {
+					if (m.getMapping().getOriginType() == OriginType.COMPARETO) {
+						measureMappings.add(new MeasureMapping(compareSel, m.getMapping()));
+					}
+				}
+			}
+
+			if (computeGrowth) {
+				IPiece growthPiece = new OperatorPiece(Operators.DIVIDE,
+						new IPiece[]{new ExpressionListPiece(new OperatorPiece(Operators.SUBTRACTION, new IPiece[]{currentPiece, previousPiece}, new ExtendedType[] {extendedType, extendedType})), previousPiece}, new ExtendedType[] {extendedType, extendedType});
+				ISelectPiece growthSel = main.select(growthPiece, mx.getPiece().getAlias()+"_growth");
+				for (MeasureMapping m:qm.getMeasureMapping()) {
+					if (m.getMapping().getId().equals(compareAx.getMapping().getId())) {
+						if (computeGrowth && m.getMapping().getOriginType() == OriginType.GROWTH) {
+							measureMappings.add(new MeasureMapping(growthSel, m.getMapping()));
+						}
+					}
+				}
+			}
+		}
+
+		SimpleQuery newQuery = new SimpleQuery(inner.getUniverse(), inner.getSubject(), main);
+		for (AxisMapping am : qm.getAxisMapping()) {
+			newQuery.getMapper().add(am);
+		}
+		for (MeasureMapping mm : measureMappings) {
+			newQuery.getMapper().add(mm);
+		}
+		List<OrderBy> newOrderBy = new ArrayList<OrderBy>();
+		for (OrderBy orderBy: compareAnalysis.getOrders()) {
+			newOrderBy.add(new OrderBy(orderBy.getPos(), orderBy.getExpression(), orderBy.getOrdering(), orderBy.getNullsOrdering()));
+		}
+		newQuery.orderBy(newOrderBy);
+		return newQuery;
+	}
+
+	/**
+	 * Allow to overwrite the query from the default analysis
+	 * @param analysis
+	 * @param query
+	 * @param group
+	 * @param optimize
+	 * @param forceBeyondLimit
+	 * @return
+	 * @throws ScopeException
+	 * @throws SQLScopeException
+	 * @throws ComputingException
+	 * @throws InterruptedException
+	 * @throws RenderingException
+	 */
+	protected DataMatrix computeAnalysisSimpleForGroup(DashboardAnalysis analysis, SimpleQuery query, MeasureGroup group, boolean optimize,
+			boolean forceBeyondLimit)
+					throws ScopeException, SQLScopeException, ComputingException, InterruptedException, RenderingException {
 		// generate the query
 		PreviewWriter qw = new PreviewWriter();
-		SimpleQuery query = this.genAnalysisQueryCachable(analysis, group, optimize, forceBeyondLimit);
+
 		// compute the signature: do it after generating the query to take into
 		// account side-effects
 		boolean smartCache = SUPPORT_SMART_CACHE && !analysis.hasRollup();
 		AnalysisSmartCacheRequest smartCacheRequest = smartCache
 				? new AnalysisSmartCacheRequest(universe, analysis, group, query) : null;
-		boolean temporarySignature = false;
-		try {
-			// run the query using 1/ first the lazy, 2/ the smart cache (if
-			// allowed) 3/ direct execution if not lazy
-			try {
-				// always try lazy first
-				runQuery(query, true/* lazy */, analysis, qw);
-			} catch (NotInCacheException e) {
-				if (smartCacheRequest != null) {
+				boolean temporarySignature = false;
+				try {
+					// run the query using 1/ first the lazy, 2/ the smart cache (if
+					// allowed) 3/ direct execution if not lazy
 					try {
-						return computeAnalysisSimpleForGroupFromSmartCache(analysis, query, smartCacheRequest, qw,
-								optimize);
-					} catch (NotInCacheException ee) {
-						// ignore any error in smartCache
-					}
-				}
-				// still not yet, shall we run it?
-				if (!analysis.isLazy()) {
-					// if smart-cache enabled, lets keep a forward reference
-					// so other can use the smart-cache even if it is not yet
-					// computed
-					if (smartCacheRequest != null) {
-						temporarySignature = AnalysisSmartCache.INSTANCE.put(smartCacheRequest);
-					}
-					runQuery(query, false, analysis, qw);
-				} else {
-					throw e;// throw the NotInCache exception
-				}
-
-			}
-			// if we get here it's that we ran the query, not from the
-			// SmartCache
-			DataMatrix dm = qw.getDataMatrix();
-			if (dm != null) {
-				for (DataMatrixTransform transform : query.getPostProcessing()) {
-					dm = transform.apply(dm);
-				}
-			}
-			// if it is a full dataset and no rollup, store the layout in the
-			// smartCache
-			if (smartCacheRequest != null) {
-				if (dm.isFullset() && !analysis.hasRollup()) {
-					smartCacheRequest.setRowCount(dm);// record the resultset
-														// size - so we know the
-														// resultset should be
-														// available
-					if (dm.isFromCache() && !dm.isFromSmartCache()) {
-						// from cache, but is it still in the smartCache ?
-						if (!AnalysisSmartCache.INSTANCE.contains(smartCacheRequest)) {
-							AnalysisSmartCache.INSTANCE.put(smartCacheRequest);
-							logger.info("updating analysis in Smart Cache (key="+dm.getRedisKey()+")");
+						// always try lazy first
+						runQuery(query, true/* lazy */, analysis, qw);
+					} catch (NotInCacheException e) {
+						if (smartCacheRequest != null) {
+							try {
+								return computeAnalysisSimpleForGroupFromSmartCache(analysis, query, smartCacheRequest, qw,
+										optimize);
+							} catch (NotInCacheException ee) {
+								// ignore any error in smartCache
+							}
 						}
-					} else {
-						// add to the smart cache
-						AnalysisSmartCache.INSTANCE.put(smartCacheRequest);
-						logger.info("put analysis in Smart Cache (key="+dm.getRedisKey()+")\"");
+						// still not yet, shall we run it?
+						if (!analysis.isLazy()) {
+							// if smart-cache enabled, lets keep a forward reference
+							// so other can use the smart-cache even if it is not yet
+							// computed
+							if (smartCacheRequest != null) {
+								temporarySignature = AnalysisSmartCache.INSTANCE.put(smartCacheRequest);
+							}
+							runQuery(query, false, analysis, qw);
+						} else {
+							throw e;// throw the NotInCache exception
+						}
+
+					}
+					// if we get here it's that we ran the query, not from the
+					// SmartCache
+					DataMatrix dm = qw.getDataMatrix();
+					if (dm != null) {
+						for (DataMatrixTransform transform : query.getPostProcessing()) {
+							dm = transform.apply(dm);
+						}
+					}
+					// if it is a full dataset and no rollup, store the layout in the
+					// smartCache
+					if (smartCacheRequest != null) {
+						if (dm.isFullset() && !analysis.hasRollup()) {
+							smartCacheRequest.setRowCount(dm);// record the resultset
+							// size - so we know the
+							// resultset should be
+							// available
+							if (dm.isFromCache() && !dm.isFromSmartCache()) {
+								// from cache, but is it still in the smartCache ?
+								if (!AnalysisSmartCache.INSTANCE.contains(smartCacheRequest)) {
+									AnalysisSmartCache.INSTANCE.put(smartCacheRequest);
+									logger.info("updating analysis in Smart Cache (key="+dm.getRedisKey()+")");
+								}
+							} else {
+								// add to the smart cache
+								AnalysisSmartCache.INSTANCE.put(smartCacheRequest);
+								logger.info("put analysis in Smart Cache (key="+dm.getRedisKey()+")\"");
+							}
+						}
+					}
+					return dm;
+				} finally {
+					if (smartCacheRequest != null && temporarySignature) {
+						// make sure to remove the temporary signature from cache
+						// AnalysisSmartCache.INSTANCE.remove(smartCacheRequest);
+						AnalysisSmartCacheSignature sign = AnalysisSmartCache.INSTANCE.get(smartCacheRequest);
+						if (sign != null && sign.getRowCount() < 0) {
+							// this is the temporary entry
+							AnalysisSmartCache.INSTANCE.remove(smartCacheRequest);
+						}
 					}
 				}
-			}
-			return dm;
-		} finally {
-			if (smartCacheRequest != null && temporarySignature) {
-				// make sure to remove the temporary signature from cache
-				// AnalysisSmartCache.INSTANCE.remove(smartCacheRequest);
-				AnalysisSmartCacheSignature sign = AnalysisSmartCache.INSTANCE.get(smartCacheRequest);
-				if (sign != null && sign.getRowCount() < 0) {
-					// this is the temporary entry
-					AnalysisSmartCache.INSTANCE.remove(smartCacheRequest);
-				}
-			}
-		}
 	}
 
 	/**
 	 * execute the analysis but does not read the result: this method can be
 	 * used to stream the result back to client, for instance to export the
 	 * dataset
-	 * 
+	 *
 	 * @param analysis
 	 * @return
 	 * @throws ComputingException
@@ -935,7 +1179,7 @@ public class AnalysisCompute {
 					SQLStats queryLog = new SQLStats(query.toString(), "executeAnalysis.SQLGeneration", sql,
 							(stop - start), analysis.getUniverse().getProject().getId().getProjectId());
 					queryLog.setError(false);
-//					PerfDB.INSTANCE.save(queryLog);
+					//					PerfDB.INSTANCE.save(queryLog);
 
 				} catch (RenderingException e) {
 					e.printStackTrace();
@@ -970,7 +1214,7 @@ public class AnalysisCompute {
 	 * Generate a simple query to compute an analysis on a single measure group
 	 * (i.e. on a single domain) If optimize is true, the method will try to use
 	 * soft filters.
-	 * 
+	 *
 	 * @param if
 	 *            cachable is true, the genAnalysisQuery will try to normalize
 	 *            the SQL - that means it may ignore some statements like ORDER
@@ -979,7 +1223,7 @@ public class AnalysisCompute {
 	 */
 	protected SimpleQuery genAnalysisQueryWithSoftFiltering(DashboardAnalysis analysis, MeasureGroup group,
 			boolean cachable, boolean optimize)
-			throws ScopeException, SQLScopeException, ComputingException, InterruptedException {
+					throws ScopeException, SQLScopeException, ComputingException, InterruptedException {
 		//
 		DashboardSelection soft_filters = new DashboardSelection();
 		List<Axis> hidden_slice = new ArrayList<Axis>();
@@ -1015,13 +1259,13 @@ public class AnalysisCompute {
 			Axis axis = hook.A(groupBy.getAxis());
 
 			if (axis.getDimension() !=null){
-			List<Attribute> attributes = AttributeServiceBaseImpl.getInstance().readAll(universe.getContext(), axis.getDimension().getId());
-			if (attributes != null) {
-				for (Attribute attr: attributes) {
-					if (attr.getId().getAttributeId().equals("precomputedRollupLevels")) {
-						query.setPrecomputedRollupAxis(groupBy);
+				List<Attribute> attributes = AttributeServiceBaseImpl.getInstance().readAll(universe.getContext(), axis.getDimension().getId());
+				if (attributes != null) {
+					for (Attribute attr: attributes) {
+						if (attr.getId().getAttributeId().equals("precomputedRollupLevels")) {
+							query.setPrecomputedRollupAxis(groupBy);
+						}
 					}
-				}
 				}
 			}
 			ISelectPiece piece = query.select(axis);
@@ -1056,7 +1300,7 @@ public class AnalysisCompute {
 					query.where(axis, filters);
 				} else {
 					if ((dimension.getType().equals(Type.CATEGORICAL) || dimension.getType().equals(Type.INDEX) // ticket:3001
-					) && slices.contains(axis)) {
+							) && slices.contains(axis)) {
 						// analysis already contains the axis filter as a slice
 						if (soft_filters != null) {
 							soft_filters.add(axis, filters);
@@ -1067,11 +1311,11 @@ public class AnalysisCompute {
 						boolean generalize = false;
 						IDomain image = axis.getDefinition().getImageDomain();
 						if (!image.isInstanceOf(SetDomain.SET) && !image.isInstanceOf(IDomain.CONDITIONAL) // ticket:3014
-																											// -
-																											// not
-																											// for
-																											// predicate
-						) {
+								// -
+								// not
+								// for
+								// predicate
+								) {
 							if (slice_numbers < 10 && filters.size() == 1
 									&& dimension.getType().equals(Type.CATEGORICAL)) {
 								// limited to the situation where the filter
@@ -1139,7 +1383,7 @@ public class AnalysisCompute {
 
 	/**
 	 * generate a simple query without metrics
-	 * 
+	 *
 	 * @param analysis
 	 * @return
 	 * @throws ScopeException
@@ -1192,7 +1436,7 @@ public class AnalysisCompute {
 
 	/**
 	 * generate a Simple Query without using soft-filters
-	 * 
+	 *
 	 * @param analysis
 	 * @param group
 	 * @param optimize
@@ -1205,7 +1449,7 @@ public class AnalysisCompute {
 	 */
 	protected SimpleQuery genAnalysisQuery(DashboardAnalysis analysis, MeasureGroup group, boolean optimize,
 			boolean forceBeyondLimit)
-			throws ScopeException, SQLScopeException, ComputingException, InterruptedException, RenderingException {
+					throws ScopeException, SQLScopeException, ComputingException, InterruptedException, RenderingException {
 		return this.genAnalysisQueryCachable(analysis, group, optimize, forceBeyondLimit);
 	}
 
@@ -1216,7 +1460,7 @@ public class AnalysisCompute {
 
 	protected SimpleQuery genAnalysisQueryCachable(DashboardAnalysis analysis, MeasureGroup group, boolean optimize,
 			boolean forceBeyondLimit)
-			throws ScopeException, SQLScopeException, ComputingException, InterruptedException, RenderingException {
+					throws ScopeException, SQLScopeException, ComputingException, InterruptedException, RenderingException {
 		if (forceBeyondLimit || (analysis.hasBeyondLimit() && analysis.hasLimit() && !analysis.hasRollup())) {
 			// need to take care of the beyond limit axis => compute the limit
 			// only on a subset of axes
@@ -1228,22 +1472,22 @@ public class AnalysisCompute {
 		// else...
 		// use the simple method
 		return genAnalysisQueryWithSoftFiltering(analysis, group, true, // just
-																		// set
-																		// the
-																		// cachable
-																		// flag
-																		// to
-																		// true
-																		// -- is
-																		// this
-																		// really
-																		// usefull?
+				// set
+				// the
+				// cachable
+				// flag
+				// to
+				// true
+				// -- is
+				// this
+				// really
+				// usefull?
 				optimize);
 	}
 
 	/**
 	 * handling the BeyondLimit parameter Note: rollup not yet supported
-	 * 
+	 *
 	 * @param analysis
 	 * @param group
 	 * @param cachable
@@ -1259,7 +1503,7 @@ public class AnalysisCompute {
 	 */
 	protected SimpleQuery genAnalysisQueryWithBeyondLimitSupport(DashboardAnalysis analysis, MeasureGroup group,
 			boolean cachable, boolean optimize)
-			throws ScopeException, SQLScopeException, ComputingException, InterruptedException, RenderingException {
+					throws ScopeException, SQLScopeException, ComputingException, InterruptedException, RenderingException {
 		//
 		// T1890: it is ok to have null beyondLimit => apply to all pivot
 		List<GroupByAxis> beyondLimitGroup = analysis.getBeyondLimit()!=null?analysis.getBeyondLimit():Collections.<GroupByAxis>emptyList();
@@ -1315,13 +1559,13 @@ public class AnalysisCompute {
 		}
 		// use the best strategy
 		if (joins.size() == 1 && subAnalysisWithLimit.hasLimit() && subAnalysisWithLimit.getLimit() < 50) {
-			// run sub-analysis and add filters by hand 
+			// run sub-analysis and add filters by hand
 			// potential cache hit on the subquery
 			DataMatrix selection = computeAnalysisSimple(subAnalysisWithLimit, false);
 			Axis join = joins.get(0);
 			Collection<DimensionMember> values = selection.getAxisValues(join);
 			if (!values.isEmpty()) {
-				Long limit = analysis.getLimit();
+				analysis.getLimit();
 				// change the analysis definition
 				// => we need to define the join condition explicitly for
 				// SmartCache to correctly pick it
@@ -1394,7 +1638,7 @@ public class AnalysisCompute {
 					throw new ScopeException("unable to link KPI '" + measure.getName() + "' with that Filter");
 				} else {
 					logger.warn("ignoring axis '" + target.getPath()
-							+ "' from the selection, cannot resolve to a valid path");
+					+ "' from the selection, cannot resolve to a valid path");
 				}
 			} else {
 				single_space = paths.get(0);// hum, ok for now...

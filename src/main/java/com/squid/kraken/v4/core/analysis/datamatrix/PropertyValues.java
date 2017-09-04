@@ -2,12 +2,12 @@
  * Copyright © Squid Solutions, 2016
  *
  * This file is part of Open Bouquet software.
- *  
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
  * published by the Free Software Foundation (version 3 of the License).
  *
- * There is a special FOSS exception to the terms and conditions of the 
+ * There is a special FOSS exception to the terms and conditions of the
  * licenses as they are applied to this program. See LICENSE.txt in
  * the directory of this program distribution.
  *
@@ -23,6 +23,7 @@
  *******************************************************************************/
 package com.squid.kraken.v4.core.analysis.datamatrix;
 
+import com.squid.core.sql.render.IOrderByPiece.NULLS_ORDERING;
 import com.squid.core.sql.render.IOrderByPiece.ORDERING;
 import com.squid.kraken.v4.core.analysis.universe.Property;
 
@@ -35,6 +36,7 @@ public class  PropertyValues <T extends Property> {
 	private T property;
 	private boolean isVisible = true;
 	private ORDERING ordering;
+	private NULLS_ORDERING nullsOrdering;
 
 	public PropertyValues(PropertyValues<T> copy) {
 		this.property = copy.property;
@@ -42,7 +44,7 @@ public class  PropertyValues <T extends Property> {
 		this.ordering = copy.ordering;
 		// don't set values
 	}
-	
+
 	public PropertyValues(T property) {
 		super();
 		this.property = property;
@@ -51,20 +53,29 @@ public class  PropertyValues <T extends Property> {
 	public T getProperty() {
 		return property;
 	}
-	
+
 	public boolean isVisible() {
 		return isVisible;
-	}
-
-	public void setOrdering(ORDERING ordering) {
-		this.ordering = ordering;
-	}
-	
-	public ORDERING getOrdering() {
-		return ordering;
 	}
 
 	public void setVisible(boolean isVisible) {
 		this.isVisible = isVisible;
 	}
+
+	public ORDERING getOrdering() {
+		return ordering;
+	}
+
+	public void setOrdering(ORDERING ordering) {
+		this.ordering = ordering;
+	}
+
+	public NULLS_ORDERING geNullsOrdering() {
+		return nullsOrdering;
+	}
+
+	public void setNullsOrdering(NULLS_ORDERING nullsOrdering) {
+		this.nullsOrdering = nullsOrdering;
+	}
+
 }

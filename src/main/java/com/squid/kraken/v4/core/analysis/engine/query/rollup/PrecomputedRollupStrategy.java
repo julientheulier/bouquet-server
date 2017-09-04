@@ -41,12 +41,29 @@ import com.squid.kraken.v4.core.analysis.engine.query.SimpleQuery;
 import com.squid.kraken.v4.core.analysis.engine.query.mapping.AxisMapping;
 import com.squid.kraken.v4.core.analysis.engine.query.mapping.OrderByMapping;
 import com.squid.kraken.v4.core.analysis.engine.query.mapping.QueryMapper;
+import com.squid.kraken.v4.core.analysis.engine.query.mapping.SimpleMapping;
 import com.squid.kraken.v4.core.analysis.model.GroupByAxis;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
 import com.squid.kraken.v4.core.sql.SelectUniversal;
 import com.squid.kraken.v4.core.sql.script.SQLScript;
 import com.squid.kraken.v4.model.Attribute;
 
+/**
+ * How to use:
+ * 	1. Flag a dimension indicating the number of rollup levels for every row returned by the query.
+ *     For that, add an attribute precomputedRollupLevels with the number of rollup levels (incl. raw data).
+ *     This dimension is an integer, with the following values definition
+ * 		- null: no aggregation
+ * 		- -1 : grant total rollup
+ * 		- 1: top level rollup aggregation
+ * 		- 2: 	2nd level rollup aggregation if any
+ * 		- 3: 	3rd level rollup aggregation if any
+ * 		... & so on
+ * 	2. Define a bookmark selecting data & this dimension
+ *  3. This can be combined with rollup info in analysis
+ * @author jtheulier
+ *
+ */
 public class PrecomputedRollupStrategy extends BaseRollupStrategy {
 
 	private GroupByAxis precomputedRollupAxis = null;
@@ -63,8 +80,6 @@ public class PrecomputedRollupStrategy extends BaseRollupStrategy {
 			// create the main copy
 			SelectUniversal main = createSelect();
 			addAxis(main);// add all
-			// add orderBy
-			List<OrderByMapping> orderByMapping = inlineOrderBy(main);
 			// add levels to order by rollup
 			List<ISelectPiece> levels = new ArrayList<>();
 			ISelectPiece levelIDPiece = null;
@@ -72,6 +87,14 @@ public class PrecomputedRollupStrategy extends BaseRollupStrategy {
 				List<Attribute> attributes = AttributeServiceBaseImpl.getInstance().readAll(getQuery().getUniverse().getContext(), precomputedRollupAxis.getAxis().getDimension().getId());
 				if (attributes != null) {
 					IPiece piece1 = main.createPiece(Context.SELECT, precomputedRollupAxis.getAxis().getDefinition());
+					SimpleMapping m = getMapper().find(precomputedRollupAxis.getAxis().getReference());
+					if (m == null) {
+						levelIDPiece = main.select(precomputedRollupAxis.getAxis().getDefinition(), "levelID");
+						AxisMapping ax = new AxisMapping(levelIDPiece, precomputedRollupAxis.getAxis());
+						getMapper().add(ax);
+					} else {
+						levelIDPiece = main.select(precomputedRollupAxis.getAxis().getDefinition(), precomputedRollupAxis.getAxis().getName());
+					}
 					for (Attribute attr: attributes) {
 						if (attr.getId().getAttributeId().equals("precomputedRollupLevels")) {
 							int nrLevels = new Integer(attr.getExpression().getValue()).intValue();
@@ -86,13 +109,19 @@ public class PrecomputedRollupStrategy extends BaseRollupStrategy {
 								case_pieces[1]  = new SimpleConstantValuePiece(1, ExtendedType.INTEGER);
 								case_pieces[2] = new SimpleConstantValuePiece(0, ExtendedType.INTEGER);
 								OperatorPiece subcase = new OperatorPiece(Operators.CASE,case_pieces);
-								levels.add(main.select(subcase, "level_"+(level-offset)));
+								ISelectPiece levelPiece = main.select(subcase, "level_"+(level-offset));
+								//Do not add same mappings
+								//AxisMapping ax = new AxisMapping(levelPiece, precomputedRollupAxis.getAxis());
+								//getMapper().add(ax);
+								levels.add(levelPiece);
 							}
 						}
 					}
-					levelIDPiece = main.select(precomputedRollupAxis.getAxis().getDefinition(), "levelID");
 				}
 			}
+
+			// add orderBy
+			List<OrderByMapping> ordersByMapping = inlineOrderBy(main);
 
 			//
 			// pretty-print
@@ -101,7 +130,7 @@ public class PrecomputedRollupStrategy extends BaseRollupStrategy {
 			sql.append(main.render());
 			// prepare the order by
 			sql.append("\n");
-			sql.append(renderOrderBy(main, levels, orderByMapping));
+			sql.append(renderOrderBy(main, levels, ordersByMapping));
 			// add the regular limit
 			if (getSelect().getStatement().hasLimitValue()) {
 				sql.append("\nLIMIT "+getSelect().getStatement().getLimitValue());

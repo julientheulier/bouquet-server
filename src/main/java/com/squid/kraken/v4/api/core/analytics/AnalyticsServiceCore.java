@@ -594,7 +594,8 @@ public class AnalyticsServiceCore {
 				// look for the selection
 				for (Facet facet : selection.getFacets()) {
 					if (!facet.getSelectedItems().isEmpty()) {
-						if (facet.getId().equals(period)) {
+						ExpressionAST exprFacet = globalScope.parseExpression(facet.getId());	
+						if (exprFacet.prettyPrint(new PrettyPrintOptions(ReferenceStyle.IDENTIFIER, null)).equals(period)){
 							// it's the period
 							List<FacetMember> items = facet.getSelectedItems();
 							if (items.size()==1) {
@@ -682,7 +683,9 @@ public class AnalyticsServiceCore {
 			if (!selection.getCompareTo().isEmpty()) {
 				for (Facet facet : selection.getCompareTo()) {
 					if (!facet.getSelectedItems().isEmpty()) {
-						if (facet.getId().equals(period)) {
+
+						ExpressionAST exprFacet = globalScope.parseExpression(facet.getId());	
+						if (exprFacet.prettyPrint(new PrettyPrintOptions(ReferenceStyle.IDENTIFIER, null)).equals(period)){
 							// it's the period
 							List<FacetMember> items = facet.getSelectedItems();
 							if (items.size()==1) {

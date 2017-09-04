@@ -206,7 +206,7 @@ public class EngineUtils {
 
 				if (value.equalsIgnoreCase("__COMPARE_TO_PREVIOUS_PERIOD")) {
 					if (localLower.minusMonths(1).dayOfMonth().getMaximumValue()<=localUpper.dayOfMonth().get()) {
-						isMonthlyCompare = true;
+						isMonthlyCompare = true && localLower.dayOfMonth().get()==1;
 					}
 					if (isMonthlyCompare) {
 						Months months = Months.monthsBetween(localLower, localUpper);
@@ -237,10 +237,7 @@ public class EngineUtils {
 					}
 					if (isMonthlyCompare) {
 						if (bound==Bound.UPPER) {
-							LocalDate date = localLower.minusMonths(1);
-							date = date.plusMonths(Months.monthsBetween(localLower, localUpper).getMonths());
-							lastUpperDay = date.dayOfMonth().getMaximumValue();
-							date = date.plusDays(lastUpperDay - 1);
+							LocalDate date = localUpper.minusMonths(1);
 							return date.toDate();
 						} else {
 							LocalDate date = localLower.minusMonths(1);
