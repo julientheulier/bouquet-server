@@ -529,7 +529,7 @@ public class AnalysisCompute {
 					growth.setDefinition(ExpressionMaker.DIV(ExpressionMaker.MINUS(presentKpi.getDefinitionSafe(), compareToKpi.getDefinitionSafe()), ExpressionMaker.DIV(compareToKpi.getDefinitionSafe(), ExpressionMaker.CONSTANT(100))));
 					growth.setOriginType(OriginType.GROWTH);
 					growth.setName(kpi.getName() + " [growth%]");
-					growth.setFormat("%.2f");
+					growth.setFormat("%.2f%%");
 					compareToAnalysis.add(growth);
 				}
 			}
@@ -564,7 +564,7 @@ public class AnalysisCompute {
 						growth.setDefinition(ExpressionMaker.DIV(ExpressionMaker.MINUS(presentKpi.getDefinitionSafe(), compareToKpi.getDefinitionSafe()), ExpressionMaker.DIV(compareToKpi.getDefinitionSafe(), ExpressionMaker.CONSTANT(100))));
 						growth.setOriginType(OriginType.GROWTH);
 						growth.setName(kpi.getName() + " [growth%]");
-						growth.setFormat("%.2f");
+						growth.setFormat("%.2f%%");
 					}
 
 					if (orderBy instanceof OrderByGrowth && ((OrderByGrowth) orderBy).expr.getValue().startsWith("growth(")) {
