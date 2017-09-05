@@ -1024,7 +1024,9 @@ public class AnalysisCompute {
 
 			if (computeGrowth) {
 				IPiece growthPiece = new OperatorPiece(Operators.DIVIDE,
-						new IPiece[]{new ExpressionListPiece(new OperatorPiece(Operators.SUBTRACTION, new IPiece[]{currentPiece, previousPiece}, new ExtendedType[] {extendedType, extendedType})), previousPiece}, new ExtendedType[] {extendedType, extendedType});
+						new IPiece[]{new ExpressionListPiece(new OperatorPiece(Operators.SUBTRACTION, new IPiece[]{currentPiece, previousPiece}, new ExtendedType[] {extendedType, extendedType})),
+								new OperatorPiece(Operators.DIVIDE, new IPiece[] { previousPiece, new SimpleConstantValuePiece(100, ExtendedType.INTEGER)}, new ExtendedType[] {extendedType, ExtendedType.INTEGER})
+				}, new ExtendedType[] {extendedType, extendedType});
 				ISelectPiece growthSel = main.select(growthPiece, mx.getPiece().getAlias()+"_growth");
 				for (MeasureMapping m:qm.getMeasureMapping()) {
 					if (m.getMapping().getId().equals(compareAx.getMapping().getId())) {
@@ -1037,17 +1039,25 @@ public class AnalysisCompute {
 		}
 
 		SimpleQuery newQuery = new SimpleQuery(inner.getUniverse(), inner.getSubject(), main);
-		for (AxisMapping am : qm.getAxisMapping()) {
+		for (AxisMapping am : axisMappings) {
 			newQuery.getMapper().add(am);
 		}
 		for (MeasureMapping mm : measureMappings) {
 			newQuery.getMapper().add(mm);
 		}
+		/*
 		List<OrderBy> newOrderBy = new ArrayList<OrderBy>();
 		for (OrderBy orderBy: compareAnalysis.getOrders()) {
+			if (orderBy.getExpression() instanceof AxisExpression) {
+				SimpleMapping m = newQuery.getMapper().find(orderBy.getExpression());
+				if (m != null) {
+					System.out.println("couuc");
+				}
+			}
 			newOrderBy.add(new OrderBy(orderBy.getPos(), orderBy.getExpression(), orderBy.getOrdering(), orderBy.getNullsOrdering()));
 		}
-		newQuery.orderBy(newOrderBy);
+		 */
+		newQuery.orderBy(compareAnalysis.getOrders(), newQuery.getMapper(), main);
 		return newQuery;
 	}
 
