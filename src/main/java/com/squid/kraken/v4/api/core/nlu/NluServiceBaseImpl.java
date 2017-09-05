@@ -44,6 +44,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.squid.core.database.impl.DatabaseServiceException;
 import com.squid.core.domain.IDomain;
+import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.PrettyPrintOptions;
 import com.squid.core.expression.PrettyPrintOptions.ReferenceStyle;
 import com.squid.core.expression.scope.ScopeException;
@@ -62,6 +63,7 @@ import com.squid.kraken.v4.api.core.nlu.wit.EntityValue;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.core.analysis.engine.processor.ComputingService;
 import com.squid.kraken.v4.core.analysis.model.DashboardSelection;
+import com.squid.kraken.v4.core.analysis.scope.SpaceScope;
 import com.squid.kraken.v4.core.analysis.universe.Axis;
 import com.squid.kraken.v4.core.analysis.universe.Measure;
 import com.squid.kraken.v4.core.analysis.universe.Space;
@@ -251,42 +253,64 @@ public class NluServiceBaseImpl extends AnalyticsServiceCore {
 		}
 	}
 	
+	
+	private EntityDefinition generateWitEntities(Axis axis, Integer sample) throws ComputingException, InterruptedException, TimeoutException {
+		IDomain image = axis.getDefinitionSafe().getImageDomain();
+		if (!image.isInstanceOf(IDomain.OBJECT) && image.isInstanceOf(IDomain.STRING)) {
+			if (axis.getDimension().getType().equals(Type.CATEGORICAL)) {
+				String dim_name = axis.getDimension().getName();
+				String dim_ID = axis.prettyPrint(new PrettyPrintOptions(defaultStyle, null));
+				//
+				EntityDefinition entity = new EntityDefinition();
+				entity.setId(ITEM_ENTITY_PREFIX+dim_name);
+				entity.setValues(new ArrayList<>());
+				//
+				int size = sample!=null?sample:100;
+				// look for the facets
+				DashboardSelection empty = new DashboardSelection();
+				Facet facet = ComputingService.INSTANCE.glitterFacet(axis.getParent().getUniverse(),
+						axis.getParent().getDomain(), empty, axis, "", 0, size, null);
+				int count = 0;
+				for (FacetMember item : facet.getItems()) {
+					FacetMemberString member = (FacetMemberString)item;
+					EntityValue value = new EntityValue();
+					value.setValue(member.getValue());
+					value.setExpressions(new ArrayList<>());
+					value.getExpressions().add(member.getValue());
+					entity.getValues().add(value);
+					// we could use the attributes too
+					count++;
+					if (count>sample) break;
+				}
+				//
+				return entity;
+			}
+		}
+		//
+		return null;
+	}
+
+	public EntityDefinition generateWitEntities(String BBID, String dimension, Integer sample) throws ScopeException, ComputingException, InterruptedException, TimeoutException {
+		Space space = getSpace(userContext, BBID);
+		SpaceScope scope = new SpaceScope(space);
+		ExpressionAST expr = scope.parseExpression(dimension);
+		Axis axis = space.getUniverse().asAxis(expr);
+		EntityDefinition result = generateWitEntities(axis, sample);
+		if (result==null) throw new ScopeException("the dimension must be indexed in order to be able to export data");// do not return null
+		return result;
+	}
+	
 	public Object generateWitEntities(String BBID, Integer sample) {
 		ArrayList<EntityDefinition> entities = new ArrayList<>();
 		Space space = getSpace(userContext, BBID);
 		for (Axis axis : space.A(true)) {
-			IDomain image = axis.getDefinitionSafe().getImageDomain();
-			if (!image.isInstanceOf(IDomain.OBJECT) && image.isInstanceOf(IDomain.STRING)) {
-				if (axis.getDimension().getType().equals(Type.CATEGORICAL)) {
-					String dim_name = axis.getDimension().getName();
-					String dim_ID = axis.prettyPrint(new PrettyPrintOptions(defaultStyle, null));
-					//
-					EntityDefinition entity = new EntityDefinition();
+			try {
+				EntityDefinition entity = generateWitEntities(axis, sample);
+				if (entity!=null) {
 					entities.add(entity);
-					entity.setId(ITEM_ENTITY_PREFIX+dim_name);
-					entity.setValues(new ArrayList<>());
-					//
-					int size = sample!=null?sample:10;
-					// look for the facets
-					try {
-						DashboardSelection empty = new DashboardSelection();
-						Facet facet = ComputingService.INSTANCE.glitterFacet(space.getUniverse(),
-								space.getDomain(), empty, axis, "", 0, size, null);
-						int count = 0;
-						for (FacetMember item : facet.getItems()) {
-							FacetMemberString member = (FacetMemberString)item;
-							EntityValue value = new EntityValue();
-							value.setValue(member.getValue());
-							value.setExpressions(new ArrayList<>());
-							value.getExpressions().add(member.getValue());
-							entity.getValues().add(value);
-							// we could use the attributes too
-							count++;
-						}
-					} catch (TimeoutException | ComputingException | InterruptedException e) {
-						// ignore
-					}
 				}
+			} catch (ComputingException | InterruptedException | TimeoutException e) {
+				// ignore
 			}
 		}
 		//

@@ -24,6 +24,7 @@
 package com.squid.kraken.v4.api.core.nlu;
 
 import java.io.IOException;
+import java.util.concurrent.TimeoutException;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.GET;
@@ -38,6 +39,8 @@ import javax.ws.rs.core.UriInfo;
 
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.api.core.customer.CoreAuthenticatedServiceRest;
+import com.squid.kraken.v4.api.core.nlu.wit.EntityDefinition;
+import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.persistence.AppContext;
 
 import io.swagger.annotations.Api;
@@ -64,7 +67,6 @@ public class NluServiceRest extends CoreAuthenticatedServiceRest {
 	@Context
 	UriInfo uriInfo;
 
-
 	@GET
 	@Path("/wit/{" + BBID_PARAM_NAME + "}/entities")
 	@ApiOperation(value = "generate a learning dataset for this bookmark")
@@ -74,6 +76,18 @@ public class NluServiceRest extends CoreAuthenticatedServiceRest {
 			@QueryParam("sample") Integer sample) throws ScopeException {
 		AppContext userContext = getUserContext(request);
 		return delegate(userContext).generateWitEntities(BBID, sample);
+	}
+
+	@GET
+	@Path("/wit/{" + BBID_PARAM_NAME + "}/entities/{DIMENSION_ID}")
+	@ApiOperation(value = "generate a learning dataset for this bookmark and the selected dimension")
+	public EntityDefinition generateWitEntities(
+			@Context HttpServletRequest request, 
+			@PathParam(BBID_PARAM_NAME) String BBID,
+			@PathParam("DIMENSION_ID") String dimension,
+			@QueryParam("sample") Integer sample) throws ScopeException, ComputingException, InterruptedException, TimeoutException {
+		AppContext userContext = getUserContext(request);
+		return delegate(userContext).generateWitEntities(BBID, dimension, sample);
 	}
 
 	@GET
