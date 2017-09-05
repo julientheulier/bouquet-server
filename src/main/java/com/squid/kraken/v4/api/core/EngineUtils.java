@@ -232,13 +232,13 @@ public class EngineUtils {
 					}
 				}
 				if (value.equalsIgnoreCase("__COMPARE_TO_PREVIOUS_MONTH")) {
-					if (localLower.minusMonths(1).dayOfMonth().getMaximumValue()<=localUpper.dayOfMonth().get()) {
+					if (localLower.getDayOfMonth() == 1 && localUpper.getDayOfMonth() == lastUpperDay) {
 						isMonthlyCompare = true;
 					}
 					if (isMonthlyCompare) {
 						if (bound==Bound.UPPER) {
 							LocalDate date = localUpper.minusMonths(1);
-							return date.toDate();
+							return date.withDayOfMonth(date.dayOfMonth().getMaximumValue()).toDate();
 						} else {
 							LocalDate date = localLower.minusMonths(1);
 							return date.toDate();
