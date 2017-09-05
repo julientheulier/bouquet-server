@@ -23,6 +23,9 @@
  *******************************************************************************/
 package com.squid.kraken.v4.api.core.nlu;
 
+import java.io.IOException;
+import java.util.concurrent.TimeoutException;
+
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
@@ -31,10 +34,13 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
 
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.kraken.v4.api.core.customer.CoreAuthenticatedServiceRest;
+import com.squid.kraken.v4.api.core.nlu.wit.EntityDefinition;
+import com.squid.kraken.v4.core.analysis.engine.processor.ComputingException;
 import com.squid.kraken.v4.persistence.AppContext;
 
 import io.swagger.annotations.Api;
@@ -62,6 +68,29 @@ public class NluServiceRest extends CoreAuthenticatedServiceRest {
 	UriInfo uriInfo;
 
 	@GET
+	@Path("/wit/{" + BBID_PARAM_NAME + "}/entities")
+	@ApiOperation(value = "generate a learning dataset for this bookmark")
+	public Object generateWitEntities(
+			@Context HttpServletRequest request, 
+			@PathParam(BBID_PARAM_NAME) String BBID,
+			@QueryParam("sample") Integer sample) throws ScopeException {
+		AppContext userContext = getUserContext(request);
+		return delegate(userContext).generateWitEntities(BBID, sample);
+	}
+
+	@GET
+	@Path("/wit/{" + BBID_PARAM_NAME + "}/entities/{DIMENSION_ID}")
+	@ApiOperation(value = "generate a learning dataset for this bookmark and the selected dimension")
+	public EntityDefinition generateWitEntities(
+			@Context HttpServletRequest request, 
+			@PathParam(BBID_PARAM_NAME) String BBID,
+			@PathParam("DIMENSION_ID") String dimension,
+			@QueryParam("sample") Integer sample) throws ScopeException, ComputingException, InterruptedException, TimeoutException {
+		AppContext userContext = getUserContext(request);
+		return delegate(userContext).generateWitEntities(BBID, dimension, sample);
+	}
+
+	@GET
 	@Path("/nlu/{" + BBID_PARAM_NAME + "}/train")
 	@ApiOperation(value = "generate a learning dataset for this bookmark")
 	public Object generateTrainingSet(
@@ -72,14 +101,48 @@ public class NluServiceRest extends CoreAuthenticatedServiceRest {
 	}
 
 	@GET
+	@Path("/nlu/{" + BBID_PARAM_NAME + "}/test")
+	@ApiOperation(value = "test the model using the training corpus")
+	public Object runTest(
+			@Context HttpServletRequest request, 
+			@PathParam(BBID_PARAM_NAME) String BBID) throws ScopeException {
+		AppContext userContext = getUserContext(request);
+		return delegate(userContext).runTest(BBID);
+	}
+
+	@GET
 	@Path("/nlu/{" + BBID_PARAM_NAME + "}/query")
 	@ApiOperation(value = "proceed a query")
 	public Object query(
 			@Context HttpServletRequest request, 
 			@PathParam(BBID_PARAM_NAME) String BBID,
-			@QueryParam(MESSAGE_PARAM_NAME) String message) throws ScopeException {
+			@QueryParam(MESSAGE_PARAM_NAME) String message,
+			@QueryParam("state") String state) throws ScopeException {
 		AppContext userContext = getUserContext(request);
-		return delegate(userContext).query(BBID, message);
+		return delegate(userContext).query(BBID, message, state);
+	}
+	
+	@GET
+	@Path("/nlu/{" + BBID_PARAM_NAME + "}/chat")
+	@ApiOperation(value = "chat test")
+	public CardInfo chat(
+			@Context HttpServletRequest request, 
+			@PathParam(BBID_PARAM_NAME) String BBID,
+			@QueryParam(MESSAGE_PARAM_NAME) String message) throws ScopeException, IOException {
+		AppContext userContext = getUserContext(request);
+		return delegate(userContext).chat(BBID, message);
+	}
+	
+	@GET
+	@Path("/nlu/{" + BBID_PARAM_NAME + "}/ui")
+	@ApiOperation(value = "chat bot imple UI")
+	public Response generateUI(
+			@Context HttpServletRequest request, 
+			@PathParam(BBID_PARAM_NAME) String BBID,
+			@QueryParam(MESSAGE_PARAM_NAME) String message,
+			@QueryParam("state") String state) throws ScopeException, IOException {
+		AppContext userContext = getUserContext(request);
+		return delegate(userContext).generateUI(BBID, message, state);
 	}
 
 	/**

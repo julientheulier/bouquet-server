@@ -85,7 +85,7 @@ import io.swagger.annotations.AuthorizationScope;
 		description = "this is the new analytics API intented to provide all the fun without the pain",
 		authorizations = { @Authorization(value = "kraken_auth", scopes = { @AuthorizationScope(scope = "access", description = "Access") }) })
 @Produces({ MediaType.APPLICATION_JSON })
-public class AnalyticsServiceRest  extends CoreAuthenticatedServiceRest implements AnalyticsServiceConstants {
+public class AnalyticsServiceRest extends CoreAuthenticatedServiceRest implements AnalyticsServiceConstants {
 
 	static final Logger logger = LoggerFactory.getLogger(AnalyticsServiceRest.class);
 	

@@ -24,6 +24,10 @@
 package com.squid.kraken.v4.api.core.nlu;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
+
+import com.squid.kraken.v4.vegalite.VegaliteSpecs;
 
 /**
  * @author sergefantino
@@ -31,17 +35,55 @@ import java.io.Serializable;
  */
 public class CardInfo implements Serializable {
 	
+	enum Status { VALID, INCOMPLETE, ERROR}
+	
 	/**
 	 * 
 	 */
 	private static final long serialVersionUID = -122869605941810955L;
+	
 	private String message;
+	
+	private Object parserOutput = null;
+	
+	private Throwable error = null;
+	
+	private List<String> followUp = new ArrayList<>();
+	
+	private VegaliteSpecs dataviz = null;
+	
+	private String state = null;
+	
+	private Status status = Status.VALID;
+	
+	public static final CardInfo valid(String message) {
+		return new CardInfo(message);
+	}
+	
+	public static final CardInfo incomplete(String message) {
+		return new CardInfo(message, Status.INCOMPLETE);
+	}
 	
 	/**
 	 * 
 	 */
 	public CardInfo(String message) {
 		this.message = message;
+	}
+	
+	/**
+	 * 
+	 */
+	public CardInfo(String message, Status status) {
+		this.message = message;
+		this.status = status;
+	}
+	
+	/**
+	 * @return the status
+	 */
+	public Status getStatus() {
+		return status;
 	}
 	
 	/**
@@ -57,5 +99,82 @@ public class CardInfo implements Serializable {
 	public void setMessage(String message) {
 		this.message = message;
 	}
+	
+	/**
+	 * @return the parserOutput
+	 */
+	public Object getParserOutput() {
+		return parserOutput;
+	}
+	
+	/**
+	 * @param parserOutput the parserOutput to set
+	 */
+	public void setParserOutput(Object parserOutput) {
+		this.parserOutput = parserOutput;
+	}
+	
+	/**
+	 * @return the error
+	 */
+	public Throwable getError() {
+		return error;
+	}
+	
+	/**
+	 * @param error the error to set
+	 */
+	public void setError(Throwable error) {
+		this.error = error;
+	}
 
+	/**
+	 * 
+	 */
+	public void addFollowUp(String message) {
+		this.followUp.add(message);
+	}
+	
+	/**
+	 * @param followUp the followUp to set
+	 */
+	public void setFollowUp(List<String> followUp) {
+		this.followUp = followUp;
+	}
+	
+	/**
+	 * @return the followUp
+	 */
+	public List<String> getFollowUp() {
+		return followUp;
+	}
+	
+	/**
+	 * @return the dataviz
+	 */
+	public VegaliteSpecs getDataviz() {
+		return dataviz;
+	}
+	
+	/**
+	 * @param dataviz the dataviz to set
+	 */
+	public void setDataviz(VegaliteSpecs dataviz) {
+		this.dataviz = dataviz;
+	}
+	
+	/**
+	 * @return the state
+	 */
+	public String getState() {
+		return state;
+	}
+
+	/**
+	 * @param state the state to set
+	 */
+	public void setState(String state) {
+		this.state = state;
+	}
+	
 }
