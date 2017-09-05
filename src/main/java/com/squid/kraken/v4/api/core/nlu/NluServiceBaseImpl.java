@@ -259,7 +259,7 @@ public class NluServiceBaseImpl extends AnalyticsServiceCore {
 		if (!image.isInstanceOf(IDomain.OBJECT) && image.isInstanceOf(IDomain.STRING)) {
 			if (axis.getDimension().getType().equals(Type.CATEGORICAL)) {
 				String dim_name = axis.getDimension().getName();
-				String dim_ID = axis.prettyPrint(new PrettyPrintOptions(defaultStyle, null));
+				//String dim_ID = axis.prettyPrint(new PrettyPrintOptions(defaultStyle, null));
 				//
 				EntityDefinition entity = new EntityDefinition();
 				entity.setId(ITEM_ENTITY_PREFIX+dim_name);
@@ -270,7 +270,6 @@ public class NluServiceBaseImpl extends AnalyticsServiceCore {
 				DashboardSelection empty = new DashboardSelection();
 				Facet facet = ComputingService.INSTANCE.glitterFacet(axis.getParent().getUniverse(),
 						axis.getParent().getDomain(), empty, axis, "", 0, size, null);
-				int count = 0;
 				for (FacetMember item : facet.getItems()) {
 					FacetMemberString member = (FacetMemberString)item;
 					EntityValue value = new EntityValue();
@@ -279,8 +278,6 @@ public class NluServiceBaseImpl extends AnalyticsServiceCore {
 					value.getExpressions().add(member.getValue());
 					entity.getValues().add(value);
 					// we could use the attributes too
-					count++;
-					if (count>sample) break;
 				}
 				//
 				return entity;
