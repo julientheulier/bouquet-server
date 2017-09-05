@@ -2,12 +2,12 @@
  * Copyright © Squid Solutions, 2016
  *
  * This file is part of Open Bouquet software.
- *  
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
  * published by the Free Software Foundation (version 3 of the License).
  *
- * There is a special FOSS exception to the terms and conditions of the 
+ * There is a special FOSS exception to the terms and conditions of the
  * licenses as they are applied to this program. See LICENSE.txt in
  * the directory of this program distribution.
  *
@@ -42,7 +42,7 @@ import com.squid.kraken.v4.core.analysis.universe.Property.OriginType;
 public class CompareMerger extends JoinMerger {
 
 	private Period offset;
-	
+
 	private boolean computeGrowth = false;
 
 	public CompareMerger(DataMatrix left, DataMatrix right, int[] mergeOrder, Axis join, Period offset, boolean computeGrowth) throws ScopeException {
@@ -58,7 +58,7 @@ public class CompareMerger extends JoinMerger {
 			throw new ScopeException("matrices kpis do not match");
 		}
 	}
-	
+
 	@Override
 	protected Object translateRightToLeft(Object right) {
 		if (right instanceof Date && offset!=null) {
@@ -68,7 +68,7 @@ public class CompareMerger extends JoinMerger {
 			return right;
 		}
 	}
-	
+
 	@Override
 	protected Object translateLeftToRight(Object left) {
 		if (left instanceof Date && offset!=null) {
@@ -78,7 +78,7 @@ public class CompareMerger extends JoinMerger {
 			return right;
 		}
 	}
-	
+
 	@Override
 	protected int compareJoinValue(int pos, Object left, Object right) {
 		if (right instanceof Date && offset!=null) {
@@ -87,13 +87,13 @@ public class CompareMerger extends JoinMerger {
 			return super.compareJoinValue(pos, left, right);
 		}
 	}
-	
+
 	/**
 	 * override to interleave present/past values
 	 */
 	@Override
 	protected void mergeMeasures(DataMatrix merge, RawRow leftrow, RawRow rightrow, RawRow merged) {
-	/*	int pos = merge.getAxesSize();// start after axes
+		/*	int pos = merge.getAxesSize();// start after axes
 		for (int i = 0; i < left.getDataSize(); i++) {// left.size==right.size
 			if (leftrow!=null) {
 				merged.data[pos] = left.getDataValue(i, leftrow);
@@ -129,11 +129,11 @@ public class CompareMerger extends JoinMerger {
 				pos++;
 			}
 		}
-		
-		
-		
+
+
+
 	}
-	
+
 	@Override
 	protected void createMatrixMeasures(DataMatrix merge) {
 		// interleave KPIs
@@ -145,7 +145,7 @@ public class CompareMerger extends JoinMerger {
 				Measure growth = new Measure(left.getKPIs().get(i).getMeasure());
 				growth.setOriginType(OriginType.GROWTH);
 				growth.setName(growth.getName() + " [growth%]");
-				growth.setFormat("%.2f");
+				growth.setFormat("%.2f%%");
 				merge.getKPIs().add(new MeasureValues(growth));
 			}
 		}

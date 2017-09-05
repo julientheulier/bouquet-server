@@ -33,6 +33,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IllegalFormatException;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.StringTokenizer;
 
@@ -1117,7 +1118,7 @@ public class DataMatrix {
 						} else {
 							if (applyFormat && value != null && format != null) {
 								try {
-									value = String.format(format, value);
+									value = String.format(Locale.US, format, value);
 								} catch (IllegalFormatException e) {
 									// ignore
 									logger.info(e.toString());
@@ -1141,7 +1142,7 @@ public class DataMatrix {
 						} else {
 							if (applyFormat && value != null && format != null) {
 								try {
-									value = String.format(format, value);
+									value = String.format(Locale.US, format, value);
 								} catch (IllegalFormatException e) {
 									IDomain image = header.get(nbAxesVisibles + nbKPIVisibles).getExtendedType()
 											.getDomain();
@@ -1153,14 +1154,14 @@ public class DataMatrix {
 											if (Math.floor(dbValue) == dbValue) {
 												long lgValue = (long) dbValue;
 												try {
-													value = String.format(format, lgValue);
+													value = String.format(Locale.US, format, lgValue);
 												} catch (IllegalFormatException e2) {
 													// ignore
 												}
 
 											} else {
 												try {
-													value = String.format(format, dbValue);
+													value = String.format(Locale.US, format, dbValue);
 												} catch (IllegalFormatException e2) {
 												}
 											}
