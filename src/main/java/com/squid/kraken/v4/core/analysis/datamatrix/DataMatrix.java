@@ -1129,6 +1129,9 @@ public class DataMatrix {
 						}
 					}
 				}
+				if (nbAxesVisibles == -1) {
+					nbAxesVisibles = 0;
+				}
 				int nbKPIVisibles = -1;
 				for (int i = 0; i < kpi_count; i++) {
 					MeasureValues m = kpis.get(i);
