@@ -2,12 +2,12 @@
  * Copyright © Squid Solutions, 2016
  *
  * This file is part of Open Bouquet software.
- *  
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
  * published by the Free Software Foundation (version 3 of the License).
  *
- * There is a special FOSS exception to the terms and conditions of the 
+ * There is a special FOSS exception to the terms and conditions of the
  * licenses as they are applied to this program. See LICENSE.txt in
  * the directory of this program distribution.
  *
@@ -46,11 +46,11 @@ import com.squid.core.sql.model.Aliaser;
 import com.squid.core.sql.model.SQLScopeException;
 import com.squid.core.sql.model.Scope;
 import com.squid.core.sql.render.IFromPiece;
+import com.squid.core.sql.render.IJoinDecorator.JoinType;
 import com.squid.core.sql.render.IPiece;
 import com.squid.core.sql.render.ISelectPiece;
 import com.squid.core.sql.render.IWherePiece;
 import com.squid.core.sql.render.JoinDecorator;
-import com.squid.core.sql.render.JoinDecorator.JoinType;
 import com.squid.core.sql.render.OperatorPiece;
 import com.squid.core.sql.render.OrderByPiece;
 import com.squid.core.sql.render.RenderingException;
@@ -77,18 +77,18 @@ import com.squid.kraken.v4.model.Relation;
  *
  */
 public class SelectUniversal extends PieceCreator {
-	
+
 	private DatabaseSelectInterface select;
-	
+
 	private DatasourceDefinition datasource;
-	
+
 	private GroupingInterface grouping;
-	
+
 	private Analyzer analyzer = null;
 
-	
+
 	class AdaptativeSelectStatement extends SelectStatement {
-		
+
 		public AdaptativeSelectStatement() {
 			super();
 		}
@@ -96,17 +96,17 @@ public class SelectUniversal extends PieceCreator {
 		public AdaptativeSelectStatement(Aliaser aliaser) {
 			super(aliaser);
 		}
-		
+
 		@Override
 		protected IGroupByPiece createGroupByPiece() {
 			return getGrouping().createGroupByPiece();
 		}
-		
+
 	}
 	public DatasourceDefinition getDatasource() {
 		return this.datasource;
 	}
-	
+
 	public SelectUniversal(Universe universe) throws SQLScopeException {
 		super(universe);
 		try {
@@ -123,7 +123,7 @@ public class SelectUniversal extends PieceCreator {
 		};
 		this.analyzer = new Analyzer(this);
 	}
-	
+
 	public SelectUniversal(final SelectUniversal outer) throws SQLScopeException {
 		super(outer.getUniverse());
 		this.select = new DatabaseSelectInterface(outer.getStatement().getAliaser()) {
@@ -134,7 +134,7 @@ public class SelectUniversal extends PieceCreator {
 		};
 		this.analyzer = outer.analyzer;
 	}
-	
+
 	protected SelectUniversal(final SelectUniversal outer, final Scope outerScope) throws SQLScopeException {
 		super(outer.getUniverse());
 		this.select = new DatabaseSelectInterface(outer.getStatement().getAliaser()) {
@@ -149,7 +149,7 @@ public class SelectUniversal extends PieceCreator {
 		};
 		this.analyzer = outer.analyzer;
 	}
-	
+
 	public Analyzer getAnalyzer() {
 		return analyzer;
 	}
@@ -157,20 +157,20 @@ public class SelectUniversal extends PieceCreator {
 	public void setForceGroupBy(boolean flag) {
 		getGrouping().setForceGroupBy(flag);
 	}
-	
+
 	@Override
 	public GroupingInterface getGrouping() {
 		if (grouping==null) {
-			 grouping = new GroupingInterface(this);
+			grouping = new GroupingInterface(this);
 		}
 		return grouping;
 	}
-	
+
 	@Override
 	public Scope getScope() {
 		return this.select.getScope();
 	}
-	
+
 	@Override
 	public SelectStatement getStatement() {
 		return this.select.getStatement();
@@ -184,10 +184,10 @@ public class SelectUniversal extends PieceCreator {
 	 * @throws ScopeException
 	 */
 	public IFromPiece from(Space origin) throws SQLScopeException, ScopeException {
-	    return from(Context.SELECT,origin);
+		return from(Context.SELECT,origin);
 	}
-	
-    public IFromPiece from(Context ctx, Space origin) throws SQLScopeException, ScopeException {
+
+	public IFromPiece from(Context ctx, Space origin) throws SQLScopeException, ScopeException {
 		if (origin.getParent()==null) {
 			// ok, this is a root space, just add it to the select if not exists yet (cannot perform a self-cross-product)
 			return from(this.select.getScope(),origin.getDomain());
@@ -199,18 +199,18 @@ public class SelectUniversal extends PieceCreator {
 			return join(ctx,getScope(),from,relation,parent.getDomain(),origin.getDomain());
 		}
 	}
-	
+
 	@Override
 	/**
-	 * 
+	 *
 	 */
 	public IFromPiece from(Context ctx, Scope scope, ExpressionAST expression)
 			throws SQLScopeException, ScopeException {
-	    //
-	    if (expression instanceof SpaceExpression) {
-	        Space space = ((SpaceExpression)expression).getSpace();
-	        return from(ctx, space);
-	    } else if (expression instanceof DomainReference) {
+		//
+		if (expression instanceof SpaceExpression) {
+			Space space = ((SpaceExpression)expression).getSpace();
+			return from(ctx, space);
+		} else if (expression instanceof DomainReference) {
 			Domain domain = ((DomainReference)expression).getDomain();
 			Object binding = scope.get(domain);
 			if (binding!=null && binding instanceof IFromPiece) {
@@ -239,12 +239,12 @@ public class SelectUniversal extends PieceCreator {
 			throw new SQLScopeException("Unsupported from-expression: "+expression.toString());
 		}
 	}
-	
+
 	/**
 	 * embed a subselect statement
 	 * @param subselect
-	 * @return 
-	 * @throws SQLScopeException 
+	 * @return
+	 * @throws SQLScopeException
 	 */
 	public FromSelectUniversal from(SelectUniversal subselect) throws SQLScopeException {
 		String segmentedAlias = subselect.getStatement().getAliaser().getUniqueAlias();
@@ -255,48 +255,48 @@ public class SelectUniversal extends PieceCreator {
 			this.getScope().put(subselect.getMainSubject(), fromSt);
 			this.getScope().put(subselect.getMainSubject().getUnderlyingDatasource(), fromSt);
 		}
-		*/
+		 */
 		return fromSt;
 	}
-	
+
 	public ISelectPiece select(IPiece piece) {
 		SelectPiece select =  getStatement().createSelectPiece(getScope(), piece, null);
 		getStatement().getSelectPieces().add(select);
 		return select;
 	}
-	
+
 	public ISelectPiece select(IPiece piece, String alias) {
 		SelectPiece select =  getStatement().createSelectPiece(getScope(), piece, alias);
 		getStatement().getSelectPieces().add(select);
 		return select;
 	}
-	
+
 	public ISelectPiece select(ISelectPiece piece) {
 		SelectPiece select =  getStatement().createSelectPiece(getScope(), piece, piece.getAlias());
 		getStatement().getSelectPieces().add(select);
 		return select;
 	}
-	
+
 	/**
 	 * select the given expression in the current scope
 	 * @param expr
 	 * @return
-	 * @throws SQLScopeException 
-	 * @throws ScopeException 
+	 * @throws SQLScopeException
+	 * @throws ScopeException
 	 */
 	public ISelectPiece select(ExpressionAST expression) throws SQLScopeException, ScopeException {
 		return select(getScope(),expression);
 	}
-	
+
 	public ISelectPiece select(ExpressionAST expression, String name) throws SQLScopeException, ScopeException {
 		return select(getScope(), expression, name, true,true);
 	}
-	
+
 	public ISelectPiece select(Scope parent, ExpressionAST expression) throws SQLScopeException, ScopeException {
 		String baseName = guessExpressionName(expression);
 		return select(parent, expression, baseName, true, true);
 	}
-	
+
 	public ISelectPiece select(Scope parent, ExpressionAST expression, String baseName, boolean useAlias, boolean normalizeAlias) throws SQLScopeException, ScopeException {
 		IDomain source = expression.getSourceDomain();
 		Object mapping = null;
@@ -304,11 +304,11 @@ public class SelectUniversal extends PieceCreator {
 			// check for availability in the parent scope
 			Object object = source.getAdapter(Domain.class);
 			if (object!=null && object instanceof Domain) {
-				mapping = parent.get(((Domain)object));
+				mapping = parent.get((object));
 			} else {
 				object = source.getAdapter(Table.class);
 				if (object!=null && object instanceof Table) {
-					mapping = parent.get((Table)object);
+					mapping = parent.get(object);
 				}
 			}
 		}
@@ -329,13 +329,13 @@ public class SelectUniversal extends PieceCreator {
 				}
 			}
 		}
-		*/
+		 */
 		//
 		// ...else create it
 		IPiece piece = createPiece(Context.SELECT, parent, expression, mapping);
 		String reference = getSqlStyleReferences()?baseName:null;
 		SelectPiece select =  getStatement().createSelectPiece(parent, piece, reference, useAlias, normalizeAlias);
-		// 
+		//
 		// it's ok to map the same expression to different column
 		//
 		// bound the expression
@@ -345,7 +345,7 @@ public class SelectUniversal extends PieceCreator {
 		getStatement().getSelectPieces().add(select);
 		return select;
 	}
-	
+
 	protected String guessExpressionName(ExpressionAST expression) {
 		if (expression instanceof ExpressionRef) {
 			ExpressionRef ref = (ExpressionRef)expression;
@@ -358,7 +358,7 @@ public class SelectUniversal extends PieceCreator {
 		//
 		return null;
 	}
-	
+
 	private IFromPiece from(Scope parent, Domain domain) throws SQLScopeException, ScopeException {
 		Object binding = parent.get(domain);
 		if (binding==null) {
@@ -379,7 +379,7 @@ public class SelectUniversal extends PieceCreator {
 		FromDomainPiece from = new FromDomainPiece(this,parent,domain,table,getStatement().getAliaser().getUniqueAlias());
 		return select.from(parent, table, from);
 	}
-	
+
 	protected IFromPiece createFromPiece(Scope parent, Domain domain) throws SQLScopeException, ScopeException {
 		Table table = getTable(domain);
 		FromTablePiece from = new FromTablePieceExt(this,parent,table,getStatement().getAliaser().getUniqueAlias());
@@ -425,30 +425,30 @@ public class SelectUniversal extends PieceCreator {
 			}
 		}
 	}
-	
+
 	private IFromPiece createJoin(Context ctx, JoinType type, IFromPiece from, Relation relation, Domain source, Domain target) throws SQLScopeException, ScopeException {
 		switch (type) {
-		case LEFT:
-			return createLeftJoin(ctx, from, relation, source, target);
-		case INNER:
-			return createInnerJoin(ctx, from, relation, source, target);
-		case RIGHT:
-			return createRightJoin(ctx, from, relation, source, target);
-		default:
-			throw new RuntimeException("Unsupported join type");
+			case LEFT:
+				return createLeftJoin(ctx, from, relation, source, target);
+			case INNER:
+				return createInnerJoin(ctx, from, relation, source, target);
+			case RIGHT:
+				return createRightJoin(ctx, from, relation, source, target);
+			default:
+				throw new RuntimeException("Unsupported join type");
 		}
 	}
-	
+
 	private JoinType computeJoinType(Cardinality sourceCardinality, Cardinality targetCardinality) {
 		switch (targetCardinality) {
-		case ZERO_OR_ONE:
-			return JoinType.LEFT;
-		case ONE:
-			return JoinType.INNER;
-		case MANY:
-			return JoinType.LEFT;
-		default:
-			throw new RuntimeException("Unexpected cardinality definition");
+			case ZERO_OR_ONE:
+				return JoinType.LEFT;
+			case ONE:
+				return JoinType.INNER;
+			case MANY:
+				return JoinType.LEFT;
+			default:
+				throw new RuntimeException("Unexpected cardinality definition");
 		}
 	}
 
@@ -474,19 +474,19 @@ public class SelectUniversal extends PieceCreator {
 		//
 		return targetFromPiece;
 	}
-	
+
 	private IFromPiece createRightJoin(Context ctx, IFromPiece from, Relation relation, Domain source, Domain target) throws SQLScopeException, ScopeException {
 		return createDecoratedJoin(ctx, from, JoinType.RIGHT, relation, source, target);
 	}
-	
+
 	private IFromPiece createLeftJoin(Context ctx, IFromPiece from, Relation relation, Domain source, Domain target) throws SQLScopeException, ScopeException {
 		return createDecoratedJoin(ctx, from, JoinType.LEFT, relation, source, target);
 	}
-	
+
 	private IFromPiece createInnerJoin(Context ctx, IFromPiece from, Relation relation, Domain source, Domain target) throws SQLScopeException, ScopeException {
 		return createDecoratedJoin(ctx, from, JoinType.INNER, relation, source, target);
 	}
-	
+
 	private IFromPiece createDecoratedJoin(Context ctx, IFromPiece from, JoinType joinType, Relation relation, Domain source, Domain target) throws SQLScopeException, ScopeException {
 		// just add the target and link
 		Scope subscope = new Scope(from.getScope());
@@ -514,21 +514,20 @@ public class SelectUniversal extends PieceCreator {
 		//
 		return targetFromPiece;
 	}
-	
+
 	public IWherePiece where(ExpressionAST filter) throws SQLScopeException, ScopeException {
 		return where(getScope(),filter);
 	}
-	
+
 	public IWherePiece where(Scope parent, ExpressionAST filter) throws SQLScopeException, ScopeException {
 		IDomain image = filter.getImageDomain();
 		if (!image.isInstanceOf(IDomain.CONDITIONAL)) {
-			@SuppressWarnings("unused")
-			IDomain try_again = filter.getImageDomain();
+			filter.getImageDomain();
 			throw new SQLScopeException("Invalid WHERE expression: it must be a condition ");
 		}
 		IPiece piece = createPiece(Context.WHERE, parent, filter);// must use the local scope
 		IWherePiece where = select.addWherePiece(parent,piece);
-		// add support for HAVING and QUALIFY 
+		// add support for HAVING and QUALIFY
 		//
 		if (image.isInstanceOf(AggregateDomain.DOMAIN)) {
 			where.setType(IWherePiece.HAVING);
@@ -541,7 +540,7 @@ public class SelectUniversal extends PieceCreator {
 	public OrderByPiece orderBy(IPiece piece) {
 		return this.select.orderBy(piece);
 	}
-	
+
 	public String render() throws RenderingException {
 		if (analyzer!=null) {
 			Analyzer copy = analyzer;
@@ -561,31 +560,31 @@ public class SelectUniversal extends PieceCreator {
 		return this.select.render(skin);
 	}
 
-    private HashMap<ExpressionAST, SelectUniversal> exists = new HashMap<>();
-    
+	private HashMap<ExpressionAST, SelectUniversal> exists = new HashMap<>();
 
-    public SelectUniversal exists(Axis axis) throws ScopeException, SQLScopeException {
-    	SelectUniversal subselect = exists(axis.getParent().getDefinition());
-    	subselect.getStatement().addComment("exists on "+axis.getName());
-    	return subselect;
-    }
-    
-    public SelectUniversal exists(ExpressionAST root) throws ScopeException, SQLScopeException {
-        //
-        SelectUniversal subselect = exists.get(root);
-        if (subselect==null) {
-            subselect = createExistsStatement();
-            exists.put(root, subselect);
-        }
-        return subselect;
-    }
+
+	public SelectUniversal exists(Axis axis) throws ScopeException, SQLScopeException {
+		SelectUniversal subselect = exists(axis.getParent().getDefinition());
+		subselect.getStatement().addComment("exists on "+axis.getName());
+		return subselect;
+	}
+
+	public SelectUniversal exists(ExpressionAST root) throws ScopeException, SQLScopeException {
+		//
+		SelectUniversal subselect = exists.get(root);
+		if (subselect==null) {
+			subselect = createExistsStatement();
+			exists.put(root, subselect);
+		}
+		return subselect;
+	}
 
 	/**
 	 * Exists will try to create a sub-select linked to the outer (this) select through the space
 	 * that you can use to add where statements
 	 * @return
-	 * @throws SQLScopeException 
-	 * @throws ScopeException 
+	 * @throws SQLScopeException
+	 * @throws ScopeException
 	 */
 	protected SelectUniversal createExistsStatement() throws SQLScopeException, ScopeException {
 		// check that the space link is already referenced in outer==this
@@ -601,14 +600,14 @@ public class SelectUniversal extends PieceCreator {
 		// done
 		return inner;
 	}
-	
+
 	@Override
 	public String toString() {
-	    try {
-            return render();
-        } catch (RenderingException e) {
-            return e.toString();
-        }
+		try {
+			return render();
+		} catch (RenderingException e) {
+			return e.toString();
+		}
 	}
 
 }
