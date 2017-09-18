@@ -444,6 +444,9 @@ public class EngineUtils {
 		DashboardSelection ds = new DashboardSelection();
 		//
 		if (selection!=null) {
+			if (selection.getRootFacets() != null && selection.getRootFacets().size()>0) {
+				addFacetSelection(ctx, universe, selection.getRootFacets(), ds, null);
+			}
 			addFacetSelection(ctx, universe, selection.getFacets(), ds, null);
 			// T994 support the compareFacets
 			if (selection.hasCompareFacets()) {

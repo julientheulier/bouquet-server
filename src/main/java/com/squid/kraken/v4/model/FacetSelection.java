@@ -2,12 +2,12 @@
  * Copyright © Squid Solutions, 2016
  *
  * This file is part of Open Bouquet software.
- *  
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
  * published by the Free Software Foundation (version 3 of the License).
  *
- * There is a special FOSS exception to the terms and conditions of the 
+ * There is a special FOSS exception to the terms and conditions of the
  * licenses as they are applied to this program. See LICENSE.txt in
  * the directory of this program distribution.
  *
@@ -35,71 +35,90 @@ import com.squid.kraken.v4.api.core.JobResultBaseImpl;
 /**
  * The FacetSelection class defines a selection that can be use for performing Analysis & Facet jobs.
  * It is a list of @see Facet objects, where each facet defines the axis to filter on and a list of selected values.
- * 
+ *
  * Since 4.2.4, FacetSelection also support the definition of a compare selection. If it is set, the Analysis job will perform a compare query.
- * 
+ *
  * @author sergefantino
  *
  */
 public class FacetSelection extends JobResultBaseImpl {
 
-    private List<Facet> facets;
-    
-    private List<Facet> compareTo;
+	private List<Facet> facets;
 
-    public FacetSelection() {
-    }
+	/**
+	 * Root selection of the bookmark, should be applied in any case when running analyses from this bookmark
+	 */
+	private List<Facet> rootFacets;
 
-    public List<Facet> getFacets() {
-        if (facets == null) {
-            facets = new ArrayList<Facet>();
-        }
-        return facets;
-    }
+	private List<Facet> compareTo;
 
-    public void setFacets(List<Facet> facets) {
-        this.facets = facets;
-    }
-    
-    public List<Facet> getCompareTo() {
-        if (compareTo == null) {
-        	compareTo = new ArrayList<Facet>();
-        }
+	public FacetSelection() {
+	}
+
+	public List<Facet> getFacets() {
+		if (facets == null) {
+			facets = new ArrayList<Facet>();
+		}
+		return facets;
+	}
+
+	public List<Facet> getRootFacets() {
+		if (rootFacets == null) {
+			rootFacets = new ArrayList<Facet>();
+		}
+		return rootFacets;
+	}
+
+	public void setFacets(List<Facet> facets) {
+		this.facets = facets;
+	}
+
+	public List<Facet> getCompareTo() {
+		if (compareTo == null) {
+			compareTo = new ArrayList<Facet>();
+		}
 		return compareTo;
 	}
-    
-    public void setCompareTo(List<Facet> compareFacets) {
+
+	public void setCompareTo(List<Facet> compareFacets) {
 		this.compareTo = compareFacets;
 	}
-    
+
 	public boolean hasCompareFacets() {
 		return compareTo!=null && !compareTo.isEmpty();
 	}
 
-    @Override
-    public long getTotalSize() {
-        int size = 0;
-        for (Facet facet : getFacets()) {
-            if (facet!=null) size += facet.getItems().size();
-        }
-        return size;
-    }
+	@Override
+	public long getTotalSize() {
+		int size = 0;
+		for (Facet facet : getFacets()) {
+			if (facet!=null) size += facet.getItems().size();
+		}
+		return size;
+	}
 
-    public void setTotalSize(int size) {
-        // ignored - here just for jaxb binding
-    }
-    
-    @Override
-    public String toString() {
-    	if (facets!=null) {
-    		StringBuilder dump = new StringBuilder("FacetSelection"+facets.toString());
-    		if (compareTo!=null && !compareTo.isEmpty()) {
-    			dump.append("+CompareSelection"+compareTo);
-    		}
-    		return dump.toString();
-    	} else {
-    		return "FacetSelection[]";
-    	}
-    }
+	public void setTotalSize(int size) {
+		// ignored - here just for jaxb binding
+	}
+
+	@Override
+	public String toString() {
+		StringBuilder dump = new StringBuilder("");
+		if (rootFacets !=null) {
+			dump.append("RootFacetSelection"+rootFacets.toString());
+			if (facets != null) {
+				dump.append("+");
+			}
+		}
+		if (facets!=null) {
+			dump.append("FacetSelection"+facets.toString());
+			if (compareTo!=null && !compareTo.isEmpty()) {
+				dump.append("+CompareSelection"+compareTo);
+			}
+			return dump.toString();
+		} else {
+			return "FacetSelection[]";
+		}
+	}
 
 }
