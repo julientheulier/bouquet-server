@@ -2,12 +2,12 @@
  * Copyright © Squid Solutions, 2016
  *
  * This file is part of Open Bouquet software.
- *  
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
  * published by the Free Software Foundation (version 3 of the License).
  *
- * There is a special FOSS exception to the terms and conditions of the 
+ * There is a special FOSS exception to the terms and conditions of the
  * licenses as they are applied to this program. See LICENSE.txt in
  * the directory of this program distribution.
  *
@@ -143,12 +143,12 @@ public class AnalyticsServiceBaseImpl extends AnalyticsServiceCore implements An
 			.getLogger(AnalyticsServiceBaseImpl.class);
 
 	private UriInfo uriInfo = null;
-	
+
 	private URI publicBaseUri = null;
 	private AppContext userContext = null;
 
 	private AnalyticsServiceHTMLGenerator generator;
-	
+
 	public AnalyticsServiceBaseImpl(UriInfo uriInfo, AppContext userContext) {
 		this.uriInfo = uriInfo;
 		if (uriInfo != null) {
@@ -157,18 +157,18 @@ public class AnalyticsServiceBaseImpl extends AnalyticsServiceCore implements An
 		this.userContext = userContext;
 		this.generator = new AnalyticsServiceHTMLGenerator(this);
 	}
-	
+
 	/**
 	 * @return the userContext
 	 */
 	public AppContext getUserContext() {
 		return userContext;
 	}
-	
+
 	public UriInfo getUriInfo() {
 		return uriInfo;
 	}
-	
+
 	public UriBuilder getPublicBaseUriBuilder() {
 		return new UriBuilderImpl(publicBaseUri);
 	}
@@ -183,11 +183,11 @@ public class AnalyticsServiceBaseImpl extends AnalyticsServiceCore implements An
 			AppContext userContext,
 			String parent,
 			String search,
-			HierarchyMode hierarchyMode, 
+			HierarchyMode hierarchyMode,
 			Visibility visibility,
 			Style style,
 			String envelope
-		) throws ScopeException {
+			) throws ScopeException {
 		if (parent !=null && parent.endsWith("/")) {
 			parent = parent.substring(0, parent.length()-1);// remove trailing /
 		}
@@ -221,14 +221,14 @@ public class AnalyticsServiceBaseImpl extends AnalyticsServiceCore implements An
 			result.getChildren().add(createLinkableFolder(userContext, query, SHARED_FOLDER));
 			if (hierarchyMode!=null) {
 				listSharedBookmarks(userContext, query, SHARED_FOLDER.getSelfRef(), filters, hierarchyMode, result.getChildren());
-			}			
+			}
 			List<Bookmark> myBookmarks = BookmarkManager.INSTANCE.findBookmarksByParent(userContext, BookmarkManager.INSTANCE.getMyBookmarkPath(userContext));
 			if(!myBookmarks.isEmpty()){
 				result.getChildren().add(createLinkableFolder(userContext, query, MYBOOKMARKS_FOLDER));
 				if (hierarchyMode!=null) {
 					listMyBookmarks(userContext, query, MYBOOKMARKS_FOLDER.getSelfRef(), filters, hierarchyMode, result.getChildren());
 				}
-			}		
+			}
 		} else {
 			// need to list parent's content
 			if (parent.startsWith(PROJECTS_FOLDER.getSelfRef())) {
@@ -263,7 +263,7 @@ public class AnalyticsServiceBaseImpl extends AnalyticsServiceCore implements An
 			return Response.ok(result).build();
 		}
 	}
-	
+
 	private NavigationItem createLinkableFolder(AppContext userContext, NavigationQuery query, NavigationItem folder) {
 		if (query.getStyle()==Style.HUMAN || query.getStyle()==Style.HTML) {
 			NavigationItem copy = new NavigationItem(folder);
@@ -273,10 +273,10 @@ public class AnalyticsServiceBaseImpl extends AnalyticsServiceCore implements An
 			return folder;
 		}
 	}
-	
+
 	private static final List<String> topLevelOrder = Arrays.asList(new String[]{PROJECTS_FOLDER.getSelfRef(), SHARED_FOLDER.getSelfRef(), MYBOOKMARKS_FOLDER.getSelfRef(), SHAREDWITHME_FOLDER.getSelfRef()});
 	private static final List<String> typeOrder = Arrays.asList(new String[]{NavigationItem.FOLDER_TYPE, NavigationItem.BOOKMARK_TYPE, NavigationItem.DOMAIN_TYPE});
-	
+
 	/**
 	 * @param content
 	 */
@@ -307,7 +307,7 @@ public class AnalyticsServiceBaseImpl extends AnalyticsServiceCore implements An
 	 * list the projects and their content (domains) depending on the parent path.
 	 * Note that this method does not support the flat mode because of computing constraints.
 	 * @param userContext
-	 * @param query 
+	 * @param query
 	 * @param parent
 	 * @param content
 	 * @throws ScopeException
@@ -359,7 +359,7 @@ public class AnalyticsServiceBaseImpl extends AnalyticsServiceCore implements An
 			return null;
 		}
 	}
-	
+
 	/**
 	 * @param userContext
 	 * @param domain
@@ -387,19 +387,19 @@ public class AnalyticsServiceBaseImpl extends AnalyticsServiceCore implements An
 	private URI createLinkToFolder(AppContext userContext, NavigationQuery query, NavigationItem item) {
 		return createNavigationQuery(userContext, query).build(item.getSelfRef());
 	}
-	
+
 	private URI createLinkToFolder(AppContext userContext, NavigationQuery query, String selfRef) {
 		return createNavigationQuery(userContext, query).build(selfRef!=null?selfRef:"");
 	}
-	
+
 	private URI createLinkToAnalysis(AppContext userContext, NavigationQuery query, NavigationItem item) {
 		UriBuilder builder =
-			getPublicBaseUriBuilder().path("/analytics/{"+BBID_PARAM_NAME+"}/query");
+				getPublicBaseUriBuilder().path("/analytics/{"+BBID_PARAM_NAME+"}/query");
 		if (query.getStyle()!=null) builder.queryParam(STYLE_PARAM, query.getStyle());
 		builder.queryParam("access_token", userContext.getToken().getOid());
 		return builder.build(item.getSelfRef());
 	}
-	
+
 	private URI createLinkToView(AppContext userContext, NavigationQuery query, NavigationItem item) {
 		UriBuilder builder =
 				getPublicBaseUriBuilder().path("/analytics/{"+BBID_PARAM_NAME+"}/view");
@@ -407,9 +407,9 @@ public class AnalyticsServiceBaseImpl extends AnalyticsServiceCore implements An
 		builder.queryParam("access_token", userContext.getToken().getOid());
 		return builder.build(item.getSelfRef());
 	}
-	
+
 	private UriBuilder createNavigationQuery(AppContext userContext, NavigationQuery query) {
-		UriBuilder builder = 
+		UriBuilder builder =
 				getPublicBaseUriBuilder().path("/analytics").queryParam("parent", "{PARENT}");
 		if (query.getHierarchy()!=null) builder.queryParam("hierarchy", query.getHierarchy());
 		if (query.getStyle()!=null) builder.queryParam(STYLE_PARAM, query.getStyle());
@@ -417,36 +417,36 @@ public class AnalyticsServiceBaseImpl extends AnalyticsServiceCore implements An
 		builder.queryParam("access_token", userContext.getToken().getOid());
 		return builder;
 	}
-	
+
 	private URI createObjectLink(AppContext userContext, NavigationQuery query, Project project) {
-		UriBuilder builder = 
+		UriBuilder builder =
 				getPublicBaseUriBuilder().path("/rs/projects/{projectID}");
 		if (query.getStyle()!=null) builder.queryParam(STYLE_PARAM, query.getStyle());
 		builder.queryParam("access_token", userContext.getToken().getOid());
 		return builder.build(project.getOid());
 	}
-	
+
 	private URI createObjectLink(AppContext userContext, NavigationQuery query, Domain domain) {
-		UriBuilder builder = 
+		UriBuilder builder =
 				getPublicBaseUriBuilder().path("/rs/projects/{projectID}/domains/{domainID}");
 		if (query.getStyle()!=null) builder.queryParam(STYLE_PARAM, query.getStyle());
 		builder.queryParam("access_token", userContext.getToken().getOid());
 		return builder.build(domain.getId().getProjectId(), domain.getOid());
 	}
-	
+
 	private URI createObjectLink(AppContext userContext, NavigationQuery query, Bookmark bookmark) {
-		UriBuilder builder = 
+		UriBuilder builder =
 				getPublicBaseUriBuilder().path("/rs/projects/{projectID}/bookmarks/{domainID}");
 		if (query.getStyle()!=null) builder.queryParam(STYLE_PARAM, query.getStyle());
 		builder.queryParam("access_token", userContext.getToken().getOid());
 		return builder.build(bookmark.getId().getProjectId(), bookmark.getOid());
 	}
-	
+
 	/**
 	 * @param userContext
 	 * @param projectRef
 	 * @return
-	 * @throws ScopeException 
+	 * @throws ScopeException
 	 */
 	private Project findProject(AppContext userContext, String projectRef) throws ScopeException {
 		if (projectRef.startsWith("@")) {
@@ -463,7 +463,7 @@ public class AnalyticsServiceBaseImpl extends AnalyticsServiceCore implements An
 	/**
 	 * list the MyBookmarks content (bookmarks and folders)
 	 * @param userContext
-	 * @param query 
+	 * @param query
 	 * @param parent
 	 * @param isFlat
 	 * @param content
@@ -487,7 +487,7 @@ public class AnalyticsServiceBaseImpl extends AnalyticsServiceCore implements An
 		listBookmarks(userContext, query, parent, filters, hierarchyMode, fullPath, content);
 		return parentFolder;
 	}
-	
+
 	private NavigationItem listSharedWithMeBookmarks(AppContext userContext, NavigationQuery query, String parent, String[] filters, HierarchyMode hierarchyMode, List<NavigationItem> content) throws ScopeException {
 		// list mybookmark related resources
 		NavigationItem parentFolder = null;
@@ -505,7 +505,7 @@ public class AnalyticsServiceBaseImpl extends AnalyticsServiceCore implements An
 		listBookmarks(userContext, query, parent, filters, hierarchyMode, filterPath, bookmarks, content);
 		return parentFolder;
 	}
-	
+
 	/**
 	 * list the bookmark shared with me
 	 * @param userContext
@@ -530,7 +530,7 @@ public class AnalyticsServiceBaseImpl extends AnalyticsServiceCore implements An
 		}
 		return bookmarks;
 	}
-	
+
 	private String getSubPath(String path) {
 		// remove the user OID part (first part)
 		if (path.startsWith(Bookmark.SEPARATOR + Bookmark.Folder.USER)) {
@@ -547,11 +547,11 @@ public class AnalyticsServiceBaseImpl extends AnalyticsServiceCore implements An
 			return path;
 		}
 	}
-	
+
 	/**
 	 * List the Shared bookmarks and folders
 	 * @param userContext
-	 * @param query 
+	 * @param query
 	 * @param parent
 	 * @param isFlat
 	 * @param content
@@ -574,7 +574,7 @@ public class AnalyticsServiceBaseImpl extends AnalyticsServiceCore implements An
 		listBookmarks(userContext, query, parent, filters, hierarchyMode, fullPath, content);
 		return parentFolder;
 	}
-	
+
 	private void listBookmarks(AppContext userContext, NavigationQuery query, String parent, String[] filters, HierarchyMode hierarchyMode, String fullPath, List<NavigationItem> content) {
 		List<Bookmark> bookmarks = BookmarkManager.INSTANCE.findBookmarksByParent(userContext, fullPath);
 		String filterPath = getSubPath(fullPath);
@@ -582,7 +582,7 @@ public class AnalyticsServiceBaseImpl extends AnalyticsServiceCore implements An
 	}
 
 	/**
-	 * 
+	 *
 	 * @param userContext
 	 * @param query
 	 * @param parent
@@ -649,7 +649,7 @@ public class AnalyticsServiceBaseImpl extends AnalyticsServiceCore implements An
 			}
 		}
 	}
-	
+
 	private boolean filter(Project project, String[] filters) {
 		final String name = project.getName();
 		final String description = project.getDescription();
@@ -665,7 +665,7 @@ public class AnalyticsServiceBaseImpl extends AnalyticsServiceCore implements An
 		}
 		return true;
 	}
-	
+
 	private boolean filter(Bookmark bookmark, Project project, String[] filters) {
 		final String name = bookmark.getName();
 		final String description = bookmark.getDescription();
@@ -681,7 +681,7 @@ public class AnalyticsServiceBaseImpl extends AnalyticsServiceCore implements An
 		}
 		return true;
 	}
-	
+
 	private boolean filter(String name, String[] filters) {
 		if (name==null) return false;
 		for (String filter : filters) {
@@ -766,7 +766,7 @@ public class AnalyticsServiceBaseImpl extends AnalyticsServiceCore implements An
 			throw new ObjectNotFoundAPIException("invalid REFERENCE :" + e.getMessage(), true);
 		}
 	}
-	
+
 	public Object getItem(AppContext userContext, String BBID) throws ScopeException {
 		Space space = getSpace(userContext, BBID);
 		if (space.getParent()!=null) {
@@ -778,13 +778,13 @@ public class AnalyticsServiceBaseImpl extends AnalyticsServiceCore implements An
 			return space.getDomain();
 		}
 	}
-	
+
 	public Facet getFacet(
-			AppContext userContext, 
+			AppContext userContext,
 			String BBID,
 			String facetId,
 			String search,
-			String[] filters, 
+			String[] filters,
 			Integer maxResults,
 			Integer startIndex,
 			Integer timeoutMs
@@ -836,7 +836,7 @@ public class AnalyticsServiceBaseImpl extends AnalyticsServiceCore implements An
 						throw new ScopeException("cannot list the facet for '"+axis.prettyPrint()+"': not in the job scope");
 					}
 				}
-				*/
+				 */
 				// using the bookmark scope instead
 				SpaceScope scope = new SpaceScope(universe.S(domain));
 				ExpressionAST expr = scope.parseExpression(facetId);
@@ -848,7 +848,7 @@ public class AnalyticsServiceBaseImpl extends AnalyticsServiceCore implements An
 				Facet facet = ComputingService.INSTANCE.glitterFacet(universe,
 						domain, sel, axis, search,
 						startIndex != null ? startIndex : 0,
-						maxResults != null ? maxResults : 50, timeoutMs);
+								maxResults != null ? maxResults : 50, timeoutMs);
 
 				if (facet == null) {
 					throw new ObjectNotFoundAPIException(
@@ -862,7 +862,7 @@ public class AnalyticsServiceBaseImpl extends AnalyticsServiceCore implements An
 					throw new APIException(facet.getErrorMessage(),
 							userContext.isNoError(), ApiError.COMPUTING_FAILED);
 				}
-				*/
+				 */
 			}
 		} catch (ScopeException | ComputingException | InterruptedException e) {
 			throw new ComputingException(e.getLocalizedMessage(), e);
@@ -871,15 +871,15 @@ public class AnalyticsServiceBaseImpl extends AnalyticsServiceCore implements An
 					userContext.isNoError(), null);
 		}
 	}
-	
+
 	public Response scopeAnalysis(
-			AppContext userContext, 
+			AppContext userContext,
 			String BBID,
 			String targetID,
-			String value, 
+			String value,
 			Integer offset,
 			ObjectType[] types,
-			ValueType[] values, 
+			ValueType[] values,
 			Style style
 			) throws ScopeException
 	{
@@ -932,8 +932,8 @@ public class AnalyticsServiceBaseImpl extends AnalyticsServiceCore implements An
 	public Response runAnalysis(
 			final AppContext userContext,
 			String BBID,
-			String stateId, 
-			final AnalyticsQuery query, 
+			String stateId,
+			final AnalyticsQuery query,
 			DataLayout data,
 			boolean computeGrowth,
 			boolean applyFormatting,
@@ -946,7 +946,7 @@ public class AnalyticsServiceBaseImpl extends AnalyticsServiceCore implements An
 			if (envelope==null) {
 				envelope = computeEnvelope(query);
 			}
-	
+
 			AnalyticsReply reply = super.runAnalysis(userContext, BBID, stateId, query, data, computeGrowth, applyFormatting, timeout);
 			//
 			if (query.getStyle()==Style.HTML && data==DataLayout.SQL) {
@@ -966,8 +966,8 @@ public class AnalyticsServiceBaseImpl extends AnalyticsServiceCore implements An
 					// return result instead
 					return Response.ok(reply.getResult()).build();
 				}
-			} 
-			
+			}
+
 			//else
 			return Response.ok(reply).build();
 		} catch (TimeoutException e) {
@@ -1007,7 +1007,7 @@ public class AnalyticsServiceBaseImpl extends AnalyticsServiceCore implements An
 			return "ALL";
 		}
 	}
-	
+
 	public Response exportAnalysis(
 			final AppContext userContext,
 			String BBID,
@@ -1042,7 +1042,7 @@ public class AnalyticsServiceBaseImpl extends AnalyticsServiceCore implements An
 			} else {
 				outCompression = OutputCompression.valueOf(compression.toUpperCase());
 			}
-			
+
 			final ExportSourceWriter writer = getWriter(outFormat);
 			if (writer==null) {
 				throw new APIException("unable to handle the format='"+outFormat+"'", true);
@@ -1073,32 +1073,32 @@ public class AnalyticsServiceBaseImpl extends AnalyticsServiceCore implements An
 			}
 			String mediaType;
 			switch (outFormat) {
-			case CSV:
-				mediaType = "text/csv";
-				outname += "."+(fileext!=null?fileext:"csv");
-				break;
-			case XLS:
-				mediaType = "application/vnd.ms-excel";
-				outname += "."+(fileext!=null?fileext:"xls");
-				break;
-			case XLSX:
-				mediaType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-				outname += "."+(fileext!=null?fileext:"xlsx");
-				break;
-			default:
-				mediaType = MediaType.APPLICATION_JSON_TYPE.toString();
-				outname += "."+(fileext!=null?fileext:"json");
+				case CSV:
+					mediaType = "text/csv";
+					outname += "."+(fileext!=null?fileext:"csv");
+					break;
+				case XLS:
+					mediaType = "application/vnd.ms-excel";
+					outname += "."+(fileext!=null?fileext:"xls");
+					break;
+				case XLSX:
+					mediaType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+					outname += "."+(fileext!=null?fileext:"xlsx");
+					break;
+				default:
+					mediaType = MediaType.APPLICATION_JSON_TYPE.toString();
+					outname += "."+(fileext!=null?fileext:"json");
 			}
 
 			switch (outCompression) {
-			case GZIP:
-				// note : setting "Content-Type:application/octet-stream" should
-				// disable interceptor's GZIP compression.
-				mediaType = MediaType.APPLICATION_OCTET_STREAM_TYPE.toString();
-				outname += "."+(compression!=null?compression:"gz");
-				break;
-			default:
-				// NONE
+				case GZIP:
+					// note : setting "Content-Type:application/octet-stream" should
+					// disable interceptor's GZIP compression.
+					mediaType = MediaType.APPLICATION_OCTET_STREAM_TYPE.toString();
+					outname += "."+(compression!=null?compression:"gz");
+					break;
+				default:
+					// NONE
 			}
 
 			response = Response.ok(stream);
@@ -1113,11 +1113,11 @@ public class AnalyticsServiceBaseImpl extends AnalyticsServiceCore implements An
 			throw new APIException(e.getMessage(), true);
 		}
 	}
-	
+
 	private ExportSourceWriter getWriter(OutputFormat outFormat) {
 		if (outFormat==OutputFormat.CSV) {
 			ExportSourceWriterCSV exporter = new ExportSourceWriterCSV();
-		    //settings.setQuotechar('\0');
+			//settings.setQuotechar('\0');
 			return exporter;
 		} else if (outFormat==OutputFormat.XLS) {
 			ExcelSettingsBean settings = new ExcelSettingsBean();
@@ -1131,13 +1131,13 @@ public class AnalyticsServiceBaseImpl extends AnalyticsServiceCore implements An
 			return null;
 		}
 	}
-	
+
 	public Response viewAnalysis(
-			final AppContext userContext, 
+			final AppContext userContext,
 			String BBID,
 			ViewQuery view,
 			String data,
-			Style style, 
+			Style style,
 			String envelope) throws ScopeException, ComputingException, InterruptedException {
 		//
 		try {
@@ -1190,35 +1190,35 @@ public class AnalyticsServiceBaseImpl extends AnalyticsServiceCore implements An
 		builder.queryParam("access_token", userContext.getToken().getOid());
 		return builder.build();
 	}
-	
+
 	/**
 	 * @param uriInfo
-	 * @param userContext 
-	 * @param localScope 
-	 * @param BBID 
+	 * @param userContext
+	 * @param localScope
+	 * @param BBID
 	 * @param query
 	 * @return
-	 * @throws ScopeException 
+	 * @throws ScopeException
 	 */
 	protected URI buildExportURI(AppContext userContext, String BBID, AnalyticsQuery query, String filename) throws ScopeException {
 		UriBuilder builder = getPublicBaseUriBuilder().
-			path("/analytics/{"+BBID_PARAM_NAME+"}/export/{filename}");
+				path("/analytics/{"+BBID_PARAM_NAME+"}/export/{filename}");
 		addAnalyticsQueryParams(builder, query, null, null);
 		builder.queryParam("access_token", userContext.getToken().getOid());
 		return builder.build(BBID, filename);
 	}
-	
+
 	protected URI buildBookmarkURI(AppContext userContext, String BBID) {
 		UriBuilder builder = getPublicBaseUriBuilder().
-			path("/analytics/{"+BBID_PARAM_NAME+"}/bookmark");
+				path("/analytics/{"+BBID_PARAM_NAME+"}/bookmark");
 		//addAnalyticsQueryParams(builder, query, null, null);
 		builder.queryParam("access_token", userContext.getToken().getOid());
 		return builder.build(BBID);
 	}
-	
+
 	protected URI buildAnalyticsViewURI(AppContext userContext, ViewQuery query, String data, String envelope, Style style, HashMap<String, Object> override) {
 		UriBuilder builder = getPublicBaseUriBuilder().
-			path("/analytics/{"+BBID_PARAM_NAME+"}/view");
+				path("/analytics/{"+BBID_PARAM_NAME+"}/view");
 		addAnalyticsQueryParams(builder, query, style, override);
 		if (query.getX()!=null) builder.queryParam(VIEW_X_PARAM, query.getX());
 		if (query.getY()!=null) builder.queryParam(VIEW_Y_PARAM, query.getY());
@@ -1235,26 +1235,26 @@ public class AnalyticsServiceBaseImpl extends AnalyticsServiceCore implements An
 	@Override
 	protected URI buildAnalyticsQueryURI(AppContext userContext, AnalyticsQuery query, String data, String envelope, Style style, HashMap<String, Object> override) {
 		UriBuilder builder = getPublicBaseUriBuilder().
-			path("/analytics/{"+BBID_PARAM_NAME+"}/query");
+				path("/analytics/{"+BBID_PARAM_NAME+"}/query");
 		addAnalyticsQueryParams(builder, query, style, override);
 		if (data!=null) builder.queryParam(DATA_PARAM, data);
 		if (envelope!=null) builder.queryParam(ENVELOPE_PARAM, envelope);
 		builder.queryParam("access_token", userContext.getToken().getOid());
 		return builder.build(query.getBBID());
 	}
-	
+
 	protected URI buildAnalyticsExportURI(AppContext userContext, AnalyticsQuery query, String filename) {
 		UriBuilder builder = getPublicBaseUriBuilder().
-			path("/analytics/{"+BBID_PARAM_NAME+"}/export/{filename}");
+				path("/analytics/{"+BBID_PARAM_NAME+"}/export/{filename}");
 		addAnalyticsQueryParams(builder, query, null, null);
 		builder.queryParam("access_token", userContext.getToken().getOid());
 		return builder.build(query.getBBID(), filename);
 	}
 
 	/**
-	 * @param override 
-	 * @throws ScopeException 
-	 * 
+	 * @param override
+	 * @throws ScopeException
+	 *
 	 */
 	private void addAnalyticsQueryParams(UriBuilder builder, AnalyticsQuery query, Style style, HashMap<String, Object> override) {
 		if (query.getGroupBy()!=null) {
@@ -1318,15 +1318,15 @@ public class AnalyticsServiceBaseImpl extends AnalyticsServiceCore implements An
 			builder.queryParam(STYLE_PARAM, style);
 		} else if (query.getStyle()!=null) builder.queryParam(STYLE_PARAM, query.getStyle());
 	}
-	
-	
+
+
 	// Execution management
-	
+
 	/**
 	 * list the execution status for a given analysis. Note: an analysis can spam multiple queries.
 	 * @param request
 	 * @param key
-	 * @param style 
+	 * @param style
 	 * @return
 	 */
 	public List<QueryWorkerJobStatus> getStatus(

@@ -2,12 +2,12 @@
  * Copyright © Squid Solutions, 2016
  *
  * This file is part of Open Bouquet software.
- *  
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
  * published by the Free Software Foundation (version 3 of the License).
  *
- * There is a special FOSS exception to the terms and conditions of the 
+ * There is a special FOSS exception to the terms and conditions of the
  * licenses as they are applied to this program. See LICENSE.txt in
  * the directory of this program distribution.
  *
@@ -54,6 +54,7 @@ import com.squid.core.domain.operators.ExtendedType;
 import com.squid.core.domain.operators.IntrinsicOperators;
 import com.squid.core.domain.operators.OperatorDefinition;
 import com.squid.core.domain.sort.DomainSort;
+import com.squid.core.domain.sort.DomainSort.NullsPosition;
 import com.squid.core.domain.sort.DomainSort.SortDirection;
 import com.squid.core.domain.sort.SortOperatorDefinition;
 import com.squid.core.domain.vector.VectorOperatorDefinition;
@@ -75,7 +76,6 @@ import com.squid.kraken.v4.api.core.JobServiceBaseImpl.OutputFormat;
 import com.squid.kraken.v4.api.core.JobStats;
 import com.squid.kraken.v4.api.core.NotYetImplementedException;
 import com.squid.kraken.v4.api.core.ObjectNotFoundAPIException;
-import com.squid.kraken.v4.api.core.customer.StateServiceBaseImpl;
 import com.squid.kraken.v4.api.core.projectanalysisjob.AnalysisJobComputer;
 import com.squid.kraken.v4.caching.NotInCacheException;
 import com.squid.kraken.v4.core.analysis.datamatrix.AxisValues;
@@ -141,12 +141,12 @@ import com.squid.kraken.v4.model.Problem.Severity;
 import com.squid.kraken.v4.model.ProjectAnalysisJob;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.Direction;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.Index;
+import com.squid.kraken.v4.model.ProjectAnalysisJob.Nulls;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.OrderBy;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.Position;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.RollUp;
 import com.squid.kraken.v4.model.ProjectAnalysisJobPK;
 import com.squid.kraken.v4.model.ResultInfo;
-import com.squid.kraken.v4.model.State;
 import com.squid.kraken.v4.model.StatePK;
 import com.squid.kraken.v4.model.ViewQuery;
 import com.squid.kraken.v4.model.ViewReply;
@@ -178,8 +178,8 @@ public class AnalyticsServiceCore {
 	public AnalyticsReply runAnalysis(
 			final AppContext userContext,
 			String BBID,
-			String stateId, 
-			final AnalyticsQuery query, 
+			String stateId,
+			final AnalyticsQuery query,
 			DataLayout data,
 			boolean computeGrowth,
 			boolean applyFormatting,
@@ -311,7 +311,7 @@ public class AnalyticsServiceCore {
 		return reply;
 	}
 
-	
+
 	public Space getSpace(AppContext userContext, String BBID) {
 		try {
 			GlobalExpressionScope scope = new GlobalExpressionScope(userContext);
@@ -327,11 +327,11 @@ public class AnalyticsServiceCore {
 		// else
 		throw new ObjectNotFoundAPIException("invalid REFERENCE", true);
 	}
-	
+
 
 	/**
 	 * merge the bookmark config with the current query. It modifies the query. Query parameters take precedence over the bookmark config.
-	 * 
+	 *
 	 * @param space
 	 * @param query
 	 * @param config
@@ -435,7 +435,7 @@ public class AnalyticsServiceCore {
 						}
 					}
 				}
-				*/
+				 */
 			} else if (config.getChosenDimensions() != null) {
 				for (String chosenDimension : config.getChosenDimensions()) {
 					try {
@@ -450,13 +450,13 @@ public class AnalyticsServiceCore {
 						} else {
 							// legacy support raw ID
 							// parse to validate and apply prettyPrint options
-							try{								
+							try{
 								ExpressionAST expr = globalScope.parseExpression(chosenDimension );
 								f = expr.prettyPrint(localOptions);
 								if (expr.getName() !=null && !expr.getName().isEmpty()){
 									f+= " as '"+expr.getName()+"'";
 								}
-									
+
 							}catch(ScopeException e){
 								ExpressionAST expr = localScope.parseExpression("@'" + chosenDimension + "'");
 								f = expr.prettyPrint(localOptions);
@@ -497,7 +497,7 @@ public class AnalyticsServiceCore {
 						}
 					}
 				}
-				*/
+				 */
 				if (!someIntrinsicMetric) {
 					metrics.add("count() as 'Count'// default metric");
 				}
@@ -587,14 +587,14 @@ public class AnalyticsServiceCore {
 			ExpressionAST expr = localScope.parseExpression(query.getPeriod());
 			period = expr.prettyPrint(new PrettyPrintOptions(ReferenceStyle.IDENTIFIER, null));
 		}
-		
+
 		if (selection != null) {
 			if (!selection.getFacets().isEmpty()) {// always iterate over selection at least to capture the period
 				boolean keepConfig = filterWildcard || filters.isEmpty();
 				// look for the selection
 				for (Facet facet : selection.getFacets()) {
 					if (!facet.getSelectedItems().isEmpty()) {
-						ExpressionAST exprFacet = globalScope.parseExpression(facet.getId());	
+						ExpressionAST exprFacet = globalScope.parseExpression(facet.getId());
 						if (exprFacet.prettyPrint(new PrettyPrintOptions(ReferenceStyle.IDENTIFIER, null)).equals(period)){
 							// it's the period
 							List<FacetMember> items = facet.getSelectedItems();
@@ -684,7 +684,7 @@ public class AnalyticsServiceCore {
 				for (Facet facet : selection.getCompareTo()) {
 					if (!facet.getSelectedItems().isEmpty()) {
 
-						ExpressionAST exprFacet = globalScope.parseExpression(facet.getId());	
+						ExpressionAST exprFacet = globalScope.parseExpression(facet.getId());
 						if (exprFacet.prettyPrint(new PrettyPrintOptions(ReferenceStyle.IDENTIFIER, null)).equals(period)){
 							// it's the period
 							List<FacetMember> items = facet.getSelectedItems();
@@ -716,17 +716,17 @@ public class AnalyticsServiceCore {
 			}
 		}
 	}
-	
+
 	private PrettyPrintOptions.ReferenceStyle getReferenceStyle(Style style) {
 		switch (style) {
-		case HUMAN:
-		case HTML:
-			return ReferenceStyle.NAME;
-		case LEGACY:
-			return ReferenceStyle.LEGACY;
-		case ROBOT:
-		default:
-			return ReferenceStyle.IDENTIFIER;
+			case HUMAN:
+			case HTML:
+				return ReferenceStyle.NAME;
+			case LEGACY:
+				return ReferenceStyle.LEGACY;
+			case ROBOT:
+			default:
+				return ReferenceStyle.IDENTIFIER;
 		}
 	}
 
@@ -738,7 +738,7 @@ public class AnalyticsServiceCore {
 		// else
 		return false;
 	}
-	
+
 	private boolean isWildcardFilters(List<String> items) {
 		if (items !=null && !items.isEmpty()) {
 			String first = items.get(0);
@@ -761,7 +761,7 @@ public class AnalyticsServiceCore {
 			//
 			List<Facet> result = new ArrayList<>();
 			result.addAll(ComputingService.INSTANCE.glitterFacets(space.getUniverse(),
-						space.getDomain(), ds));
+					space.getDomain(), ds));
 			FacetSelection facetSelectionResult = new FacetSelection();
 			facetSelectionResult.setFacets(result);
 			if (ds.hasCompareToSelection()) {
@@ -786,7 +786,7 @@ public class AnalyticsServiceCore {
 	 * @param query
 	 * @param config
 	 * @return
-	 * @throws ScopeException 
+	 * @throws ScopeException
 	 */
 	protected FacetSelection createFacetSelection(Space space, AnalyticsQuery query) throws ScopeException {
 		FacetSelection selection = new FacetSelection();
@@ -835,7 +835,7 @@ public class AnalyticsServiceCore {
 		//
 		return selection;
 	}
-	
+
 	private Facet createFacet(ExpressionAST expr) {
 		if (expr instanceof Operator) {
 			Operator op = (Operator)expr;
@@ -888,7 +888,7 @@ public class AnalyticsServiceCore {
 		// else
 		return null;
 	}
-	
+
 	private Facet createFacetInterval(Space space, ExpressionAST expr, List<String> values) throws ScopeException {
 		Facet facet = new Facet();
 		facet.setId(rewriteExpressionToGlobalScope(expr, space));
@@ -922,15 +922,15 @@ public class AnalyticsServiceCore {
 		//DomainExpressionScope domainScope = new DomainExpressionScope(universe, domain);
 		int facetCount = 0;
 		int legacyFacetCount = 0;// count how much real facets we have to
-									// translate indexes
+		// translate indexes
 		int legacyMetricCount = 0;
 		HashMap<Integer, Integer> lookup = new HashMap<>();// convert simple
-															// indexes into
-															// analysisJob
-															// indexes
+		// indexes into
+		// analysisJob
+		// indexes
 		HashSet<Integer> metricSet = new HashSet<>();// mark metrics
 		if ((query.getGroupBy() == null || query.getGroupBy().isEmpty())
-		&& (query.getMetrics() == null || query.getMetrics().isEmpty())) {
+				&& (query.getMetrics() == null || query.getMetrics().isEmpty())) {
 			throw new ScopeException("this is an empty query (not column provided), can't run the analysis: try setting the groupBy or metrics parameters");
 		}
 		// now we are going to use the domain Space scope
@@ -1025,40 +1025,42 @@ public class AnalyticsServiceCore {
 						ExpressionAST expr = scope.parseExpression(order);
 						IDomain image = expr.getImageDomain();
 						Direction direction = getDirection(image);
+						Nulls nulls = getNullsPosition(image) ;
 						if (expr  instanceof NumericConstant) {
 							// it is a reference to the facets
 							DomainNumericConstant num = (DomainNumericConstant) image
 									.getAdapter(DomainNumericConstant.class);
-								int index = num.getValue().intValue();							
-								if (!lookup.containsKey(index)) {
-									throw new ScopeException("the orderBy index specified (" + index + ") is out of bounds");
-								}
-								int legacy = lookup.get(index);
-								if (metricSet.contains(index)) {
-									legacy += legacyFacetCount;
-								}
-								orderBy.add(new OrderBy(legacy, direction));
+							int index = num.getValue().intValue();
+							if (!lookup.containsKey(index)) {
+								throw new ScopeException("the orderBy index specified (" + index + ") is out of bounds");
+							}
+							int legacy = lookup.get(index);
+							if (metricSet.contains(index)) {
+								legacy += legacyFacetCount;
+							}
+							orderBy.add(new OrderBy(legacy, direction));
 						} else {
 							// it's an expression which is now scoped into the bookmark
 							// but job is expecting it to be scoped in the universe... (OMG)
 							// also we must remove the sort operator to avoid nasty SQL error when generating the SQL
 							expr = unwrapOrderByExpression(expr);
 							String universalExpression = rewriteExpressionToGlobalScope(expr, root);
-							orderBy.add(new OrderBy(new Expression(universalExpression), direction));
+							orderBy.add(new OrderBy(new Expression(universalExpression), direction, nulls));
 						}
 					} catch (ScopeException e) {
 						try {
-							
+
 							ExpressionAST expr = globalScope.parseExpression(order);
 							expr = unwrapOrderByExpression(expr);
 							IDomain image = expr.getImageDomain();
 							Direction direction = getDirection(image);
+							Nulls nulls = getNullsPosition(image) ;
 							String universalExpression = rewriteExpressionToGlobalScope(expr, root);
-							orderBy.add(new OrderBy(new Expression(universalExpression), direction));
-									
+							orderBy.add(new OrderBy(new Expression(universalExpression), direction, nulls));
+
 						}catch(ScopeException e1){
-						throw new ScopeException(								
-								"unable to parse orderBy expression at position " + pos + ": " + e1.getMessage(), e1);
+							throw new ScopeException(
+									"unable to parse orderBy expression at position " + pos + ": " + e1.getMessage(), e1);
 						}
 					}
 				}
@@ -1114,12 +1116,12 @@ public class AnalyticsServiceCore {
 		} else {
 			analysisJob.setLimit(query.getLimit());
 		}
-		
+
 		// offset
 		if (query.getOffset()!=null) {
 			analysisJob.setOffset(query.getOffset());
 		}
-		
+
 		// beyond limit
 		if (query.getBeyondLimit()!=null && !query.getBeyondLimit().isEmpty()) {
 			ArrayList<Index> indexes = new ArrayList<>(query.getBeyondLimit().size());
@@ -1154,7 +1156,7 @@ public class AnalyticsServiceCore {
 		}
 		return analysisJob;
 	}
-	
+
 	protected List<RollUp> parseRollups(List<String> values) throws ScopeException {
 		List<RollUp> rollups = new ArrayList<>();
 		int pos = 1;
@@ -1203,7 +1205,7 @@ public class AnalyticsServiceCore {
 		// else return null, it's not an error
 		return null;
 	}
-	
+
 	private Integer getIntegerValue(String value) {
 		try {
 			return Integer.parseInt(value);
@@ -1222,17 +1224,16 @@ public class AnalyticsServiceCore {
 		if (expr.getImageDomain().isInstanceOf(DomainSort.DOMAIN) && expr instanceof Operator) {
 			// remove the first operator
 			Operator op = (Operator)expr;
-			if (op.getArguments().size()==1 
-					&& (op.getOperatorDefinition().getExtendedID().equals(SortOperatorDefinition.ASC_ID)
-					|| op.getOperatorDefinition().getExtendedID().equals(SortOperatorDefinition.DESC_ID))) 
+			if (op.getArguments().size()==1
+					&& op.getOperatorDefinition() instanceof SortOperatorDefinition)
 			{
 				return op.getArguments().get(0);
 			}
-		}	
+		}
 		// else do nothing
 		return expr;
 	}
-	
+
 	/**
 	 * rewrite a local expression valid in the root scope as a global expression
 	 * @param expr
@@ -1251,10 +1252,10 @@ public class AnalyticsServiceCore {
 				return expr.prettyPrint() + " as '"  +  expr.getName() + "'";
 			} else {
 				return expr.prettyPrint();
-			}			
+			}
 		}
 	}
-	
+
 	private Direction getDirection(IDomain domain) {
 		if (domain.isInstanceOf(DomainSort.DOMAIN)) {
 			DomainSort sort = (DomainSort) domain.getAdapter(DomainSort.class);
@@ -1262,10 +1263,10 @@ public class AnalyticsServiceCore {
 				SortDirection direction = sort.getDirection();
 				if (direction != null) {
 					switch (direction) {
-					case ASC:
-						return Direction.ASC;
-					case DESC:
-						return Direction.DESC;
+						case ASC:
+							return Direction.ASC;
+						case DESC:
+							return Direction.DESC;
 					}
 				}
 			}
@@ -1276,13 +1277,35 @@ public class AnalyticsServiceCore {
 			return Direction.DESC;
 		} else { //if (image.isInstanceOf(IDomain.STRING)) {
 			return Direction.ASC;
-		} 
+		}
+	}
+
+	private Nulls getNullsPosition(IDomain domain) {
+		if (domain.isInstanceOf(DomainSort.DOMAIN)) {
+			DomainSort sort = (DomainSort) domain.getAdapter(DomainSort.class);
+			if (sort != null) {
+				NullsPosition nulls = sort.getNullsPosition();
+				if (nulls != null) {
+					switch (nulls) {
+						case NULLS_FIRST:
+							return Nulls.NULLS_FIRST;
+						case NULLS_LAST:
+							return Nulls.NULLS_LAST;
+						default:
+							return Nulls.UNDEFINED;
+					}
+				}
+			}
+		}
+		// else
+		// no desc | asc operator provided: use default
+		return Nulls.UNDEFINED;
 	}
 
 	/**
 	 * Convert a FacetSelection into a AnalyticsSelection, suitable to use with the analytics API
-	 * @param ctx 
-	 * @param job 
+	 * @param ctx
+	 * @param job
 	 * @param actual
 	 * @return
 	 */
@@ -1351,7 +1374,7 @@ public class AnalyticsServiceCore {
 		}
 		return selection;
 	}
-	
+
 	protected ExpressionAST convertToExpression(Axis axis, Collection<DimensionMember> filters)
 			throws ScopeException, SQLScopeException {
 		//
@@ -1416,7 +1439,7 @@ public class AnalyticsServiceCore {
 	/**
 	 * helper method that construct the formula: (expr>intervalle.min and
 	 * expr<intervalle.max)
-	 * 
+	 *
 	 * @param expr
 	 * @param intervalle
 	 * @return
@@ -1443,7 +1466,7 @@ public class AnalyticsServiceCore {
 			return null;
 		}
 	}
-	
+
 	boolean checkFacetIsPeriod(String period, Facet facet, Space space) {
 		try {
 			// we must parse the period
@@ -1456,7 +1479,7 @@ public class AnalyticsServiceCore {
 			return false;
 		}
 	}
-	
+
 	boolean checkAxisIsPeriod(String period, Axis axis, Space space) {
 		try {
 			// we must parse the period
@@ -1504,7 +1527,7 @@ public class AnalyticsServiceCore {
 			JobStats queryLog = new JobStats(job.getId().getAnalysisJobId(), "AnalysisJobComputer.compute",
 					(stop - start), job.getId().getProjectId());
 			queryLog.setError(false);
-//			PerfDB.INSTANCE.save(queryLog);
+			//			PerfDB.INSTANCE.save(queryLog);
 			return datamatrix;
 		}
 	}
@@ -1520,7 +1543,7 @@ public class AnalyticsServiceCore {
 			throw new InvalidIdAPIException("invalid format="+format, true);
 		}
 	}
-	
+
 	/**
 	 * @param style
 	 * @param space
@@ -1549,10 +1572,8 @@ public class AnalyticsServiceCore {
 			AxisValues m = axes.get(i);
 			if (m.isVisible()) {
 				Dimension dim = m.getAxis().getDimension();
-				com.squid.kraken.v4.model.DataHeader.DataType colType;
 				ExtendedType colExtType;
 				if (dim != null) {
-					colType = getDataType(m.getAxis());
 					colExtType = getExtendedType(m.getAxis().getDefinitionSafe(), dm.getDatabase().getSkin());
 					Column col = new Column();
 					col.setPos(pos++);
@@ -1567,13 +1588,10 @@ public class AnalyticsServiceCore {
 					col.setOriginType(m.getAxis().getOriginType());
 					col.setDescription(m.getAxis().getDescription());
 					col.setFormat(computeFormat(m.getAxis(), colExtType));
-					*/
+					 */
 					header.getColumns().add(col);
 				} else {
-					String def = m.getAxis().getDefinitionSafe().prettyPrint();
-					String ID = m.getAxis().getId();
 					String name = m.getAxis().getName();
-					colType = getDataType(m.getAxis());
 					colExtType = getExtendedType(m.getAxis().getDefinitionSafe(), dm.getDatabase().getSkin());
 					Column col = new Column();
 					col.setPos(pos++);
@@ -1586,7 +1604,7 @@ public class AnalyticsServiceCore {
 					if (def != null)
 						col.setDefinition(m.getAxis().prettyPrint());
 					col.setOriginType(m.getAxis().getOriginType());
-					*/
+					 */
 					header.getColumns().add(col);
 				}
 			}
@@ -1595,12 +1613,12 @@ public class AnalyticsServiceCore {
 			MeasureValues v = kpis.get(i);
 			if (v.isVisible()) {
 				Measure m = v.getMeasure();
-				Metric metric = m.getMetric();
+				m.getMetric();
 				ExtendedType type = getExtendedType(m.getDefinitionSafe(), dm.getDatabase().getSkin());
 				Column col = new Column();
 				/*
 				Col col = new Col(metric != null ? metric.getId() : null, m.getName(), type, Col.Role.DATA, pos++);
-				*/
+				 */
 				col.setPos(pos++);
 				col.setName(m.getName());
 				col.setDefinition(m.prettyPrint(options));
@@ -1664,28 +1682,28 @@ public class AnalyticsServiceCore {
 		}
 		if (image.isInstanceOf(IDomain.NUMERIC)) {
 			switch (type.getDataType()) {
-			case Types.INTEGER:
-			case Types.BIGINT:
-			case Types.SMALLINT:
-			case Types.TINYINT:
-				return "%,d";
-			case Types.DOUBLE:
-			case Types.DECIMAL:
-			case Types.FLOAT:
-			case Types.NUMERIC:
-				if (type.getScale() > 0) {
-					return "%,.2f";
-				} else {
+				case Types.INTEGER:
+				case Types.BIGINT:
+				case Types.SMALLINT:
+				case Types.TINYINT:
 					return "%,d";
-				}
-			default:
-				break;
+				case Types.DOUBLE:
+				case Types.DECIMAL:
+				case Types.FLOAT:
+				case Types.NUMERIC:
+					if (type.getScale() > 0) {
+						return "%,.2f";
+					} else {
+						return "%,d";
+					}
+				default:
+					break;
 			}
 		}
 		// else
 		return null;
 	}
-	
+
 	/**
 	 * @param matrix
 	 * @return
@@ -1701,7 +1719,7 @@ public class AnalyticsServiceCore {
 		info.setComplete(matrix.isFullset());
 		return info;
 	}
-	
+
 	/**
 	 * Try to find the most relevant exception in the stack
 	 * @param the execution exception
@@ -1710,7 +1728,7 @@ public class AnalyticsServiceCore {
 		Throwable cause = getCauseException(e);
 		throwAPIException(cause);
 	}
-	
+
 	private Throwable getCauseException(ExecutionException e) {
 		Throwable previous = e;
 		Throwable last = e;
@@ -1736,9 +1754,9 @@ public class AnalyticsServiceCore {
 			throw new APIException(exception, true);
 		}
 	}
-	
+
 	public ViewReply viewAnalysis(
-			final AppContext userContext, 
+			final AppContext userContext,
 			String BBID,
 			ViewQuery view,
 			String data,
@@ -1788,7 +1806,7 @@ public class AnalyticsServiceCore {
 			ExpressionAST ast = inputConfig.parse(expression);
 			query.getMetrics().add("compareTo("+inputConfig.prettyPrint(ast)+")");
 		}
-		*/
+		 */
 		//
 		int dims = (query.getGroupBy()!=null)?query.getGroupBy().size():0;
 		int kpis = (query.getMetrics()!=null)?query.getMetrics().size():0;
@@ -1864,7 +1882,7 @@ public class AnalyticsServiceCore {
 				if (view.getX()==null && !inputConfig.isTimeseries() && query.getPeriod()!=null) {
 					view.setX("__PERIOD");
 				}
-			// TIME-SERIES
+				// TIME-SERIES
 			} else if (config.getCurrentAnalysis()!=null && config.getCurrentAnalysis().equalsIgnoreCase(BookmarkConfig.TIMESERIES_ANALYSIS)) {
 				// use the period as the x
 				if (view.getX()==null && !inputConfig.isTimeseries()) {
@@ -1910,7 +1928,7 @@ public class AnalyticsServiceCore {
 						}
 					}
 				}
-			// BARCHART 
+				// BARCHART
 			} else if (config.getCurrentAnalysis()!=null && config.getCurrentAnalysis().equalsIgnoreCase(BookmarkConfig.BARCHART_ANALYSIS)) {
 				if (view.getY()==null && (!inputConfig.isHasMetric() || !inputConfig.isHasMetricValue())) {
 					if (kpis==0 && !inputConfig.isHasMetric()) {
@@ -2106,9 +2124,9 @@ public class AnalyticsServiceCore {
 					if (o.getImageDomain().isInstanceOf(DomainSort.DOMAIN) && o instanceof Operator) {
 						// remove the first operator
 						Operator op = (Operator)o;
-						if (op.getArguments().size()==1 
+						if (op.getArguments().size()==1
 								&& (op.getOperatorDefinition().getExtendedID().equals(SortOperatorDefinition.ASC_ID)
-								|| op.getOperatorDefinition().getExtendedID().equals(SortOperatorDefinition.DESC_ID))) 
+										|| op.getOperatorDefinition().getExtendedID().equals(SortOperatorDefinition.DESC_ID)))
 						{
 							o = op.getArguments().get(0);
 						}
@@ -2181,23 +2199,23 @@ public class AnalyticsServiceCore {
 		if (outputConfig.isTimeseries()) {
 			specs.mark = Mark.line;
 		} else {
-			 if (specs.encoding.x!=null && specs.encoding.x.type==DataType.quantitative && specs.encoding.y!=null && specs.encoding.y.type==DataType.quantitative) {
-					// use ticks
-				 if (specs.encoding.size!=null) {
-					 specs.mark = Mark.circle;
-				 } else if (specs.encoding.x.bin || specs.encoding.y.bin) {
-					 specs.mark = Mark.bar;
-				 } else {
-					 specs.mark = Mark.point;
-				 }
-			 } else {
-				 specs.mark = Mark.bar;
-			 }
+			if (specs.encoding.x!=null && specs.encoding.x.type==DataType.quantitative && specs.encoding.y!=null && specs.encoding.y.type==DataType.quantitative) {
+				// use ticks
+				if (specs.encoding.size!=null) {
+					specs.mark = Mark.circle;
+				} else if (specs.encoding.x.bin || specs.encoding.y.bin) {
+					specs.mark = Mark.bar;
+				} else {
+					specs.mark = Mark.point;
+				}
+			} else {
+				specs.mark = Mark.bar;
+			}
 		}
 		// options
 		if (view.hasOptons()) {
-		    try {
-		    	Properties properties = view.getOptionsAsProperties();
+			try {
+				Properties properties = view.getOptionsAsProperties();
 				// mark
 				Object omark = properties.get("mark");
 				if (omark!=null) {
@@ -2235,7 +2253,7 @@ public class AnalyticsServiceCore {
 		//
 		ViewReply reply = new ViewReply(space);
 		// update the facet selection with actual values
-		FacetSelection actual = computeFacetSelection(space, selection); 
+		FacetSelection actual = computeFacetSelection(space, selection);
 		reply.setSelection(convertToSelection(userContext, query, space, job, actual));
 		reply.setQuery(query);
 		reply.setResult(specs);
@@ -2311,7 +2329,7 @@ public class AnalyticsServiceCore {
 						}
 					}
 				}
-			// - multiple metrics
+				// - multiple metrics
 			} else if (view.getY()==null || view.getColor()==null || view.getColumn()==null || view.getRow()==null) {
 				// set __VALUE
 				if (!inputConfig.isHasMetricValue()) {
@@ -2343,14 +2361,14 @@ public class AnalyticsServiceCore {
 		}
 		return true;
 	}
-	
+
 	private Data transformToVegaData(AnalyticsQuery query, DataMatrix matrix, DataLayout format) {
 		IDataMatrixConverter<Object[]> converter = getConverter(format);
 		Data data = new Data();
 		data.values = converter.convert(query, matrix);
 		return data;
 	}
-	
+
 	private String toString(Object[] array) {
 		String result = null;
 		for (Object x : array) {
@@ -2362,7 +2380,7 @@ public class AnalyticsServiceCore {
 		}
 		return result;
 	}
-	
+
 
 	public BookmarkConfig createBookmarkConfig(Space space, AnalyticsQuery query) throws ScopeException {
 		SpaceScope scope = new SpaceScope(space);
@@ -2403,8 +2421,9 @@ public class AnalyticsServiceCore {
 			for (String orderBy : query.getOrderBy()) {
 				ExpressionAST expr = scope.parseExpression(orderBy);
 				Direction direction = getDirection(expr.getImageDomain());
+				Nulls nulls = getNullsPosition(expr.getImageDomain()) ;
 				expr = unwrapOrderByExpression(expr);
-				OrderBy copy = new OrderBy(new Expression(rewriteExpressionToGlobalScope(expr, space)), direction);
+				OrderBy copy = new OrderBy(new Expression(rewriteExpressionToGlobalScope(expr, space)), direction, nulls);
 				config.getOrderBy().add(copy);
 			}
 		}
@@ -2427,27 +2446,27 @@ public class AnalyticsServiceCore {
 		config.setCurrentAnalysis(BookmarkConfig.TABLE_ANALYSIS);
 		return config;
 	}
-	
+
 	private String rewriteChoosenMetric(ExpressionAST expr) {
-		
+
 		String pref ="";
 		String alias="";
 		boolean hasAlias= expr.getName() != null && !expr.getName().isEmpty();
-		
+
 		if(hasAlias){
 			alias=" as '" + expr.getName() +"'";
 		}
 		if (!hasAlias){
 			if (expr instanceof MeasureExpression) {
 				MeasureExpression measure = (MeasureExpression)expr;
-				if (measure.getMeasure().getMetric()!=null) {					
+				if (measure.getMeasure().getMetric()!=null) {
 					return pref + measure.getMeasure().getMetric().getOid();
 				}
 			}
 		}
 		// else
-		String  exprGlobal = expr.prettyPrint(PrettyPrintOptions.ROBOT_GLOBAL); 
-	
+		String  exprGlobal = expr.prettyPrint(PrettyPrintOptions.ROBOT_GLOBAL);
+
 		return pref + exprGlobal + alias;
 	}
 

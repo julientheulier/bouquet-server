@@ -34,6 +34,7 @@ import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.Operator;
 import com.squid.core.expression.scope.ScopeException;
 import com.squid.core.sql.model.SQLScopeException;
+import com.squid.core.sql.render.IOrderByPiece.NULLS_ORDERING;
 import com.squid.core.sql.render.IOrderByPiece.ORDERING;
 import com.squid.core.sql.render.RenderingException;
 import com.squid.kraken.v4.api.core.EngineUtils;
@@ -70,6 +71,7 @@ import com.squid.kraken.v4.model.Project;
 import com.squid.kraken.v4.model.ProjectAnalysisJob;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.Direction;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.Index;
+import com.squid.kraken.v4.model.ProjectAnalysisJob.Nulls;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.OrderBy;
 import com.squid.kraken.v4.model.ProjectAnalysisJob.RollUp;
 import com.squid.kraken.v4.model.ProjectAnalysisJobPK;
@@ -415,7 +417,7 @@ public class AnalysisJobComputer implements JobComputer<ProjectAnalysisJob, Proj
 								ExpressionAST unwrap = ((Operator)value).getArguments().get(0); // check() validates that there is a single parameter
 								dash.orderByGrowth(unwrap, getOrderByDirection(orderby.getDirection()), orderby.getExpression());
 							} else {
-								dash.orderBy(value, getOrderByDirection(orderby.getDirection()));
+								dash.orderBy(value, getOrderByDirection(orderby.getDirection()), getNullsPosition(orderby.getNullsPosition()));
 							}
 						} catch (ScopeException e) {
 
@@ -435,7 +437,7 @@ public class AnalysisJobComputer implements JobComputer<ProjectAnalysisJob, Proj
 				} else if (orderby.getCol() != null) {
 					int index = orderby.getCol();
 					if (index >= 0 && index < properties.size()) {
-						dash.orderBy(properties.get(index).getReference(), getOrderByDirection(orderby.getDirection()));
+						dash.orderBy(properties.get(index).getReference(), getOrderByDirection(orderby.getDirection()), getNullsPosition(orderby.getNullsPosition()));
 					} else if (index < 0) {
 						// ignore
 					} else {
@@ -566,4 +568,13 @@ public class AnalysisJobComputer implements JobComputer<ProjectAnalysisJob, Proj
 		}
 	}
 
+	private static NULLS_ORDERING getNullsPosition(Nulls nulls) {
+		if (nulls == Nulls.NULLS_FIRST) {
+			return NULLS_ORDERING.NULLS_FIRST;
+		} else if (nulls == Nulls.NULLS_LAST) {
+			return NULLS_ORDERING.NULLS_LAST;
+		} else {
+			return NULLS_ORDERING.UNDEFINED;
+		}
+	}
 }

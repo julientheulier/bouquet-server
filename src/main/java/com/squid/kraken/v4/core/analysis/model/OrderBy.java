@@ -70,7 +70,7 @@ public class OrderBy {
 
 	@Override
 	public String toString() {
-		return "ORDER BY "+expression+" "+ordering;
+		return "ORDER BY "+expression+" "+ordering + " " + (nullsOrdering != NULLS_ORDERING.UNDEFINED?nullsOrdering:"");
 	}
 
 }

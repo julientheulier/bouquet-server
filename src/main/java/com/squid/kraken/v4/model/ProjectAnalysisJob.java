@@ -2,12 +2,12 @@
  * Copyright © Squid Solutions, 2016
  *
  * This file is part of Open Bouquet software.
- *  
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
  * published by the Free Software Foundation (version 3 of the License).
  *
- * There is a special FOSS exception to the terms and conditions of the 
+ * There is a special FOSS exception to the terms and conditions of the
  * licenses as they are applied to this program. See LICENSE.txt in
  * the directory of this program distribution.
  *
@@ -39,6 +39,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.squid.kraken.v4.model.visitor.ModelVisitor;
 import com.squid.kraken.v4.persistence.AppContext;
 import com.squid.kraken.v4.persistence.DAOFactory;
+
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
 
@@ -51,7 +52,7 @@ import io.swagger.annotations.ApiModelProperty;
  * metrics will be computed.</li>
  * <li>OrderBy attribute specifies the results set sorting by specifying a list
  * of columns indexes (zero-based, dimensions first, then metrics), or Expression (for instance if the sort criteria should not be selected)</li>
- * <li>RollUp attribute specifies how to compute sub-totals for intermediate levels (of Dimension). 
+ * <li>RollUp attribute specifies how to compute sub-totals for intermediate levels (of Dimension).
  * RollUp is specified as a list of columns (dimensions only) indexes (zero-based).
  * </ul>
  */
@@ -68,9 +69,9 @@ public class ProjectAnalysisJob extends JobBaseImpl<ProjectAnalysisJobPK, DataTa
 	private List<MetricPK> metrics;
 
 	private List<Metric> metricList;
-	
+
 	private List<FacetExpression> facets;
-	
+
 	@ApiModelProperty(value = "compute rollup on the given dimensions. It is a list of indices that references the dimension in either dimensions or facets list. In order to compute a grand-total, use id=-1 (it should be the first in the list). If several levels are defined, the analysis will compute sub-total for: (level0), then (level0,level1)... If a rollup is specified, the resulting DataTable will have a new column 'GROUPING_ID' in first position that will return 0 if the row is the grand-total, 1 for the first level sub-total, ... and null if it is not a rollup row.")
 	private List<RollUp> rollups;
 
@@ -81,13 +82,13 @@ public class ProjectAnalysisJob extends JobBaseImpl<ProjectAnalysisJobPK, DataTa
 	private Long offset;
 
 	private Long limit;
-	
+
 	private List<Index> beyondLimit;
 
 	private String redisKey;
-	
+
 	private Map<String, Object> optionKeys = null;
-	
+
 	@XmlTransient
 	@JsonIgnore
 	public String getRedisKey() {
@@ -178,7 +179,7 @@ public class ProjectAnalysisJob extends JobBaseImpl<ProjectAnalysisJobPK, DataTa
 
 	public List<FacetExpression> getFacets() {
 		if (facets == null) {
-		    facets = new ArrayList<FacetExpression>();
+			facets = new ArrayList<FacetExpression>();
 		}
 		return facets;
 	}
@@ -186,19 +187,19 @@ public class ProjectAnalysisJob extends JobBaseImpl<ProjectAnalysisJobPK, DataTa
 	public void setFacets(List<FacetExpression> facets) {
 		this.facets = facets;
 	}
-	
+
 	public List<RollUp> getRollups() {
-        if (rollups == null) {
-            rollups = new ArrayList<RollUp>();
-        }
-        return rollups;
-    }
+		if (rollups == null) {
+			rollups = new ArrayList<RollUp>();
+		}
+		return rollups;
+	}
 
-    public void setRollups(List<RollUp> rollups) {
-        this.rollups = rollups;
-    }
+	public void setRollups(List<RollUp> rollups) {
+		this.rollups = rollups;
+	}
 
-    public List<OrderBy> getOrderBy() {
+	public List<OrderBy> getOrderBy() {
 		return orderBy;
 	}
 
@@ -225,22 +226,22 @@ public class ProjectAnalysisJob extends JobBaseImpl<ProjectAnalysisJobPK, DataTa
 	public void setLimit(Long limit) {
 		this.limit = limit;
 	}
-	
+
 	public List<Index> getBeyondLimit() {
 		return beyondLimit;
 	}
-	
+
 	public void setBeyondLimit(List<Index> noLimit) {
 		this.beyondLimit = noLimit;
 	}
-	
+
 	/**
 	 * @return the optionKeys
 	 */
 	public Map<String, Object> getOptionKeys() {
 		return optionKeys;
 	}
-	
+
 	/**
 	 * @param optionKeys the optionKeys to set
 	 */
@@ -273,6 +274,7 @@ public class ProjectAnalysisJob extends JobBaseImpl<ProjectAnalysisJobPK, DataTa
 	/**
 	 * Visitor.
 	 */
+	@Override
 	@XmlTransient
 	@JsonIgnore
 	public void accept(ModelVisitor visitor) {
@@ -297,124 +299,133 @@ public class ProjectAnalysisJob extends JobBaseImpl<ProjectAnalysisJobPK, DataTa
 	public String toString() {
 		return "ProjectAnalysisJob [id=" + id.getAnalysisJobId() + "]";
 	}
-	
+
 	@ApiModel(description="a Index allows to identify a dimension by its position in the Analysis. The dimension is defined by its indice in the analysis job, starting at 0.")
-    public static class Index implements Serializable {
+	public static class Index implements Serializable {
 
-    	private Integer col;
-        
-        public Index() {
-            super();
-        }
-        
-        public Index(int col) {
-            super();
-            this.col = col;
-        }
+		private Integer col;
 
-        @ApiModelProperty(value="the indice of the dimension.",example="0")
-        public Integer getCol() {
-            return col;
-        }
+		public Index() {
+			super();
+		}
 
-        public void setCol(Integer col) {
-            this.col = col;
-        }
-        
-    }
-	
-    static public enum Direction {
-        ASC, DESC
-    };
-	
-    static public enum Position {
-        FIRST, LAST
-    };
+		public Index(int col) {
+			super();
+			this.col = col;
+		}
 
-    /**
-     * RollUp specification
-     * 
-     * The col is the index of the dimension to use as rollUp (zero-based).
-     * 
-     * In order to compute a grandTotal, use col=-1
-     * 
-     * @author sergefantino
-     *
-     */
-    @ApiModel(description="a Rollup allows to specify which dimension to use for the sub-total level. The dimension is defined by its indice in the analysis job, starting at 0. In order to compute a grand-total, use indice -1. It is also possible to define how to sort sub-total using the position, default to FIRST.")
-    public static class RollUp extends Index {
-    	
-    	private Position position = Position.FIRST;
-        
-        public RollUp() {
-            super();
-        }
+		@ApiModelProperty(value="the indice of the dimension.",example="0")
+		public Integer getCol() {
+			return col;
+		}
 
-        @ApiModelProperty(value="the indice of the dimension to rollup on, or -1 to compute a grand-total.",example="0")
-        public Integer getCol() {
-            return super.getCol();
-        }
-        
-        @ApiModelProperty(value="define how to sort the sub-total, either before the detailled data (FIRST) or after (LAST)",example="FIRST",allowableValues="FIRST,LAST")
+		public void setCol(Integer col) {
+			this.col = col;
+		}
+
+	}
+
+	static public enum Direction {
+		ASC, DESC
+	};
+
+	static public enum Nulls {
+		NULLS_FIRST, NULLS_LAST, UNDEFINED
+	};
+
+	static public enum Position {
+		FIRST, LAST
+	};
+
+	/**
+	 * RollUp specification
+	 *
+	 * The col is the index of the dimension to use as rollUp (zero-based).
+	 *
+	 * In order to compute a grandTotal, use col=-1
+	 *
+	 * @author sergefantino
+	 *
+	 */
+	@ApiModel(description="a Rollup allows to specify which dimension to use for the sub-total level. The dimension is defined by its indice in the analysis job, starting at 0. In order to compute a grand-total, use indice -1. It is also possible to define how to sort sub-total using the position, default to FIRST.")
+	public static class RollUp extends Index {
+
+		private Position position = Position.FIRST;
+
+		public RollUp() {
+			super();
+		}
+
+		@Override
+		@ApiModelProperty(value="the indice of the dimension to rollup on, or -1 to compute a grand-total.",example="0")
+		public Integer getCol() {
+			return super.getCol();
+		}
+
+		@ApiModelProperty(value="define how to sort the sub-total, either before the detailled data (FIRST) or after (LAST)",example="FIRST",allowableValues="FIRST,LAST")
 		public Position getPosition() {
 			return position;
 		}
-        
-        public void setPosition(Position position) {
+
+		public void setPosition(Position position) {
 			this.position = position;
 		}
-        
-        /* (non-Javadoc)
-         * @see java.lang.Object#toString()
-         */
-        @Override
-        public String toString() {
-        	switch (position) {
-			case LAST:
-				return "LAST("+getCol().toString()+")";
-			default:
-			case FIRST:
-				return getCol().toString();
+
+		/* (non-Javadoc)
+		 * @see java.lang.Object#toString()
+		 */
+		@Override
+		public String toString() {
+			switch (position) {
+				case LAST:
+					return "LAST("+getCol().toString()+")";
+				default:
+				case FIRST:
+					return getCol().toString();
 			}
-        }
-        
-    }
-	
-    /**
-     * Define an orderBy expression
-     * @author sergefantino
-     *
-     */
+		}
+
+	}
+
+	/**
+	 * Define an orderBy expression
+	 * @author sergefantino
+	 *
+	 */
 	public static class OrderBy extends Index {
-	    
+
 		private Expression expression;
 		private Direction direction;
-		
+		private Nulls nulls;
+
 		public OrderBy() {
 			super();
 		}
-		
+
 		public OrderBy(int col, Direction direction) {
 			super(col);
 			this.direction = direction;
 		}
-		
-		public OrderBy(Expression expression, Direction direction) {
+
+		public OrderBy(Expression expression, Direction direction, Nulls nulls) {
 			super();
 			this.expression = expression;
 			this.direction = direction;
+			this.nulls = nulls;
 		}
-		
-		public OrderBy(String expression, Direction direction) {
+
+		public OrderBy(String expression, Direction direction, Nulls nulls) {
 			super();
 			this.expression = new Expression(expression);
 			this.direction = direction;
+			this.nulls = nulls;
 		}
 
 		/**
 		 * get the orderBy expression referenced by an index
 		 * @return the index (from Axis+Measure list) or null if the expression is defined by a formula
 		 */
+		@Override
 		@ApiModelProperty(value="the indice of the expression to order-by, or null if it is defined by a expression.")
 		public Integer getCol() {
 			return super.getCol();
@@ -428,7 +439,16 @@ public class ProjectAnalysisJob extends JobBaseImpl<ProjectAnalysisJobPK, DataTa
 		public void setDirection(Direction direction) {
 			this.direction = direction;
 		}
-		
+
+		@ApiModelProperty(value="the position of null values in order-by",example="NULLS_FIRST",allowableValues="NULLS_FIRST,NULLS_LAST")
+		public Nulls getNullsPosition() {
+			return nulls;
+		}
+
+		public void setNullsPosition(Nulls nulls) {
+			this.nulls = nulls;
+		}
+
 		/**
 		 * get the orderBy expression defined by an Expression formula
 		 * @return
@@ -437,19 +457,19 @@ public class ProjectAnalysisJob extends JobBaseImpl<ProjectAnalysisJobPK, DataTa
 		public Expression getExpression() {
 			return expression;
 		}
-		
+
 		public void setExpression(Expression expression) {
 			this.expression = expression;
 		}
-		
+
 		/* (non-Javadoc)
 		 * @see java.lang.Object#toString()
 		 */
 		@Override
 		public String toString() {
-			return this.direction+" "+this.expression;
+			return this.direction.toString()+(this.nulls != Nulls.UNDEFINED?this.nulls.toString():"")+" "+this.expression;
 		}
-		
+
 	}
 
 }
