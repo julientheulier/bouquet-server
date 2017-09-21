@@ -73,6 +73,10 @@ public class FacetSelection extends JobResultBaseImpl {
 		this.facets = facets;
 	}
 
+	public void setRootFacets(List<Facet> rootFacets) {
+		this.rootFacets = rootFacets;
+	}
+
 	public List<Facet> getCompareTo() {
 		if (compareTo == null) {
 			compareTo = new ArrayList<Facet>();

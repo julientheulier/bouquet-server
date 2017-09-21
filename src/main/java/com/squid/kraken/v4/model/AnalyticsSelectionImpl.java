@@ -39,6 +39,7 @@ public class AnalyticsSelectionImpl implements AnalyticsSelection {
 	
 	private List<String> filters;
 	
+	private List<String> rootFilters;
 	/**
 	 * 
 	 */
@@ -54,6 +55,7 @@ public class AnalyticsSelectionImpl implements AnalyticsSelection {
 		this.timeframe = copy.getTimeframe();
 		this.compareTo = copy.getCompareTo();
 		this.filters = copy.getFilters();
+		this.rootFilters = copy.getRootFilters();
 	}
 
 	public String getPeriod() {
@@ -94,6 +96,22 @@ public class AnalyticsSelectionImpl implements AnalyticsSelection {
 	@Override
 	public void setFilters(List<String> filters) {
 		this.filters = filters;
+	}
+
+	/* (non-Javadoc)
+	 * @see com.squid.kraken.v4.model.Analysis#getFilters()
+	 */
+	@Override
+	public List<String> getRootFilters() {
+		return rootFilters;
+	}
+
+	/* (non-Javadoc)
+	 * @see com.squid.kraken.v4.model.Analysis#setFilters(java.util.List)
+	 */
+	@Override
+	public void setRootFilters(List<String> rootFilters) {
+		this.rootFilters = rootFilters;
 	}
 
 }

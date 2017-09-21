@@ -587,7 +587,7 @@ public class AnalyticsServiceCore {
 			ExpressionAST expr = localScope.parseExpression(query.getPeriod());
 			period = expr.prettyPrint(new PrettyPrintOptions(ReferenceStyle.IDENTIFIER, null));
 		}
-
+		List<String> rootFilters = query.getRootFilters()!=null?new ArrayList<>(query.getRootFilters()):new ArrayList<String>();;
 		if (selection != null) {
 			if (!selection.getFacets().isEmpty()) {// always iterate over selection at least to capture the period
 				boolean keepConfig = filterWildcard || filters.isEmpty();
@@ -675,7 +675,41 @@ public class AnalyticsServiceCore {
 						}
 					}
 				}
+
+				if (selection.getRootFacets() != null && !selection.getRootFacets().isEmpty()) {
+					for (Facet facet:selection.getRootFacets()) {
+						ExpressionAST expr = globalScope.parseExpression(facet.getId());
+						String  filter = expr.prettyPrint(localOptions);
+						if (facet.getSelectedItems().size()==1) {
+							if (facet.getSelectedItems().get(0) instanceof FacetMemberString) {
+								filter += "=";
+								FacetMember member = facet.getSelectedItems().get(0);
+								filter += "\""+member.toString()+"\"";
+								rootFilters.add(filter);
+							}
+						} else {
+							filter += " IN {";
+							boolean first = true;
+							for (FacetMember member : facet.getSelectedItems()) {
+								if (member instanceof FacetMemberString) {
+									if (!first) {
+										filter += " , ";
+									} else {
+										first = false;
+									}
+									filter += "\""+member.toString()+"\"";
+								}
+							}
+							filter += "}";
+							if (!first) {
+								rootFilters.add(filter);
+							}
+						}
+					}
+
+				}
 			}
+			query.setRootFilters(rootFilters);
 			query.setFilters(filters);
 			//
 			// check compareTo
@@ -756,14 +790,27 @@ public class AnalyticsServiceCore {
 	 */
 	protected FacetSelection computeFacetSelection(Space space, FacetSelection selection) {
 		try {
+			FacetSelection rootSelection = new FacetSelection();
+			rootSelection.getRootFacets().addAll(selection.getRootFacets());
+			FacetSelection nonRootSelection = new FacetSelection();
+			nonRootSelection.setCompareTo(selection.getCompareTo());
+			nonRootSelection.setFacets(selection.getFacets());
 			DashboardSelection ds = EngineUtils.getInstance()
-					.applyFacetSelection(space.getUniverse().getContext(), space.getUniverse(), Collections.singletonList(space.getDomain()), selection);
+					.applyFacetSelection(space.getUniverse().getContext(), space.getUniverse(), Collections.singletonList(space.getDomain()), nonRootSelection);
+			DashboardSelection rootds = EngineUtils.getInstance()
+					.applyFacetSelection(space.getUniverse().getContext(), space.getUniverse(), Collections.singletonList(space.getDomain()), rootSelection);
 			//
 			List<Facet> result = new ArrayList<>();
+			List<Facet> rootResult = new ArrayList<>();
 			result.addAll(ComputingService.INSTANCE.glitterFacets(space.getUniverse(),
 					space.getDomain(), ds));
+			rootResult.addAll(ComputingService.INSTANCE.glitterFacets(space.getUniverse(),
+					space.getDomain(), rootds));
 			FacetSelection facetSelectionResult = new FacetSelection();
+
 			facetSelectionResult.setFacets(result);
+			facetSelectionResult.setRootFacets(rootResult);
+
 			if (ds.hasCompareToSelection()) {
 				// create a fresh seelction with the compareTo
 				DashboardSelection compareDS = new DashboardSelection();
@@ -804,29 +851,48 @@ public class AnalyticsServiceCore {
 			Facet compareFacet = createFacetInterval(space, expr, query.getCompareTo());
 			selection.setCompareTo(Collections.singletonList(compareFacet));
 		}
-		// handle filters
+		List<String> allFilters = new ArrayList<String>();
+		if (query.getRootFilters() != null) {
+			allFilters.addAll( query.getRootFilters());
+		}
 		if (query.getFilters() != null) {
+			allFilters.addAll( query.getFilters());
+		}
+		// handle filters
+		if (allFilters.size() >0) {
 			Facet segment = SegmentManager.newSegmentFacet(domain);
-			for (String filter : query.getFilters()) {
+			Facet rootSegment = SegmentManager.newSegmentFacet(domain);
+			for (String filter : allFilters) {
 				filter = filter.trim();
 				if (!filter.equals("")) {
 					try {
 						ExpressionAST filterExpr = scope.parseExpression(filter);
 						if (!filterExpr.getImageDomain().isInstanceOf(IDomain.CONDITIONAL)) {
-							throw new ScopeException("invalid filter, must be a condition");
+							throw new ScopeException("Invalid filter, must be a condition");
 						}
 						Facet facet = createFacet(filterExpr);
 						if (facet!=null) {
-							selection.getFacets().add(facet);
+							if (query.getRootFilters().contains(filter)) {
+								selection.getRootFacets().add(facet);
+							} else {
+								selection.getFacets().add(facet);
+							}
 						} else {
-							// use open-filter
 							FacetMemberString openFilter = SegmentManager.newOpenFilter(filterExpr, filter);
+							if (query.getRootFilters().contains(filter)) {
+								rootSegment.getSelectedItems().add(openFilter);
+							} else {
+								segment.getSelectedItems().add(openFilter);
+							}
 							segment.getSelectedItems().add(openFilter);
 						}
 					} catch (ScopeException e) {
 						query.add(new Problem(Severity.ERROR, filter, "invalid filter definition: \n"+e.getMessage(), e));
 					}
 				}
+			}
+			if (!rootSegment.getSelectedItems().isEmpty()) {
+				selection.getRootFacets().add(rootSegment);
 			}
 			if (!segment.getSelectedItems().isEmpty()) {
 				selection.getFacets().add(segment);

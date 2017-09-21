@@ -284,21 +284,21 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 				"    background-color: #aaaaaa;" +
 				"}" +
 				// display the clear button
-				"input[type=search]::-webkit-search-cancel-button {\n" + 
-				"    -webkit-appearance: searchfield-cancel-button;\n" + 
+				"input[type=search]::-webkit-search-cancel-button {\n" +
+				"    -webkit-appearance: searchfield-cancel-button;\n" +
 				"}" +
 				"</style>");
 		// drag & drop support
-		html.append("<script>\n" + 
-				"function allowDrop(ev) {\n" + 
-				"    ev.preventDefault();\n" + 
-				"}\n" + 
-				"function drag(ev, text) {\n" + 
-				"    ev.dataTransfer.setData(\"text\", text);\n" + 
-				"}\n" + 
-				"function drop(ev) {\n" + 
-				"    ev.preventDefault();\n" + 
-				"    var data = ev.dataTransfer.getData(\"text\");\n" + 
+		html.append("<script>\n" +
+				"function allowDrop(ev) {\n" +
+				"    ev.preventDefault();\n" +
+				"}\n" +
+				"function drag(ev, text) {\n" +
+				"    ev.dataTransfer.setData(\"text\", text);\n" +
+				"}\n" +
+				"function drop(ev) {\n" +
+				"    ev.preventDefault();\n" +
+				"    var data = ev.dataTransfer.getData(\"text\");\n" +
 				"    ev.target.value = data;\n" +
 				"}\n" +
 				"</script>");
@@ -334,7 +334,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 				"            input.name = '"+name+"';\n" +
 				"            input.placeholder = 'type formula';\n" +
 				"            if (ev!==undefined) {\n" +
-				"    	     	ev.preventDefault();\n" + 
+				"    	     	ev.preventDefault();\n" +
 				"            	input.value = ev.dataTransfer.getData(\"text\");\n" +
 				"            }\n" +
 				"            container.appendChild(input);\n" +
@@ -622,7 +622,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		html.append("</tr></table>");
 
 		boolean hasError = (data == null);
-		createHTMLproblems(html, query.getProblems());		
+		createHTMLproblems(html, query.getProblems());
 		// query result
 		html.append("<a id='results'></a>");
 		if (!hasError) {
@@ -688,36 +688,36 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 					path("/analytics/{"+BBID_PARAM_NAME+"}/bookmark");
 			builder.queryParam("access_token", service.getUserContext().getToken().getOid());
 			URI link = builder.build(query.getBBID());
-			html.append("<!-- Button trigger modal -->\n" + 
-					"<button type='button' class=\"btn btn-lg btn-orange\" style='display:inline' data-toggle=\"modal\" data-target=\"#myModal\">\n" + 
-					"<i class=\"fa fa-cloud-upload\" aria-hidden=\"true\"></i> Bookmark\n" + 
-					"</button></div>\n" + 
-					"<!-- Modal -->\n" + 
-					"<div class=\"modal fade\" id=\"myModal\" tabindex=\"-1\" role=\"dialog\" aria-labelledby=\"myModalLabel\" aria-hidden=\"true\">\n" + 
-					"  <div class=\"modal-dialog modal-lg\" role=\"document\">\n" + 
-					"    <div class=\"modal-content\">\n" + 
-					"      <div class=\"modal-header\">\n" + 
-					"        <button type=\"button\" class=\"close\" data-dismiss=\"modal\" aria-label=\"Close\">\n" + 
-					"          <span aria-hidden=\"true\">&times;</span>\n" + 
-					"        </button>\n" + 
+			html.append("<!-- Button trigger modal -->\n" +
+					"<button type='button' class=\"btn btn-lg btn-orange\" style='display:inline' data-toggle=\"modal\" data-target=\"#myModal\">\n" +
+					"<i class=\"fa fa-cloud-upload\" aria-hidden=\"true\"></i> Bookmark\n" +
+					"</button></div>\n" +
+					"<!-- Modal -->\n" +
+					"<div class=\"modal fade\" id=\"myModal\" tabindex=\"-1\" role=\"dialog\" aria-labelledby=\"myModalLabel\" aria-hidden=\"true\">\n" +
+					"  <div class=\"modal-dialog modal-lg\" role=\"document\">\n" +
+					"    <div class=\"modal-content\">\n" +
+					"      <div class=\"modal-header\">\n" +
+					"        <button type=\"button\" class=\"close\" data-dismiss=\"modal\" aria-label=\"Close\">\n" +
+					"          <span aria-hidden=\"true\">&times;</span>\n" +
+					"        </button>\n" +
 					"        <h4 class=\"modal-title\" id=\"myModalLabel\">"+
 					popupTitle+
-					"</h4>\n" + 
-					"      </div>\n" + 
+					"</h4>\n" +
+					"      </div>\n" +
 					"      <div class=\"modal-body\">\n");
 			// body
-			html.append("<label for=\"bookmark-name\" class=\"form-control-label\">Name:</label>\n" + 
+			html.append("<label for=\"bookmark-name\" class=\"form-control-label\">Name:</label>\n" +
 					"              <input type=\"text\" class=\"form-control\" id=\"bookmark-name\" name=\"name\" value=\""+getBookmarkName(space)+"\">");
 			html.append("<input  type='hidden' class=\"form-control\" id=\"bookmark-parent\" name=\"parent\" value=\"/SHARED\">");
 
 			// footer
-			html.append("      </div>\n" + 
-					"      <div class=\"modal-footer\">\n" + 
-					"        &nbsp;<button style='margin-left:10px;' type=\"button\" class=\"btn btn-secondary pull-right\" data-dismiss=\"modal\">Cancel</button>&nbsp;\n" + 
-					"        &nbsp;<button style='margin-left:10px;' type=\"button\" class=\"btn btn-primary pull-right\" id='saveBoookmark'>Save</button>&nbsp;\n" + 
-					"      </div>\n" + 
-					"    </div>\n" + 
-					"  </div>\n" + 
+			html.append("      </div>\n" +
+					"      <div class=\"modal-footer\">\n" +
+					"        &nbsp;<button style='margin-left:10px;' type=\"button\" class=\"btn btn-secondary pull-right\" data-dismiss=\"modal\">Cancel</button>&nbsp;\n" +
+					"        &nbsp;<button style='margin-left:10px;' type=\"button\" class=\"btn btn-primary pull-right\" id='saveBoookmark'>Save</button>&nbsp;\n" +
+					"      </div>\n" +
+					"    </div>\n" +
+					"  </div>\n" +
 					"</div>");
 			html.append("<script>");
 			UriBuilder builder2 = service.getPublicBaseUriBuilder().
@@ -742,8 +742,8 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 
 	/**
 	 * @param html
-	 * @param reply 
-	 * @param space 
+	 * @param reply
+	 * @param space
 	 */
 	private void createHTMLQuerySelection(StringBuilder html, Space space, AnalyticsSelection selection) {
 		if (selection!=null) {
@@ -774,7 +774,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			return space.getBookmark().getName();
 		}
 	}
-	
+
 	public Response createHTMLPageViewSnippet(AppContext ctx, Space space, ViewQuery view, ResultInfo info, ViewReply reply) {
 		String title = getPageTitle(space);
 		StringBuilder html = createHTMLHeader(title);
@@ -800,7 +800,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		html.append("</body>\r\n</html>");
 		return Response.ok(html.toString(), "text/html; charset=UTF-8").build();
 	}
-	
+
 	private static final Mark[] MARKS = new Mark[]{Mark.bar, Mark.line, Mark.area, Mark.point ,Mark.circle, Mark.square, Mark.tick};
 
 	/**
@@ -1081,7 +1081,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		html.append("</body>\r\n</html>");
 		return Response.ok(html.toString(), "text/html; charset=UTF-8").build();
 	}
-	
+
 	private void createHTMLpageViewStackedOptions(StringBuilder html, ViewQuery view, ViewReply reply) {
 		// set stacked option
 		boolean separator = false;
@@ -1093,7 +1093,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			}
 		}
 	}
-	
+
 	private boolean createHTMLpageViewSelectOption(StringBuilder html, boolean separator, ViewQuery view, String option, String value, String name, boolean selected) {
 		ViewQuery copy = new ViewQuery(view);
 		try {
@@ -1148,6 +1148,20 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		html.append("to:&nbsp;<input type='text'  id='compareTo-upper' style='width:100%;' name='compareTo' value='"+getDate(query.getCompareTo(),1)+"'>");
 		html.append("<script type=\"text/javascript\">$('#compareTo-upper').datepicker({format: \"yyyy-mm-dd\", forceParse: false});</script>");
 		html.append("</td></tr>");
+		// Rootfilters
+		html.append("<tr><td>");
+		html.append("<a href=\"#\" data-toggle=\"tooltip\" data-placement=\"right\" title=\""+ROOTFILTERS_DOC+"\">root filters:</a>");
+		html.append("</td><td colspan=2>");
+		/*
+		if (query.getFilters()!=null && query.getFilters().size()>0) {
+			for (String filter : query.getFilters()) {
+				html.append("<input type='text' size=50 name='filters' value='"+getFieldValue(filter)+"'>&nbsp;");
+			}
+		}
+		html.append("<input type='text' size=50 name='filters' value='' placeholder='type formula'>");
+		 */
+		createHTMLinputArray(html, "text", "rootFilters", query.getRootFilters());
+
 		// filters
 		html.append("<tr><td>");
 		html.append("<a href=\"#\" data-toggle=\"tooltip\" data-placement=\"right\" title=\""+FILTERS_DOC+"\">filters:</a>");
@@ -1193,8 +1207,6 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		html.append("<div id=\"dimensions\" class=\"tab-pane fade in active\">");
 		//html.append("<div style='max-height:300px;overflow:scroll;'>");
 		List<Axis> axisList = space.A(true);
-		int pageSize = 25;
-		int count = 0;
 		int page = 1;
 		StringBuilder dimensionContent = new StringBuilder();
 		ArrayList<String> pageTitle = new ArrayList<>();
@@ -1224,7 +1236,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 					} catch (ComputingException | InterruptedException e) {
 						convertNames.put(parent.prettyPrint(), parent.toString());
 					}
-					*/
+					 */
 					if (parent.equals(space)) {
 						convertNames.put(parent.prettyPrint(), parent.toString());
 					} else {
@@ -1315,7 +1327,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 				// ignore
 			}
 		}
-		*/
+		 */
 		if (page>1) {
 			if (page>1) dimensionContent.append("</div>");// closing last page
 			dimensionContent.append("</div>");// closing pages
@@ -1354,7 +1366,6 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		html.append("</div>");
 		// -- functions
 		html.append("<div id=\"functions\" class=\"tab-pane fade\">");// style='max-height:600px;overflow:scroll;'>");
-		count = 0;
 		int actualPages = 0;
 		page = 1;
 		pageTitle = new ArrayList<>();
@@ -1372,7 +1383,6 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 					}
 				}
 			});
-			OperatorDefinition previous = null;
 			HashMap<String, List<OperatorDefinition>> categories = new HashMap<>();
 			ArrayList<String> keys = new ArrayList<>();
 			for (OperatorDefinition opDef : ops) {
@@ -1399,8 +1409,6 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 					if (listContentAssistEntry != null) {
 						if (listContentAssistEntry.getContentAssistEntries() != null) {
 							for (ContentAssistEntry contentAssistEntry : listContentAssistEntry.getContentAssistEntries()) {
-								count++;
-								previous = opDef;
 								String display = null;
 								if (opDef.getPosition()==OperatorDefinition.INFIX_POSITION){
 									display = opDef.getSymbol() ;
@@ -1450,7 +1458,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 					}
 				}
 			}
-			*/
+			 */
 		} catch (ScopeException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -1495,7 +1503,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 		//---- container
 		html.append("</div>");
 	}
-	
+
 	private String displayRange(List<String> pages, int index) {
 		int pageIndex = index*2;
 		if (pageIndex+1<pages.size()) {
@@ -1504,7 +1512,7 @@ public class AnalyticsServiceHTMLGenerator implements AnalyticsServiceConstants 
 			return pages.get(pageIndex);
 		}
 	}
-	
+
 	private void appendItem(StringBuilder html, String style, String display, String comment) {
 		html.append("<span draggable='true'  style='"+style+"'");
 		html.append(" ondragstart='drag(event,\""+display+"\")'");

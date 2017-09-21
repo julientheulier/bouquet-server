@@ -2,12 +2,12 @@
  * Copyright © Squid Solutions, 2016
  *
  * This file is part of Open Bouquet software.
- *  
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
  * published by the Free Software Foundation (version 3 of the License).
  *
- * There is a special FOSS exception to the terms and conditions of the 
+ * There is a special FOSS exception to the terms and conditions of the
  * licenses as they are applied to this program. See LICENSE.txt in
  * the directory of this program distribution.
  *
@@ -74,28 +74,28 @@ import io.swagger.annotations.AuthorizationScope;
 
 /**
  * The new BB API
- * 
+ *
  * @author sergefantino
  *
  */
 @Path("")
 @Api(
-		value = "analytics", 
-		hidden = false, 
+		value = "analytics",
+		hidden = false,
 		description = "this is the new analytics API intented to provide all the fun without the pain",
 		authorizations = { @Authorization(value = "kraken_auth", scopes = { @AuthorizationScope(scope = "access", description = "Access") }) })
 @Produces({ MediaType.APPLICATION_JSON })
 public class AnalyticsServiceRest extends CoreAuthenticatedServiceRest implements AnalyticsServiceConstants {
 
 	static final Logger logger = LoggerFactory.getLogger(AnalyticsServiceRest.class);
-	
+
 	@Context
 	UriInfo uriInfo;
-	
+
 	private AnalyticsServiceBaseImpl delegate(AppContext userContxt) {
 		return new AnalyticsServiceBaseImpl(uriInfo, userContxt);
 	}
-	
+
 	public AnalyticsServiceRest() {
 	}
 
@@ -112,21 +112,21 @@ public class AnalyticsServiceRest extends CoreAuthenticatedServiceRest implement
 			// parent
 			@ApiParam(value="filter the content under the parent path") @QueryParam(PARENT_PARAM) String parent,
 			// q (filter)
-			@ApiParam(value="filter the content by name; q can be a multi-token search string separated by comma") 
+			@ApiParam(value="filter the content by name; q can be a multi-token search string separated by comma")
 			@QueryParam("q") String search,
 			// hierarchy
 			@ApiParam(
 					value="define the hierarchy mode. FLAT mode return the hierarchy as a flat list, whereas TREE returns it as a folded structure (NIY)",
-					allowableValues="TREE, FLAT") 
+					allowableValues="TREE, FLAT")
 			@QueryParam("hierarchy") HierarchyMode hierarchyMode,
 			// visibility
 			@ApiParam(
-					value="filter the result depending on the object visibility", 
+					value="filter the result depending on the object visibility",
 					allowableValues="VISIBLE, ALL, HIDDEN", defaultValue="VISIBLE")
 			@QueryParam(VISIBILITY_PARAM) Visibility visibility,
 			// style
 			@ApiParam(
-					value="define the result style. If HUMAN, the API will try to use natural reference for objects, like 'My First Project', 'Account', 'Total Sales'... If ROBOT the API will use canonical references that are invariant, e.g. @'5603ca63c531d744b50823a3bis'. If LEGACY the API will also provide internal compound key to lookup objects in the management API.", 
+					value="define the result style. If HUMAN, the API will try to use natural reference for objects, like 'My First Project', 'Account', 'Total Sales'... If ROBOT the API will use canonical references that are invariant, e.g. @'5603ca63c531d744b50823a3bis'. If LEGACY the API will also provide internal compound key to lookup objects in the management API.",
 					allowableValues="HTML, ROBOT, HUMAN, LEGACY", defaultValue="HUMAN")
 			@QueryParam(STYLE_PARAM) String style,
 			// envelope
@@ -134,7 +134,7 @@ public class AnalyticsServiceRest extends CoreAuthenticatedServiceRest implement
 					value="define the result envelope",
 					allowableValues="ALL,RESULT")
 			@QueryParam(ENVELOPE_PARAM) String envelope
-		) throws ScopeException {
+			) throws ScopeException {
 		AppContext userContext = getUserContext(request);
 		return delegate(userContext).listContent(userContext, parent, search, hierarchyMode, visibility, computeStyle(style), envelope);
 	}
@@ -143,7 +143,7 @@ public class AnalyticsServiceRest extends CoreAuthenticatedServiceRest implement
 	@Path("/analytics/{" + BBID_PARAM_NAME + "}")
 	@ApiOperation(value = "Get an item, can be a Domain or a Bookmark")
 	public Object getItem(
-			@Context HttpServletRequest request, 
+			@Context HttpServletRequest request,
 			@PathParam(BBID_PARAM_NAME) String BBID) throws ScopeException {
 		AppContext userContext = getUserContext(request);
 		return delegate(userContext).getItem(userContext, BBID);
@@ -164,12 +164,12 @@ public class AnalyticsServiceRest extends CoreAuthenticatedServiceRest implement
 		AppContext userContext = getUserContext(request);
 		return delegate(userContext).storeBookmark(userContext, query, BBID, null, name, parent);
 	}
-	
+
 	@POST
 	@Path("/analytics/{" + BBID_PARAM_NAME + "}/bookmark")
 	@ApiOperation(value = "Create/Update a Bookmark")
 	public Bookmark createBookmarkFromForm(
-			@Context HttpServletRequest request, 
+			@Context HttpServletRequest request,
 			@PathParam(BBID_PARAM_NAME) String BBID,
 			// bookmark info
 			@ApiParam(value="the new bookmark name", required=true) @FormParam("name") String name,
@@ -178,32 +178,36 @@ public class AnalyticsServiceRest extends CoreAuthenticatedServiceRest implement
 			@ApiParam(
 					value = GROUPBY_DOC,
 					allowMultiple = true
-					) 
-			@FormParam(GROUP_BY_PARAM) String[] groupBy, 
+					)
+			@FormParam(GROUP_BY_PARAM) String[] groupBy,
 			// metric parameter
 			@ApiParam(
 					value = METRICS_DOC,
-					allowMultiple = true) 
-			@FormParam(METRICS_PARAM) String[] metrics, 
+					allowMultiple = true)
+			@FormParam(METRICS_PARAM) String[] metrics,
 			// filters
 			@ApiParam(
+					value = ROOTFILTERS_DOC,
+					allowMultiple = true)
+			@FormParam(ROOTFILTERS_PARAM) String[] rootFilterExpressions,
+			@ApiParam(
 					value = FILTERS_DOC,
-					allowMultiple = true) 
+					allowMultiple = true)
 			@FormParam(FILTERS_PARAM) String[] filterExpressions,
 			// period
-			@ApiParam(value=PERIOD_DOC) 
+			@ApiParam(value=PERIOD_DOC)
 			@FormParam(PERIOD_PARAM) String period,
 			// timeframe
-			@ApiParam(value=TIMEFRAME_DOC, allowMultiple = true) 
+			@ApiParam(value=TIMEFRAME_DOC, allowMultiple = true)
 			@FormParam(TIMEFRAME_PARAM) String[] timeframe,
 			// compareTo
-			@ApiParam(value=COMPARETO_DOC, allowMultiple = true) 
+			@ApiParam(value=COMPARETO_DOC, allowMultiple = true)
 			@FormParam(COMPARETO_PARAM) String[] compareframe,
 			// orderBy
-			@ApiParam(value=ORDERBY_DOC, allowMultiple = true) 
+			@ApiParam(value=ORDERBY_DOC, allowMultiple = true)
 			@FormParam(ORDERBY_PARAM) String[] orderExpressions,
 			// rollup
-			@ApiParam(value=ROLLUP_DOC, allowMultiple = true) 
+			@ApiParam(value=ROLLUP_DOC, allowMultiple = true)
 			@FormParam(ROLLUP_PARAM) String[] rollupExpressions,
 			// limit
 			@ApiParam(value=LIMIT_DOC)
@@ -218,13 +222,13 @@ public class AnalyticsServiceRest extends CoreAuthenticatedServiceRest implement
 					)
 			@FormParam(BEYOND_LIMIT_PARAM) String[] beyondLimit,
 			// maxResults
-			@ApiParam(value = MAX_RESULTS_DOC) 
+			@ApiParam(value = MAX_RESULTS_DOC)
 			@FormParam(MAX_RESULTS_PARAM) Integer maxResults,
 			// startIndex
-			@ApiParam(value = START_INDEX_DOC) 
+			@ApiParam(value = START_INDEX_DOC)
 			@FormParam(START_INDEX_PARAM) Integer startIndex,
 			// lazy
-			@ApiParam(value = "if true, get the analysis only if already in cache, else throw a NotInCacheException; if noError returns a null result if the analysis is not in cache ; else regular analysis", defaultValue = "false") 
+			@ApiParam(value = "if true, get the analysis only if already in cache, else throw a NotInCacheException; if noError returns a null result if the analysis is not in cache ; else regular analysis", defaultValue = "false")
 			@FormParam(LAZY_PARAM) String lazy,
 			// data
 			@ApiParam(
@@ -237,7 +241,7 @@ public class AnalyticsServiceRest extends CoreAuthenticatedServiceRest implement
 			@FormParam(APPLY_FORMATTING_PARAM) boolean applyFormatting,
 			// style
 			@ApiParam(
-					value="define the response style. If HUMAN, the API will try to use natural reference for objects, like 'My First Project', 'Account', 'Total Sales'... If MACHINE the API will use canonical references that are invariant, e.g. @'5603ca63c531d744b50823a3bis'. If LEGACY the API will also provide internal compound key to lookup objects in the management API.", 
+					value="define the response style. If HUMAN, the API will try to use natural reference for objects, like 'My First Project', 'Account', 'Total Sales'... If MACHINE the API will use canonical references that are invariant, e.g. @'5603ca63c531d744b50823a3bis'. If LEGACY the API will also provide internal compound key to lookup objects in the management API.",
 					allowableValues="LEGACY, MACHINE, HUMAN", defaultValue="HUMAN")
 			@FormParam(STYLE_PARAM) String style,
 			// envelope
@@ -246,21 +250,21 @@ public class AnalyticsServiceRest extends CoreAuthenticatedServiceRest implement
 					allowableValues="ALL,RESULT,DATA")
 			@FormParam(ENVELOPE_PARAM) String envelope,
 			// timeout
-			@ApiParam(value = "response timeout in milliseconds. If no timeout set, the method will return according to current job status.") 
+			@ApiParam(value = "response timeout in milliseconds. If no timeout set, the method will return according to current job status.")
 			@FormParam(TIMEOUT_PARAM) Integer timeout,
 			// state
 			@FormParam("state") String state
 			) throws ComputingException, ScopeException, InterruptedException {
 		AppContext userContext = getUserContext(request);
-		AnalyticsQuery query = createAnalysisFromParams(null, BBID, groupBy, metrics, filterExpressions, period, timeframe, compareframe, orderExpressions, rollupExpressions, limit, offset, beyondLimit, maxResults, startIndex, lazy, computeStyle(style));
+		AnalyticsQuery query = createAnalysisFromParams(null, BBID, groupBy, metrics, rootFilterExpressions, filterExpressions, period, timeframe, compareframe, orderExpressions, rollupExpressions, limit, offset, beyondLimit, maxResults, startIndex, lazy, computeStyle(style));
 		return delegate(userContext).storeBookmark(userContext, query, BBID, state, name, parent);
 	}
-	
+
 	@GET
 	@Path("/analytics/{" + BBID_PARAM_NAME + "}/bookmark")
 	@ApiOperation(value = "Create/Update a Bookmark")
 	public Bookmark createBookmarkFromQuery(
-			@Context HttpServletRequest request, 
+			@Context HttpServletRequest request,
 			@PathParam(BBID_PARAM_NAME) String BBID,
 			// bookmark info
 			@ApiParam(value="the new bookmark name", required=true) @QueryParam("name") String name,
@@ -269,32 +273,36 @@ public class AnalyticsServiceRest extends CoreAuthenticatedServiceRest implement
 			@ApiParam(
 					value = GROUPBY_DOC,
 					allowMultiple = true
-					) 
-			@QueryParam(GROUP_BY_PARAM) String[] groupBy, 
+					)
+			@QueryParam(GROUP_BY_PARAM) String[] groupBy,
 			// metric parameter
 			@ApiParam(
 					value = METRICS_DOC,
-					allowMultiple = true) 
-			@QueryParam(METRICS_PARAM) String[] metrics, 
+					allowMultiple = true)
+			@QueryParam(METRICS_PARAM) String[] metrics,
 			// filters
 			@ApiParam(
+					value = ROOTFILTERS_DOC,
+					allowMultiple = true)
+			@QueryParam(ROOTFILTERS_PARAM) String[] rootFilterExpressions,
+			@ApiParam(
 					value = FILTERS_DOC,
-					allowMultiple = true) 
+					allowMultiple = true)
 			@QueryParam(FILTERS_PARAM) String[] filterExpressions,
 			// period
-			@ApiParam(value=PERIOD_DOC) 
+			@ApiParam(value=PERIOD_DOC)
 			@QueryParam(PERIOD_PARAM) String period,
 			// timeframe
-			@ApiParam(value=TIMEFRAME_DOC, allowMultiple = true) 
+			@ApiParam(value=TIMEFRAME_DOC, allowMultiple = true)
 			@QueryParam(TIMEFRAME_PARAM) String[] timeframe,
 			// compareTo
-			@ApiParam(value=COMPARETO_DOC, allowMultiple = true) 
+			@ApiParam(value=COMPARETO_DOC, allowMultiple = true)
 			@QueryParam(COMPARETO_PARAM) String[] compareframe,
 			// orderBy
-			@ApiParam(value=ORDERBY_DOC, allowMultiple = true) 
+			@ApiParam(value=ORDERBY_DOC, allowMultiple = true)
 			@QueryParam(ORDERBY_PARAM) String[] orderExpressions,
 			// rollup
-			@ApiParam(value=ROLLUP_DOC, allowMultiple = true) 
+			@ApiParam(value=ROLLUP_DOC, allowMultiple = true)
 			@QueryParam(ROLLUP_PARAM) String[] rollupExpressions,
 			// limit
 			@ApiParam(value=LIMIT_DOC)
@@ -309,13 +317,13 @@ public class AnalyticsServiceRest extends CoreAuthenticatedServiceRest implement
 					)
 			@QueryParam(BEYOND_LIMIT_PARAM) String[] beyondLimit,
 			// maxResults
-			@ApiParam(value = MAX_RESULTS_DOC) 
+			@ApiParam(value = MAX_RESULTS_DOC)
 			@QueryParam(MAX_RESULTS_PARAM) Integer maxResults,
 			// startIndex
-			@ApiParam(value = START_INDEX_DOC) 
+			@ApiParam(value = START_INDEX_DOC)
 			@QueryParam(START_INDEX_PARAM) Integer startIndex,
 			// lazy
-			@ApiParam(value = "if true, get the analysis only if already in cache, else throw a NotInCacheException; if noError returns a null result if the analysis is not in cache ; else regular analysis", defaultValue = "false") 
+			@ApiParam(value = "if true, get the analysis only if already in cache, else throw a NotInCacheException; if noError returns a null result if the analysis is not in cache ; else regular analysis", defaultValue = "false")
 			@QueryParam(LAZY_PARAM) String lazy,
 			// data
 			@ApiParam(
@@ -328,7 +336,7 @@ public class AnalyticsServiceRest extends CoreAuthenticatedServiceRest implement
 			@QueryParam(APPLY_FORMATTING_PARAM) boolean applyFormatting,
 			// style
 			@ApiParam(
-					value="define the response style. If HUMAN, the API will try to use natural reference for objects, like 'My First Project', 'Account', 'Total Sales'... If MACHINE the API will use canonical references that are invariant, e.g. @'5603ca63c531d744b50823a3bis'. If LEGACY the API will also provide internal compound key to lookup objects in the management API.", 
+					value="define the response style. If HUMAN, the API will try to use natural reference for objects, like 'My First Project', 'Account', 'Total Sales'... If MACHINE the API will use canonical references that are invariant, e.g. @'5603ca63c531d744b50823a3bis'. If LEGACY the API will also provide internal compound key to lookup objects in the management API.",
 					allowableValues="LEGACY, MACHINE, HUMAN", defaultValue="HUMAN")
 			@QueryParam(STYLE_PARAM) String style,
 			// envelope
@@ -337,42 +345,42 @@ public class AnalyticsServiceRest extends CoreAuthenticatedServiceRest implement
 					allowableValues="ALL,RESULT,DATA")
 			@QueryParam(ENVELOPE_PARAM) String envelope,
 			// timeout
-			@ApiParam(value = "response timeout in milliseconds. If no timeout set, the method will return according to current job status.") 
+			@ApiParam(value = "response timeout in milliseconds. If no timeout set, the method will return according to current job status.")
 			@QueryParam(TIMEOUT_PARAM) Integer timeout,
 			// state
 			@QueryParam("state") String state
 			) throws ComputingException, ScopeException, InterruptedException {
 		AppContext userContext = getUserContext(request);
-		AnalyticsQuery query = createAnalysisFromParams(null, BBID, groupBy, metrics, filterExpressions, period, timeframe, compareframe, orderExpressions, rollupExpressions, limit, offset, beyondLimit, maxResults, startIndex, lazy, computeStyle(style));
+		AnalyticsQuery query = createAnalysisFromParams(null, BBID, groupBy, metrics, rootFilterExpressions, filterExpressions, period, timeframe, compareframe, orderExpressions, rollupExpressions, limit, offset, beyondLimit, maxResults, startIndex, lazy, computeStyle(style));
 		return delegate(userContext).storeBookmark(userContext, query, BBID, state, name, parent);
 	}
-	
+
 	@GET
 	@Path("/analytics/{" + BBID_PARAM_NAME + "}/scope")
 	@ApiOperation(
 			value = "Provide information about the expressions available in the bookmark scope",
 			notes = "It also allows to check if a given expression is valid in the scope, and further explore the scope if the expression is an object. Using the offset parameter you can get suggestion at the caret position instead of the complete expression value.")
 	public Response scopeAnalysis(
-			@Context HttpServletRequest request, 
+			@Context HttpServletRequest request,
 			@PathParam(BBID_PARAM_NAME) String BBID,
-			@ApiParam(value="(optional) if you want the scope for a relation, this identify the target domain") 
+			@ApiParam(value="(optional) if you want the scope for a relation, this identify the target domain")
 			@QueryParam("target") String target,
-			@ApiParam(value="(optional) the expression to check and get suggestion for, or null in order to get scope level suggestions") 
+			@ApiParam(value="(optional) the expression to check and get suggestion for, or null in order to get scope level suggestions")
 			@QueryParam("value") String value,
-			@ApiParam(value="(optionnal) caret position in the expression value in order to provide relevant suggestions based on the caret position. By default the suggestion are based on the full expression if provided, or else the entire bookmark scope.") 
+			@ApiParam(value="(optionnal) caret position in the expression value in order to provide relevant suggestions based on the caret position. By default the suggestion are based on the full expression if provided, or else the entire bookmark scope.")
 			@QueryParam("offset") Integer offset,
 			@ApiParam(
 					value="(optional) the expression type to filter the suggestions. If undefined all valid expression in the context are returned. ",
 					allowMultiple=true,
-					allowableValues="DIMENSION, METRIC, RELATION, COLUMN, FUNCTION") 
+					allowableValues="DIMENSION, METRIC, RELATION, COLUMN, FUNCTION")
 			@QueryParam("types") ObjectType[] types,
 			@ApiParam(
 					value="(optional) the expression value to filter the suggestions. If undefined all valid expression in the context are returned. ",
 					allowMultiple=true,
-					allowableValues="OBJECT, NUMERIC, AGGREGATE, DATE, STRING, CONDITION, DOMAIN, OTHER, ERROR") 
+					allowableValues="OBJECT, NUMERIC, AGGREGATE, DATE, STRING, CONDITION, DOMAIN, OTHER, ERROR")
 			@QueryParam("values") ValueType[] values,
 			@ApiParam(
-					value="define the response style. If HUMAN, the API will try to use natural reference for objects, like 'My First Project', 'Account', 'Total Sales'... If MACHINE the API will use canonical references that are invariant, e.g. @'5603ca63c531d744b50823a3bis'. If LEGACY the API will also provide internal compound key to lookup objects in the management API.", 
+					value="define the response style. If HUMAN, the API will try to use natural reference for objects, like 'My First Project', 'Account', 'Total Sales'... If MACHINE the API will use canonical references that are invariant, e.g. @'5603ca63c531d744b50823a3bis'. If LEGACY the API will also provide internal compound key to lookup objects in the management API.",
 					allowableValues="LEGACY, MACHINE, HUMAN", defaultValue="HUMAN")
 			@QueryParam(STYLE_PARAM) String style
 			) throws ScopeException
@@ -385,13 +393,13 @@ public class AnalyticsServiceRest extends CoreAuthenticatedServiceRest implement
 	@Path("/analytics/{" + BBID_PARAM_NAME + "}/facets/{" + FACETID_PARAM_NAME + "}")
 	@ApiOperation(value = "Get facet content using the default BB selection")
 	public Facet getFacet(
-			@Context HttpServletRequest request, 
+			@Context HttpServletRequest request,
 			@PathParam(BBID_PARAM_NAME) String BBID,
 			@PathParam(FACETID_PARAM_NAME) String facetId,
 			@ApiParam(value="search the facet values using a list of tokens")@QueryParam("q") String search,
 			@ApiParam(
 					value = "Define the filters to apply to results. A filter must be a valid conditional expression. If empty, the subject default parameters will apply. You can use the * token to extend the subject default parameters.",
-					allowMultiple = true) 
+					allowMultiple = true)
 			@QueryParam(FILTERS_PARAM) String[] filters,
 			@ApiParam(value="maximum number of items to return per page") @QueryParam(MAX_RESULTS_PARAM) Integer maxResults,
 			@ApiParam(value="index of the first item to start the page") @QueryParam(START_INDEX_PARAM) Integer startIndex,
@@ -406,7 +414,7 @@ public class AnalyticsServiceRest extends CoreAuthenticatedServiceRest implement
 	@Path("/analytics/{" + BBID_PARAM_NAME + "}/query")
 	@ApiOperation(value = "Run a new Analysis based on the Bookmark scope")
 	public Response postAnalysis(
-			@Context HttpServletRequest request, 
+			@Context HttpServletRequest request,
 			@ApiParam(value="the analysis query definition", required=true) AnalyticsQuery query,
 			// data
 			@PathParam(BBID_PARAM_NAME) String BBID,
@@ -415,7 +423,7 @@ public class AnalyticsServiceRest extends CoreAuthenticatedServiceRest implement
 					allowableValues="LEGACY,SQL,RECORDS,TABLE")
 			@QueryParam(DATA_PARAM) String data,
 			// compareTo growth option
-			@ApiParam(value=COMPARETO_COMPUTE_GROWTH_DOC, allowMultiple = false) 
+			@ApiParam(value=COMPARETO_COMPUTE_GROWTH_DOC, allowMultiple = false)
 			@QueryParam(COMPARETO_COMPUTE_GROWTH_PARAM) boolean computeGrowth,
 			// apply formatting
 			@ApiParam(
@@ -426,7 +434,7 @@ public class AnalyticsServiceRest extends CoreAuthenticatedServiceRest implement
 					value="define the result envelope",
 					allowableValues="ALL,RESULT,DATA")
 			@QueryParam(ENVELOPE_PARAM) String envelope,
-			@ApiParam(value = "response timeout in milliseconds. If no timeout set, the method will return according to current job status.") 
+			@ApiParam(value = "response timeout in milliseconds. If no timeout set, the method will return according to current job status.")
 			@QueryParam(TIMEOUT_PARAM) Integer timeout,
 			// state
 			@QueryParam("state") String state
@@ -439,41 +447,45 @@ public class AnalyticsServiceRest extends CoreAuthenticatedServiceRest implement
 	@Path("/analytics/{" + BBID_PARAM_NAME + "}/query")
 	@ApiOperation(value = "Compute an analysis for the subject")
 	public Response runAnalysis(
-			@Context HttpServletRequest request, 
+			@Context HttpServletRequest request,
 			@PathParam(BBID_PARAM_NAME) String BBID,
 			// groupBy parameter
 			@ApiParam(
 					value = GROUPBY_DOC,
 					allowMultiple = true
-					) 
-			@QueryParam(GROUP_BY_PARAM) String[] groupBy, 
+					)
+			@QueryParam(GROUP_BY_PARAM) String[] groupBy,
 			// metric parameter
 			@ApiParam(
 					value = METRICS_DOC,
-					allowMultiple = true) 
-			@QueryParam(METRICS_PARAM) String[] metrics, 
+					allowMultiple = true)
+			@QueryParam(METRICS_PARAM) String[] metrics,
 			// filters
 			@ApiParam(
+					value = ROOTFILTERS_DOC,
+					allowMultiple = true)
+			@QueryParam(ROOTFILTERS_PARAM) String[] rootFilterExpressions,
+			@ApiParam(
 					value = FILTERS_DOC,
-					allowMultiple = true) 
+					allowMultiple = true)
 			@QueryParam(FILTERS_PARAM) String[] filterExpressions,
 			// period
-			@ApiParam(value=PERIOD_DOC) 
+			@ApiParam(value=PERIOD_DOC)
 			@QueryParam(PERIOD_PARAM) String period,
 			// timeframe
-			@ApiParam(value=TIMEFRAME_DOC, allowMultiple = true) 
+			@ApiParam(value=TIMEFRAME_DOC, allowMultiple = true)
 			@QueryParam(TIMEFRAME_PARAM) String[] timeframe,
 			// compareTo
-			@ApiParam(value=COMPARETO_DOC, allowMultiple = true) 
+			@ApiParam(value=COMPARETO_DOC, allowMultiple = true)
 			@QueryParam(COMPARETO_PARAM) String[] compareframe,
 			// compareTo growth option
-			@ApiParam(value=COMPARETO_COMPUTE_GROWTH_DOC, allowMultiple = false) 
+			@ApiParam(value=COMPARETO_COMPUTE_GROWTH_DOC, allowMultiple = false)
 			@QueryParam(COMPARETO_COMPUTE_GROWTH_PARAM) boolean computeGrowth,
 			// orderBy
-			@ApiParam(value=ORDERBY_DOC, allowMultiple = true) 
+			@ApiParam(value=ORDERBY_DOC, allowMultiple = true)
 			@QueryParam(ORDERBY_PARAM) String[] orderExpressions,
 			// rollup
-			@ApiParam(value=ROLLUP_DOC, allowMultiple = true) 
+			@ApiParam(value=ROLLUP_DOC, allowMultiple = true)
 			@QueryParam(ROLLUP_PARAM) String[] rollupExpressions,
 			// limit
 			@ApiParam(value=LIMIT_DOC)
@@ -488,13 +500,13 @@ public class AnalyticsServiceRest extends CoreAuthenticatedServiceRest implement
 					)
 			@QueryParam(BEYOND_LIMIT_PARAM) String[] beyondLimit,
 			// maxResults
-			@ApiParam(value = MAX_RESULTS_DOC) 
+			@ApiParam(value = MAX_RESULTS_DOC)
 			@QueryParam(MAX_RESULTS_PARAM) Integer maxResults,
 			// startIndex
-			@ApiParam(value = START_INDEX_DOC) 
+			@ApiParam(value = START_INDEX_DOC)
 			@QueryParam(START_INDEX_PARAM) Integer startIndex,
 			// lazy
-			@ApiParam(value = "if true, get the analysis only if already in cache, else throw a NotInCacheException; if noError returns a null result if the analysis is not in cache ; else regular analysis", defaultValue = "false") 
+			@ApiParam(value = "if true, get the analysis only if already in cache, else throw a NotInCacheException; if noError returns a null result if the analysis is not in cache ; else regular analysis", defaultValue = "false")
 			@QueryParam(LAZY_PARAM) String lazy,
 			// data
 			@ApiParam(
@@ -507,7 +519,7 @@ public class AnalyticsServiceRest extends CoreAuthenticatedServiceRest implement
 			@QueryParam(APPLY_FORMATTING_PARAM) boolean applyFormatting,
 			// style
 			@ApiParam(
-					value="define the response style. If HUMAN, the API will try to use natural reference for objects, like 'My First Project', 'Account', 'Total Sales'... If MACHINE the API will use canonical references that are invariant, e.g. @'5603ca63c531d744b50823a3bis'. If LEGACY the API will also provide internal compound key to lookup objects in the management API.", 
+					value="define the response style. If HUMAN, the API will try to use natural reference for objects, like 'My First Project', 'Account', 'Total Sales'... If MACHINE the API will use canonical references that are invariant, e.g. @'5603ca63c531d744b50823a3bis'. If LEGACY the API will also provide internal compound key to lookup objects in the management API.",
 					allowableValues="LEGACY, MACHINE, HUMAN", defaultValue="HUMAN")
 			@QueryParam(STYLE_PARAM) String style,
 			// envelope
@@ -516,13 +528,13 @@ public class AnalyticsServiceRest extends CoreAuthenticatedServiceRest implement
 					allowableValues="ALL,RESULT,DATA")
 			@QueryParam(ENVELOPE_PARAM) String envelope,
 			// timeout
-			@ApiParam(value = "response timeout in milliseconds. If no timeout set, the method will return according to current job status.") 
+			@ApiParam(value = "response timeout in milliseconds. If no timeout set, the method will return according to current job status.")
 			@QueryParam(TIMEOUT_PARAM) Integer timeout,
 			// state
 			@QueryParam("state") String state
 			) throws ComputingException, ScopeException, InterruptedException {
 		AppContext userContext = getUserContext(request);
-		AnalyticsQuery analysis = createAnalysisFromParams(null, BBID, groupBy, metrics, filterExpressions, period, timeframe, compareframe, orderExpressions, rollupExpressions, limit, offset, beyondLimit, maxResults, startIndex, lazy, computeStyle(style));
+		AnalyticsQuery analysis = createAnalysisFromParams(null, BBID, groupBy, metrics, rootFilterExpressions, filterExpressions, period, timeframe, compareframe, orderExpressions, rollupExpressions, limit, offset, beyondLimit, maxResults, startIndex, lazy, computeStyle(style));
 		return delegate(userContext).runAnalysis(userContext, BBID, state, analysis, getDataLayout(data), computeGrowth, applyFormatting, envelope, timeout);
 	}
 
@@ -530,7 +542,7 @@ public class AnalyticsServiceRest extends CoreAuthenticatedServiceRest implement
 	@Path("/analytics/{" + BBID_PARAM_NAME + "}/view")
 	@ApiOperation(value = "Generate a dataviz specs from a query")
 	public Response viewAnalysis(
-			@Context HttpServletRequest request, 
+			@Context HttpServletRequest request,
 			@PathParam(BBID_PARAM_NAME) String BBID,
 			@ApiParam(
 					value="set the x axis channel. This must be a valid expression or the special alias __PERIOD to refer to the main period.")
@@ -554,25 +566,29 @@ public class AnalyticsServiceRest extends CoreAuthenticatedServiceRest implement
 			@ApiParam(
 					value = GROUPBY_DOC,
 					allowMultiple = true
-					) 
-			@QueryParam(GROUP_BY_PARAM) String[] groupBy, 
+					)
+			@QueryParam(GROUP_BY_PARAM) String[] groupBy,
 			// metric parameter
 			@ApiParam(
 					value = METRICS_DOC,
-					allowMultiple = true) 
-			@QueryParam(METRICS_PARAM) String[] metrics, 
+					allowMultiple = true)
+			@QueryParam(METRICS_PARAM) String[] metrics,
+			@ApiParam(
+					value = ROOTFILTERS_DOC,
+					allowMultiple = true)
+			@QueryParam(ROOTFILTERS_PARAM) String[] rootFilterExpressions,
 			@ApiParam(
 					value = FILTERS_DOC,
-					allowMultiple = true) 
+					allowMultiple = true)
 			@QueryParam(FILTERS_PARAM) String[] filterExpressions,
-			@ApiParam(value=PERIOD_DOC) 
+			@ApiParam(value=PERIOD_DOC)
 			@QueryParam(PERIOD_PARAM) String period,
-			@ApiParam(value=TIMEFRAME_DOC, allowMultiple = true) 
+			@ApiParam(value=TIMEFRAME_DOC, allowMultiple = true)
 			@QueryParam(TIMEFRAME_PARAM) String[] timeframe,
-			@ApiParam(value=COMPARETO_DOC, allowMultiple = true) 
+			@ApiParam(value=COMPARETO_DOC, allowMultiple = true)
 			@QueryParam(COMPARETO_PARAM) String[] compareframe,
-			@ApiParam(value=ORDERBY_DOC, allowMultiple = true) 
-			@QueryParam(ORDERBY_PARAM) String[] orderby, 
+			@ApiParam(value=ORDERBY_DOC, allowMultiple = true)
+			@QueryParam(ORDERBY_PARAM) String[] orderby,
 			@ApiParam(value=LIMIT_DOC)
 			@QueryParam(LIMIT_PARAM) Long limit,
 			@ApiParam(value=OFFSET_DOC)
@@ -589,7 +605,7 @@ public class AnalyticsServiceRest extends CoreAuthenticatedServiceRest implement
 					allowableValues="EMBEDED,URL", defaultValue="EMBEDED")
 			@QueryParam(DATA_PARAM) String data,
 			@ApiParam(
-					value="define the response style. If HUMAN, the API will try to use natural reference for objects, like 'My First Project', 'Account', 'Total Sales'... If MACHINE the API will use canonical references that are invariant, e.g. @'5603ca63c531d744b50823a3bis'. If LEGACY the API will also provide internal compound key to lookup objects in the management API.", 
+					value="define the response style. If HUMAN, the API will try to use natural reference for objects, like 'My First Project', 'Account', 'Total Sales'... If MACHINE the API will use canonical references that are invariant, e.g. @'5603ca63c531d744b50823a3bis'. If LEGACY the API will also provide internal compound key to lookup objects in the management API.",
 					allowableValues="MACHINE, HUMAN", defaultValue="HUMAN")
 			@QueryParam(STYLE_PARAM) String style,
 			@ApiParam(
@@ -599,11 +615,11 @@ public class AnalyticsServiceRest extends CoreAuthenticatedServiceRest implement
 			// vegalite options
 			@ApiParam(value="display options")
 			@QueryParam("options") String options
-	) throws ScopeException, ComputingException, InterruptedException
+			) throws ScopeException, ComputingException, InterruptedException
 	{
 		AppContext userContext = getUserContext(request);
 		ViewQuery view = new ViewQuery();
-		createAnalysisFromParams(view, BBID, groupBy, metrics, filterExpressions, period, timeframe, compareframe, orderby, null, limit, offset, beyondLimit, maxResults, startIndex, null, null);
+		createAnalysisFromParams(view, BBID, groupBy, metrics, rootFilterExpressions, filterExpressions, period, timeframe, compareframe, orderby, null, limit, offset, beyondLimit, maxResults, startIndex, null, null);
 		view.setX(x);
 		view.setY(y);
 		view.setColor(color);
@@ -618,33 +634,37 @@ public class AnalyticsServiceRest extends CoreAuthenticatedServiceRest implement
 	@Path("/analytics/{" + BBID_PARAM_NAME + "}/export/" + "{filename}")
 	@ApiOperation(value = "Export an analysis results")
 	public Response exportAnalysis(
-			@Context HttpServletRequest request, 
+			@Context HttpServletRequest request,
 			@PathParam(BBID_PARAM_NAME) String BBID,
 			@PathParam("filename") String filename,
 			// groupBy parameter
 			@ApiParam(
 					value = GROUPBY_DOC,
 					allowMultiple = true
-					) 
-			@QueryParam(GROUP_BY_PARAM) String[] groupBy, 
+					)
+			@QueryParam(GROUP_BY_PARAM) String[] groupBy,
 			// metric parameter
 			@ApiParam(
 					value = METRICS_DOC,
-					allowMultiple = true) 
-			@QueryParam(METRICS_PARAM) String[] metrics, 
+					allowMultiple = true)
+			@QueryParam(METRICS_PARAM) String[] metrics,
+			@ApiParam(
+					value = ROOTFILTERS_DOC,
+					allowMultiple = true)
+			@QueryParam(ROOTFILTERS_PARAM) String[] rootFilterExpressions,
 			@ApiParam(
 					value = FILTERS_DOC,
-					allowMultiple = true) 
+					allowMultiple = true)
 			@QueryParam(FILTERS_PARAM) String[] filterExpressions,
 			@ApiParam(value=PERIOD_DOC)
 			@QueryParam(PERIOD_PARAM) String period,
-			@ApiParam(value=TIMEFRAME_DOC, allowMultiple = true) 
+			@ApiParam(value=TIMEFRAME_DOC, allowMultiple = true)
 			@QueryParam(TIMEFRAME_PARAM) String[] timeframe,
-			@ApiParam(value=COMPARETO_DOC, allowMultiple = true) 
+			@ApiParam(value=COMPARETO_DOC, allowMultiple = true)
 			@QueryParam(COMPARETO_PARAM) String[] compareframe,
-			@ApiParam(allowMultiple = true, value=ORDERBY_DOC) 
-			@QueryParam(ORDERBY_PARAM) String[] orderExpressions, 
-			@ApiParam(value=ROLLUP_DOC, allowMultiple = true) 
+			@ApiParam(allowMultiple = true, value=ORDERBY_DOC)
+			@QueryParam(ORDERBY_PARAM) String[] orderExpressions,
+			@ApiParam(value=ROLLUP_DOC, allowMultiple = true)
 			@QueryParam(ROLLUP_PARAM) String[] rollupExpressions,
 			@ApiParam(value=LIMIT_DOC)
 			@QueryParam(LIMIT_PARAM) Long limit,
@@ -673,30 +693,30 @@ public class AnalyticsServiceRest extends CoreAuthenticatedServiceRest implement
 				compression = "gzip";
 			}
 		}
-		AnalyticsQuery analysis = createAnalysisFromParams(null, BBID, groupBy, metrics, filterExpressions, period, timeframe, compareframe, orderExpressions, rollupExpressions, limit, offset, beyondLimit, null, null, null, null);
+		AnalyticsQuery analysis = createAnalysisFromParams(null, BBID, groupBy, metrics, rootFilterExpressions, filterExpressions, period, timeframe, compareframe, orderExpressions, rollupExpressions, limit, offset, beyondLimit, null, null, null, null);
 		return delegate(userContext).exportAnalysis(userContext, BBID, analysis, filepart, fileext, compression);
 	}
-	
+
 	@GET
-    @Path("/status/{"+"QUERYID"+"}")
+	@Path("/status/{"+"QUERYID"+"}")
 	@ApiOperation(value = "get the ongoing status of the analysis identified by its QueryID")
 	public List<QueryWorkerJobStatus> getStatus(
-			@Context HttpServletRequest request, 
+			@Context HttpServletRequest request,
 			@ApiParam(value="this is the AnalysisQuery QueryID") @PathParam("QUERYID") String key) {
 		AppContext userContext = getUserContext(request);
 		return delegate(userContext).getStatus(userContext, key);
 	}
-	
+
 	@GET
-    @Path("/status/{"+"QUERYID"+"}/cancel")
+	@Path("/status/{"+"QUERYID"+"}/cancel")
 	@ApiOperation(value = "cancel the execution of the analysis identified by its QueryID")
 	public boolean cancelQuery(
-			@Context HttpServletRequest request, 
+			@Context HttpServletRequest request,
 			@ApiParam(value="this is the AnalysisQuery QueryID") @PathParam("QUERYID") String key) {
 		AppContext userContext = getUserContext(request);
 		return delegate(userContext).cancelQuery(userContext, key);
 	}
-	
+
 	public Style computeStyle(String style) {
 		if (style==null || style.trim().equals("")) {
 			return Style.HUMAN;
@@ -708,39 +728,40 @@ public class AnalyticsServiceRest extends CoreAuthenticatedServiceRest implement
 			}
 		}
 	}
-	
+
 	/**
 	 * transform the GET query parameters into a AnalysisQuery similar to the one used for POST
-	 * @param bBID 
+	 * @param bBID
 	 * @param groupBy
 	 * @param metrics
 	 * @param filterExpressions
 	 * @param orderExpressions
 	 * @param rollupExpressions
 	 * @param limit
-	 * @param offset 
+	 * @param offset
 	 * @return
 	 * @throws ScopeException
 	 */
 	private AnalyticsQuery createAnalysisFromParams(
 			AnalyticsQuery query,
-			String BBID, 
-			String[] groupBy, 
-			String[] metrics, 
+			String BBID,
+			String[] groupBy,
+			String[] metrics,
+			String[] rootFilterExpressions,
 			String[] filterExpressions,
 			String period,
 			String[] timeframe,
 			String[] compareframe,
-			String[] orderExpressions, 
-			String[] rollupExpressions, 
+			String[] orderExpressions,
+			String[] rollupExpressions,
 			Long limit,
-			Long offset, 
+			Long offset,
 			String[] beyondLimit,
-			Integer maxResults, 
-			Integer startIndex, 
-			String lazy, 
+			Integer maxResults,
+			Integer startIndex,
+			String lazy,
 			Style style
-		) throws ScopeException {
+			) throws ScopeException {
 		// init the analysis query using the query parameters
 		if (query==null) query = new AnalyticsQueryImpl();
 		query.setBBID(BBID);
@@ -757,6 +778,13 @@ public class AnalyticsServiceRest extends CoreAuthenticatedServiceRest implement
 			for (String value : metrics) {
 				// skip empty strings
 				if (value!=null && value.length()>0) query.getMetrics().add(value);
+			}
+		}
+		if ((rootFilterExpressions != null) && (rootFilterExpressions.length > 0)) {
+			query.setRootFilters(new ArrayList<String>());
+			for (String value : rootFilterExpressions) {
+				// skip empty strings
+				if (value!=null && value.length()>0) query.getRootFilters().add(value);
 			}
 		}
 		if ((filterExpressions != null) && (filterExpressions.length > 0)) {
@@ -816,7 +844,7 @@ public class AnalyticsServiceRest extends CoreAuthenticatedServiceRest implement
 		if (style!=null) query.setStyle(style);
 		return query;
 	}
-	
+
 	@Override
 	protected AppContext getUserContext(HttpServletRequest request) {
 		try {
@@ -845,7 +873,7 @@ public class AnalyticsServiceRest extends CoreAuthenticatedServiceRest implement
 			throw new InvalidTokenAPIException(e.getMessage(), builder.build(), "admin_console", e.isNoError(), KrakenConfig.getAuthServerEndpoint());
 		}
 	}
-	
+
 	private String cleanPath(String path) {
 		int pos = path.indexOf("/analytics");
 		path = pos>0?path.substring(pos):path;

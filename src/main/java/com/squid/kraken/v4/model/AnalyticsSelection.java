@@ -56,4 +56,7 @@ public interface AnalyticsSelection {
 
 	public void setFilters(List<String> filters);
 
+	public List<String> getRootFilters();
+
+	public void setRootFilters(List<String> rootFilters);
 }

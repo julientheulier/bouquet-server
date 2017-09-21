@@ -1267,6 +1267,12 @@ public class AnalyticsServiceBaseImpl extends AnalyticsServiceCore implements An
 				builder.queryParam(METRICS_PARAM, item);
 			}
 		}
+		if (query.getRootFilters()!=null) {
+			for (String item : query.getRootFilters()) {
+				String value = item.replaceAll("%", "%25");
+				builder.queryParam(ROOTFILTERS_PARAM, value);
+			}
+		}
 		if (query.getFilters()!=null) {
 			for (String item : query.getFilters()) {
 				String value = item.replaceAll("%", "%25");
