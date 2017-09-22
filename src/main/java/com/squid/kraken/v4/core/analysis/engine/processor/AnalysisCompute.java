@@ -252,6 +252,24 @@ public class AnalysisCompute {
 		IntervalleObject pastInterval = null;
 		// compute the joinAxis if exists, i.e. if one of the groupBy dimension is part of the comparison
 
+		// list the dimensions
+		ArrayList<ExpressionAST> queue = new ArrayList<>();// order matter
+		for (GroupByAxis group : currentAnalysis.getGrouping()) {
+			queue.add(group.getAxis().getReference());
+		}
+		// check the explicit orderBy
+		List<OrderBy> originalOrders = currentAnalysis.getOrders();
+		for (OrderBy order : originalOrders) {
+			if (!queue.contains(order.getExpression())) {
+				// Else if axis doesn't exist yet, add it
+				if (order.getExpression() instanceof AxisExpression) {
+					GroupByAxis group = new GroupByAxis(((AxisExpression)order.getExpression()).getAxis());
+					currentAnalysis.getGrouping().add(group);
+					queue.add(group.getAxis().getReference());
+				}
+			}
+		}
+
 		for (Axis filter : compare.getFilters()) {
 			// check if the filter is a join
 			GroupByAxis groupBy = findGroupingJoin(filter, currentAnalysis);
@@ -268,16 +286,11 @@ public class AnalysisCompute {
 		//
 		// handling orderBy in the proper way...
 		// rebuild the full orderBy specs
-		List<OrderBy> originalOrders = currentAnalysis.getOrders();
 		final TreeMap<Integer,OrderBy> comparedOrder = new TreeMap<Integer,OrderBy>();
 
 		List<OrderBy> remaining = new ArrayList<>();
 		int i = 0;
-		// list the dimensions
-		ArrayList<ExpressionAST> queue = new ArrayList<>();// order matter
-		for (GroupByAxis group : currentAnalysis.getGrouping()) {
-			queue.add(group.getAxis().getReference());
-		}
+
 		// use this list to compute the dimension index
 		ArrayList<ExpressionAST> dimensionIndexes = new ArrayList<>(queue);
 		// will hold in which order to merge
@@ -323,12 +336,7 @@ public class AnalysisCompute {
 			} else {
 				// assuming it is a metric or something else, keep it but at the
 				// end
-				// Else if axis doesn't exist yet, add it
-				if (order.getExpression() instanceof AxisExpression) {
-					currentAnalysis.getGrouping().add(new GroupByAxis(((AxisExpression)order.getExpression()).getAxis()));
-				} else {
-					remaining.add(order);// don't know the position yet
-				}
+				remaining.add(order);// don't know the position yet
 			}
 		}
 		// handling the dimensions not sorted
@@ -427,22 +435,48 @@ public class AnalysisCompute {
 
 		ArrayList<GroupByAxis> compareBeyondLimit = currentAnalysis.hasBeyondLimit() ? new ArrayList<GroupByAxis>()
 				: null;
-		boolean offsetByDay = (Days.daysBetween(startPresent, endPresent).getDays() == Days.daysBetween(startPast, endPast).getDays());
-		int nrMonths = Months.monthsBetween(startPast, startPresent).getMonths();
-		//AddMonths is handling properly last day offset for months with different days
-		if (startPresent.equals(startPast.plusMonths(nrMonths)) && (endPresent.equals(endPast.plusMonths(nrMonths)) || endPresent.isAfter(endPast.plusMonths(nrMonths)))) {
-			offsetByDay = false;
-		}
-		ExpressionMaker.MINUS(ExpressionMaker.CONSTANT(presentInterval.getLowerBound(), IDomain.DATE), ExpressionMaker.CONSTANT(pastInterval.getLowerBound(), IDomain.DATE));
-		int nrDays = Days.daysBetween(startPresent, startPast).getDays();
-		OperatorDefinition dateOperator = nrDays < 0 ? Operators.DATE_ADD: Operators.DATE_SUB;
 		for (GroupByAxis groupBy : currentAnalysis.getGrouping()) {
 			GroupByAxis newGroupBy = null;
-			ExpressionAST groupByExpr = groupBy.getAxis().getDefinitionSafe();
 			if (groupBy.getAxis().equals(joinAxis) && (!hasOverlap || isCompareOverlap)) {
-				Axis compareToAxis = getAxisWithOffset(pastExpression, groupBy,
-						offsetByDay, nrMonths, groupByExpr, nrDays,
-						dateOperator);
+				boolean offsetByDay = (Days.daysBetween(startPresent, endPresent).getDays() == Days.daysBetween(startPast, endPast).getDays());
+				int nrMonths = Months.monthsBetween(startPast, startPresent).getMonths();
+				//AddMonths is handling properly last day offset for months with different days
+				if (startPresent.equals(startPast.plusMonths(nrMonths)) && (endPresent.equals(endPast.plusMonths(nrMonths)) || endPresent.isAfter(endPast.plusMonths(nrMonths)))) {
+					offsetByDay = false;
+				}
+				ExpressionAST groupByExpr = groupBy.getAxis().getDefinitionSafe();
+				ExpressionMaker.MINUS(ExpressionMaker.CONSTANT(presentInterval.getLowerBound(), IDomain.DATE), ExpressionMaker.CONSTANT(pastInterval.getLowerBound(), IDomain.DATE));
+				int nrDays = Days.daysBetween(startPresent, startPast).getDays();
+				OperatorDefinition dateOperator = nrDays < 0 ? Operators.DATE_ADD: Operators.DATE_SUB;
+				if (groupByExpr instanceof Operator && (((Operator) groupByExpr).getOperatorDefinition() instanceof DateTruncateShortcutsOperatorDefinition
+						||((Operator) groupByExpr).getOperatorDefinition() instanceof DateTruncateOperatorDefinition)) {
+					Operator op = (Operator) groupByExpr;
+					List<ExpressionAST>  rootAxes = op.getArguments();
+					List<ExpressionAST>  rootAxesWithOffset = new ArrayList<ExpressionAST>();
+					int index = 0;
+					for (ExpressionAST expr: rootAxes) {
+						if (index==0) { //This handles DateTruncate function / shortcut, date is the first/only arg
+							if (offsetByDay) {
+								rootAxesWithOffset.add(ExpressionMaker.CASE(pastExpression, ExpressionMaker.op(dateOperator, expr, ExpressionMaker.CONSTANT(Math.abs(nrDays)), ExpressionMaker.CONSTANT("DAY")), expr));
+							} else {
+								rootAxesWithOffset.add(ExpressionMaker.CASE(pastExpression, ExpressionMaker.ADD_MONTHS(expr, ExpressionMaker.CONSTANT(nrMonths)), expr));
+							}
+						} else {
+							rootAxesWithOffset.add(expr);
+						}
+						index++;
+					}
+					groupByExpr = ExpressionMaker.op(op.getOperatorDefinition(),rootAxesWithOffset);
+				} else {
+					if (offsetByDay) {
+						groupByExpr = ExpressionMaker.CASE(pastExpression, ExpressionMaker.op(dateOperator, groupByExpr, ExpressionMaker.CONSTANT(Math.abs(nrDays)), ExpressionMaker.CONSTANT("DAY")), groupByExpr);
+					} else {
+						groupByExpr = ExpressionMaker.CASE(pastExpression, ExpressionMaker.ADD_MONTHS(groupByExpr, ExpressionMaker.CONSTANT(nrMonths)), groupByExpr);
+					}
+				}
+				Axis compareToAxis = new Axis(groupBy.getAxis(), groupByExpr);
+
+				compareToAxis.setOriginType(OriginType.COMPARETO);
 
 				newGroupBy = compareToAnalysis.add(compareToAxis, groupBy.isRollup());
 				newGroupBy.setRollupPosition(groupBy.getRollupPosition());
@@ -451,16 +485,12 @@ public class AnalysisCompute {
 					compareBeyondLimit.add(newGroupBy);
 				}
 			} else {
-				Axis compareToAxis = getAxisWithOffset(pastExpression, groupBy,
-						offsetByDay, nrMonths, groupByExpr, nrDays,
-						dateOperator);
-				newGroupBy = compareToAnalysis.add(compareToAxis, groupBy.isRollup());
-				newGroupBy.setRollupPosition(groupBy.getRollupPosition());
-				compareToAnalysis.add(newGroupBy);
+				compareToAnalysis.add(groupBy);
 				// update the beyondLimit
 				if (compareBeyondLimit != null && currentAnalysis.getBeyondLimit().contains(groupBy)) {
-					compareBeyondLimit.add(newGroupBy);
+					compareBeyondLimit.add(groupBy);
 				}
+				newGroupBy = groupBy;
 			}
 		}
 		if (hasOverlap) {
@@ -567,42 +597,6 @@ public class AnalysisCompute {
 			compareToAnalysis.setOrders(new ArrayList<OrderBy>(comparedOrder.values()));
 		}
 		return compareToAnalysis;
-	}
-
-	protected Axis getAxisWithOffset(ExpressionAST pastExpression,
-			GroupByAxis groupBy, boolean offsetByDay, int nrMonths,
-			ExpressionAST groupByExpr, int nrDays,
-			OperatorDefinition dateOperator) {
-		if (groupByExpr instanceof Operator && (((Operator) groupByExpr).getOperatorDefinition() instanceof DateTruncateShortcutsOperatorDefinition
-				||((Operator) groupByExpr).getOperatorDefinition() instanceof DateTruncateOperatorDefinition)) {
-			Operator op = (Operator) groupByExpr;
-			List<ExpressionAST>  rootAxes = op.getArguments();
-			List<ExpressionAST>  rootAxesWithOffset = new ArrayList<ExpressionAST>();
-			int index = 0;
-			for (ExpressionAST expr: rootAxes) {
-				if (index==0) { //This handles DateTruncate function / shortcut, date is the first/only arg
-					if (offsetByDay) {
-						rootAxesWithOffset.add(ExpressionMaker.CASE(pastExpression, ExpressionMaker.op(dateOperator, expr, ExpressionMaker.CONSTANT(Math.abs(nrDays)), ExpressionMaker.CONSTANT("DAY")), expr));
-					} else {
-						rootAxesWithOffset.add(ExpressionMaker.CASE(pastExpression, ExpressionMaker.ADD_MONTHS(expr, ExpressionMaker.CONSTANT(nrMonths)), expr));
-					}
-				} else {
-					rootAxesWithOffset.add(expr);
-				}
-				index++;
-			}
-			groupByExpr = ExpressionMaker.op(op.getOperatorDefinition(),rootAxesWithOffset);
-		} else {
-			if (offsetByDay) {
-				groupByExpr = ExpressionMaker.CASE(pastExpression, ExpressionMaker.op(dateOperator, groupByExpr, ExpressionMaker.CONSTANT(Math.abs(nrDays)), ExpressionMaker.CONSTANT("DAY")), groupByExpr);
-			} else {
-				groupByExpr = ExpressionMaker.CASE(pastExpression, ExpressionMaker.ADD_MONTHS(groupByExpr, ExpressionMaker.CONSTANT(nrMonths)), groupByExpr);
-			}
-		}
-		Axis compareToAxis = new Axis(groupBy.getAxis(), groupByExpr);
-
-		compareToAxis.setOriginType(OriginType.COMPARETO);
-		return compareToAxis;
 	}
 
 	private IntervalleObject alignPastInterval(IntervalleObject presentInterval, IntervalleObject pastInterval,
