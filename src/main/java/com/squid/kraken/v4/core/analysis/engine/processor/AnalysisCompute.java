@@ -48,6 +48,7 @@ import com.squid.core.domain.operators.ExtendedType;
 import com.squid.core.domain.operators.OperatorDefinition;
 import com.squid.core.domain.operators.Operators;
 import com.squid.core.domain.set.SetDomain;
+import com.squid.core.expression.Compose;
 import com.squid.core.expression.ExpressionAST;
 import com.squid.core.expression.Operator;
 import com.squid.core.expression.scope.ExpressionMaker;
@@ -234,6 +235,8 @@ public class AnalysisCompute {
 			return ExpressionMaker.op(op.getOperatorDefinition(),newExprs);
 		} else if (kpiExpr instanceof MeasureExpression) {
 			return createMetricOffset(((MeasureExpression) kpiExpr).getMeasure().getDefinitionSafe(), offsetExpression);
+		} else if (kpiExpr instanceof Compose) {
+			return createMetricOffset(((Compose) kpiExpr).getHead(), offsetExpression);
 		}
 		return kpiExpr;
 	}
