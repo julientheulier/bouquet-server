@@ -594,8 +594,7 @@ public class AnalyticsServiceCore {
 				// look for the selection
 				for (Facet facet : selection.getFacets()) {
 					if (!facet.getSelectedItems().isEmpty()) {
-						ExpressionAST exprFacet = globalScope.parseExpression(facet.getId());
-						if (exprFacet.prettyPrint(new PrettyPrintOptions(ReferenceStyle.IDENTIFIER, null)).equals(period)){
+						if (!SegmentManager.isSegmentFacet(facet) && globalScope.parseExpression(facet.getId()).prettyPrint(new PrettyPrintOptions(ReferenceStyle.IDENTIFIER, null)).equals(period)){
 							// it's the period
 							List<FacetMember> items = facet.getSelectedItems();
 							if (items.size()==1) {
