@@ -883,7 +883,6 @@ public class AnalyticsServiceCore {
 							} else {
 								segment.getSelectedItems().add(openFilter);
 							}
-							segment.getSelectedItems().add(openFilter);
 						}
 					} catch (ScopeException e) {
 						query.add(new Problem(Severity.ERROR, filter, "invalid filter definition: \n"+e.getMessage(), e));
