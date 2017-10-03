@@ -43,7 +43,6 @@ import com.squid.core.database.model.impl.DatabaseManager;
 import com.squid.core.database.model.impl.JDBCConfig;
 import com.squid.core.jdbc.vendor.VendorSupportRegistry;
 import com.squid.core.sql.render.ISkinFeatureSupport;
-import com.squid.kraken.v4.api.core.PerfDB;
 import com.squid.kraken.v4.api.core.SQLStats;
 import com.zaxxer.hikari.HikariDataSource;
 import com.zaxxer.hikari.pool.HikariPool.PoolInitializationException;
@@ -74,7 +73,7 @@ public class SimpleDatabaseManager extends DatabaseManager {
 	protected HikariDataSourceReliable createDatasourceWithConfig(JDBCConfig config) {
 		logger.info("Creating a new datasource for " + config.getJdbcUrl() + " " + config.getUsername());
 		HikariDataSourceReliable ds = new HikariDataSourceReliable();
-//		ds.setCustomClassloader(DriverLoader.getDriverLoader());
+		//		ds.setCustomClassloader(DriverLoader.getDriverLoader());
 		ds.setJdbcUrl(config.getJdbcUrl());
 		ds.setUsername(config.getUsername());
 		ds.setPassword(config.getPassword());
@@ -100,13 +99,13 @@ public class SimpleDatabaseManager extends DatabaseManager {
 	protected void chooseDriver(HikariDataSource ds) throws DatabaseServiceException { // T117
 		if (ds.getJdbcUrl().contains("jdbc:postgresql")) {
 			ds.setDriverClassName("org.postgresql.Driver"); // So for redshift
-															// we are also using
-															// postgresql to
-															// detect the
-															// version. DRIVER
-															// IS CHANGED LATER.
+			// we are also using
+			// postgresql to
+			// detect the
+			// version. DRIVER
+			// IS CHANGED LATER.
 		} else if (ds.getJdbcUrl().contains("jdbc:redshift")) {
-			ds.setDriverClassName("com.amazon.redshift.jdbc41.Driver");
+			ds.setDriverClassName("com.amazon.redshift.jdbc42.Driver");
 		} else if (ds.getJdbcUrl().contains("jdbc:drill")) {
 			ds.setDriverClassName("org.apache.drill.jdbc.Driver");
 			// Connection.isValid() method is not supported
@@ -117,7 +116,7 @@ public class SimpleDatabaseManager extends DatabaseManager {
 			// Connection.isValid() method is not supported
 			ds.setConnectionTestQuery("show databases");
 		}
-	} 
+	}
 
 	public void setup() throws ExecutionException, DatabaseServiceException {
 		HikariDataSourceReliable hikari = setupDataSource();
@@ -132,7 +131,7 @@ public class SimpleDatabaseManager extends DatabaseManager {
 
 	protected HikariDataSourceReliable setupDataSource() throws DatabaseServiceException {
 		HikariDataSourceReliable ds = createDatasourceWithConfig(config);
-//		chooseDriver(ds);
+		//		chooseDriver(ds);
 		// check the connection
 		try {
 			Connection conn = ds.getConnectionBlocking();
@@ -182,7 +181,7 @@ public class SimpleDatabaseManager extends DatabaseManager {
 		// Now that we have fully detected the database type we can change to
 		// most accurate driver.
 		if (db.getProductName().equals(IMetadataEngine.REDSHIFT_NAME)) {
-//			hikari.setDriverClassName("com.amazon.redshift.jdbc41.Driver");
+			//			hikari.setDriverClassName("com.amazon.redshift.jdbc41.Driver");
 		}
 		if (db.getUrl().contains("jdbc:drill")) {
 			// Do nothing on purpose setAutocommit is/was not well supported.
@@ -210,7 +209,8 @@ public class SimpleDatabaseManager extends DatabaseManager {
 			try {
 				// IJDBCDataFormatter formatter =
 				// ds.getDataFormatter(connection);
-				logger.info("running SQLQuery#" + queryNum + " on " + this.getDatabase().getUrl() + ":\n" + sql
+				logger.info("running SQLQuery#" + queryNum + " on " + this.getDatabase().getUrl() + " with autocommit " +(this.getSkin()
+						.getFeatureSupport(FeatureSupport.AUTOCOMMIT) == ISkinFeatureSupport.IS_SUPPORTED) + " and fetch 10000:\n" + sql
 						+ "\nHashcode=" + sql.hashCode());
 				// make sure auto commit is false (for cursor based ResultSets
 				// and postgresql)
@@ -238,7 +238,7 @@ public class SimpleDatabaseManager extends DatabaseManager {
 				SQLStats queryLog = new SQLStats(Integer.toString(queryNum), "execute", sql, duration,
 						this.getDatabase().getProductName());
 				queryLog.setError(false);
-//				PerfDB.INSTANCE.save(queryLog);
+				//				PerfDB.INSTANCE.save(queryLog);
 
 				return result;
 			} catch (Exception e) {
