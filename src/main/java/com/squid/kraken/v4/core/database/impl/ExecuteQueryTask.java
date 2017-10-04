@@ -140,7 +140,7 @@ public class ExecuteQueryTask implements CancellableCallable<IExecutionItem> {
 					logger.debug("Driver used for the connection", connection
 							.getMetaData().getDriverName());
 				}
-				statement = connection.createStatement();
+				statement = connection.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 			} catch (Exception e) {
 				if (connection != null) {
 					try {
@@ -187,6 +187,7 @@ public class ExecuteQueryTask implements CancellableCallable<IExecutionItem> {
 				}
 				IJDBCDataFormatter formatter = ds.getDataFormatter(connection);
 				statement.setFetchSize(formatter.getFetchSize());
+				statement.setFetchDirection(ResultSet.FETCH_FORWARD);
 				logger.info("starting SQLQuery#" + queryNum +" jobId "+jobId + " from userId " + getUserIdAndLogin()  + " on worker " + this.workerId+ " jdbc=" + ds.getConfig().getJdbcUrl() + " with autocommit " +(ds.getSkin()
 						.getFeatureSupport(FeatureSupport.AUTOCOMMIT) == ISkinFeatureSupport.IS_SUPPORTED) + " and fetch "+formatter.getFetchSize()+" sql=\n" + sql
 						+ "\n hashcode=" + sql.hashCode() + " method=executeQuery" + " duration="

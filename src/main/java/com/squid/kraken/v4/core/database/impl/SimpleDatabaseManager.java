@@ -105,7 +105,7 @@ public class SimpleDatabaseManager extends DatabaseManager {
 			// version. DRIVER
 			// IS CHANGED LATER.
 		} else if (ds.getJdbcUrl().contains("jdbc:redshift")) {
-			ds.setDriverClassName("com.amazon.redshift.jdbc42.Driver");
+			ds.setDriverClassName("com.amazon.redshift.jdbc.Driver ");
 		} else if (ds.getJdbcUrl().contains("jdbc:drill")) {
 			ds.setDriverClassName("org.apache.drill.jdbc.Driver");
 			// Connection.isValid() method is not supported
@@ -181,7 +181,7 @@ public class SimpleDatabaseManager extends DatabaseManager {
 		// Now that we have fully detected the database type we can change to
 		// most accurate driver.
 		if (db.getProductName().equals(IMetadataEngine.REDSHIFT_NAME)) {
-			//			hikari.setDriverClassName("com.amazon.redshift.jdbc41.Driver");
+			//hikari.setDriverClassName("com.amazon.redshift.jdbc.Driver");
 		}
 		if (db.getUrl().contains("jdbc:drill")) {
 			// Do nothing on purpose setAutocommit is/was not well supported.
