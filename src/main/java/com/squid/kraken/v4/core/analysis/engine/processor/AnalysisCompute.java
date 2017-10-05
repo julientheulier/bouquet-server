@@ -548,13 +548,7 @@ public class AnalysisCompute {
 		if (!hasOverlap) {
 			for (int ix=0; ix<currentAnalysis.getOrders().size(); ix++) {
 				OrderBy orderBy = currentAnalysis.getOrders().get(ix);
-				if (orderBy.getExpression() instanceof AxisExpression) {
-					for (GroupByAxis groupBy: compareToAnalysis.getGrouping()) {
-						if (orderBy.getExpression().equals(new AxisExpression(groupBy.getAxis()))) {
-							comparedOrder.put(ij++, new OrderBy(orderBy.getPos(), new AxisExpression(groupBy.getAxis()), orderBy.getOrdering()));
-						}
-					}
-				} else if (orderBy.getExpression() instanceof MeasureExpression) {
+				if (orderBy.getExpression() instanceof MeasureExpression) {
 					Measure kpi = ((MeasureExpression) orderBy.getExpression()).getMeasure();
 					ExpressionAST kpiExpr = kpi.getDefinitionSafe();
 					Measure presentKpi = new Measure(kpi);
@@ -590,9 +584,12 @@ public class AnalysisCompute {
 						comparedOrder.put(ij++, new OrderBy(orderBy.getPos(), new MeasureExpression(compareToKpi), orderBy.getOrdering(), NULLS_ORDERING.NULLS_LAST));
 					}
 				} else {
-					throw new RenderingException("Could not rentder result set ordering");
+					for (GroupByAxis groupBy: compareToAnalysis.getGrouping()) {
+						if (orderBy.getExpression().equals(new AxisExpression(groupBy.getAxis()))) {
+							comparedOrder.put(ij++, new OrderBy(orderBy.getPos(), new AxisExpression(groupBy.getAxis()), orderBy.getOrdering()));
+						}
+					}
 				}
-
 			}
 			compareToAnalysis.setOrders(new ArrayList<OrderBy>(comparedOrder.values()));
 		}

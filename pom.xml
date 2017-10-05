@@ -4,7 +4,7 @@
     <parent>
         <groupId>io.openbouquet</groupId>
         <artifactId>bouquet-parent</artifactId>
-        <version>4.2.63</version>
+        <version>4.2.64</version>
         <relativePath>../bouquet-parent/pom.xml</relativePath>
     </parent>
 
@@ -186,11 +186,11 @@
             <artifactId>logback-classic</artifactId>
         </dependency>
 
-        <dependency>
-            <groupId>io.openbouquet</groupId>
-            <artifactId>HikariCP</artifactId>
-            <version>2.5.1-RC1+SquidSolutions</version>
-        </dependency>
+		<dependency>
+		    <groupId>com.zaxxer</groupId>
+		    <artifactId>HikariCP</artifactId>
+		    <version>2.7.0</version>
+		</dependency>
         <dependency>
             <groupId>io.openbouquet</groupId>
             <artifactId>bouquet-core</artifactId>
